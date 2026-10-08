@@ -29,16 +29,17 @@ $autores = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biblioteca Escolar</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=20261008c">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
 </head>
 <body>
-<div class="app-shell">
+<div class="app-shell sidebar-collapsed">
+    <div class="sidebar-backdrop" hidden></div>
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main class="main-content">
         <header class="topbar">
-            <form class="search-bar" action="catalogo.php" method="get">
+            <form class="search-bar" action="../biblioteca_php/catalogo.php" method="get">
                 <span class="material-symbols-outlined">search</span>
                 <input type="search" name="q" placeholder="Pesquisar livros, autores ou gêneros..." aria-label="Pesquisar">
             </form>
@@ -57,7 +58,7 @@ $autores = [
                         <span class="section-icon">☆</span>
                         <h2>Recomendações da Biblioteca</h2>
                     </div>
-                    <a href="catalogo.php">Ver todos →</a>
+                    <a href="../biblioteca_php/catalogo.php">Ver todos →</a>
                 </div>
 
                 <div class="filter-tabs" role="tablist">
@@ -87,7 +88,7 @@ $autores = [
                             <span class="material-symbols-outlined">book</span>
                             <h2>Gêneros mais procurados</h2>
                         </div>
-                        <a href="generos.php">Ver todos →</a>
+                        <a href="../biblioteca_php/generos.php">Ver todos →</a>
                     </div>
 
                     <div class="bars">
@@ -109,7 +110,7 @@ $autores = [
                             <span class="section-icon">●●</span>
                             <h2>Autores mais procurados</h2>
                         </div>
-                        <a href="autores.php">Ver todos →</a>
+                        <a href="../biblioteca_php/autores.php">Ver todos →</a>
                     </div>
 
                     <ol class="authors-list">
@@ -128,6 +129,6 @@ $autores = [
     </main>
 </div>
 
-<script src="../assets/js/app.js"></script>
+<script src="../assets/js/app.js?v=20261008c"></script>
 </body>
 </html>
