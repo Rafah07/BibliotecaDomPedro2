@@ -1,4 +1,7 @@
 <?php
+$base = "../";
+$currentPage = "inicio";
+
 $livros = [
     ['titulo' => 'Jogos Vorazes', 'autor' => 'Suzanne Collins', 'classe' => 'cover-1'],
     ['titulo' => 'O Pequeno Príncipe', 'autor' => 'Antoine de Saint-Exupéry', 'classe' => 'cover-2'],
@@ -29,7 +32,7 @@ $autores = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biblioteca Escolar</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=20261008c">
+    <link rel="stylesheet" href="../assets/css/style.css?v=20261013">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
 </head>
 <body>
@@ -117,7 +120,7 @@ $autores = [
                         <?php foreach ($autores as $indice => $autor): ?>
                             <li>
                                 <span class="ranking"><?= $indice + 1 ?></span>
-                                <span class="avatar"><?= mb_strtoupper(mb_substr($autor['nome'], 0, 1)) ?></span>
+                                <span class="avatar"><?= strtoupper(substr($autor['nome'], 0, 1)) ?></span>
                                 <strong><?= htmlspecialchars($autor['nome']) ?></strong>
                                 <span class="search-count"><?= (int)$autor['buscas'] ?> buscas</span>
                             </li>
@@ -129,6 +132,6 @@ $autores = [
     </main>
 </div>
 
-<script src="../assets/js/app.js?v=20261008c"></script>
+<script src="../assets/js/app.js?v=20261013"></script>
 </body>
 </html>

@@ -1,28 +1,29 @@
-# Biblioteca Escolar - Base PHP
+# Biblioteca Dom Pedro II — Protótipo
 
-## Como executar localmente
+Protótipo visual em PHP, com página inicial, catálogo, gêneros, autores, sobre, horários e contato.
 
-Se você tiver PHP instalado, abra o terminal nesta pasta e rode:
+## Como executar
+
+Na pasta `BibliotecaDomPedro2`, rode:
 
 ```bash
 php -S localhost:8000
 ```
 
-Depois abra:
+Abra **http://localhost:8000** no navegador (a raiz redireciona para a página inicial).
 
-```text
-http://localhost:8000
-```
+Também funciona em um servidor local com PHP, como XAMPP ou Laragon.
 
 ## Estrutura
 
-- `index.php` - página inicial
-- `catalogo.php` - base do catálogo e pesquisa
-- `generos.php`, `autores.php`, `sobre.php`, `horarios.php`, `contato.php` - páginas iniciais
-- `includes/sidebar.php` - menu lateral reutilizável
-- `assets/css/style.css` - estilos
-- `assets/js/app.js` - interações simples
+- `Index/Index.php`: tela inicial
+- `biblioteca_php/`: as seis páginas internas
+- `includes/sidebar.php`: menu lateral expansível, com links funcionando
+- `includes/layout.php`: cabeçalho e layout compartilhados
+- `includes/dados-exemplo.php`: livros e autores fictícios para testar o visual (títulos e pessoas reais, mas **não** são dados reais do acervo da escola)
+- `assets/css/style.css`: estilos do site e responsividade
+- `assets/js/app.js`: interações visuais do menu e formulário de demonstração
 
-## Próximo passo sugerido
+## Atenção
 
-Conectar os dados dos livros ao Supabase e substituir os arrays PHP temporários por consultas reais ao banco.
+Este é um **protótipo**. O catálogo usa dados de exemplo; os horários e contatos oficiais ainda não foram informados; e o formulário de contato **não envia mensagens**. O próximo passo é validar as informações com a escola e integrar um banco de dados.
