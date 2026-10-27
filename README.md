@@ -74,6 +74,25 @@ Páginas (menu Acervo → Classificação CDD):
 
 Regras: nenhuma CDD é inventada nem aprovada automaticamente; a CDD vem do campo MARC 082 da Library of Congress ou da Open Library, sempre com a fonte, e a LCC (outro sistema) aparece só como referência. A CDD antiga da planilha nunca é alterada, o histórico não pode ser editado nem apagado (triggers no MySQL) e os códigos BDP não mudam quando a CDD é corrigida. Apenas bibliotecária e administrador aprovam. Testes: `php admin/tests/cdd-teste.php`.
 
+### Importação das planilhas Excel (Etapa 3)
+
+Requer o MySQL (no modo demonstrativo as telas só explicam o que falta configurar).
+
+1. `composer install` na raiz instala o PhpSpreadsheet (leitura de `.xlsx`). Sem ele, só arquivos `.csv` são aceitos.
+2. `php admin/database/migrar.php` cria as tabelas da migração `030_importacoes.sql`: `importacoes`, `importacao_itens`, `importacao_mapeamentos`, `registros_legados` e `acoes_administrativas`.
+3. Os arquivos enviados ficam em `storage/importacoes/`, fora do alcance do navegador (`.htaccess` com `Require all denied`). Para usar outra pasta, defina `armazenamento_importacoes` em `admin/config/database.php`.
+
+Páginas (menu Gerenciamento → Importar Excel):
+
+- `admin/importacao.php`: indicadores, envio por arrastar e soltar, escolha da aba, mapeamento das colunas (com modelos salvos) e análise em lotes
+- `admin/detalhes-importacao.php?id=1`: pré-visualização com filtros, correções, decisões por linha ou em lote, relatório de inconsistências e confirmação
+- `admin/historico-importacoes.php`: todas as importações, inclusive canceladas
+- APIs em `admin/api/importacoes/` (upload, validar, confirmar, relatorio); regras em `src/Services/` e `src/Repositories/`
+
+Regras: nada entra no acervo antes da confirmação; a linha original da planilha é guardada sem alterações e as correções ficam em campo separado; nenhum código BDP nem exemplar é criado (a quantidade da planilha é só referência para o inventário); a CDD antiga é preservada em `registros_legados` e nunca validada nem gerada; duplicidades nunca são apagadas ou mescladas automaticamente; o mesmo arquivo não pode ser importado duas vezes. Perfis: consulta só visualiza, auxiliar revisa e bibliotecária/administrador confirmam a gravação. Testes: `php admin/tests/importacao-teste.php`.
+
+Com o MySQL configurado, as páginas de Livros e Exemplares passam a ler o banco (exigindo login) e os livros importados mostram a CDD antiga, a quantidade da planilha e os indicadores separados "Aguardando reclassificação CDD" e "Aguardando inventário físico".
+
 ## Atenção
 
 Este é um **protótipo**. O catálogo usa dados de exemplo; os horários e contatos oficiais ainda não foram informados; e o formulário de contato **não envia mensagens**. O próximo passo é validar as informações com a escola e integrar um banco de dados.

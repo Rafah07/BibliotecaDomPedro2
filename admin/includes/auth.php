@@ -9,10 +9,10 @@ require_once __DIR__ . '/db.php';
 
 /** Permissões de cada perfil. */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar'],
-    'bibliotecaria' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar'],
-    'auxiliar' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar'],
-    'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar'],
+    'administrador' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'bibliotecaria' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'auxiliar' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
+    'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver'],
 ];
 
 const AUTH_PERFIS = [

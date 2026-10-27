@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/acervo.php';
 
 $exemplares = acervo_exemplares();
 $resumo = acervo_resumo()['por_situacao'];
-$setores = array_values(array_unique(array_column(demo_localizacoes(), 'setor')));
+$setores = array_values(array_unique(array_column(acervo_fonte('localizacoes'), 'setor')));
 $pendente = fn (array $ex): bool => $ex['situacao'] === 'aguardando' || $ex['conferido_em'] === null;
 $totalPendentes = count(array_filter($exemplares, $pendente));
 

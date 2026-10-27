@@ -10,7 +10,7 @@
 $livroModal = $livroModal ?? null;
 $livrosModal = acervo_livros();
 uasort($livrosModal, fn ($a, $b) => strcoll(acervo_texto_busca($a['titulo']), acervo_texto_busca($b['titulo'])) ?: $a['id'] <=> $b['id']);
-$setores = array_values(array_unique(array_column(demo_localizacoes(), 'setor')));
+$setores = array_values(array_unique(array_column(acervo_fonte('localizacoes'), 'setor')));
 ?>
 <dialog class="adm-modal" id="modal-exemplares" aria-labelledby="modal-exemplares-titulo">
     <form class="adm-modal__box" method="dialog" data-exemplares-form novalidate>

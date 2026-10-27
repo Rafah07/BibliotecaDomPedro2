@@ -29,7 +29,9 @@ const ADMIN_MENU = [
         'atrasos' => ['label' => 'Atrasos', 'icon' => 'clock-alert'],
     ],
     'Gerenciamento' => [
-        'importar' => ['label' => 'Importar Excel', 'icon' => 'file-spreadsheet'],
+        'importar' => ['label' => 'Importar Excel', 'icon' => 'file-spreadsheet', 'arquivo' => 'importacao.php', 'pronta' => true],
+        'historico-importacoes' => ['label' => 'Histórico de importações', 'icon' => 'history', 'arquivo' => 'historico-importacoes.php', 'pronta' => true, 'oculto' => true],
+        'detalhes-importacao' => ['label' => 'Detalhes da importação', 'icon' => 'file-spreadsheet', 'arquivo' => 'detalhes-importacao.php', 'pronta' => true, 'oculto' => true],
         'etiquetas' => ['label' => 'Etiquetas', 'icon' => 'scan-barcode'],
         'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap'],
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column'],
@@ -60,9 +62,16 @@ function admin_menu_item(string $id): ?array
  */
 function admin_base(): string
 {
-    $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'));
-    $dir = preg_replace('#/api$#', '', rtrim($dir, '/')); // endpoints em admin/api/
-    return $dir . '/';
+    $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/admin/index.php');
+    // Arquivos em subpastas de admin/ (ex.: admin/api/importacoes/) sobem até a pasta admin/.
+    $arquivo = realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? ''));
+    $admin = realpath(__DIR__ . '/..');
+    $niveis = 1;
+    if ($arquivo && $admin && str_starts_with($arquivo, $admin . DIRECTORY_SEPARATOR)) {
+        $niveis += substr_count(substr($arquivo, strlen($admin) + 1), DIRECTORY_SEPARATOR);
+    }
+    $dir = str_replace('\\', '/', dirname($script, $niveis));
+    return rtrim($dir, '/') . '/';
 }
 
 /** Endereço de um arquivo dentro de admin/ (CSS, JS, páginas). URLs externas ficam como estão. */

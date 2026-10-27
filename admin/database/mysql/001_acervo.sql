@@ -7,8 +7,8 @@
 --
 -- Regras mantidas:
 --   * "livros" guarda a obra/edição; "exemplares" guarda cada unidade física.
---   * A quantidade das planilhas fica em "importacao_registros" e NUNCA vira
---     exemplar disponível automaticamente.
+--   * A quantidade das planilhas fica em "registros_legados" (migração 030,
+--     módulo de importação) e NUNCA vira exemplar disponível automaticamente.
 --   * Livros e categorias são arquivados (arquivado_em), não excluídos.
 --   * Códigos BDP são únicos e gerados no servidor (gerar_exemplares).
 --
@@ -114,20 +114,6 @@ CREATE TABLE exemplares (
     CONSTRAINT fk_exemplares_localizacao FOREIGN KEY (localizacao_id) REFERENCES localizacoes (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Linhas das planilhas antigas, guardadas como vieram (referência para o inventário).
-CREATE TABLE importacao_registros (
-    id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    livro_id             BIGINT NULL,
-    arquivo              VARCHAR(255) NOT NULL,
-    linha                INT NOT NULL,
-    quantidade_informada INT NOT NULL,
-    dados_originais      JSON,          -- linha original da planilha, sem alterações
-    importado_em         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY importacao_livro_idx (livro_id),
-    CONSTRAINT importacao_quantidade_ck CHECK (quantidade_informada >= 0),
-    CONSTRAINT fk_importacao_livro FOREIGN KEY (livro_id) REFERENCES livros (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 -- Histórico individual de cada exemplar.
 CREATE TABLE movimentacoes (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -213,7 +199,7 @@ BEGIN
     END IF;
 END;
 
--- Contagens usadas na listagem de livros.
+-- Contagens usadas na listagem de livros (a migração 030 acrescenta a quantidade das planilhas).
 CREATE VIEW livros_resumo AS
 SELECT l.id,
        l.titulo,
@@ -221,8 +207,7 @@ SELECT l.id,
        COUNT(e.id)                         AS total_exemplares,
        COALESCE(SUM(e.situacao = 'disponivel'), 0) AS disponiveis,
        COALESCE(SUM(e.situacao = 'emprestado'), 0) AS emprestados,
-       COALESCE(SUM(e.situacao = 'manutencao'), 0) AS em_manutencao,
-       (SELECT SUM(r.quantidade_informada) FROM importacao_registros r WHERE r.livro_id = l.id) AS quantidade_planilha
+       COALESCE(SUM(e.situacao = 'manutencao'), 0) AS em_manutencao
 FROM livros l
 LEFT JOIN exemplares e ON e.livro_id = l.id
 WHERE l.arquivado_em IS NULL
