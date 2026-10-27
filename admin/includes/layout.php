@@ -3,10 +3,12 @@
 require_once __DIR__ . '/icones.php';
 require_once __DIR__ . '/menu.php';
 require_once __DIR__ . '/dados-demo.php';
+require_once __DIR__ . '/auth.php';
 
 /** @param string[] $estilos folhas de estilo extras (relativas a admin/), carregadas após admin.css */
 function admin_page_start(string $paginaAtual, string $tituloPagina, string $tituloHeader, string $subtituloHeader, array $estilos = []): void
 {
+    auth_sessao(); // a sessão precisa começar antes de qualquer saída HTML
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

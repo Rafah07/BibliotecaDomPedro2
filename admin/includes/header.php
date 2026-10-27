@@ -1,6 +1,8 @@
 <?php
 /** Barra superior. Espera $tituloHeader e $subtituloHeader definidos pelo layout. */
-$usuario = demo_usuario();
+// Usuário logado quando houver; senão, o usuário demonstrativo das etapas anteriores.
+$usuarioLogado = auth_usuario();
+$usuario = $usuarioLogado ?? demo_usuario();
 $alertasHeader = demo_alertas();
 ?>
 <header class="adm-header">
@@ -54,13 +56,21 @@ $alertasHeader = demo_alertas();
             <div class="adm-dropdown__menu" role="menu">
                 <div class="adm-dropdown__header adm-dropdown__header--stack">
                     <strong><?= htmlspecialchars($usuario['nome']) ?></strong>
-                    <small>Usuário demonstrativo</small>
+                    <small><?= $usuarioLogado ? htmlspecialchars(AUTH_PERFIS[$usuarioLogado['perfil']] ?? '') . (db_modo() === 'demo' ? ' · conta demonstrativa' : '') : 'Usuário demonstrativo' ?></small>
                 </div>
                 <a class="adm-dropdown__item" role="menuitem" href="<?= htmlspecialchars(admin_url('perfil')) ?>"><?= icon('user-round') ?> Meu perfil</a>
                 <a class="adm-dropdown__item" role="menuitem" href="<?= htmlspecialchars(admin_url('configuracoes')) ?>"><?= icon('settings') ?> Configurações</a>
-                <button class="adm-dropdown__item adm-dropdown__item--danger" role="menuitem" type="button" data-demo-logout>
-                    <?= icon('log-out') ?> Sair <span class="adm-demo-tag">Demo</span>
-                </button>
+                <?php if ($usuarioLogado): ?>
+                    <form method="post" action="<?= htmlspecialchars(admin_base() . 'logout.php') ?>">
+                        <?= csrf_campo() ?>
+                        <button class="adm-dropdown__item adm-dropdown__item--danger" role="menuitem" type="submit"><?= icon('log-out') ?> Sair</button>
+                    </form>
+                <?php else: ?>
+                    <a class="adm-dropdown__item" role="menuitem" href="<?= htmlspecialchars(admin_base() . 'login.php') ?>"><?= icon('log-in') ?> Entrar</a>
+                    <button class="adm-dropdown__item adm-dropdown__item--danger" role="menuitem" type="button" data-demo-logout>
+                        <?= icon('log-out') ?> Sair <span class="adm-demo-tag">Demo</span>
+                    </button>
+                <?php endif; ?>
             </div>
         </div>
     </div>
