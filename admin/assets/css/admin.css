@@ -779,7 +779,7 @@ html:not(.adm-sidebar-expanded) .adm-nav__title::after {
 }
 .adm-chart--donut { width: 100%; aspect-ratio: 1; max-width: 210px; margin: 0 auto; }
 
-.adm-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.adm-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; width: 100%; max-width: 380px; justify-self: center; }
 .adm-legend li {
     display: flex;
     align-items: center;

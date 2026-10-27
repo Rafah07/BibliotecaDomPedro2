@@ -42,12 +42,28 @@ function admin_menu_item(string $id): ?array
     return null;
 }
 
+/**
+ * Caminho da pasta admin/ no servidor (ex.: "/admin/" ou "/BibliotecaDomPedro2/admin/").
+ * Evita que CSS, JS e links quebrem quando a página é aberta como ".../admin" sem a barra final.
+ */
+function admin_base(): string
+{
+    $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'));
+    return rtrim($dir, '/') . '/';
+}
+
+/** Endereço de um arquivo dentro de admin/ (CSS, JS, páginas). URLs externas ficam como estão. */
+function admin_asset(string $path): string
+{
+    return preg_match('#^https?://#', $path) ? $path : admin_base() . $path;
+}
+
 /** Endereço de uma página administrativa a partir do id do menu. */
 function admin_url(string $id): string
 {
     $item = admin_menu_item($id);
     if ($item && !empty($item['pronta'])) {
-        return $item['arquivo'];
+        return admin_base() . $item['arquivo'];
     }
-    return 'em-desenvolvimento.php?pagina=' . rawurlencode($id);
+    return admin_base() . 'em-desenvolvimento.php?pagina=' . rawurlencode($id);
 }

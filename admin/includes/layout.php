@@ -18,7 +18,7 @@ function admin_page_start(string $paginaAtual, string $tituloPagina, string $tit
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/admin.css?v=20261027">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261028')) ?>">
     <script>
         // Aplica o estado salvo do menu antes da pintura para evitar "pulo" visual.
         try { if (localStorage.getItem('adm-sidebar') === 'expanded') document.documentElement.classList.add('adm-sidebar-expanded'); } catch (e) {}
@@ -46,9 +46,9 @@ function admin_page_end(array $scripts = []): void
 </div>
 <div class="adm-toasts" aria-live="polite" aria-atomic="false"></div>
 <div class="adm-tooltip" role="tooltip" hidden></div>
-<script src="assets/js/admin.js?v=20261027"></script>
+<script src="<?= htmlspecialchars(admin_asset('assets/js/admin.js?v=20261028')) ?>"></script>
 <?php foreach ($scripts as $script): ?>
-<script src="<?= htmlspecialchars($script) ?>"></script>
+<script src="<?= htmlspecialchars(admin_asset($script)) ?>"></script>
 <?php endforeach; ?>
 </body>
 </html>

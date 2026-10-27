@@ -280,5 +280,5 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 <?php
 admin_page_end([
     'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
-    'assets/js/dashboard.js?v=20261027',
+    'assets/js/dashboard.js?v=20261028',
 ]);
