@@ -96,7 +96,7 @@ function demo_acoes_rapidas(): array
     return [
         ['titulo' => 'Novo empréstimo', 'descricao' => 'Registrar a retirada de um exemplar.', 'icone' => 'book-open-check', 'href' => 'emprestimos'],
         ['titulo' => 'Registrar devolução', 'descricao' => 'Dar baixa em um exemplar devolvido.', 'icone' => 'rotate-ccw', 'href' => 'devolucoes'],
-        ['titulo' => 'Cadastrar livro', 'descricao' => 'Adicionar uma nova obra ao acervo.', 'icone' => 'book-plus', 'href' => 'acervo'],
+        ['titulo' => 'Cadastrar livro', 'descricao' => 'Adicionar uma nova obra ao acervo.', 'icone' => 'book-plus', 'href' => 'cadastrar-livro'],
         ['titulo' => 'Iniciar inventário', 'descricao' => 'Conferir os exemplares físicos da biblioteca.', 'icone' => 'clipboard-check', 'href' => 'inventario'],
         ['titulo' => 'Importar planilha', 'descricao' => 'Trazer dados antigos de um arquivo Excel.', 'icone' => 'file-spreadsheet', 'href' => 'importar'],
         ['titulo' => 'Gerar relatório', 'descricao' => 'Resumo do acervo e da circulação.', 'icone' => 'file-chart-column', 'href' => 'relatorios'],

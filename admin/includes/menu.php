@@ -7,8 +7,14 @@
 const ADMIN_MENU = [
     'Principal' => [
         'dashboard' => ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'arquivo' => 'index.php', 'pronta' => true],
-        'acervo' => ['label' => 'Acervo', 'icon' => 'library-big'],
-        'exemplares' => ['label' => 'Exemplares', 'icon' => 'book-copy'],
+        'acervo' => ['label' => 'Acervo', 'icon' => 'library-big', 'arquivo' => 'livros.php', 'pronta' => true],
+        'exemplares' => ['label' => 'Exemplares', 'icon' => 'book-copy', 'arquivo' => 'exemplares.php', 'pronta' => true],
+        'categorias' => ['label' => 'Categorias', 'icon' => 'tags', 'arquivo' => 'categorias.php', 'pronta' => true],
+        // Páginas internas do acervo: não aparecem no menu, mas usam admin_url().
+        'cadastrar-livro' => ['label' => 'Cadastrar livro', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-livro.php', 'pronta' => true, 'oculto' => true],
+        'editar-livro' => ['label' => 'Editar livro', 'icon' => 'pencil', 'arquivo' => 'editar-livro.php', 'pronta' => true, 'oculto' => true],
+        'detalhes-livro' => ['label' => 'Detalhes do livro', 'icon' => 'book-open', 'arquivo' => 'detalhes-livro.php', 'pronta' => true, 'oculto' => true],
+        'detalhes-exemplar' => ['label' => 'Detalhes do exemplar', 'icon' => 'book-copy', 'arquivo' => 'detalhes-exemplar.php', 'pronta' => true, 'oculto' => true],
         'inventario' => ['label' => 'Inventário', 'icon' => 'clipboard-check'],
     ],
     'Circulação' => [

@@ -4,7 +4,8 @@ require_once __DIR__ . '/icones.php';
 require_once __DIR__ . '/menu.php';
 require_once __DIR__ . '/dados-demo.php';
 
-function admin_page_start(string $paginaAtual, string $tituloPagina, string $tituloHeader, string $subtituloHeader): void
+/** @param string[] $estilos folhas de estilo extras (relativas a admin/), carregadas após admin.css */
+function admin_page_start(string $paginaAtual, string $tituloPagina, string $tituloHeader, string $subtituloHeader, array $estilos = []): void
 {
     ?>
 <!DOCTYPE html>
@@ -19,6 +20,9 @@ function admin_page_start(string $paginaAtual, string $tituloPagina, string $tit
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261028')) ?>">
+    <?php foreach ($estilos as $estilo): ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset($estilo)) ?>">
+    <?php endforeach; ?>
     <script>
         // Aplica o estado salvo do menu antes da pintura para evitar "pulo" visual.
         try { if (localStorage.getItem('adm-sidebar') === 'expanded') document.documentElement.classList.add('adm-sidebar-expanded'); } catch (e) {}

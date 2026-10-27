@@ -9,25 +9,30 @@
     const tooltip = document.querySelector('.adm-tooltip');
     const STORAGE_KEY = 'adm-sidebar';
 
+    const svg = (paths) => '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
     const icons = {
-        info: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+        info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'),
+        success: svg('<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'),
+        warning: svg('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
+        error: svg('<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>'),
     };
 
     // ---------- Avisos (toasts) ----------
     const toastArea = document.querySelector('.adm-toasts');
-    function showToast(title, message) {
+    // tone: info | success | warning | error
+    function showToast(title, message, tone = 'info') {
         if (!toastArea) return;
         const toast = document.createElement('div');
-        toast.className = 'adm-toast';
-        toast.setAttribute('role', 'status');
-        toast.innerHTML = icons.info + '<div><strong></strong><span></span></div>';
+        toast.className = 'adm-toast adm-toast--' + (icons[tone] ? tone : 'info');
+        toast.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+        toast.innerHTML = (icons[tone] || icons.info) + '<div><strong></strong><span></span></div>';
         toast.querySelector('strong').textContent = title;
         toast.querySelector('span').textContent = message;
         toastArea.appendChild(toast);
         setTimeout(() => {
             toast.classList.add('is-leaving');
             setTimeout(() => toast.remove(), 250);
-        }, 4200);
+        }, tone === 'error' || tone === 'warning' ? 6500 : 4200);
     }
     window.admToast = showToast;
 

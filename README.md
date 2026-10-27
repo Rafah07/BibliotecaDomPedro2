@@ -37,6 +37,20 @@ Acesse **http://localhost:8000/admin/** para ver o dashboard administrativo.
 - `admin/assets/css/admin.css`: estilos do painel (classes com prefixo `adm-`, sem conflito com o site público)
 - `admin/assets/js/admin.js` e `dashboard.js`: menu, menus suspensos, avisos e gráficos (Chart.js via CDN)
 
+### Módulo de acervo (Etapa 2)
+
+- `admin/livros.php`: listagem com pesquisa, filtros, ordenação, paginação, menu de ações e arquivamento
+- `admin/cadastrar-livro.php` e `admin/editar-livro.php`: formulário de livro (ISBN-10/13 com dígito de controle, autores, capa, situação) com aviso de possível duplicidade
+- `admin/detalhes-livro.php?id=1`: capa, dados, indicadores e abas (informações, exemplares, movimentações, inventário)
+- `admin/exemplares.php` e `admin/detalhes-exemplar.php?codigo=BDP-000001`: unidades físicas, com código próprio, localização, conservação e situação
+- `admin/categorias.php`: categorias, com arquivamento que exige mover os livros associados
+- `admin/includes/acervo-demo.php`: dados demonstrativos do acervo (16 livros, 33 exemplares, 13 categorias), um conjunto por tabela
+- `admin/includes/acervo.php`: consultas, rótulos, validação no servidor e componentes (capas, selos, breadcrumbs)
+- `admin/assets/css/acervo.css` e `admin/assets/js/acervo.js`: estilos e interações do módulo
+- `admin/database/acervo.sql`: estrutura para PostgreSQL/Supabase (tabelas, geração segura de códigos, bloqueio de exemplar emprestado)
+
+Cadastros, edições, arquivamentos e exemplares criados nessas telas são **simulados**: ficam só na memória da página e somem ao recarregar. A quantidade informada em planilhas nunca vira exemplar disponível; os exemplares só existem depois da conferência física.
+
 Ainda não há login, banco de dados nem cadastros: o botão "Sair" e a pesquisa global são apenas demonstrativos.
 
 ## Atenção
