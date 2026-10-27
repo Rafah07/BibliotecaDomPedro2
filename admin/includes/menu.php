@@ -8,6 +8,12 @@ const ADMIN_MENU = [
     'Principal' => [
         'dashboard' => ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'arquivo' => 'index.php', 'pronta' => true],
         'acervo' => ['label' => 'Acervo', 'icon' => 'library-big', 'arquivo' => 'livros.php', 'pronta' => true],
+        // Submenu Acervo → Classificação CDD (Etapa 4).
+        'classificacao' => ['label' => 'Classificação CDD', 'icon' => 'list-tree', 'arquivo' => 'classificacao.php', 'pronta' => true, 'pai' => 'acervo'],
+        'classificar-livro' => ['label' => 'Classificar livro', 'icon' => 'book-marked', 'arquivo' => 'classificar-livro.php', 'pronta' => true, 'oculto' => true],
+        'revisao-cdd' => ['label' => 'Fila de aprovação CDD', 'icon' => 'list-checks', 'arquivo' => 'revisao-cdd.php', 'pronta' => true, 'oculto' => true],
+        'historico-cdd' => ['label' => 'Histórico CDD', 'icon' => 'history', 'arquivo' => 'historico-cdd.php', 'pronta' => true, 'oculto' => true],
+        'relatorio-cdd' => ['label' => 'Relatórios CDD', 'icon' => 'file-chart-column', 'arquivo' => 'relatorio-cdd.php', 'pronta' => true, 'oculto' => true],
         'exemplares' => ['label' => 'Exemplares', 'icon' => 'book-copy', 'arquivo' => 'exemplares.php', 'pronta' => true],
         'categorias' => ['label' => 'Categorias', 'icon' => 'tags', 'arquivo' => 'categorias.php', 'pronta' => true],
         // Páginas internas do acervo: não aparecem no menu, mas usam admin_url().
@@ -55,7 +61,8 @@ function admin_menu_item(string $id): ?array
 function admin_base(): string
 {
     $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'));
-    return rtrim($dir, '/') . '/';
+    $dir = preg_replace('#/api$#', '', rtrim($dir, '/')); // endpoints em admin/api/
+    return $dir . '/';
 }
 
 /** Endereço de um arquivo dentro de admin/ (CSS, JS, páginas). URLs externas ficam como estão. */

@@ -53,6 +53,27 @@ Cadastros, edições, arquivamentos e exemplares criados nessas telas são **sim
 
 Ainda não há login, banco de dados nem cadastros: o botão "Sair" e a pesquisa global são apenas demonstrativos.
 
+### Banco MySQL, login e classificação CDD (Etapa 4)
+
+O MySQL 8.0+ passa a ser o banco principal do painel (o `admin/database/acervo.sql` da Etapa 2, em PostgreSQL, fica só como referência).
+
+1. Crie o banco e copie `admin/config/database.example.php` para `admin/config/database.php` (ou use as variáveis `BDP_DB_HOST`, `BDP_DB_NAME`, `BDP_DB_USER`, `BDP_DB_PASS`).
+2. `php admin/database/migrar.php` aplica as migrações de `admin/database/mysql/` (nenhuma apaga dados).
+3. `php admin/database/criar-admin.php "Nome" email@escola bibliotecaria` cria um usuário (perfis: administrador, bibliotecaria, auxiliar, consulta).
+4. Opcional, para testes: `php admin/database/popular-demo.php` copia os livros fictícios para um banco vazio.
+
+Sem banco configurado, o módulo funciona em **modo demonstrativo**: contas `bibliotecaria@demo` e `auxiliar@demo` (senha `demo`), livros fictícios e alterações guardadas só na sessão do navegador.
+
+Páginas (menu Acervo → Classificação CDD):
+
+- `admin/classificacao.php`: indicadores, progresso, ações rápidas, tabela com filtros e pesquisa em lote
+- `admin/classificar-livro.php?id=1`: revisão individual, pesquisa nas fontes, classificação manual e aprovação
+- `admin/revisao-cdd.php`: fila de aprovação (aprovar, corrigir, rejeitar, pedir nova pesquisa, observar)
+- `admin/historico-cdd.php` e `admin/relatorio-cdd.php`: histórico imutável e relatórios com exportação CSV/Excel
+- `admin/detalhes-livro.php`: nova seção "Classificação Bibliográfica"
+
+Regras: nenhuma CDD é inventada nem aprovada automaticamente; a CDD vem do campo MARC 082 da Library of Congress ou da Open Library, sempre com a fonte, e a LCC (outro sistema) aparece só como referência. A CDD antiga da planilha nunca é alterada, o histórico não pode ser editado nem apagado (triggers no MySQL) e os códigos BDP não mudam quando a CDD é corrigida. Apenas bibliotecária e administrador aprovam. Testes: `php admin/tests/cdd-teste.php`.
+
 ## Atenção
 
 Este é um **protótipo**. O catálogo usa dados de exemplo; os horários e contatos oficiais ainda não foram informados; e o formulário de contato **não envia mensagens**. O próximo passo é validar as informações com a escola e integrar um banco de dados.

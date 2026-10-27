@@ -1,5 +1,6 @@
 -- =========================================================
 -- Módulo de acervo — estrutura para PostgreSQL / Supabase
+-- SUBSTITUÍDO na Etapa 4: o banco principal agora é MySQL (admin/database/mysql/).
 -- Biblioteca Dom Pedro II · Etapa 2 (preparação, ainda não conectada)
 --
 -- Cada tabela corresponde a uma função de admin/includes/acervo-demo.php.

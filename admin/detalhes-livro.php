@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/acervo.php';
 
 $livro = acervo_livro((int)($_GET['id'] ?? 0));
 
-admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261027']);
+admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261027', 'assets/css/classificacao.css?v=20261027']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Detalhes']]);
 
@@ -110,6 +110,8 @@ $meta = [
         </article>
     <?php endforeach; ?>
 </section>
+
+<?php include __DIR__ . '/includes/secao-classificacao.php'; ?>
 
 <section class="adm-card adm-panel" data-tabs>
     <div class="adm-tabs" role="tablist" aria-label="Informações do livro">

@@ -28,7 +28,7 @@ $paginaAtual = $paginaAtual ?? 'dashboard';
                     <?php foreach ($itens as $id => $item): ?>
                         <?php if (!empty($item['oculto'])) continue; ?>
                         <?php $ativo = $paginaAtual === $id; ?>
-                        <li>
+                        <li<?= isset($item['pai']) ? ' class="adm-nav__sub"' : '' ?>>
                             <?php if (($item['demo'] ?? '') === 'logout'): ?>
                                 <button type="button" class="adm-nav__link" data-demo-logout data-tooltip="<?= htmlspecialchars($item['label']) ?>">
                                     <?= icon($item['icon'], 'adm-nav__icon') ?>

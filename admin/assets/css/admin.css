@@ -1083,3 +1083,18 @@ html:not(.adm-sidebar-expanded) .adm-nav__title::after {
     .adm-segmented button { flex: 1; }
     .adm-inventory__stats { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- Menu: submenu Acervo → Classificação CDD ---------- */
+.adm-nav__sub .adm-nav__link { position: relative; }
+.adm-sidebar-expanded .adm-nav__sub .adm-nav__link { padding-left: 28px; font-size: 13px; }
+.adm-sidebar-expanded .adm-nav__sub .adm-nav__link::before {
+    content: "";
+    position: absolute;
+    left: 22px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--adm-border);
+}
+.adm-sidebar-expanded .adm-nav__sub .adm-nav__icon { margin-left: 8px; }
