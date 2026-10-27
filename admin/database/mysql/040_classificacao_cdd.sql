@@ -1,10 +1,14 @@
 -- =========================================================
--- 003 · Reclassificação bibliográfica (CDD) — Etapa 4
+-- 040 · Reclassificação bibliográfica (CDD) — Etapa 4
+--
+-- Prefixos das migrações por etapa: 001-002 base, 030+ importação (Etapa 3),
+-- 040+ classificação CDD (Etapa 4), 050+ inventário (Etapa 5).
 --
 -- Princípios:
 --   * A CDD é sempre texto (VARCHAR): zeros à esquerda e pontos são preservados.
---   * Os dados antigos da planilha (CDD, código de autor, localização, categoria)
---     ficam em importacao_registros e não podem ser alterados depois de gravados.
+--   * Os dados antigos da planilha (CDD, código de autor, localização antiga,
+--     assunto) ficam em "registros_legados", criada pelo módulo de importação
+--     (Etapa 3). Este módulo só lê essa tabela; nunca a altera.
 --   * Nenhuma classificação é aprovada automaticamente: aprovada só por usuário
 --     com permissão (verificado no PHP) e sempre com registro no histórico.
 --   * O histórico não pode ser alterado nem excluído (triggers abaixo).
@@ -12,41 +16,12 @@
 -- =========================================================
 
 -- ---------------------------------------------------------
--- Dados antigos da planilha (somente acrescenta colunas; nada é apagado)
--- ---------------------------------------------------------
-ALTER TABLE importacao_registros
-    ADD COLUMN cdd_original          VARCHAR(50)  NULL AFTER quantidade_informada,
-    ADD COLUMN codigo_autor_original VARCHAR(50)  NULL AFTER cdd_original,
-    ADD COLUMN localizacao_original  VARCHAR(100) NULL AFTER codigo_autor_original,
-    ADD COLUMN categoria_original    VARCHAR(150) NULL AFTER localizacao_original,
-    ADD COLUMN fonte_importacao      VARCHAR(255) NULL AFTER categoria_original;
-
-CREATE TRIGGER importacao_preservar_dados_antigos
-BEFORE UPDATE ON importacao_registros
-FOR EACH ROW
-BEGIN
-    IF (OLD.cdd_original IS NOT NULL AND NOT (OLD.cdd_original <=> NEW.cdd_original))
-       OR (OLD.codigo_autor_original IS NOT NULL AND NOT (OLD.codigo_autor_original <=> NEW.codigo_autor_original))
-       OR (OLD.localizacao_original IS NOT NULL AND NOT (OLD.localizacao_original <=> NEW.localizacao_original))
-       OR (OLD.categoria_original IS NOT NULL AND NOT (OLD.categoria_original <=> NEW.categoria_original))
-       OR (OLD.fonte_importacao IS NOT NULL AND NOT (OLD.fonte_importacao <=> NEW.fonte_importacao))
-       OR NOT (OLD.dados_originais <=> NEW.dados_originais) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Os dados originais da planilha não podem ser alterados.';
-    END IF;
-END;
-
-CREATE TRIGGER importacao_impedir_exclusao
-BEFORE DELETE ON importacao_registros
-FOR EACH ROW
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Registros de importação não podem ser excluídos.';
-
--- ---------------------------------------------------------
 -- Classificação atual de cada livro (uma linha por livro)
 -- ---------------------------------------------------------
 CREATE TABLE classificacoes_cdd (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     livro_id          BIGINT NOT NULL,
-    cdd_original      VARCHAR(50),             -- cópia da planilha no momento da criação; nunca muda
+    cdd_original      VARCHAR(50),             -- cópia de registros_legados; gravada uma vez, nunca muda
     cdd_proposta      VARCHAR(50),
     cdd_aprovada      VARCHAR(50),
     ddc_edicao        VARCHAR(20),             -- edição da CDD informada pela fonte (ex.: 23)
@@ -226,16 +201,12 @@ CREATE TABLE cdd_tabela_referencia (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
--- Uma linha de classificação para cada livro já existente,
--- copiando a CDD da importação mais recente (quando houver).
--- Livros cadastrados depois ganham a linha na primeira ação do módulo.
+-- Uma linha de classificação para cada livro já existente.
+-- Livros cadastrados ou importados depois ganham a linha na primeira
+-- consulta do módulo, já com a CDD original copiada de registros_legados.
 -- ---------------------------------------------------------
-INSERT INTO classificacoes_cdd (livro_id, cdd_original)
-SELECT l.id,
-       (SELECT r.cdd_original FROM importacao_registros r
-         WHERE r.livro_id = l.id AND r.cdd_original IS NOT NULL
-         ORDER BY r.importado_em DESC, r.id DESC LIMIT 1)
-FROM livros l
+INSERT INTO classificacoes_cdd (livro_id)
+SELECT l.id FROM livros l
 WHERE NOT EXISTS (SELECT 1 FROM classificacoes_cdd c WHERE c.livro_id = l.id);
 
 -- ---------------------------------------------------------
