@@ -17,19 +17,7 @@ use Biblioteca\Services\ImportValidationService;
 use Biblioteca\Support\Isbn;
 use Biblioteca\Support\Texto;
 
-$raiz = dirname(__DIR__, 2);
-if (is_file($raiz . '/vendor/autoload.php')) {
-    require $raiz . '/vendor/autoload.php';
-} else {
-    spl_autoload_register(function (string $classe) use ($raiz) {
-        if (str_starts_with($classe, 'Biblioteca\\')) {
-            $arquivo = $raiz . '/src/' . str_replace('\\', '/', substr($classe, 11)) . '.php';
-            if (is_file($arquivo)) {
-                require $arquivo;
-            }
-        }
-    });
-}
+require __DIR__ . '/../../config/app.php'; // carrega as classes de src/ (Composer ou carregador simples)
 
 $falhas = 0;
 $total = 0;

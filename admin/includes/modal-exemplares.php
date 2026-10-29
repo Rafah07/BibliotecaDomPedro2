@@ -5,7 +5,7 @@
  *
  * Na versão demonstrativa, os códigos são gerados no navegador e NÃO são gravados.
  * Na versão real, a geração deve ocorrer no servidor, dentro de uma transação
- * (ver a função gerar_exemplares em admin/database/acervo.sql).
+ * (ver o procedimento gerar_exemplares em database/migrations/001_acervo.sql).
  */
 $livroModal = $livroModal ?? null;
 $livrosModal = acervo_livros();

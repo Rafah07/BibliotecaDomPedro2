@@ -8,7 +8,7 @@
 --   consulta       somente leitura
 -- As permissões de cada perfil ficam em admin/includes/auth.php (AUTH_PERMISSOES).
 --
--- Crie o primeiro usuário com: php admin/database/criar-admin.php
+-- Crie o primeiro usuário com: php database/criar-admin.php
 -- =========================================================
 
 CREATE TABLE administradores (

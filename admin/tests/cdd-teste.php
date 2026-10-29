@@ -3,7 +3,7 @@
  * Testes do módulo de classificação CDD (sem rede).
  *
  * Uso: php admin/tests/cdd-teste.php
- * Com BDP_DB_* configurado, também testa o fluxo completo no MySQL, dentro de uma
+ * Com o banco configurado no .env (DB_*), também testa o fluxo completo no MySQL, dentro de uma
  * transação desfeita no final (o banco não é alterado).
  */
 if (PHP_SAPI !== 'cli') {

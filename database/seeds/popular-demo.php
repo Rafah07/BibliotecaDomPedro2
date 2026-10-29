@@ -3,21 +3,25 @@
  * Copia os dados DEMONSTRATIVOS do acervo (admin/includes/acervo-demo.php) para o MySQL,
  * para testar o painel com banco antes da importação real das planilhas.
  *
- * Uso: php admin/database/popular-demo.php
- * Só roda com a tabela de livros vazia, para nunca misturar dados fictícios com reais.
+ * Uso: php database/seeds/popular-demo.php
+ * Somente para um banco de TESTE: só roda com a tabela de livros vazia e fora de produção
+ * (APP_ENV=production bloqueia), para nunca misturar dados fictícios com o acervo oficial.
  * Não cria nenhuma CDD: todas as classificações começam pendentes.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
 }
-require __DIR__ . '/../includes/db.php';
-require __DIR__ . '/../includes/acervo-demo.php';
+require __DIR__ . '/../../config/database.php';
+require __DIR__ . '/../../admin/includes/acervo-demo.php';
 
 try {
+    if (app_ambiente() === 'production') {
+        throw new RuntimeException('Os dados fictícios não podem ser gravados em produção (APP_ENV=production).');
+    }
     $pdo = db();
     if (!$pdo) {
-        throw new RuntimeException('Banco não configurado (admin/config/database.php ou BDP_DB_*).');
+        throw new RuntimeException('Banco não configurado. Copie .env.example para .env e preencha DB_NAME, DB_USER e DB_PASSWORD.');
     }
     if ((int)$pdo->query('SELECT COUNT(*) FROM livros')->fetchColumn() > 0) {
         throw new RuntimeException('A tabela de livros já tem registros. Nada foi alterado.');
