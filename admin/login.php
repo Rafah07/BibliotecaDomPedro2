@@ -10,7 +10,7 @@ function login_destino(string $voltar): string
     if ($voltar !== '' && str_starts_with($voltar, $base) && !str_contains($voltar, '//') && !str_contains($voltar, '\\')) {
         return $voltar;
     }
-    return admin_url('classificacao');
+    return admin_url('dashboard');
 }
 
 $voltar = is_string($_POST['voltar'] ?? $_GET['voltar'] ?? null) ? ($_POST['voltar'] ?? $_GET['voltar']) : '';
@@ -39,7 +39,7 @@ try {
     error_log('[biblioteca] Erro no login: ' . $e->getMessage());
     $erro = 'Não foi possível entrar agora. Tente novamente em instantes.';
 }
-$demo = db_modo() === 'demo';
+$demo = auth_demo_disponivel();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -52,7 +52,7 @@ $demo = db_modo() === 'demo';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261028')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261029')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261027')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261027')) ?>">
 </head>
@@ -67,7 +67,7 @@ $demo = db_modo() === 'demo';
     </div>
     <section class="adm-card adm-panel">
         <h1>Entrar no painel</h1>
-        <p class="adm-login__lead">Use sua conta de administrador para acessar a classificação do acervo.</p>
+        <p class="adm-login__lead">Área restrita aos funcionários da biblioteca. Use sua conta de administrador.</p>
         <?php if ($erro): ?>
             <div class="adm-notice adm-notice--red" role="alert"><?= icon('circle-alert') ?><div><strong><?= htmlspecialchars($erro) ?></strong></div></div>
         <?php endif; ?>
@@ -94,7 +94,7 @@ $demo = db_modo() === 'demo';
             </div>
         <?php endif; ?>
     </section>
-    <a class="adm-link" href="<?= htmlspecialchars(admin_url('dashboard')) ?>"><?= icon('arrow-left') ?> Voltar ao painel</a>
+    <a class="adm-link" href="<?= htmlspecialchars(admin_url('site')) ?>"><?= icon('arrow-left') ?> Voltar ao site da biblioteca</a>
 </main>
 </body>
 </html>
