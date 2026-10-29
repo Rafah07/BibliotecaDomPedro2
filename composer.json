@@ -1,0 +1,21 @@
+{
+    "name": "biblioteca-dom-pedro-ii/painel",
+    "description": "Painel administrativo da Biblioteca Dom Pedro II",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "ext-pdo": "*",
+        "ext-zip": "*",
+        "ext-mbstring": "*",
+        "phpoffice/phpspreadsheet": "^2.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Biblioteca\\": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

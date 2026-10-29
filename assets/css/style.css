@@ -809,3 +809,14 @@ input {
     .catalog-book .book-cover { min-height: 130px; }
     .book-cover span { font-size: 13px; }
 }
+
+/* Catálogo com dados reais (Etapa 3.5): capa enviada, ISBN, disponibilidade e paginação. */
+.book-cover.has-image { padding: 0; background: #e9eef7; }
+.book-cover.has-image::before { display: none; }
+.book-cover.has-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.book-isbn { font-size: 12px; color: #8590a2; margin-top: 2px; }
+.availability { display: inline-block; margin-top: 8px; padding: 4px 9px; border-radius: 100px; font-size: 11px; font-weight: 800; }
+.availability--ok { background: #e7f6ec; color: #1f7a3d; }
+.availability--busy { background: #fff3e0; color: #9a5b00; }
+.availability--muted { background: #edf1f7; color: #5c6b7e; }
+.pagination { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: center; margin-top: 22px; color: #5c6b7e; font-size: 14px; }

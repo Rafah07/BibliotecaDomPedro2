@@ -1,0 +1,6 @@
+# Credenciais locais: nunca enviar ao repositório.
+/.env
+/vendor/
+/storage/importacoes/*
+!/storage/importacoes/.gitkeep
+!/storage/importacoes/.htaccess
