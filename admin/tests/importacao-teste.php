@@ -158,6 +158,8 @@ if (ExcelImportService::xlsxDisponivel()) {
     $aba->setCellValue('A3', 'Dom Casmurro');
     $aba->setCellValue('C2', 9788535911237);
     $aba->setCellValueExplicit('D2', '0869.3', 's');
+    $aba->setCellValue('E1', 'Localização na (Estante)');
+    $aba->setCellValue('E2', '="L945v"&"1A"');
     (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($planilha))->save("$tmp/acervo.xlsx");
     $tipo = $leitor->validarArquivo("$tmp/acervo.xlsx", 'acervo.xlsx');
     $abas = array_column($leitor->abas("$tmp/acervo.xlsx", $tipo), 'nome');
@@ -168,6 +170,7 @@ if (ExcelImportService::xlsxDisponivel()) {
     confere('XLSX: aba escolhida lida com acentos', ($primeira['Título'] ?? '') === 'Memórias Póstumas de Brás Cubas', json_encode($lidas, JSON_UNESCAPED_UNICODE));
     confere('XLSX: ISBN numérico não vira notação científica', ($primeira['ISBN'] ?? '') === '9788535911237', (string)($primeira['ISBN'] ?? ''));
     confere('XLSX: CDD com zero à esquerda preservada', ($primeira['CDD'] ?? '') === '0869.3');
+    confere('XLSX: fórmula vira o resultado salvo, não o texto da fórmula', ($primeira['Localização na (Estante)'] ?? '') === 'L945v1A', (string)($primeira['Localização na (Estante)'] ?? ''));
 } else {
     echo "  (XLSX não testado: rode composer install)\n";
 }

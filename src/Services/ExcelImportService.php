@@ -193,7 +193,9 @@ final class ExcelImportService
                 for ($c = 1; $c <= $ultimaColuna; $c++) {
                     $letra = Coordinate::stringFromColumnIndex($c);
                     $celula = $folha->getCell($letra . $numero);
-                    $linha[$letra] = $this->textoDaCelula($celula->getValue());
+                    // Fórmulas não são executadas: vale o resultado que o Excel salvou no arquivo.
+                    $valor = $celula->isFormula() ? ($celula->getOldCalculatedValue() ?? $celula->getValue()) : $celula->getValue();
+                    $linha[$letra] = $this->textoDaCelula($valor);
                 }
                 $resultado[$numero] = $linha;
             }
@@ -241,9 +243,8 @@ final class ExcelImportService
             }
             return rtrim(rtrim(sprintf('%.10F', $valor), '0'), '.');
         }
-        $texto = (string)$valor;
-        // Fórmulas não são executadas: guardamos o texto da fórmula como veio.
-        return $texto;
+        // Fórmula sem resultado salvo: guardamos o texto da fórmula como veio.
+        return (string)$valor;
     }
 
     /** Letra da coluna (1 → A, 27 → AA), sem depender do PhpSpreadsheet. */
