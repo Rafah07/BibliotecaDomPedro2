@@ -100,6 +100,7 @@ No XAMPP (Windows): `C:\xampp\php\php.exe database\seeds\importar-acervo.php --a
 - `--apagar-demo` esvazia antes o acervo, os exemplares, os empréstimos, a CDD, os inventários e as importações (pede para digitar APAGAR). Administradores e alunos ficam.
 - A importação usa o mesmo fluxo da tela *Importações*: a CDD, o código de autor, a localização e a quantidade antigos ficam em `registros_legados`, e nenhum exemplar ou código BDP é criado.
 - Linhas repetidas (idênticas, mesmo ISBN, ou mesmo título/autor da mesma editora, ano e edição) viram "outro exemplar" do mesmo livro. As linhas com erro ficam pendentes em *Importações → detalhes* para revisão.
+- Se uma tentativa parar antes de gravar livros, basta rodar o comando de novo, **sem** `--apagar-demo`: a tentativa anterior é cancelada e a importação recomeça. Se parar no meio da gravação, ela continua de onde parou.
 - O mesmo arquivo não é importado duas vezes. Para uma versão nova da planilha, passe o `.xlsx`: `php database/seeds/importar-acervo.php planilha.xlsx --aba=Catalogar`.
 
 ### 7. Servidor local

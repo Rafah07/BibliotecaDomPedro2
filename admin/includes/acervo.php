@@ -474,7 +474,5 @@ function acervo_breadcrumb(array $itens): string
 /** Texto em minúsculas e sem acentos, usado na pesquisa da tabela. */
 function acervo_texto_busca(string ...$partes): string
 {
-    $texto = mb_strtolower(implode(' ', $partes));
-    $semAcento = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
-    return $semAcento !== false ? $semAcento : $texto;
+    return \Biblioteca\Support\Texto::semAcento(mb_strtolower(implode(' ', $partes)));
 }

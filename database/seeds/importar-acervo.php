@@ -75,20 +75,46 @@ try {
     $nome = basename($arquivo);
     $tipo = $leitor->validarArquivo($arquivo, $nome);
     $aba = $tipo === 'csv' ? 'CSV' : $opcoes['aba'];
+    $abas = $leitor->abas($arquivo, $tipo);
+    $infoAba = array_values(array_filter($abas, fn ($a) => $a['nome'] === $aba))[0] ?? null;
+    if (!$infoAba) {
+        throw new RuntimeException("A aba \"$aba\" não existe na planilha.");
+    }
+    // Mapeamento sugerido automaticamente (o mesmo que a tela propõe), conferido antes de gravar qualquer coisa.
+    $folha = $tipo === 'csv' ? null : $aba;
+    $cabecalhos = $leitor->cabecalhos($arquivo, $tipo, $folha, 1);
+    $mapeamento = importacao_validador()->sugerirMapeamento(array_values($cabecalhos));
+    echo "Colunas:\n";
+    foreach ($mapeamento as $coluna => $campo) {
+        printf("  %s → %s\n", $coluna . str_repeat(' ', max(0, 28 - mb_strlen($coluna))), $campo === 'ignorar' ? '(guardada só nos dados originais)' : ImportValidationService::CAMPOS[$campo]['label']);
+    }
+    if ($erros = importacao_validador()->validarMapeamento($mapeamento)) {
+        throw new RuntimeException(implode(' ', $erros) . ' Nada foi gravado.');
+    }
+
     $hash = hash_file('sha256', $arquivo);
     if ($existente = $repo->buscarPorArquivo($hash)) {
-        throw new RuntimeException('Este arquivo já foi importado (importação nº ' . $existente['id'] . ', ' . $existente['status'] . '). Nada foi alterado.');
+        $existente = $repo->buscar((int)$existente['id']);
+        $gravou = (int)$existente['total_importados'] + (int)$existente['total_vinculados'] > 0
+            || (int)$pdo->query('SELECT COUNT(*) FROM importacao_itens WHERE importacao_id = ' . (int)$existente['id'] . ' AND processado_em IS NOT NULL')->fetchColumn() > 0;
+        if (in_array($existente['status'], ['enviada', 'em_analise', 'em_revisao'], true) && !$gravou) {
+            // Tentativa anterior interrompida antes de gravar no acervo: é encerrada e a importação recomeça.
+            $repo->cancelar((int)$existente['id']);
+            importar_registrar($pdo, $admin['id'], 'importacao.cancelar', (int)$existente['id'], ['motivo' => 'tentativa anterior interrompida (linha de comando)']);
+            echo "A tentativa anterior (importação nº {$existente['id']}) não gravou nada e foi cancelada. Recomeçando.\n";
+        } elseif ($existente['status'] === 'importando') {
+            echo "Retomando a gravação da importação nº {$existente['id']}, interrompida no meio.\n";
+            importar_gravar($repo, $pdo, $admin['id'], (int)$existente['id']);
+            exit(0);
+        } else {
+            throw new RuntimeException('Este arquivo já foi importado (importação nº ' . $existente['id'] . ', ' . $existente['status'] . '). Nada foi alterado.');
+        }
     }
 
     // Cópia na área privada, como no envio pela tela, para a importação poder ser reaberta no painel.
     $armazenado = bin2hex(random_bytes(16)) . '.' . $tipo . '.upload';
     if (!copy($arquivo, importacao_pasta() . DIRECTORY_SEPARATOR . $armazenado)) {
         throw new RuntimeException('Não foi possível copiar o arquivo para a pasta de importações.');
-    }
-    $abas = $leitor->abas($arquivo, $tipo);
-    $infoAba = array_values(array_filter($abas, fn ($a) => $a['nome'] === $aba))[0] ?? null;
-    if (!$infoAba) {
-        throw new RuntimeException("A aba \"$aba\" não existe na planilha.");
     }
     $id = $repo->criar([
         'nome_arquivo' => $nome,
@@ -103,17 +129,6 @@ try {
     ]);
     importar_registrar($pdo, $admin['id'], 'importacao.enviar', $id, ['arquivo' => $nome, 'tipo' => $tipo, 'origem' => 'linha de comando']);
 
-    // Análise com o mapeamento sugerido automaticamente (o mesmo que a tela propõe).
-    $folha = $tipo === 'csv' ? null : $aba;
-    $cabecalhos = $leitor->cabecalhos($arquivo, $tipo, $folha, 1);
-    $mapeamento = importacao_validador()->sugerirMapeamento(array_values($cabecalhos));
-    if ($erros = importacao_validador()->validarMapeamento($mapeamento)) {
-        throw new RuntimeException(implode(' ', $erros));
-    }
-    echo "Colunas:\n";
-    foreach ($mapeamento as $coluna => $campo) {
-        printf("  %s → %s\n", $coluna . str_repeat(' ', max(0, 28 - mb_strlen($coluna))), $campo === 'ignorar' ? '(guardada só nos dados originais)' : ImportValidationService::CAMPOS[$campo]['label']);
-    }
     $repo->iniciarAnalise($id, $aba, 1, $cabecalhos, $mapeamento);
     $ultima = (int)$infoAba['linhas'];
     for ($inicio = 2; $inicio <= $ultima; $inicio += IMPORTAR_ACERVO_LOTE) {
@@ -154,27 +169,8 @@ try {
     echo "Livros novos: {$resumo['criar']} · outros exemplares: {$resumo['outro_exemplar']} · pendentes para revisão: "
         . ($resumo['sem_decisao'] + $resumo['com_erro'] + $resumo['revisar_depois']) . "\n";
 
-    $repo->iniciarConfirmacao($id);
     importar_registrar($pdo, $admin['id'], 'importacao.confirmar', $id, $resumo);
-    do {
-        $r = $repo->confirmarLote($id, $admin['id'], 200);
-        echo "\rGravando no acervo... faltam {$r['restantes']}   ";
-    } while (!$r['concluida']);
-    echo "\n";
-
-    $final = $repo->buscar($id);
-    importar_registrar($pdo, $admin['id'], 'importacao.concluir', $id, [
-        'status' => $final['status'], 'criados' => (int)$final['total_importados'],
-        'vinculados' => (int)$final['total_vinculados'], 'falhas' => (int)$final['total_falhas'],
-    ]);
-    $pendentes = $repo->resumoConfirmacao($id);
-    echo "\nImportação nº $id " . ($final['status'] === 'concluida' ? 'concluída' : 'concluída com pendências') . ":\n"
-        . "  livros criados ............ {$final['total_importados']}\n"
-        . "  outros exemplares ......... {$final['total_vinculados']}\n"
-        . "  falharam ao gravar ........ {$final['total_falhas']}\n"
-        . "  aguardando decisão ........ {$pendentes['sem_decisao']}\n"
-        . "  com erro na planilha ...... {$pendentes['com_erro']}\n"
-        . "Revise as pendências no painel: Importações → importação nº $id.\n";
+    importar_gravar($repo, $pdo, $admin['id'], $id);
 } catch (Throwable $e) {
     fwrite(STDERR, "\nErro: " . $e->getMessage() . "\n");
     exit(1);
@@ -249,4 +245,29 @@ function importar_registrar(PDO $pdo, int $usuarioId, string $acao, int $importa
 {
     $pdo->prepare("INSERT INTO acoes_administrativas (usuario_id, acao, entidade, entidade_id, detalhes, ip) VALUES (?, ?, 'importacao', ?, ?, 'cli')")
         ->execute([$usuarioId, $acao, $importacaoId, json_encode($detalhes, JSON_UNESCAPED_UNICODE)]);
+}
+
+/** Grava no acervo, em lotes, as linhas aprovadas (também retoma uma gravação interrompida). */
+function importar_gravar(\Biblioteca\Repositories\ImportacaoRepository $repo, PDO $pdo, int $adminId, int $id): void
+{
+    $repo->iniciarConfirmacao($id);
+    do {
+        $r = $repo->confirmarLote($id, $adminId, 200);
+        echo "\rGravando no acervo... faltam {$r['restantes']}   ";
+    } while (!$r['concluida']);
+    echo "\n";
+
+    $final = $repo->buscar($id);
+    importar_registrar($pdo, $adminId, 'importacao.concluir', $id, [
+        'status' => $final['status'], 'criados' => (int)$final['total_importados'],
+        'vinculados' => (int)$final['total_vinculados'], 'falhas' => (int)$final['total_falhas'],
+    ]);
+    $pendentes = $repo->resumoConfirmacao($id);
+    echo "\nImportação nº $id " . ($final['status'] === 'concluida' ? 'concluída' : 'concluída com pendências') . ":\n"
+        . "  livros criados ............ {$final['total_importados']}\n"
+        . "  outros exemplares ......... {$final['total_vinculados']}\n"
+        . "  falharam ao gravar ........ {$final['total_falhas']}\n"
+        . "  aguardando decisão ........ {$pendentes['sem_decisao']}\n"
+        . "  com erro na planilha ...... {$pendentes['com_erro']}\n"
+        . "Revise as pendências no painel: Importações → importação nº $id.\n";
 }
