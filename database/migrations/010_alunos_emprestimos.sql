@@ -1,5 +1,5 @@
 -- =========================================================
--- 010 · Alunos e empréstimos — MySQL 8.0+
+-- 010 · Alunos e empréstimos — MySQL 8.0+ / MariaDB 10.4+
 -- Biblioteca Dom Pedro II (Etapa 3.5: estrutura preparada, telas nas próximas etapas)
 --
 -- Regras:
@@ -29,7 +29,7 @@ CREATE TABLE alunos (
     UNIQUE KEY alunos_matricula_uk (matricula),
     KEY alunos_nome_idx (nome),
     CONSTRAINT alunos_nome_ck CHECK (CHAR_LENGTH(TRIM(nome)) > 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE emprestimos (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -54,7 +54,7 @@ CREATE TABLE emprestimos (
     CONSTRAINT fk_emprestimos_recebido_por FOREIGN KEY (recebido_por) REFERENCES administradores (id),
     CONSTRAINT emprestimos_datas_ck CHECK (data_devolucao IS NULL OR data_devolucao >= data_emprestimo),
     CONSTRAINT emprestimos_renovacoes_ck CHECK (renovacoes BETWEEN 0 AND 10)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Empréstimos não podem ser apagados (histórico de circulação).
 CREATE TRIGGER emprestimos_sem_exclusao

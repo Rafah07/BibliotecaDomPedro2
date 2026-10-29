@@ -1,5 +1,5 @@
 -- =========================================================
--- 050 · Inventários físicos — MySQL 8.0+
+-- 050 · Inventários físicos — MySQL 8.0+ / MariaDB 10.4+
 -- Biblioteca Dom Pedro II (Etapa 3.5: estrutura preparada para a Etapa 5)
 --
 -- "inventarios" registra cada rodada de conferência (quem abriu, quando, situação).
@@ -23,7 +23,7 @@ CREATE TABLE inventarios (
     KEY inventarios_status_idx (status, iniciado_em),
     CONSTRAINT fk_inventarios_aberto_por FOREIGN KEY (aberto_por) REFERENCES administradores (id),
     CONSTRAINT inventarios_datas_ck CHECK (concluido_em IS NULL OR concluido_em >= iniciado_em)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE inventario_conferencias
     ADD COLUMN inventario_id BIGINT NULL AFTER id,

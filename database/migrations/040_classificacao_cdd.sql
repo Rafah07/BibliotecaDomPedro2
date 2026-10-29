@@ -49,13 +49,13 @@ CREATE TABLE classificacoes_cdd (
     UNIQUE KEY classificacoes_cdd_livro_uk (livro_id),
     KEY classificacoes_cdd_status_idx (status),
     KEY classificacoes_cdd_aprovada_idx (cdd_aprovada),
-    CONSTRAINT classificacoes_cdd_proposta_ck CHECK (cdd_proposta IS NULL OR REGEXP_LIKE(cdd_proposta, '^[0-9]{3}(\\.[0-9]+)?$')),
-    CONSTRAINT classificacoes_cdd_aprovada_ck CHECK (cdd_aprovada IS NULL OR REGEXP_LIKE(cdd_aprovada, '^[0-9]{3}(\\.[0-9]+)?$')),
+    CONSTRAINT classificacoes_cdd_proposta_ck CHECK (cdd_proposta IS NULL OR cdd_proposta REGEXP '^[0-9]{3}(\\.[0-9]+)?$'),
+    CONSTRAINT classificacoes_cdd_aprovada_ck CHECK (cdd_aprovada IS NULL OR cdd_aprovada REGEXP '^[0-9]{3}(\\.[0-9]+)?$'),
     CONSTRAINT classificacoes_cdd_aprovacao_ck CHECK (status <> 'aprovada' OR (cdd_aprovada IS NOT NULL AND aprovado_por IS NOT NULL AND aprovado_em IS NOT NULL)),
     CONSTRAINT fk_classificacao_livro FOREIGN KEY (livro_id) REFERENCES livros (id),
     CONSTRAINT fk_classificacao_sugerido_por FOREIGN KEY (sugerido_por) REFERENCES administradores (id),
     CONSTRAINT fk_classificacao_aprovado_por FOREIGN KEY (aprovado_por) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TRIGGER classificacoes_cdd_preservar_original
 BEFORE UPDATE ON classificacoes_cdd
@@ -96,7 +96,7 @@ CREATE TABLE classificacoes_cdd_historico (
     CONSTRAINT fk_cdd_historico_livro FOREIGN KEY (livro_id) REFERENCES livros (id),
     CONSTRAINT fk_cdd_historico_classificacao FOREIGN KEY (classificacao_id) REFERENCES classificacoes_cdd (id),
     CONSTRAINT fk_cdd_historico_responsavel FOREIGN KEY (responsavel_id) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TRIGGER cdd_historico_impedir_alteracao
 BEFORE UPDATE ON classificacoes_cdd_historico
@@ -121,7 +121,7 @@ CREATE TABLE cdd_lotes (
     criado_em    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     concluido_em DATETIME NULL,
     CONSTRAINT fk_cdd_lotes_criado_por FOREIGN KEY (criado_por) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------
 -- Pesquisas em fontes bibliográficas e registros encontrados
@@ -142,7 +142,7 @@ CREATE TABLE cdd_pesquisas (
     CONSTRAINT fk_cdd_pesquisas_livro FOREIGN KEY (livro_id) REFERENCES livros (id),
     CONSTRAINT fk_cdd_pesquisas_lote FOREIGN KEY (lote_id) REFERENCES cdd_lotes (id),
     CONSTRAINT fk_cdd_pesquisas_por FOREIGN KEY (consultado_por) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE cdd_consultas (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -169,7 +169,7 @@ CREATE TABLE cdd_consultas (
     KEY cdd_consultas_pesquisa_idx (pesquisa_id),
     CONSTRAINT fk_cdd_consultas_pesquisa FOREIGN KEY (pesquisa_id) REFERENCES cdd_pesquisas (id),
     CONSTRAINT fk_cdd_consultas_livro FOREIGN KEY (livro_id) REFERENCES livros (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE classificacoes_cdd
     ADD CONSTRAINT fk_classificacao_consulta FOREIGN KEY (consulta_id) REFERENCES cdd_consultas (id);
@@ -185,7 +185,7 @@ CREATE TABLE cdd_lote_itens (
     CONSTRAINT fk_cdd_lote_itens_lote FOREIGN KEY (lote_id) REFERENCES cdd_lotes (id),
     CONSTRAINT fk_cdd_lote_itens_livro FOREIGN KEY (livro_id) REFERENCES livros (id),
     CONSTRAINT fk_cdd_lote_itens_pesquisa FOREIGN KEY (pesquisa_id) REFERENCES cdd_pesquisas (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------
 -- Tabela de referência da CDD (vazia por padrão).
@@ -198,7 +198,7 @@ CREATE TABLE cdd_tabela_referencia (
     ddc_edicao    VARCHAR(20),
     fonte_licenca VARCHAR(255) NOT NULL,
     importado_em  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------
 -- Uma linha de classificação para cada livro já existente.

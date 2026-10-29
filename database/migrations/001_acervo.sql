@@ -1,5 +1,5 @@
 -- =========================================================
--- 001 · Módulo de acervo — MySQL 8.0+
+-- 001 · Módulo de acervo — MySQL 8.0+ / MariaDB 10.4+
 -- Biblioteca Dom Pedro II
 --
 -- Estrutura do acervo definida na Etapa 2. O MySQL é o único banco do sistema.
@@ -23,14 +23,14 @@ CREATE TABLE categorias (
     -- Nome único entre as categorias ativas (a collation já ignora maiúsculas).
     nome_ativo   VARCHAR(80) AS (IF(arquivado_em IS NULL, nome, NULL)) STORED,
     UNIQUE KEY categorias_nome_ativo_uk (nome_ativo)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE autores (
     id        BIGINT AUTO_INCREMENT PRIMARY KEY,
     nome      VARCHAR(150) NOT NULL,
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY autores_nome_uk (nome)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE localizacoes (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -38,7 +38,7 @@ CREATE TABLE localizacoes (
     estante    VARCHAR(80) NOT NULL,
     prateleira VARCHAR(80) NOT NULL,
     UNIQUE KEY localizacoes_uk (setor, estante, prateleira)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE livros (
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -66,10 +66,10 @@ CREATE TABLE livros (
     UNIQUE KEY livros_isbn_ativo_uk (isbn_ativo),
     KEY livros_titulo_idx (titulo),
     CONSTRAINT livros_titulo_ck CHECK (CHAR_LENGTH(TRIM(titulo)) > 0),
-    CONSTRAINT livros_isbn_ck CHECK (isbn IS NULL OR REGEXP_LIKE(isbn, '^([0-9]{9}[0-9X]|[0-9]{13})$', 'c')),
+    CONSTRAINT livros_isbn_ck CHECK (isbn IS NULL OR isbn COLLATE utf8mb4_bin REGEXP '^([0-9]{9}[0-9X]|[0-9]{13})$'),
     CONSTRAINT livros_ano_ck CHECK (ano_publicacao IS NULL OR ano_publicacao BETWEEN 1450 AND 2100),
     CONSTRAINT livros_paginas_ck CHECK (numero_paginas IS NULL OR numero_paginas BETWEEN 1 AND 10000)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE livro_autores (
     livro_id BIGINT NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE livro_autores (
     PRIMARY KEY (livro_id, autor_id),
     CONSTRAINT fk_livro_autores_livro FOREIGN KEY (livro_id) REFERENCES livros (id),
     CONSTRAINT fk_livro_autores_autor FOREIGN KEY (autor_id) REFERENCES autores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE livro_categorias (
     livro_id     BIGINT NOT NULL,
@@ -87,7 +87,7 @@ CREATE TABLE livro_categorias (
     PRIMARY KEY (livro_id, categoria_id),
     CONSTRAINT fk_livro_categorias_livro FOREIGN KEY (livro_id) REFERENCES livros (id),
     CONSTRAINT fk_livro_categorias_categoria FOREIGN KEY (categoria_id) REFERENCES categorias (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Sequência dos códigos BDP-000001, BDP-000002... (MySQL não tem SEQUENCE).
 CREATE TABLE exemplar_codigo_seq (
@@ -111,7 +111,7 @@ CREATE TABLE exemplares (
     KEY exemplares_situacao_idx (situacao),
     CONSTRAINT fk_exemplares_livro FOREIGN KEY (livro_id) REFERENCES livros (id),
     CONSTRAINT fk_exemplares_localizacao FOREIGN KEY (localizacao_id) REFERENCES localizacoes (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Histórico individual de cada exemplar.
 CREATE TABLE movimentacoes (
@@ -123,7 +123,7 @@ CREATE TABLE movimentacoes (
     criado_em      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY movimentacoes_exemplar_idx (exemplar_id, criado_em),
     CONSTRAINT fk_movimentacoes_exemplar FOREIGN KEY (exemplar_id) REFERENCES exemplares (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Resultado das conferências físicas por título (módulo de inventário).
 CREATE TABLE inventario_conferencias (
@@ -135,7 +135,7 @@ CREATE TABLE inventario_conferencias (
     responsavel_id BIGINT NULL,
     realizado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_conferencias_livro FOREIGN KEY (livro_id) REFERENCES livros (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------
 -- Geração segura de exemplares.

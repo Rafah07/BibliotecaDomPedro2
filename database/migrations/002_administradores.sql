@@ -23,7 +23,7 @@ CREATE TABLE administradores (
     criado_em      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     atualizado_em  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY administradores_email_uk (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Usado para limitar tentativas de login (5 falhas em 15 minutos bloqueiam o e-mail/IP).
 CREATE TABLE login_tentativas (
@@ -34,7 +34,7 @@ CREATE TABLE login_tentativas (
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY login_tentativas_email_idx (email, criado_em),
     KEY login_tentativas_ip_idx (ip, criado_em)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Liga os responsáveis do acervo aos administradores.
 ALTER TABLE movimentacoes

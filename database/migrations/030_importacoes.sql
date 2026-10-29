@@ -31,7 +31,7 @@ CREATE TABLE acoes_administrativas (
     KEY acoes_entidade_idx (entidade, entidade_id),
     KEY acoes_usuario_idx (usuario_id, criado_em),
     CONSTRAINT fk_acoes_usuario FOREIGN KEY (usuario_id) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------
 -- Importações (um arquivo enviado = uma importação)
@@ -74,7 +74,7 @@ CREATE TABLE importacoes (
     KEY importacoes_status_idx (status),
     KEY importacoes_criado_idx (criado_em),
     CONSTRAINT fk_importacoes_usuario FOREIGN KEY (usuario_id) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------
 -- Linhas de cada importação
@@ -116,7 +116,7 @@ CREATE TABLE importacao_itens (
     CONSTRAINT fk_itens_livro_resultante FOREIGN KEY (livro_resultante_id) REFERENCES livros (id),
     CONSTRAINT fk_itens_referencia FOREIGN KEY (item_referencia_id) REFERENCES importacao_itens (id),
     CONSTRAINT fk_itens_revisado_por FOREIGN KEY (revisado_por) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Uma linha já aplicada ao acervo não pode voltar a ser pendente nem trocar de livro.
 CREATE TRIGGER importacao_itens_processado
@@ -145,7 +145,7 @@ CREATE TABLE importacao_mapeamentos (
     atualizado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY importacao_mapeamentos_nome_uk (nome),
     CONSTRAINT fk_mapeamentos_usuario FOREIGN KEY (criado_por) REFERENCES administradores (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------
 -- Dados antigos das planilhas, preservados para comparação
@@ -178,7 +178,7 @@ CREATE TABLE registros_legados (
     CONSTRAINT fk_legados_importacao FOREIGN KEY (importacao_id) REFERENCES importacoes (id),
     CONSTRAINT fk_legados_item FOREIGN KEY (importacao_item_id) REFERENCES importacao_itens (id),
     CONSTRAINT fk_legados_livro FOREIGN KEY (livro_id) REFERENCES livros (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Os valores antigos não podem ser alterados nem apagados depois de importados.
 CREATE TRIGGER registros_legados_imutavel

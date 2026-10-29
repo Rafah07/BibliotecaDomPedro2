@@ -19,7 +19,7 @@ Não há framework nem etapa de build: o CSS e o JavaScript são arquivos simple
 
 ### 1. PHP e MySQL
 
-- **Windows**: instale o [XAMPP](https://www.apachefriends.org/) ou o [Laragon](https://laragon.org/), que já trazem PHP, MySQL (ou MariaDB; prefira MySQL 8) e Apache. Copie a pasta do projeto para `htdocs` (XAMPP) ou `www` (Laragon).
+- **Windows**: instale o [XAMPP](https://www.apachefriends.org/) ou o [Laragon](https://laragon.org/), que já trazem PHP, MySQL ou MariaDB (ambos funcionam: MySQL 8.0+ ou MariaDB 10.4+) e Apache. Copie a pasta do projeto para `htdocs` (XAMPP) ou `www` (Laragon).
 - **Linux (Ubuntu/Debian)**: `sudo apt install php php-mysql php-mbstring php-zip php-curl mysql-server`
 - **macOS**: `brew install php mysql`
 
@@ -40,7 +40,7 @@ Sem o Composer o sistema funciona, mas a importação aceita apenas arquivos `.c
 Entre no MySQL como administrador (`mysql -u root -p`) e crie o banco e um usuário próprio:
 
 ```sql
-CREATE DATABASE biblioteca_dom_pedro CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE DATABASE biblioteca_dom_pedro CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'usuario_biblioteca'@'localhost' IDENTIFIED BY 'troque-esta-senha';
 GRANT ALL PRIVILEGES ON biblioteca_dom_pedro.* TO 'usuario_biblioteca'@'localhost';
 -- As migrações criam triggers e um procedimento. Com o log binário ligado

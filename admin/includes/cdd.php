@@ -1125,7 +1125,7 @@ function cdd_lote_processar(int $loteId, array $usuario): array
     if (db_modo() === 'mysql') {
         // Reserva o item para que duas abas não pesquisem o mesmo livro ao mesmo tempo.
         $proximo = db_transacao(function () use ($loteId) {
-            $livro = db_query('SELECT livro_id FROM cdd_lote_itens WHERE lote_id = ? AND status = "pendente" ORDER BY livro_id LIMIT 1 FOR UPDATE SKIP LOCKED', [$loteId])->fetchColumn();
+            $livro = db_query('SELECT livro_id FROM cdd_lote_itens WHERE lote_id = ? AND status = "pendente" ORDER BY livro_id LIMIT 1 FOR UPDATE', [$loteId])->fetchColumn();
             if ($livro !== false) {
                 db_query('UPDATE cdd_lotes SET status = "processando" WHERE id = ? AND status = "pendente"', [$loteId]);
             }
