@@ -39,7 +39,7 @@ CREATE TABLE acoes_administrativas (
 CREATE TABLE importacoes (
     id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
     nome_arquivo          VARCHAR(255) NOT NULL,            -- nome original, só para exibição
-    identificador_arquivo CHAR(64) NOT NULL,                -- SHA-256 do conteúdo
+    identificador_arquivo VARCHAR(64) NOT NULL,             -- SHA-256 do conteúdo (VARCHAR: o MariaDB 10.5+ recusa CHAR na coluna gerada abaixo)
     arquivo_armazenado    VARCHAR(80) NOT NULL,             -- nome aleatório na área privada
     tipo_arquivo          ENUM('xlsx', 'csv') NOT NULL,
     tamanho_bytes         BIGINT NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE importacoes (
     finalizado_em         DATETIME NULL,
     -- Impede importar o mesmo arquivo duas vezes. Só libera o arquivo uma importação
     -- cancelada (ou com falha) que não chegou a gravar nenhuma linha no acervo.
-    arquivo_ativo         CHAR(64) AS (IF(status IN ('cancelada', 'falhou') AND total_importados + total_vinculados = 0, NULL, identificador_arquivo)) STORED,
+    arquivo_ativo         VARCHAR(64) AS (IF(status IN ('cancelada', 'falhou') AND total_importados + total_vinculados = 0, NULL, identificador_arquivo)) STORED,
     UNIQUE KEY importacoes_arquivo_ativo_uk (arquivo_ativo),
     KEY importacoes_status_idx (status),
     KEY importacoes_criado_idx (criado_em),

@@ -87,6 +87,21 @@ A senha (mínimo de 10 caracteres) é pedida no terminal. Perfis: `administrador
 
 Opcional, **somente em um banco de testes**: `php database/seeds/popular-demo.php` copia os livros fictícios para um banco vazio (recusa rodar com `APP_ENV=production` ou com livros já cadastrados).
 
+### 6.1 Acervo real (planilha da biblioteca)
+
+A aba **Catalogar** da planilha *DOM PEDRO BIBLIOTECA* (5.687 linhas) está em `database/seeds/dados/acervo-catalogar.csv`, só com os dados dos livros (sem as abas de alunos e empréstimos). Para carregá-la no banco:
+
+```bash
+php database/seeds/importar-acervo.php --apagar-demo
+```
+
+No XAMPP (Windows): `C:\xampp\php\php.exe database\seeds\importar-acervo.php --apagar-demo`, dentro da pasta do projeto.
+
+- `--apagar-demo` esvazia antes o acervo, os exemplares, os empréstimos, a CDD, os inventários e as importações (pede para digitar APAGAR). Administradores e alunos ficam.
+- A importação usa o mesmo fluxo da tela *Importações*: a CDD, o código de autor, a localização e a quantidade antigos ficam em `registros_legados`, e nenhum exemplar ou código BDP é criado.
+- Linhas repetidas (idênticas, mesmo ISBN, ou mesmo título/autor da mesma editora, ano e edição) viram "outro exemplar" do mesmo livro. As linhas com erro ficam pendentes em *Importações → detalhes* para revisão.
+- O mesmo arquivo não é importado duas vezes. Para uma versão nova da planilha, passe o `.xlsx`: `php database/seeds/importar-acervo.php planilha.xlsx --aba=Catalogar`.
+
 ### 7. Servidor local
 
 Na pasta do projeto:
@@ -139,7 +154,7 @@ BibliotecaDomPedro2/
 │   └── Support/               ISBN e normalização de texto
 ├── database/
 │   ├── migrations/            NNN_nome.sql
-│   ├── seeds/                 dados fictícios para testes
+│   ├── seeds/                 dados fictícios (popular-demo) e acervo real (importar-acervo)
 │   ├── migrar.php
 │   └── criar-admin.php
 ├── assets/                    CSS, JS e imagens do site público
