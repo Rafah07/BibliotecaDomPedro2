@@ -3,14 +3,8 @@
  * Dados DEMONSTRATIVOS do painel administrativo.
  *
  * Nenhum número aqui é real. Cada função representa uma consulta futura ao banco
- * (Supabase/MySQL): basta trocar o corpo da função mantendo o mesmo formato de retorno.
+ * MySQL: basta trocar o corpo da função mantendo o mesmo formato de retorno.
  */
-
-/** Usuário exibido no cabeçalho enquanto não há autenticação real. */
-function demo_usuario(): array
-{
-    return ['nome' => 'Ana Souza', 'cargo' => 'Administrador', 'iniciais' => 'AS'];
-}
 
 /** Indicadores principais (primeira linha de cards). */
 function demo_indicadores(): array

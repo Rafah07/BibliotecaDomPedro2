@@ -31,6 +31,7 @@ $emprestados = $situacoes['emprestado'] ?? 0;
 $manutencao = $situacoes['manutencao'] ?? 0;
 $outras = $livro['total_exemplares'] - $livro['disponiveis'] - $emprestados - $manutencao;
 $planilha = $livro['planilha'];
+$qtdPlanilha = $planilha && $planilha['quantidade_informada'] !== null ? (int)$planilha['quantidade_informada'] : null;
 $precisaConferir = in_array($livro['status_validacao'], ['aguardando_conferencia', 'com_divergencia'], true);
 
 $kpis = [
@@ -57,7 +58,8 @@ $meta = [
     <div class="adm-book-hero__body">
         <div class="adm-book-hero__tags">
             <?= acervo_badge_status($livro['status_validacao']) ?>
-            <span class="adm-demo-tag">Dados demonstrativos</span>
+            <?= acervo_badges_importacao($livro) ?>
+            <?php if (!acervo_usa_mysql()): ?><span class="adm-demo-tag">Dados demonstrativos</span><?php endif; ?>
         </div>
         <h1><?= htmlspecialchars($livro['titulo']) ?></h1>
         <?php if ($livro['subtitulo']): ?><p class="adm-book-hero__subtitle"><?= htmlspecialchars($livro['subtitulo']) ?></p><?php endif; ?>
@@ -89,7 +91,7 @@ $meta = [
             </strong>
             <dl class="adm-notice__numbers">
                 <div><dt>Situação do cadastro</dt><dd><?= htmlspecialchars(ACERVO_STATUS[$livro['status_validacao']]['label']) ?></dd></div>
-                <div><dt>Quantidade informada na planilha</dt><dd><?= $planilha ? (int)$planilha['quantidade_informada'] : '—' ?></dd></div>
+                <div><dt>Quantidade informada na planilha</dt><dd><?= $qtdPlanilha ?? '—' ?></dd></div>
                 <div><dt>Exemplares identificados</dt><dd><?= $livro['total_exemplares'] ?></dd></div>
                 <div><dt>Disponíveis para empréstimo</dt><dd><?= $livro['disponiveis'] ?></dd></div>
             </dl>
@@ -188,7 +190,7 @@ $meta = [
                             <div class="adm-empty">
                                 <?= icon('book-copy') ?>
                                 <strong>Nenhum exemplar identificado</strong>
-                                <span><?= $planilha ? 'A planilha informa ' . (int)$planilha['quantidade_informada'] . ' unidades, mas nenhuma foi conferida fisicamente.' : 'Cadastre as unidades físicas para que o livro possa ser emprestado.' ?></span>
+                                <span><?= $qtdPlanilha !== null ? 'A planilha informa ' . $qtdPlanilha . ' unidades, mas nenhuma foi conferida fisicamente.' : ($planilha ? 'A planilha não informou quantidade. Os exemplares são identificados na conferência física.' : 'Cadastre as unidades físicas para que o livro possa ser emprestado.') ?></span>
                             </div>
                         </td>
                     </tr>
@@ -252,11 +254,27 @@ $meta = [
             <div>
                 <h3 class="adm-subtitle">Registro da planilha</h3>
                 <?php if ($planilha): ?>
+                    <?php $semValor = '<span class="adm-missing">Não informado</span>'; ?>
                     <dl class="adm-meta adm-meta--stack adm-meta--boxed">
-                        <div><dt>Arquivo</dt><dd><?= htmlspecialchars($planilha['arquivo']) ?> (linha <?= (int)$planilha['linha'] ?>)</dd></div>
+                        <div><dt>Origem</dt><dd><?= htmlspecialchars(ACERVO_ORIGENS[$livro['origem_cadastro']]) ?></dd></div>
+                        <div><dt>Arquivo</dt><dd>
+                            <?php if (!empty($planilha['importacao_id'])): ?>
+                                <a href="<?= htmlspecialchars(admin_url('detalhes-importacao') . '?id=' . (int)$planilha['importacao_id']) ?>"><?= htmlspecialchars($planilha['arquivo']) ?></a>
+                            <?php else: ?>
+                                <?= htmlspecialchars($planilha['arquivo']) ?>
+                            <?php endif; ?>
+                            (linha <?= (int)$planilha['linha'] ?><?= ($planilha['total_linhas'] ?? 1) > 1 ? ' e mais ' . ((int)$planilha['total_linhas'] - 1) . ' registro(s)' : '' ?>)
+                        </dd></div>
                         <div><dt>Importado em</dt><dd><?= acervo_data($planilha['importado_em']) ?></dd></div>
-                        <div><dt>Quantidade informada</dt><dd><?= (int)$planilha['quantidade_informada'] ?></dd></div>
+                        <?php if (array_key_exists('cdd_original', $planilha)): ?>
+                            <div><dt>CDD antiga</dt><dd class="adm-mono"><?= $planilha['cdd_original'] !== null && $planilha['cdd_original'] !== '' ? htmlspecialchars($planilha['cdd_original']) : $semValor ?></dd></div>
+                            <div><dt>Código do autor antigo</dt><dd class="adm-mono"><?= $planilha['codigo_autor_antigo'] ? htmlspecialchars($planilha['codigo_autor_antigo']) : $semValor ?></dd></div>
+                            <div><dt>Localização antiga</dt><dd><?= $planilha['localizacao_antiga'] ? htmlspecialchars($planilha['localizacao_antiga']) : $semValor ?></dd></div>
+                        <?php endif; ?>
+                        <div><dt>Nova classificação</dt><dd><?= $livro['aguarda_reclassificacao'] ? 'Aguardando reclassificação CDD' : 'Classificação aprovada' ?></dd></div>
+                        <div><dt>Quantidade da planilha</dt><dd><?= $qtdPlanilha ?? $semValor ?></dd></div>
                         <div><dt>Exemplares identificados</dt><dd><?= $livro['total_exemplares'] ?></dd></div>
+                        <div><dt>Situação da conferência</dt><dd><?= $livro['aguarda_inventario'] ? 'Aguardando inventário físico' : $livro['exemplares_conferidos'] . ' exemplar(es) conferido(s)' ?></dd></div>
                     </dl>
                     <p class="adm-side-note"><?= icon('info') ?> A quantidade da planilha é guardada separadamente e não se transforma em exemplares disponíveis.</p>
                 <?php else: ?>

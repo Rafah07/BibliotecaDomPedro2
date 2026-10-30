@@ -4,15 +4,17 @@
  *
  * Com MySQL configurado, os usuários vêm da tabela "administradores" (senha com password_hash).
  * No modo demonstrativo, existem duas contas fictícias (ver AUTH_CONTAS_DEMO), só para testar telas.
+ * As contas demonstrativas só funcionam fora de produção (APP_ENV diferente de "production"):
+ * em produção, sem banco configurado, ninguém consegue entrar no painel.
  */
 require_once __DIR__ . '/db.php';
 
 /** Permissões de cada perfil. */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar'],
-    'bibliotecaria' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar'],
-    'auxiliar' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar'],
-    'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar'],
+    'administrador' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'bibliotecaria' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'auxiliar' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
+    'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver'],
 ];
 
 const AUTH_PERFIS = [
@@ -29,6 +31,12 @@ const AUTH_CONTAS_DEMO = [
 ];
 
 const AUTH_MAX_TENTATIVAS = 5;
+
+/** Contas demonstrativas só valem sem banco e fora de produção. */
+function auth_demo_disponivel(): bool
+{
+    return db_modo() === 'demo' && app_ambiente() !== 'production';
+}
 const AUTH_JANELA_MINUTOS = 15;
 
 function auth_sessao(): void
@@ -62,7 +70,7 @@ function auth_usuario(): ?array
     }
     auth_sessao();
     $sessao = $_SESSION['auth'] ?? null;
-    if (!$sessao || ($sessao['modo'] ?? '') !== db_modo()) {
+    if (!$sessao || ($sessao['modo'] ?? '') !== db_modo() || ($sessao['modo'] === 'demo' && !auth_demo_disponivel())) {
         return $usuario = null;
     }
     if ($sessao['modo'] === 'mysql') {
@@ -136,6 +144,9 @@ function auth_login(string $email, string $senha): ?string
     }
 
     if (db_modo() === 'demo') {
+        if (!auth_demo_disponivel()) {
+            return 'O banco de dados ainda não foi configurado. Fale com o responsável técnico.';
+        }
         $conta = AUTH_CONTAS_DEMO[$email] ?? null;
         if (!$conta || !hash_equals('demo', $senha)) {
             return $generica;

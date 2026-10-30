@@ -242,6 +242,8 @@
     transition: background .15s ease, color .15s ease;
 }
 .adm-nav__link:hover { background: var(--adm-bg); color: var(--adm-text); }
+.adm-nav form { margin: 0; }
+.adm-dropdown__empty { margin: 0; padding: 14px 16px; color: var(--adm-muted); font-size: 13px; } /* botão Sair (POST com token CSRF) */
 .adm-nav__link.is-active {
     background: var(--adm-blue-50);
     color: var(--adm-navy);

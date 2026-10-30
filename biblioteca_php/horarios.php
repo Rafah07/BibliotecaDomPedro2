@@ -15,6 +15,6 @@ page_heading('Planeje sua visita', 'Horários da biblioteca', 'Confira como os h
 </section>
 <section class="info-card-grid schedule-extras">
     <article class="info-card"><span class="material-symbols-outlined">library_books</span><h3>Empréstimos</h3><p>Prazos e regras de empréstimo serão informados pela biblioteca.</p></article>
-    <article class="info-card"><span class="material-symbols-outlined">contact_support</span><h3>Precisa de ajuda?</h3><p>Entre em contato com a equipe responsável para tirar dúvidas sobre o atendimento.</p><a class="inline-link" href="contato.php">Ir para contato →</a></article>
+    <article class="info-card"><span class="material-symbols-outlined">contact_support</span><h3>Precisa de ajuda?</h3><p>Entre em contato com a equipe responsável para tirar dúvidas sobre o atendimento.</p><a class="inline-link" href="<?= e(url('biblioteca_php/contato.php')) ?>">Ir para contato →</a></article>
 </section>
 <?php page_end(); ?>

@@ -29,11 +29,14 @@ $paginaAtual = $paginaAtual ?? 'dashboard';
                         <?php if (!empty($item['oculto'])) continue; ?>
                         <?php $ativo = $paginaAtual === $id; ?>
                         <li<?= isset($item['pai']) ? ' class="adm-nav__sub"' : '' ?>>
-                            <?php if (($item['demo'] ?? '') === 'logout'): ?>
-                                <button type="button" class="adm-nav__link" data-demo-logout data-tooltip="<?= htmlspecialchars($item['label']) ?>">
-                                    <?= icon($item['icon'], 'adm-nav__icon') ?>
-                                    <span class="adm-nav__label"><?= htmlspecialchars($item['label']) ?></span>
-                                </button>
+                            <?php if (($item['acao'] ?? '') === 'logout'): ?>
+                                <form method="post" action="<?= htmlspecialchars(admin_base() . 'logout.php') ?>">
+                                    <?= csrf_campo() ?>
+                                    <button type="submit" class="adm-nav__link" data-tooltip="<?= htmlspecialchars($item['label']) ?>">
+                                        <?= icon($item['icon'], 'adm-nav__icon') ?>
+                                        <span class="adm-nav__label"><?= htmlspecialchars($item['label']) ?></span>
+                                    </button>
+                                </form>
                             <?php else: ?>
                                 <a href="<?= htmlspecialchars(admin_url($id)) ?>"
                                    class="adm-nav__link<?= $ativo ? ' is-active' : '' ?>"

@@ -1,79 +1,217 @@
-# Biblioteca Dom Pedro II — Protótipo
+# Biblioteca Dom Pedro II
 
-Protótipo visual em PHP, com página inicial, catálogo, gêneros, autores, sobre, horários e contato.
+Sistema da biblioteca escolar Dom Pedro II, em PHP tradicional e MySQL.
 
-## Como executar
+- **Site público** (sem login): página inicial, catálogo, gêneros, autores, sobre, horários e contato. Os alunos usam apenas esta área.
+- **Painel administrativo** (`/admin/`, com login): dashboard, acervo (livros, exemplares, categorias), classificação CDD e importação das planilhas Excel antigas.
 
-Na pasta `BibliotecaDomPedro2`, rode:
+## Tecnologias e requisitos
+
+| Item | Versão |
+| --- | --- |
+| PHP | 8.2 ou superior, com as extensões `pdo_mysql`, `mbstring`, `zip` e `curl` |
+| MySQL | 8.0 ou superior (charset `utf8mb4`) |
+| Composer | 2.x (instala o PhpSpreadsheet, usado para ler `.xlsx`) |
+
+Não há framework nem etapa de build: o CSS e o JavaScript são arquivos simples. O painel usa o Chart.js por CDN (sem internet, os gráficos mostram um aviso e o resto funciona).
+
+## Instalação
+
+### 1. PHP e MySQL
+
+- **Windows**: instale o [XAMPP](https://www.apachefriends.org/) ou o [Laragon](https://laragon.org/), que já trazem PHP, MySQL (ou MariaDB; prefira MySQL 8) e Apache. Copie a pasta do projeto para `htdocs` (XAMPP) ou `www` (Laragon).
+- **Linux (Ubuntu/Debian)**: `sudo apt install php php-mysql php-mbstring php-zip php-curl mysql-server`
+- **macOS**: `brew install php mysql`
+
+Confira com `php -v` (8.2+) e `mysql --version` (8.0+).
+
+### 2. Dependências do Composer
+
+Instale o [Composer](https://getcomposer.org/download/) e, na pasta do projeto:
+
+```bash
+composer install
+```
+
+Sem o Composer o sistema funciona, mas a importação aceita apenas arquivos `.csv`.
+
+### 3. Banco de dados
+
+Entre no MySQL como administrador (`mysql -u root -p`) e crie o banco e um usuário próprio:
+
+```sql
+CREATE DATABASE biblioteca_dom_pedro CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER 'usuario_biblioteca'@'localhost' IDENTIFIED BY 'troque-esta-senha';
+GRANT ALL PRIVILEGES ON biblioteca_dom_pedro.* TO 'usuario_biblioteca'@'localhost';
+-- As migrações criam triggers e um procedimento. Com o log binário ligado
+-- (padrão do MySQL 8), um usuário comum só consegue criá-los com esta opção:
+SET GLOBAL log_bin_trust_function_creators = 1;
+```
+
+> Para que a opção acima continue valendo depois de reiniciar o MySQL, acrescente `log_bin_trust_function_creators = 1` na seção `[mysqld]` do `my.cnf`/`my.ini`. Outra possibilidade é rodar as migrações com o usuário `root`.
+
+### 4. Arquivo `.env`
+
+Copie o modelo e preencha os dados do banco:
+
+```bash
+cp .env.example .env
+```
+
+| Variável | Para que serve |
+| --- | --- |
+| `APP_ENV` | `development` (padrão) ou `production`. Em produção, as contas demonstrativas ficam desligadas. |
+| `APP_BASE_PATH` | Caminho do site no navegador. Deixe vazio para descobrir sozinho; use `/BibliotecaDomPedro2` se a detecção falhar em uma subpasta. |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Conexão com o MySQL. |
+| `CDD_CONTATO`, `CDD_FONTE_*` | Fontes consultadas pela classificação CDD. |
+| `STORAGE_IMPORTACOES` | Pasta privada das planilhas enviadas (padrão `storage/importacoes`). |
+
+O `.env` está no `.gitignore` e **nunca** deve ser enviado ao GitHub. Variáveis definidas no próprio servidor têm prioridade sobre o arquivo.
+
+### 5. Migrações
+
+```bash
+php database/migrar.php           # aplica as migrações pendentes
+php database/migrar.php --status  # mostra o que já foi aplicado
+```
+
+Cada arquivo de `database/migrations/` roda uma única vez e fica registrado na tabela `schema_migracoes`. As migrações só criam ou acrescentam estruturas: nenhuma apaga dados.
+
+### 6. Primeiro usuário do painel
+
+```bash
+php database/criar-admin.php "Nome Completo" email@escola.com.br bibliotecaria
+```
+
+A senha (mínimo de 10 caracteres) é pedida no terminal. Perfis: `administrador`, `bibliotecaria`, `auxiliar`, `consulta`.
+
+Opcional, **somente em um banco de testes**: `php database/seeds/popular-demo.php` copia os livros fictícios para um banco vazio (recusa rodar com `APP_ENV=production` ou com livros já cadastrados).
+
+### 7. Servidor local
+
+Na pasta do projeto:
 
 ```bash
 php -S localhost:8000
 ```
 
-Abra **http://localhost:8000** no navegador (a raiz redireciona para a página inicial).
+- Site público: <http://localhost:8000/>
+- Painel administrativo: <http://localhost:8000/admin/>
 
-Também funciona em um servidor local com PHP, como XAMPP ou Laragon.
+No XAMPP/Laragon, com o Apache ligado: <http://localhost/BibliotecaDomPedro2/> e <http://localhost/BibliotecaDomPedro2/admin/>. Os endereços são gerados a partir da raiz da aplicação, então o sistema funciona tanto na raiz de um domínio quanto em uma subpasta.
+
+### Sem banco (modo demonstrativo)
+
+Sem `.env` (ou sem `DB_NAME`/`DB_USER`), o sistema roda em modo demonstrativo:
+
+- O site mostra livros de exemplo com o aviso "Demonstração".
+- O painel aceita as contas `bibliotecaria@demo` e `auxiliar@demo` (senha `demo`), **apenas** quando `APP_ENV` não é `production`.
+- A importação de planilhas e todas as gravações reais ficam bloqueadas.
 
 ## Estrutura
 
-- `Index/Index.php`: tela inicial
-- `biblioteca_php/`: as seis páginas internas
-- `includes/sidebar.php`: menu lateral expansível, com links funcionando
-- `includes/layout.php`: cabeçalho e layout compartilhados
-- `includes/dados-exemplo.php`: livros e autores fictícios para testar o visual (títulos e pessoas reais, mas **não** são dados reais do acervo da escola)
-- `assets/css/style.css`: estilos do site e responsividade
-- `assets/js/app.js`: interações visuais do menu e formulário de demonstração
+```
+BibliotecaDomPedro2/
+├── index.php                  página inicial (única)
+├── biblioteca_php/            páginas públicas: catalogo, generos, autores, sobre, horarios, contato
+├── includes/                  layout, menu lateral e acesso ao catálogo do site público
+│   ├── layout.php             page_start(), page_end(), page_heading(), book_cover()
+│   ├── sidebar.php            menu lateral expansível
+│   ├── catalogo.php           escolhe a fonte dos livros (MySQL ou exemplos)
+│   └── dados-exemplo.php      livros fictícios do modo demonstrativo
+├── admin/                     painel administrativo (todas as páginas exigem login)
+│   ├── index.php              dashboard
+│   ├── login.php, logout.php
+│   ├── livros.php, exemplares.php, categorias.php, cadastrar/editar/detalhes-*.php
+│   ├── classificacao.php, classificar-livro.php, revisao-cdd.php, historico-cdd.php, relatorio-cdd.php
+│   ├── importacao.php, detalhes-importacao.php, historico-importacoes.php
+│   ├── em-desenvolvimento.php tela das páginas ainda não criadas (inventário, empréstimos...)
+│   ├── api/                   endpoints JSON (login + token CSRF)
+│   ├── includes/              layout, menu, autenticação, módulos
+│   ├── assets/                CSS e JS do painel
+│   └── tests/                 testes de linha de comando
+├── config/
+│   ├── app.php                .env, carregamento das classes, url() e asset()
+│   └── database.php           conexão PDO com o MySQL
+├── src/                       classes (namespace Biblioteca\)
+│   ├── Repositories/          consultas ao banco (CatalogoRepository, ImportacaoRepository)
+│   ├── Services/              regras de negócio (CatalogoService, importação)
+│   └── Support/               ISBN e normalização de texto
+├── database/
+│   ├── migrations/            NNN_nome.sql
+│   ├── seeds/                 dados fictícios para testes
+│   ├── migrar.php
+│   └── criar-admin.php
+├── assets/                    CSS, JS e imagens do site público
+├── storage/importacoes/       planilhas enviadas (privado)
+├── composer.json
+└── .env.example
+```
 
-## Painel administrativo (protótipo)
+### Regras para quem for manter o código
 
-Acesse **http://localhost:8000/admin/** para ver o dashboard administrativo.
+- Includes PHP sempre com `__DIR__`: `require_once __DIR__ . '/../includes/layout.php';`
+- Links e arquivos públicos com `url()` e `asset()`: `url('biblioteca_php/catalogo.php')`, `asset('css/style.css')`. No painel, `admin_url('id-do-menu')`.
+- Textos exibidos sempre escapados (`e()` ou `htmlspecialchars`), consultas sempre preparadas (`db_query($sql, [$valor])`).
+- SQL fica nos Repositories (ou nos arquivos de módulo do painel), não no meio do HTML.
+- Mudanças no banco: crie um novo arquivo em `database/migrations/` (nunca edite um que já foi aplicado). Prefixos: `001–002` base, `010` circulação, `030` importação, `040` CDD, `050+` inventário.
 
-- `admin/index.php`: dashboard (indicadores, gráficos, atividades, alertas, acesso rápido e inventário)
-- `admin/em-desenvolvimento.php`: tela provisória das páginas que ainda serão criadas
-- `admin/includes/menu.php`: itens do menu lateral; marque `'pronta' => true` quando uma página existir
-- `admin/includes/dados-demo.php`: **todos os dados demonstrativos** do painel, em funções que depois serão trocadas por consultas ao banco
-- `admin/includes/layout.php`, `sidebar.php`, `header.php`: estrutura compartilhada
-- `admin/includes/icones.php`: ícones Lucide embutidos (funcionam sem internet)
-- `admin/assets/css/admin.css`: estilos do painel (classes com prefixo `adm-`, sem conflito com o site público)
-- `admin/assets/js/admin.js` e `dashboard.js`: menu, menus suspensos, avisos e gráficos (Chart.js via CDN)
+## Banco de dados
 
-### Módulo de acervo (Etapa 2)
+| Entidade | Tabelas | Migração |
+| --- | --- | --- |
+| Livros (cadastro bibliográfico) | `livros`, `livro_autores`, `livro_categorias`, view `livros_resumo` | 001 |
+| Autores | `autores` | 001 |
+| Categorias | `categorias` | 001 |
+| Exemplares (unidade física, código BDP) | `exemplares`, `exemplar_codigo_seq`, procedimento `gerar_exemplares` | 001 |
+| Localizações | `localizacoes` | 001 |
+| Histórico de cada exemplar | `movimentacoes` | 001 |
+| Administradores | `administradores`, `login_tentativas` | 002 |
+| Alunos (sem login) | `alunos` | 010 |
+| Empréstimos | `emprestimos` | 010 |
+| Importações | `importacoes`, `importacao_itens`, `importacao_mapeamentos` | 030 |
+| Dados antigos das planilhas | `registros_legados` (imutável) | 030 |
+| Histórico de atividades | `acoes_administrativas` | 030 |
+| Classificações CDD | `classificacoes_cdd`, `classificacoes_cdd_historico`, `cdd_*` | 040 |
+| Inventários | `inventarios`, `inventario_conferencias` | 001 + 050 |
 
-- `admin/livros.php`: listagem com pesquisa, filtros, ordenação, paginação, menu de ações e arquivamento
-- `admin/cadastrar-livro.php` e `admin/editar-livro.php`: formulário de livro (ISBN-10/13 com dígito de controle, autores, capa, situação) com aviso de possível duplicidade
-- `admin/detalhes-livro.php?id=1`: capa, dados, indicadores e abas (informações, exemplares, movimentações, inventário)
-- `admin/exemplares.php` e `admin/detalhes-exemplar.php?codigo=BDP-000001`: unidades físicas, com código próprio, localização, conservação e situação
-- `admin/categorias.php`: categorias, com arquivamento que exige mover os livros associados
-- `admin/includes/acervo-demo.php`: dados demonstrativos do acervo (16 livros, 33 exemplares, 13 categorias), um conjunto por tabela
-- `admin/includes/acervo.php`: consultas, rótulos, validação no servidor e componentes (capas, selos, breadcrumbs)
-- `admin/assets/css/acervo.css` e `admin/assets/js/acervo.js`: estilos e interações do módulo
-- `admin/database/acervo.sql`: estrutura para PostgreSQL/Supabase (tabelas, geração segura de códigos, bloqueio de exemplar emprestado)
+Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pertence a um livro; o código BDP é único; o ISBN identifica a edição, não o exemplar; a quantidade antiga das planilhas fica em `registros_legados` e **nunca** vira exemplar disponível; a CDD fica em `classificacoes_cdd` com histórico que não pode ser alterado; um exemplar só pode ter um empréstimo em aberto; empréstimos e registros legados não podem ser apagados.
 
-Cadastros, edições, arquivamentos e exemplares criados nessas telas são **simulados**: ficam só na memória da página e somem ao recarregar. A quantidade informada em planilhas nunca vira exemplar disponível; os exemplares só existem depois da conferência física.
+## Segurança do painel
 
-Ainda não há login, banco de dados nem cadastros: o botão "Sair" e a pesquisa global são apenas demonstrativos.
+- Todas as páginas de `admin/` exigem login; as APIs respondem 401/403 sem sessão ou sem permissão.
+- Senhas com `password_hash`/`password_verify`, sessão com cookie `HttpOnly` e `SameSite=Lax`, ID regenerado no login, bloqueio após 5 tentativas em 15 minutos.
+- Formulários e APIs que alteram dados exigem token CSRF; o logout é feito por POST.
+- Permissões por perfil em `admin/includes/auth.php` (`AUTH_PERMISSOES`).
+- Erros de banco aparecem para o usuário como mensagem genérica; o detalhe vai para o log do servidor.
+- No Apache, arquivos `.htaccess` bloqueiam o acesso direto a `config/`, `database/`, `src/`, `admin/includes/`, `admin/tests/`, `storage/`, `vendor/` e ao `.env`. Em outros servidores (Nginx), configure o mesmo bloqueio.
 
-### Banco MySQL, login e classificação CDD (Etapa 4)
+## Testes
 
-O MySQL 8.0+ passa a ser o banco principal do painel (o `admin/database/acervo.sql` da Etapa 2, em PostgreSQL, fica só como referência).
+```bash
+php admin/tests/importacao-teste.php   # leitura de planilhas e validações (sem banco)
+php admin/tests/cdd-teste.php          # regras da CDD; com banco e livros cadastrados, testa também o MySQL
+```
 
-1. Crie o banco e copie `admin/config/database.example.php` para `admin/config/database.php` (ou use as variáveis `BDP_DB_HOST`, `BDP_DB_NAME`, `BDP_DB_USER`, `BDP_DB_PASS`).
-2. `php admin/database/migrar.php` aplica as migrações de `admin/database/mysql/` (nenhuma apaga dados).
-3. `php admin/database/criar-admin.php "Nome" email@escola bibliotecaria` cria um usuário (perfis: administrador, bibliotecaria, auxiliar, consulta).
-4. Opcional, para testes: `php admin/database/popular-demo.php` copia os livros fictícios para um banco vazio.
+## Situação das funcionalidades
 
-Sem banco configurado, o módulo funciona em **modo demonstrativo**: contas `bibliotecaria@demo` e `auxiliar@demo` (senha `demo`), livros fictícios e alterações guardadas só na sessão do navegador.
+**Prontas**
 
-Páginas (menu Acervo → Classificação CDD):
+- Site público com menu expansível, responsivo, lendo o catálogo do MySQL (ou exemplos identificados, sem banco).
+- Disponibilidade no catálogo calculada pelos exemplares físicos.
+- Login, permissões, CSRF e logout do painel.
+- Dashboard com números reais do MySQL (ou demonstrativos, sem banco).
+- Listagem e detalhes de livros e exemplares a partir do MySQL.
+- Classificação CDD (pesquisa nas fontes, revisão, aprovação, histórico, relatórios).
+- Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
 
-- `admin/classificacao.php`: indicadores, progresso, ações rápidas, tabela com filtros e pesquisa em lote
-- `admin/classificar-livro.php?id=1`: revisão individual, pesquisa nas fontes, classificação manual e aprovação
-- `admin/revisao-cdd.php`: fila de aprovação (aprovar, corrigir, rejeitar, pedir nova pesquisa, observar)
-- `admin/historico-cdd.php` e `admin/relatorio-cdd.php`: histórico imutável e relatórios com exportação CSV/Excel
-- `admin/detalhes-livro.php`: nova seção "Classificação Bibliográfica"
+**Pendentes**
 
-Regras: nenhuma CDD é inventada nem aprovada automaticamente; a CDD vem do campo MARC 082 da Library of Congress ou da Open Library, sempre com a fonte, e a LCC (outro sistema) aparece só como referência. A CDD antiga da planilha nunca é alterada, o histórico não pode ser editado nem apagado (triggers no MySQL) e os códigos BDP não mudam quando a CDD é corrigida. Apenas bibliotecária e administrador aprovam. Testes: `php admin/tests/cdd-teste.php`.
+- Cadastro e edição de livros, exemplares e categorias ainda são **simulados** (validam, mas não gravam no banco).
+- Inventário físico (estrutura do banco pronta: `inventarios`), etiquetas com código BDP.
+- Empréstimos, devoluções e atrasos (estrutura pronta: `alunos`, `emprestimos`).
+- Cadastro de alunos, relatórios gerais, página de atividades, configurações e perfil.
+- Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.
+- Pesquisas das fontes CDD nunca foram testadas com internet neste ambiente de desenvolvimento.
 
-## Atenção
-
-Este é um **protótipo**. O catálogo usa dados de exemplo; os horários e contatos oficiais ainda não foram informados; e o formulário de contato **não envia mensagens**. O próximo passo é validar as informações com a escola e integrar um banco de dados.
+O relatório da Etapa 3.5 (problemas encontrados e correções) está em [`docs/relatorio-etapa-3.5.md`](docs/relatorio-etapa-3.5.md).

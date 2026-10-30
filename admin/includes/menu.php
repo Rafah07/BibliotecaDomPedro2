@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../config/app.php';
+
 /**
  * Itens do menu administrativo.
  * 'pronta' => true indica uma página já desenvolvida; as demais abrem a tela "Em desenvolvimento".
@@ -29,7 +31,9 @@ const ADMIN_MENU = [
         'atrasos' => ['label' => 'Atrasos', 'icon' => 'clock-alert'],
     ],
     'Gerenciamento' => [
-        'importar' => ['label' => 'Importar Excel', 'icon' => 'file-spreadsheet'],
+        'importar' => ['label' => 'Importar Excel', 'icon' => 'file-spreadsheet', 'arquivo' => 'importacao.php', 'pronta' => true],
+        'historico-importacoes' => ['label' => 'Histórico de importações', 'icon' => 'history', 'arquivo' => 'historico-importacoes.php', 'pronta' => true, 'oculto' => true],
+        'detalhes-importacao' => ['label' => 'Detalhes da importação', 'icon' => 'file-spreadsheet', 'arquivo' => 'detalhes-importacao.php', 'pronta' => true, 'oculto' => true],
         'etiquetas' => ['label' => 'Etiquetas', 'icon' => 'scan-barcode'],
         'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap'],
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column'],
@@ -38,8 +42,8 @@ const ADMIN_MENU = [
     'Sistema' => [
         'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings'],
         'perfil' => ['label' => 'Meu perfil', 'icon' => 'user-round', 'oculto' => true],
-        'site' => ['label' => 'Voltar ao site', 'icon' => 'house', 'arquivo' => '../Index/Index.php', 'pronta' => true],
-        'sair' => ['label' => 'Sair', 'icon' => 'log-out', 'demo' => 'logout'],
+        'site' => ['label' => 'Voltar ao site', 'icon' => 'house', 'url' => '', 'pronta' => true],
+        'sair' => ['label' => 'Sair', 'icon' => 'log-out', 'acao' => 'logout'],
     ],
 ];
 
@@ -55,14 +59,12 @@ function admin_menu_item(string $id): ?array
 }
 
 /**
- * Caminho da pasta admin/ no servidor (ex.: "/admin/" ou "/BibliotecaDomPedro2/admin/").
- * Evita que CSS, JS e links quebrem quando a página é aberta como ".../admin" sem a barra final.
+ * Caminho da pasta admin/ no navegador (ex.: "/admin/" ou "/BibliotecaDomPedro2/admin/").
+ * Calculado a partir da raiz da aplicação (config/app.php), funciona também nas subpastas de admin/.
  */
 function admin_base(): string
 {
-    $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'));
-    $dir = preg_replace('#/api$#', '', rtrim($dir, '/')); // endpoints em admin/api/
-    return $dir . '/';
+    return url('admin/');
 }
 
 /** Endereço de um arquivo dentro de admin/ (CSS, JS, páginas). URLs externas ficam como estão. */
@@ -75,6 +77,9 @@ function admin_asset(string $path): string
 function admin_url(string $id): string
 {
     $item = admin_menu_item($id);
+    if ($item && isset($item['url'])) {
+        return url($item['url']); // página fora do painel (ex.: site público)
+    }
     if ($item && !empty($item['pronta'])) {
         return admin_base() . $item['arquivo'];
     }
