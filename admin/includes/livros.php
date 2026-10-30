@@ -71,6 +71,7 @@ function livros_filtros(array $get): array
         'cdd' => in_array(admin_param($get, 'cdd'), ['aguardando', ...LivroRepository::STATUS_CDD], true) ? admin_param($get, 'cdd') : '',
         'situacao' => array_key_exists(admin_param($get, 'situacao'), ACERVO_STATUS) ? admin_param($get, 'situacao') : '',
         'origem' => array_key_exists(admin_param($get, 'origem'), ACERVO_ORIGENS) ? admin_param($get, 'origem') : '',
+        'exemplares' => in_array(admin_param($get, 'exemplares'), ['com', 'sem'], true) ? admin_param($get, 'exemplares') : '',
         'arquivados' => admin_param($get, 'arquivados') === '1' ? '1' : '',
         'ordem' => array_key_exists($ordem, LIVROS_ORDENS) ? $ordem : 'titulo',
         'dir' => $dir === 'desc' ? 'desc' : 'asc',
@@ -106,7 +107,8 @@ function livros_listar_demo(array $f, int $pagina, int $porPagina): array
         return ($f['categoria'] === '' || ($f['categoria'] === 'sem' ? !$l['categorias'] : in_array((int)$f['categoria'], $l['categorias'], true)))
             && ($f['cdd'] === '' || ($f['cdd'] === 'aguardando' ? $cdd !== 'aprovada' : $cdd === $f['cdd']))
             && ($f['situacao'] === '' || $l['status_validacao'] === $f['situacao'])
-            && ($f['origem'] === '' || $l['origem_cadastro'] === $f['origem']);
+            && ($f['origem'] === '' || $l['origem_cadastro'] === $f['origem'])
+            && (($f['exemplares'] ?? '') === '' || (($f['exemplares'] === 'com') === ($l['total_exemplares'] > 0)));
     });
     $chave = match ($f['ordem']) {
         'autor' => fn ($l) => acervo_texto_busca($l['autores_nomes'][0] ?? '~'),

@@ -288,6 +288,33 @@ final class EtiquetaService
         return $pdf->gerar();
     }
 
+    /**
+     * Uma etiqueta em SVG, com as mesmas posições do PDF (unidade = mm), para a pré-visualização.
+     * Os textos vêm escapados; o SVG não carrega nada externo.
+     */
+    public static function svg(array $modelo, array $ex, string $biblioteca): string
+    {
+        $w = (float)$modelo['etiqueta_largura'];
+        $h = (float)$modelo['etiqueta_altura'];
+        $esc = fn (string $t) => htmlspecialchars($t, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $ancora = ['esquerda' => 'start', 'centro' => 'middle', 'direita' => 'end'];
+        $corpo = '';
+        foreach (self::elementos($modelo, $ex, $biblioteca) as $e) {
+            if ($e['tipo'] === 'barras') {
+                $corpo .= '<g fill="#000">';
+                foreach (Code128::barras($e['codigo']) as [$bx, $bl]) {
+                    $corpo .= '<rect x="' . round($e['x'] + ($bx + Code128::ZONA_SILENCIO) * $e['modulo'], 4) . '" y="' . round($e['y'], 3) . '" width="' . round($bl * $e['modulo'], 4) . '" height="' . round($e['altura'], 3) . '"/>';
+                }
+                $corpo .= '</g>';
+            } else {
+                $corpo .= '<text x="' . round($e['x'], 3) . '" y="' . round($e['y'], 3) . '" font-size="' . round($e['tamanho'] * self::MM_POR_PONTO, 3) . '" text-anchor="' . $ancora[$e['alinhamento']] . '"'
+                    . ($e['fonte'] === 'negrito' ? ' font-weight="700"' : '') . '>' . $esc($e['texto']) . '</text>';
+            }
+        }
+        return '<svg xmlns="http://www.w3.org/2000/svg" class="adm-etiqueta__svg" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . 'mm" height="' . $h . 'mm" role="img" aria-label="' . $esc('Etiqueta ' . $ex['codigo_individual']) . '"'
+            . ' font-family="Helvetica, Arial, sans-serif" shape-rendering="crispEdges">' . $corpo . '</svg>';
+    }
+
     /** Código curto da localização para a etiqueta: código cadastrado ou "Estante · Prateleira". */
     public static function localCurto(array $ex): ?string
     {

@@ -253,6 +253,14 @@ final class InventarioRepository
         return ['livros' => $livros, 'mais' => $mais];
     }
 
+    /** Livro escolhido para cadastrar exemplar na conferência (não arquivado). */
+    public function livroParaCadastro(int $livroId): ?array
+    {
+        return $this->linha('SELECT l.id, l.titulo, l.isbn,
+                                    (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ", ") FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores
+                             FROM livros l WHERE l.id = ? AND l.arquivado_em IS NULL', [$livroId]);
+    }
+
     /** Divergências encontradas e ainda sem decisão, em todos os inventários abertos (dashboard). */
     public function divergenciasPendentes(): int
     {
