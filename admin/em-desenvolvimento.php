@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/layout.php';
 
 $pagina = isset($_GET['pagina']) && is_string($_GET['pagina']) ? $_GET['pagina'] : '';
 $item = admin_menu_item($pagina);
-if (!$item || !empty($item['pronta']) || !empty($item['demo'])) {
+if (!$item || !empty($item['pronta']) || !empty($item['acao'])) {
     $pagina = '';
     $item = ['label' => 'Página não encontrada', 'icon' => 'construction'];
 }

@@ -28,16 +28,6 @@ document.querySelectorAll('.app-shell').forEach((shell) => {
     setExpanded(false);
 });
 
-// Abas visuais da página inicial.
-document.querySelectorAll('.filter-tabs').forEach((container) => {
-    container.querySelectorAll('.tab').forEach((tab) => {
-        tab.addEventListener('click', () => {
-            container.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
-            tab.classList.add('active');
-        });
-    });
-});
-
 // O formulário de contato é apenas uma demonstração.
 const demoForm = document.getElementById('contact-demo-form');
 if (demoForm) {

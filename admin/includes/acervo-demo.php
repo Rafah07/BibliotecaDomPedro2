@@ -5,9 +5,9 @@
  * Nenhum registro aqui é real: os títulos e autores existem, mas as edições, ISBNs,
  * exemplares, localizações e movimentações foram inventados para testar as telas.
  *
- * Cada função corresponde a uma tabela do banco (ver admin/database/acervo.sql).
- * Na integração com PostgreSQL/Supabase, basta trocar o corpo da função por uma
- * consulta parametrizada, mantendo o mesmo formato de retorno.
+ * Cada função corresponde a uma tabela do MySQL (database/migrations/001_acervo.sql).
+ * Com o banco configurado, as páginas leem admin/includes/acervo-mysql.php, que
+ * devolve o mesmo formato.
  */
 
 /** Tabela "categorias". */

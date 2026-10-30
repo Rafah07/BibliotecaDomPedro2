@@ -28,7 +28,7 @@ $emprestimo = acervo_emprestimo_ativo($ex);
 $historico = acervo_movimentacoes($livro['id'], $ex['id']);
 $bloqueado = $ex['situacao'] === 'emprestado';
 $encerrado = in_array($ex['situacao'], ['baixado', 'extraviado'], true);
-$setores = array_values(array_unique(array_column(demo_localizacoes(), 'setor')));
+$setores = array_values(array_unique(array_column(acervo_fonte('localizacoes'), 'setor')));
 
 // Prévia ilustrativa de código de barras (não é um padrão legível por leitores).
 $barras = '';

@@ -919,3 +919,7 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
     .adm-stat--compact .adm-icon-box { display: none; }
     .adm-stats .adm-stat--compact .adm-stat__value { font-size: 24px; }
 }
+
+/* Pendências dos livros importados de planilha (reclassificação CDD e inventário físico) */
+.adm-badge-stack { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.adm-badge-stack .adm-status { font-size: 0.72rem; white-space: nowrap; }

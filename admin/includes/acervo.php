@@ -4,6 +4,7 @@
  * rótulos, validações e pequenos componentes visuais reutilizados pelas páginas.
  */
 require_once __DIR__ . '/acervo-demo.php';
+require_once __DIR__ . '/acervo-mysql.php';
 
 const ACERVO_STATUS = [
     'validado' => ['label' => 'Validado', 'tom' => 'green'],
@@ -51,6 +52,60 @@ const ACERVO_MOVIMENTOS = [
 // Consultas
 // ---------------------------------------------------------------
 
+/**
+ * Tabelas do acervo: do MySQL quando o banco estiver configurado; senão, os dados demonstrativos.
+ * Nomes aceitos: categorias, autores, localizacoes, livros, exemplares, registros_planilha,
+ * movimentacoes, conferencias.
+ */
+function acervo_fonte(string $tabela): array
+{
+    if (acervo_usa_mysql()) {
+        return acervo_mysql_dados()[$tabela];
+    }
+    return ('demo_' . $tabela)();
+}
+
+function acervo_usa_mysql(): bool
+{
+    static $mysql = null;
+    if ($mysql === null) {
+        try {
+            $mysql = db_modo() === 'mysql' && db() instanceof PDO;
+        } catch (DbIndisponivel $e) {
+            $mysql = false;
+        }
+        if ($mysql && PHP_SAPI !== 'cli') {
+            // Dados reais do acervo só para quem entrou no painel.
+            require_once __DIR__ . '/auth.php';
+            auth_exigir('painel.ver');
+        }
+    }
+    return $mysql;
+}
+
+/** Situação da classificação CDD de cada livro (a CDD fica só em classificacoes_cdd, módulo da Etapa 4). */
+function acervo_status_cdd(): array
+{
+    static $mapa = null;
+    if ($mapa !== null) {
+        return $mapa;
+    }
+    $mapa = [];
+    if (acervo_usa_mysql()) {
+        $existe = (bool)db_query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'classificacoes_cdd'")->fetchColumn();
+        if ($existe) {
+            foreach (db_query('SELECT livro_id, status FROM classificacoes_cdd')->fetchAll() as $c) {
+                $mapa[(int)$c['livro_id']] = $c['status'];
+            }
+        }
+    } elseif (session_status() === PHP_SESSION_ACTIVE) {
+        foreach ($_SESSION['cdd_demo']['classificacoes'] ?? [] as $livroId => $c) {
+            $mapa[(int)$livroId] = $c['status'] ?? 'pendente';
+        }
+    }
+    return $mapa;
+}
+
 /** Livros com autores, categorias e contagem de exemplares já calculados. */
 function acervo_livros(): array
 {
@@ -58,19 +113,24 @@ function acervo_livros(): array
     if ($cache !== null) {
         return $cache;
     }
-    $autores = demo_autores();
-    $categorias = demo_categorias();
+    $autores = acervo_fonte('autores');
+    $categorias = acervo_fonte('categorias');
     $planilha = [];
-    foreach (demo_registros_planilha() as $registro) {
+    foreach (acervo_fonte('registros_planilha') as $registro) {
         $planilha[$registro['livro_id']] = $registro;
     }
     $contagem = [];
-    foreach (demo_exemplares() as $ex) {
+    $conferidos = [];
+    foreach (acervo_fonte('exemplares') as $ex) {
         $contagem[$ex['livro_id']][$ex['situacao']] = ($contagem[$ex['livro_id']][$ex['situacao']] ?? 0) + 1;
+        if ($ex['conferido_em'] !== null) {
+            $conferidos[$ex['livro_id']] = ($conferidos[$ex['livro_id']] ?? 0) + 1;
+        }
     }
+    $cdd = acervo_status_cdd();
 
     $cache = [];
-    foreach (demo_livros() as $id => $livro) {
+    foreach (acervo_fonte('livros') as $id => $livro) {
         $porSituacao = $contagem[$id] ?? [];
         $livro['autores_nomes'] = array_map(fn ($a) => $autores[$a]['nome'] ?? '—', $livro['autores']);
         $livro['autor_principal'] = $livro['autores_nomes'][0] ?? 'Autor não informado';
@@ -80,6 +140,11 @@ function acervo_livros(): array
         $livro['total_exemplares'] = array_sum($porSituacao);
         $livro['disponiveis'] = $porSituacao['disponivel'] ?? 0;
         $livro['planilha'] = $planilha[$id] ?? null;
+        // Indicadores separados para os livros vindos das planilhas antigas.
+        $livro['exemplares_conferidos'] = $conferidos[$id] ?? 0;
+        $livro['status_cdd'] = $cdd[$id] ?? 'pendente';
+        $livro['aguarda_reclassificacao'] = $livro['status_cdd'] !== 'aprovada';
+        $livro['aguarda_inventario'] = $livro['exemplares_conferidos'] === 0;
         $cache[$id] = $livro;
     }
     return $cache;
@@ -94,9 +159,9 @@ function acervo_livro(int $id): ?array
 function acervo_exemplares(?int $livroId = null): array
 {
     $livros = acervo_livros();
-    $locais = demo_localizacoes();
+    $locais = acervo_fonte('localizacoes');
     $lista = [];
-    foreach (demo_exemplares() as $id => $ex) {
+    foreach (acervo_fonte('exemplares') as $id => $ex) {
         if ($livroId !== null && $ex['livro_id'] !== $livroId) {
             continue;
         }
@@ -123,10 +188,11 @@ function acervo_movimentacoes(?int $livroId = null, ?int $exemplarId = null): ar
 {
     $exemplares = acervo_exemplares($livroId);
     $lista = [];
-    foreach ($exemplares as $ex) {
+    // No banco, o cadastro de cada exemplar já é uma linha de movimentacoes.
+    foreach (acervo_usa_mysql() ? [] : $exemplares as $ex) {
         $lista[] = ['exemplar_id' => $ex['id'], 'tipo' => 'cadastro', 'data' => $ex['criado_em'], 'descricao' => 'Exemplar registrado no acervo', 'responsavel' => 'Ana Souza'];
     }
-    foreach (demo_movimentacoes() as $mov) {
+    foreach (acervo_fonte('movimentacoes') as $mov) {
         if (isset($exemplares[$mov['exemplar_id']])) {
             $lista[] = $mov;
         }
@@ -158,7 +224,7 @@ function acervo_emprestimo_ativo(array $exemplar): ?array
 
 function acervo_conferencias(int $livroId): array
 {
-    $lista = array_values(array_filter(demo_conferencias(), fn ($c) => $c['livro_id'] === $livroId));
+    $lista = array_values(array_filter(acervo_fonte('conferencias'), fn ($c) => $c['livro_id'] === $livroId));
     usort($lista, fn ($a, $b) => strcmp($b['data'], $a['data']));
     return $lista;
 }
@@ -173,7 +239,7 @@ function acervo_categorias(): array
         }
     }
     $lista = [];
-    foreach (demo_categorias() as $id => $cat) {
+    foreach (acervo_fonte('categorias') as $id => $cat) {
         $cat['total_titulos'] = $contagem[$id] ?? 0;
         $lista[$id] = $cat;
     }
@@ -184,7 +250,7 @@ function acervo_categorias(): array
 function acervo_resumo(): array
 {
     $livros = acervo_livros();
-    $exemplares = demo_exemplares();
+    $exemplares = acervo_fonte('exemplares');
     $porSituacao = array_count_values(array_column($exemplares, 'situacao'));
     return [
         'titulos' => count($livros),
@@ -199,7 +265,7 @@ function acervo_resumo(): array
 function acervo_proximo_codigo(): string
 {
     $maior = 0;
-    foreach (demo_exemplares() as $ex) {
+    foreach (acervo_fonte('exemplares') as $ex) {
         $maior = max($maior, (int)substr($ex['codigo_individual'], 4));
     }
     return sprintf('BDP-%06d', $maior + 1);
@@ -224,12 +290,12 @@ function acervo_dados_js(): array
             'status' => ACERVO_STATUS[$l['status_validacao']]['label'],
             'cor' => $l['cor'],
         ], acervo_livros())),
-        'autores' => array_values(array_column(demo_autores(), 'nome')),
+        'autores' => array_values(array_column(acervo_fonte('autores'), 'nome')),
         'categorias' => array_values(array_map(fn ($c) => ['id' => $c['id'], 'nome' => $c['nome'], 'titulos' => $c['total_titulos']], acervo_categorias())),
-        'localizacoes' => array_values(demo_localizacoes()),
+        'localizacoes' => array_values(acervo_fonte('localizacoes')),
         'situacoes' => ACERVO_SITUACOES,
         'conservacao' => ACERVO_CONSERVACAO,
-        'codigos' => array_values(array_column(demo_exemplares(), 'codigo_individual')),
+        'codigos' => array_values(array_column(acervo_fonte('exemplares'), 'codigo_individual')),
         'proximoCodigo' => acervo_proximo_codigo(),
         'urls' => [
             'detalhesLivro' => admin_url('detalhes-livro'),
@@ -302,7 +368,7 @@ function acervo_validar_livro(array $dados): array
     if ($paginas !== '' && (!ctype_digit($paginas) || (int)$paginas < 1 || (int)$paginas > 10000)) {
         $erros['numero_paginas'] = 'Informe um número de páginas válido.';
     }
-    if (!isset(demo_categorias()[(int)($dados['categoria'] ?? 0)])) {
+    if (!isset(acervo_fonte('categorias')[(int)($dados['categoria'] ?? 0)])) {
         $erros['categoria'] = 'Selecione uma categoria.';
     }
     if (!array_key_exists((string)($dados['status_validacao'] ?? ''), ACERVO_STATUS)) {
@@ -338,6 +404,25 @@ function acervo_badge_status(string $status): string
 {
     $s = ACERVO_STATUS[$status] ?? ['label' => $status, 'tom' => 'blue'];
     return '<span class="adm-status adm-tone--' . $s['tom'] . '">' . htmlspecialchars($s['label']) . '</span>';
+}
+
+/**
+ * Pendências dos livros importados de planilha, em indicadores separados:
+ * a reclassificação CDD (Etapa 4) e a conferência física dos exemplares (inventário).
+ */
+function acervo_badges_importacao(array $livro): string
+{
+    if (!$livro['planilha']) {
+        return '';
+    }
+    $html = '';
+    if ($livro['aguarda_reclassificacao']) {
+        $html .= '<span class="adm-status adm-status--soft adm-tone--indigo">Aguardando reclassificação CDD</span>';
+    }
+    if ($livro['aguarda_inventario']) {
+        $html .= '<span class="adm-status adm-status--soft adm-tone--teal">Aguardando inventário físico</span>';
+    }
+    return $html === '' ? '' : '<span class="adm-badge-stack">' . $html . '</span>';
 }
 
 function acervo_badge_situacao(string $situacao): string

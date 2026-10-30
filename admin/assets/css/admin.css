@@ -242,6 +242,8 @@
     transition: background .15s ease, color .15s ease;
 }
 .adm-nav__link:hover { background: var(--adm-bg); color: var(--adm-text); }
+.adm-nav form { margin: 0; }
+.adm-dropdown__empty { margin: 0; padding: 14px 16px; color: var(--adm-muted); font-size: 13px; } /* botão Sair (POST com token CSRF) */
 .adm-nav__link.is-active {
     background: var(--adm-blue-50);
     color: var(--adm-navy);
@@ -1083,3 +1085,18 @@ html:not(.adm-sidebar-expanded) .adm-nav__title::after {
     .adm-segmented button { flex: 1; }
     .adm-inventory__stats { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- Menu: submenu Acervo → Classificação CDD ---------- */
+.adm-nav__sub .adm-nav__link { position: relative; }
+.adm-sidebar-expanded .adm-nav__sub .adm-nav__link { padding-left: 28px; font-size: 13px; }
+.adm-sidebar-expanded .adm-nav__sub .adm-nav__link::before {
+    content: "";
+    position: absolute;
+    left: 22px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--adm-border);
+}
+.adm-sidebar-expanded .adm-nav__sub .adm-nav__icon { margin-left: 8px; }

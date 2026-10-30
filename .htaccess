@@ -1,0 +1,8 @@
+# Apache (XAMPP/hospedagem): bloqueia arquivos que não devem ser baixados pelo navegador.
+<FilesMatch "^(\.env.*|\.git.*|composer\.(json|lock)|.*\.(sql|md))$">
+    Require all denied
+</FilesMatch>
+Options -Indexes
+
+# Dependências do Composer não são públicas.
+RedirectMatch 404 /vendor/

@@ -5,12 +5,12 @@
  *
  * Na versão demonstrativa, os códigos são gerados no navegador e NÃO são gravados.
  * Na versão real, a geração deve ocorrer no servidor, dentro de uma transação
- * (ver a função gerar_exemplares em admin/database/acervo.sql).
+ * (ver o procedimento gerar_exemplares em database/migrations/001_acervo.sql).
  */
 $livroModal = $livroModal ?? null;
 $livrosModal = acervo_livros();
 uasort($livrosModal, fn ($a, $b) => strcoll(acervo_texto_busca($a['titulo']), acervo_texto_busca($b['titulo'])) ?: $a['id'] <=> $b['id']);
-$setores = array_values(array_unique(array_column(demo_localizacoes(), 'setor')));
+$setores = array_values(array_unique(array_column(acervo_fonte('localizacoes'), 'setor')));
 ?>
 <dialog class="adm-modal" id="modal-exemplares" aria-labelledby="modal-exemplares-titulo">
     <form class="adm-modal__box" method="dialog" data-exemplares-form novalidate>

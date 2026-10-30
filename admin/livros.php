@@ -5,9 +5,9 @@ require_once __DIR__ . '/includes/acervo.php';
 $livros = acervo_livros();
 $resumo = acervo_resumo();
 $categorias = acervo_categorias();
-$autores = demo_autores();
+$autores = acervo_fonte('autores');
 $codigosPorLivro = [];
-foreach (demo_exemplares() as $ex) {
+foreach (acervo_fonte('exemplares') as $ex) {
     $codigosPorLivro[$ex['livro_id']][] = $ex['codigo_individual'];
 }
 
@@ -44,7 +44,11 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
 
 <div class="adm-demo-banner" role="note">
     <?= icon('info') ?>
-    <span><strong>Dados demonstrativos.</strong> Os livros e exemplares abaixo são fictícios. Arquivamentos e inclusões feitos nesta tela são apenas simulados e não são gravados.</span>
+    <?php if (acervo_usa_mysql()): ?>
+        <span><strong>Livros do banco de dados.</strong> Os livros importados das planilhas aparecem aqui com as pendências de reclassificação e de inventário. Arquivamentos e inclusões feitos nesta tela ainda são simulados e não são gravados.</span>
+    <?php else: ?>
+        <span><strong>Dados demonstrativos.</strong> Os livros e exemplares abaixo são fictícios. Arquivamentos e inclusões feitos nesta tela são apenas simulados e não são gravados.</span>
+    <?php endif; ?>
 </div>
 
 <section class="adm-stats" aria-label="Resumo do acervo">
@@ -106,6 +110,8 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
                     <?php foreach (ACERVO_STATUS as $valor => $status): ?>
                         <option value="<?= $valor ?>"<?= $sel('status', $valor) ?>><?= htmlspecialchars($status['label']) ?></option>
                     <?php endforeach; ?>
+                    <option value="reclassificacao"<?= $sel('status', 'reclassificacao') ?>>Aguardando reclassificação CDD</option>
+                    <option value="inventario"<?= $sel('status', 'inventario') ?>>Aguardando inventário físico</option>
                 </select>
             </label>
             <label class="adm-filter">
@@ -163,7 +169,9 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
                     $id = $livro['id'];
                     $codigos = $codigosPorLivro[$id] ?? [];
                     $disponibilidade = $livro['total_exemplares'] === 0 ? 'nenhum|sem' : ($livro['disponiveis'] > 0 ? 'com' : 'sem');
-                    $status = $livro['status_validacao'] . ($livro['status_validacao'] !== 'validado' ? '|pendente' : '');
+                    $status = $livro['status_validacao'] . ($livro['status_validacao'] !== 'validado' ? '|pendente' : '')
+                        . ($livro['planilha'] && $livro['aguarda_reclassificacao'] ? '|reclassificacao' : '')
+                        . ($livro['planilha'] && $livro['aguarda_inventario'] ? '|inventario' : '');
                     $urlDetalhes = admin_url('detalhes-livro') . '?id=' . $id;
                     ?>
                     <tr data-row
@@ -191,12 +199,12 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
                         <td data-label="ISBN" class="adm-table__muted adm-mono"><?= $livro['isbn'] ? htmlspecialchars($livro['isbn']) : '<span class="adm-missing">Não informado</span>' ?></td>
                         <td data-label="Exemplares" class="adm-num">
                             <?= $livro['total_exemplares'] ?>
-                            <?php if ($livro['planilha'] && $livro['planilha']['quantidade_informada'] !== $livro['total_exemplares']): ?>
+                            <?php if ($livro['planilha'] && $livro['planilha']['quantidade_informada'] !== null && $livro['planilha']['quantidade_informada'] !== $livro['total_exemplares']): ?>
                                 <small class="adm-num__hint" title="Quantidade informada na planilha importada">planilha: <?= (int)$livro['planilha']['quantidade_informada'] ?></small>
                             <?php endif; ?>
                         </td>
                         <td data-label="Disponíveis" class="adm-num"><strong class="<?= $livro['disponiveis'] > 0 ? 'adm-text-green' : 'adm-table__muted' ?>"><?= $livro['disponiveis'] ?></strong></td>
-                        <td data-label="Cadastro"><?= acervo_badge_status($livro['status_validacao']) ?></td>
+                        <td data-label="Cadastro"><?= acervo_badge_status($livro['status_validacao']) ?><?= acervo_badges_importacao($livro) ?></td>
                         <td class="adm-actions-col">
                             <div class="adm-row-actions">
                                 <a class="adm-icon-button adm-icon-button--sm" href="<?= htmlspecialchars($urlDetalhes) ?>" aria-label="Ver detalhes de <?= htmlspecialchars($livro['titulo']) ?>" title="Ver detalhes"><?= icon('eye') ?></a>

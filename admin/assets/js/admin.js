@@ -128,26 +128,6 @@
         }
     });
 
-    // ---------- Ações demonstrativas ----------
-    document.querySelectorAll('[data-demo-search]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
-            const term = form.querySelector('input')?.value.trim();
-            showToast(
-                'Pesquisa demonstrativa',
-                term ? `A busca por "${term}" estará disponível quando o banco de dados for conectado.`
-                     : 'Digite um termo. A pesquisa global será conectada ao banco de dados nas próximas etapas.'
-            );
-        });
-    });
-
-    document.querySelectorAll('[data-demo-logout]').forEach((button) => {
-        button.addEventListener('click', () => {
-            closeDropdowns();
-            showToast('Saída demonstrativa', 'A autenticação ainda não foi implementada. Nenhuma sessão foi encerrada.');
-        });
-    });
-
     // ---------- Data atual ----------
     document.querySelectorAll('[data-today]').forEach((el) => {
         const now = new Date();
