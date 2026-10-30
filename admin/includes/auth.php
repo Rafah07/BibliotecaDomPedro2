@@ -21,11 +21,21 @@ require_once __DIR__ . '/db.php';
  *   emprestimos.registrar  registrar empréstimos, devoluções e renovações no prazo padrão
  *   emprestimos.prazo escolher outra data de devolução (no empréstimo e na renovação) e
  *                     informar a data real de uma devolução registrada depois
+ *   exemplares.gerenciar  cadastrar exemplares físicos, editar conservação e observações,
+ *                     transferir de localização e mudar a situação (disponível, manutenção...)
+ *   exemplares.baixar dar baixa e registrar extravio de exemplares
+ *   localizacoes.gerenciar  cadastrar, editar, desativar e reativar localizações
+ *   inventario.conferir  registrar conferências e cadastrar exemplares durante o inventário
+ *   inventario.gerenciar criar, iniciar, pausar, concluir e cancelar inventários, decidir
+ *                     divergências e ausências e corrigir conferências
+ *   etiquetas.gerar   pré-visualizar e gerar o PDF das etiquetas
+ *   etiquetas.configurar  cadastrar e editar os modelos (tamanhos e margens) das etiquetas
+ * Ver exemplares, localizações e inventários é permitido a todos os perfis (painel.ver).
  */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
-    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
-    'auxiliar' => ['painel.ver', 'livros.editar', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
+    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar'],
+    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar'],
+    'auxiliar' => ['painel.ver', 'livros.editar', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'exemplares.gerenciar', 'inventario.conferir', 'etiquetas.gerar'],
     'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver'],
 ];
 

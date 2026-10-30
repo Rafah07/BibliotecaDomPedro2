@@ -32,6 +32,8 @@ const EMPRESTIMOS_MOVIMENTOS = [
     'inventario' => ['label' => 'Inventário', 'icone' => 'clipboard-check', 'tom' => 'amber'],
     'extravio' => ['label' => 'Extravio', 'icone' => 'package-x', 'tom' => 'red'],
     'baixa' => ['label' => 'Baixa', 'icone' => 'archive', 'tom' => 'red'],
+    'conservacao' => ['label' => 'Conservação', 'icone' => 'wrench', 'tom' => 'blue'],
+    'situacao' => ['label' => 'Situação', 'icone' => 'refresh-cw', 'tom' => 'blue'],
 ];
 
 function emprestimos_regras(): RegrasCirculacao

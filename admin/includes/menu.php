@@ -17,6 +17,9 @@ const ADMIN_MENU = [
         'historico-cdd' => ['label' => 'Histórico CDD', 'icon' => 'history', 'arquivo' => 'historico-cdd.php', 'pronta' => true, 'oculto' => true],
         'relatorio-cdd' => ['label' => 'Relatórios CDD', 'icon' => 'file-chart-column', 'arquivo' => 'relatorio-cdd.php', 'pronta' => true, 'oculto' => true],
         'exemplares' => ['label' => 'Exemplares', 'icon' => 'book-copy', 'arquivo' => 'exemplares.php', 'pronta' => true],
+        'cadastrar-exemplar' => ['label' => 'Cadastrar exemplar', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-exemplar.php', 'pronta' => true, 'oculto' => true],
+        'localizacoes' => ['label' => 'Localizações', 'icon' => 'map-pin', 'arquivo' => 'localizacoes.php', 'pronta' => true, 'pai' => 'exemplares'],
+        'localizacao' => ['label' => 'Localização', 'icon' => 'map-pin', 'arquivo' => 'localizacao.php', 'pronta' => true, 'oculto' => true],
         'categorias' => ['label' => 'Categorias', 'icon' => 'tags', 'arquivo' => 'categorias.php', 'pronta' => true],
         // Páginas internas do acervo: não aparecem no menu, mas usam admin_url().
         'cadastrar-livro' => ['label' => 'Cadastrar livro', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-livro.php', 'pronta' => true, 'oculto' => true],
@@ -24,7 +27,12 @@ const ADMIN_MENU = [
         'arquivar-livro' => ['label' => 'Arquivar livro', 'icon' => 'archive', 'arquivo' => 'arquivar-livro.php', 'pronta' => true, 'oculto' => true],
         'detalhes-livro' => ['label' => 'Detalhes do livro', 'icon' => 'book-open', 'arquivo' => 'detalhes-livro.php', 'pronta' => true, 'oculto' => true],
         'detalhes-exemplar' => ['label' => 'Detalhes do exemplar', 'icon' => 'book-copy', 'arquivo' => 'detalhes-exemplar.php', 'pronta' => true, 'oculto' => true],
-        'inventario' => ['label' => 'Inventário', 'icon' => 'clipboard-check'],
+        // Inventário digital (Etapa 3 do inventário físico).
+        'inventario' => ['label' => 'Inventário', 'icon' => 'clipboard-check', 'arquivo' => 'inventario.php', 'pronta' => true],
+        'inventario-editar' => ['label' => 'Inventário', 'icon' => 'clipboard-check', 'arquivo' => 'inventario-editar.php', 'pronta' => true, 'oculto' => true],
+        'inventario-detalhes' => ['label' => 'Inventário', 'icon' => 'clipboard-check', 'arquivo' => 'inventario-detalhes.php', 'pronta' => true, 'oculto' => true],
+        'inventario-conferencia' => ['label' => 'Conferência', 'icon' => 'scan-barcode', 'arquivo' => 'inventario-conferencia.php', 'pronta' => true, 'oculto' => true],
+        'inventario-relatorio' => ['label' => 'Relatório do inventário', 'icon' => 'file-chart-column', 'arquivo' => 'inventario-relatorio.php', 'pronta' => true, 'oculto' => true],
     ],
     'Circulação' => [
         // Circulação: só para quem pode ver empréstimos (dados pessoais dos alunos).
@@ -43,7 +51,8 @@ const ADMIN_MENU = [
         'historico-importacoes' => ['label' => 'Histórico de importações', 'icon' => 'history', 'arquivo' => 'historico-importacoes.php', 'pronta' => true, 'oculto' => true],
         'detalhes-importacao' => ['label' => 'Detalhes da importação', 'icon' => 'file-spreadsheet', 'arquivo' => 'detalhes-importacao.php', 'pronta' => true, 'oculto' => true],
         'isbn-invalidos' => ['label' => 'ISBNs inválidos', 'icon' => 'barcode', 'arquivo' => 'isbn-invalidos.php', 'pronta' => true, 'oculto' => true],
-        'etiquetas' => ['label' => 'Etiquetas', 'icon' => 'scan-barcode'],
+        'etiquetas' => ['label' => 'Etiquetas', 'icon' => 'scan-barcode', 'arquivo' => 'etiquetas.php', 'pronta' => true],
+        'etiqueta-modelos' => ['label' => 'Modelos de etiqueta', 'icon' => 'ruler', 'arquivo' => 'etiqueta-modelos.php', 'pronta' => true, 'oculto' => true],
         'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap'],
         'importar-alunos' => ['label' => 'Importar Alunos', 'icon' => 'users', 'arquivo' => 'importar-alunos.php', 'pronta' => true, 'permissao' => 'alunos.importar'],
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column'],

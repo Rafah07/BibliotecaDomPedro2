@@ -36,6 +36,7 @@ final class EmprestimoService
         'manutencao' => 'Este exemplar está em manutenção.',
         'extraviado' => 'Este exemplar está registrado como extraviado.',
         'baixado' => 'Este exemplar foi baixado do acervo.',
+        'danificado' => 'Este exemplar está registrado como danificado e foi retirado de circulação.',
     ];
 
     public function __construct(private PDO $pdo, private RegrasCirculacao $regras, private string $ip = 'cli')
