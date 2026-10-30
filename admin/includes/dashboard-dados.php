@@ -20,11 +20,20 @@ const DASHBOARD_ACOES = [
     'usuario.desativar' => 'Conta de acesso desativada',
     'usuario.redefinir_senha' => 'Senha redefinida',
     'usuario.trocar_senha' => 'Senha trocada pelo próprio usuário',
+    'emprestimo.registrar' => 'Empréstimo registrado',
+    'emprestimo.renovar' => 'Empréstimo renovado',
+    'devolucao.registrar' => 'Devolução registrada',
 ];
 
-const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta'];
+const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta', 'emprestimo' => 'empréstimo'];
 
 const DASHBOARD_CORES = ['#143477', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
+
+/** Data de hoje na escola (APP_TIMEZONE): o atraso não depende do fuso do servidor MySQL. */
+function dashboard_hoje(): string
+{
+    return Biblioteca\Support\RegrasCirculacao::doAmbiente('env')->hoje();
+}
 
 function dashboard_dados(): array
 {
@@ -79,8 +88,12 @@ function dashboard_dados_mysql(): array
                     WHERE e.situacao NOT IN ('baixado', 'extraviado')")->fetch();
     $ex = array_map('intval', $ex);
     $pct = fn (int $n): string => $ex['total'] > 0 ? round($n / $ex['total'] * 100) . '% dos exemplares' : 'Nenhum exemplar registrado';
-    $ativos = $um('SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL');
-    $atrasados = $um('SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL AND data_prevista < CURDATE()');
+    $hoje = dashboard_hoje();
+    $circ = db_query('SELECT COALESCE(SUM(data_devolucao IS NULL), 0) AS ativos,
+                             COALESCE(SUM(data_devolucao IS NULL AND data_prevista < ?), 0) AS atrasados,
+                             COALESCE(SUM(data_devolucao IS NOT NULL), 0) AS devolvidos
+                      FROM emprestimos', [$hoje])->fetch();
+    [$ativos, $atrasados, $devolvidos] = [(int)$circ['ativos'], (int)$circ['atrasados'], (int)$circ['devolvidos']];
     $semConferencia = $um("SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND status_validacao <> 'validado'");
     $aguardandoCdd = dashboard_aguardando_cdd();
     $pendImportacao = dashboard_pendencias_importacao();
@@ -157,6 +170,7 @@ function dashboard_dados_mysql(): array
         'secundarios' => array_values(array_filter([
             ['titulo' => 'Empréstimos ativos', 'valor' => $ativos, 'icone' => 'book-open-check', 'tom' => 'indigo', 'href' => 'emprestimos'],
             ['titulo' => 'Empréstimos atrasados', 'valor' => $atrasados, 'icone' => 'clock-alert', 'tom' => 'red', 'href' => 'atrasos'],
+            ['titulo' => 'Devoluções realizadas', 'valor' => $devolvidos, 'icone' => 'rotate-ccw', 'tom' => 'green', 'href' => 'devolucoes'],
             ['titulo' => 'Aguardando reclassificação CDD', 'valor' => $aguardandoCdd, 'icone' => 'list-tree', 'tom' => 'amber', 'href' => 'classificacao'],
             ['titulo' => 'Pendências de importação', 'valor' => $pendImportacao, 'icone' => 'file-spreadsheet', 'tom' => 'amber', 'href' => 'historico-importacoes'],
             // Só aparece quando existe uma rodada de inventário aberta.
@@ -189,16 +203,17 @@ function dashboard_alertas(): array
     $alertas = [];
     try {
         $c = db_query("SELECT
-                (SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL AND data_prevista < CURDATE()) AS atrasados,
+                (SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL AND data_prevista < ?) AS atrasados,
                 (SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND status_validacao <> 'validado') AS sem_conferencia,
                 (SELECT COUNT(*) FROM exemplares WHERE situacao = 'manutencao') AS manutencao,
-                (SELECT COUNT(*) FROM inventarios WHERE status IN ('aberto', 'em_andamento')) AS inventarios")->fetch();
+                (SELECT COUNT(*) FROM inventarios WHERE status IN ('aberto', 'em_andamento')) AS inventarios", [dashboard_hoje()])->fetch();
         $c['importacao'] = dashboard_pendencias_importacao();
     } catch (Throwable $e) {
         error_log('[biblioteca] Falha ao carregar alertas: ' . $e->getMessage());
         return $alertas;
     }
-    if ($c['atrasados'] > 0) {
+    // Quem não vê a circulação (perfil consulta) não recebe o alerta: a página de atrasos é bloqueada para ele.
+    if ($c['atrasados'] > 0 && (!function_exists('auth_pode') || auth_pode('emprestimos.ver'))) {
         $alertas[] = ['titulo' => 'Empréstimos atrasados', 'mensagem' => "{$c['atrasados']} empréstimo(s) com o prazo de devolução vencido.", 'botao' => 'Ver atrasos', 'href' => 'atrasos', 'icone' => 'clock-alert', 'gravidade' => 'alta'];
     }
     if ($c['importacao'] > 0) {

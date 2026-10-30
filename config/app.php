@@ -53,6 +53,9 @@ function app_ambiente(): string
     return env('APP_ENV', 'development') === 'production' ? 'production' : 'development';
 }
 
+// Fuso horário da escola: datas de empréstimo, prazos e atrasos (e o fuso das conexões MySQL, em db()).
+date_default_timezone_set(in_array(env('APP_TIMEZONE', ''), DateTimeZone::listIdentifiers(), true) ? env('APP_TIMEZONE') : 'America/Sao_Paulo');
+
 // Em produção, erros vão só para o log do servidor (nunca para a tela, onde poderiam expor caminhos ou SQL).
 if (app_ambiente() === 'production') {
     ini_set('display_errors', '0');
