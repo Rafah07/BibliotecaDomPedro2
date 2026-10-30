@@ -1,8 +1,16 @@
 # Apache (XAMPP/hospedagem): bloqueia arquivos que não devem ser baixados pelo navegador.
-<FilesMatch "^(\.env.*|\.git.*|composer\.(json|lock)|.*\.(sql|md))$">
+# Credenciais (.env), Git, Composer, SQL, documentação, planilhas, backups, logs e arquivos temporários.
+<FilesMatch "(^\.|^composer\.(json|lock)$|\.(sql|md|log|ini|bak|backup|old|orig|save|swp|swo|tmp|dist|sh|bat|ps1|zip|rar|7z|tar|gz|tgz|csv|xls|xlsx|ods|sqlite|db|dump)$|~$)">
     Require all denied
 </FilesMatch>
 Options -Indexes
 
-# Dependências do Composer não são públicas.
-RedirectMatch 404 /vendor/
+# Pastas internas e dependências do Composer não são públicas
+# (cada pasta interna também tem o próprio .htaccess "Require all denied").
+RedirectMatch 404 /(vendor|\.git|backups?|storage|database|config|src|docs|includes|admin/includes|admin/tests)(/|$)
+
+# Cabeçalhos básicos de segurança para arquivos estáticos (as páginas PHP também os enviam).
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+</IfModule>

@@ -62,6 +62,8 @@ const ADMIN_MENU = [
         // 'permissao': o item só aparece para quem tem a permissão (a página confere de novo no servidor).
         'administradores' => ['label' => 'Administradores', 'icon' => 'users', 'arquivo' => 'administradores.php', 'pronta' => true, 'permissao' => 'usuarios.gerenciar'],
         'administrador' => ['label' => 'Conta de acesso', 'icon' => 'user-round', 'arquivo' => 'administrador.php', 'pronta' => true, 'oculto' => true],
+        'site-publico' => ['label' => 'Site público', 'icon' => 'globe', 'arquivo' => 'site-publico.php', 'pronta' => true, 'permissao' => 'site.editar'],
+        'capa-livro' => ['label' => 'Capa do livro', 'icon' => 'image', 'arquivo' => 'capa-livro.php', 'pronta' => true, 'oculto' => true],
         'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings'],
         'perfil' => ['label' => 'Meu perfil', 'icon' => 'user-round', 'arquivo' => 'perfil.php', 'pronta' => true, 'oculto' => true],
         'site' => ['label' => 'Voltar ao site', 'icon' => 'house', 'url' => '', 'pronta' => true],

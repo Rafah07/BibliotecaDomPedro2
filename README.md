@@ -2,7 +2,7 @@
 
 Sistema da biblioteca escolar Dom Pedro II, em PHP tradicional e MySQL.
 
-- **Site público** (sem login): página inicial, catálogo, gêneros, autores, sobre, horários e contato. Os alunos usam apenas esta área.
+- **Site público** (sem login): página inicial, catálogo com busca e filtros, página de cada livro com a disponibilidade física, categorias, autores, Sobre a biblioteca e Regras e funcionamento. Os alunos usam apenas esta área. Veja [`docs/site-publico.md`](docs/site-publico.md).
 - **Painel administrativo** (`/admin/`, com login): dashboard, acervo (livros, exemplares, categorias), classificação CDD e importação das planilhas Excel antigas.
 
 ## Tecnologias e requisitos
@@ -148,7 +148,7 @@ No XAMPP/Laragon, com o Apache ligado: <http://localhost/BibliotecaDomPedro2/> e
 
 Sem `.env` (ou sem `DB_NAME`/`DB_USER`), o sistema roda em modo demonstrativo:
 
-- O site mostra livros de exemplo com o aviso "Demonstração".
+- O site público não mostra livros (nem fictícios): exibe o aviso de que o catálogo ainda não está disponível.
 - O painel aceita as contas `bibliotecaria@demo` e `auxiliar@demo` (senha `demo`), **apenas** quando `APP_ENV` não é `production`.
 - A importação de planilhas e todas as gravações reais ficam bloqueadas.
 
@@ -157,12 +157,13 @@ Sem `.env` (ou sem `DB_NAME`/`DB_USER`), o sistema roda em modo demonstrativo:
 ```
 BibliotecaDomPedro2/
 ├── index.php                  página inicial (única)
-├── biblioteca_php/            páginas públicas: catalogo, generos, autores, sobre, horarios, contato
-├── includes/                  layout, menu lateral e acesso ao catálogo do site público
-│   ├── layout.php             page_start(), page_end(), page_heading(), book_cover()
+├── biblioteca_php/            páginas públicas: catalogo, livro, generos, autores, sobre, regras
+│                              (horarios e contato redirecionam para sobre)
+├── includes/                  layout, menu lateral e acesso aos dados do site público
+│   ├── layout.php             page_start(), page_end() (rodapé), book_card(), book_cover()
 │   ├── sidebar.php            menu lateral expansível
-│   ├── catalogo.php           escolhe a fonte dos livros (MySQL ou exemplos)
-│   └── dados-exemplo.php      livros fictícios do modo demonstrativo
+│   └── catalogo.php           catalogo(), site_conteudo() e formatação dos textos institucionais
+├── uploads/capas/             capas enviadas pelo painel (fora do Git; não executa scripts)
 ├── admin/                     painel administrativo (todas as páginas exigem login)
 │   ├── index.php              dashboard
 │   ├── login.php, logout.php
@@ -246,14 +247,15 @@ php admin/tests/painel-teste.php       # livros, contas, permissões, CSRF, XSS 
 php admin/tests/alunos-importacao-teste.php  # importação de alunos; banco temporário e planilhas só com alunos fictícios
 php admin/tests/emprestimos-teste.php  # empréstimos, devoluções, renovações, atrasos, concorrência e permissões; banco temporário, só dados fictícios
 php admin/tests/inventario-teste.php   # exemplares, códigos BDP, localizações, inventário, etiquetas, relatórios e permissões; banco temporário, só dados fictícios
+php admin/tests/site-publico-teste.php # site público: busca, filtros, paginação, disponibilidade, privacidade, SQL/XSS, .htaccess e responsividade; banco temporário
 ```
 
 ## Situação das funcionalidades
 
 **Prontas**
 
-- Site público com menu expansível, responsivo, lendo o catálogo do MySQL (ou exemplos identificados, sem banco).
-- Disponibilidade no catálogo calculada pelos exemplares físicos.
+- Site público finalizado: página inicial com livros reais, catálogo com busca com/sem acentos, filtros, ordenação e paginação no servidor, página de cada livro, Sobre e Regras com textos editáveis no painel (Sistema → Site público), capas enviadas pelo painel. Veja [`docs/site-publico.md`](docs/site-publico.md).
+- Disponibilidade no catálogo calculada só pelos exemplares físicos (nunca pela quantidade das planilhas).
 - Login, permissões, CSRF e logout do painel.
 - Dashboard com números reais do MySQL (títulos × exemplares, empréstimos ativos e atrasados, CDD pendente, pendências de importação, inventários em andamento).
 - Gerenciamento de livros: listagem com pesquisa (com ou sem acentos), filtros, ordenação e paginação no servidor; cadastro, edição, arquivamento e restauração gravados no banco; consulta dos dados originais da importação.
