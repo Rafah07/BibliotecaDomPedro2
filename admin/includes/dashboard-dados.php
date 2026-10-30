@@ -7,6 +7,22 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/dados-demo.php';
 
+/** Descrição das ações registradas em acoes_administrativas (as demais usam o nome técnico). */
+const DASHBOARD_ACOES = [
+    'livro.cadastrar' => 'Livro cadastrado',
+    'livro.editar' => 'Livro editado',
+    'livro.arquivar' => 'Livro arquivado',
+    'livro.restaurar' => 'Livro restaurado',
+    'usuario.cadastrar' => 'Conta de acesso criada',
+    'usuario.editar' => 'Conta de acesso editada',
+    'usuario.ativar' => 'Conta de acesso ativada',
+    'usuario.desativar' => 'Conta de acesso desativada',
+    'usuario.redefinir_senha' => 'Senha redefinida',
+    'usuario.trocar_senha' => 'Senha trocada pelo próprio usuário',
+];
+
+const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta'];
+
 const DASHBOARD_CORES = ['#143477', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
 
 function dashboard_dados(): array
@@ -23,7 +39,28 @@ function dashboard_dados(): array
         'atividades' => demo_atividades_recentes(),
         'alertas' => demo_alertas(),
         'inventario' => demo_inventario(),
+        'emprestimos_recentes' => [],
     ];
+}
+
+/**
+ * Pendências da importação: linhas aguardando decisão + linhas com erro ainda não resolvidas
+ * (mesma conta da página de importação, ImportacaoRepository::estatisticas).
+ */
+function dashboard_pendencias_importacao(): int
+{
+    return (int)db_query("SELECT COALESCE(SUM(it.processado_em IS NULL AND (it.acao_importacao IS NULL OR it.acao_importacao = 'revisar_depois') AND it.status_validacao <> 'erro'), 0)
+                                + COALESCE(SUM((it.status_validacao = 'erro' AND it.processado_em IS NULL AND COALESCE(it.acao_importacao, '') <> 'ignorar')
+                                               OR it.resultado_importacao = 'falhou'), 0)
+                         FROM importacao_itens it JOIN importacoes i ON i.id = it.importacao_id
+                         WHERE i.status NOT IN ('cancelada', 'falhou')")->fetchColumn();
+}
+
+/** Livros ativos sem classificação CDD aprovada (pendentes, sugeridos, em revisão ou em conflito). */
+function dashboard_aguardando_cdd(): int
+{
+    return (int)db_query("SELECT COUNT(*) FROM livros l LEFT JOIN classificacoes_cdd cc ON cc.livro_id = l.id
+                         WHERE l.arquivado_em IS NULL AND (cc.status IS NULL OR cc.status <> 'aprovada')")->fetchColumn();
 }
 
 function dashboard_dados_mysql(): array
@@ -31,17 +68,30 @@ function dashboard_dados_mysql(): array
     $um = fn (string $sql): int => (int)db_query($sql)->fetchColumn();
 
     $titulos = $um('SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL');
+    // Exemplares de livros arquivados não entram nas contas do acervo ativo.
     $ex = db_query("SELECT COUNT(*) AS total,
-                           COALESCE(SUM(situacao = 'disponivel'), 0) AS disponiveis,
-                           COALESCE(SUM(situacao = 'emprestado'), 0) AS emprestados,
-                           COALESCE(SUM(situacao = 'manutencao'), 0) AS manutencao,
-                           COALESCE(SUM(situacao = 'aguardando'), 0) AS aguardando
-                    FROM exemplares WHERE situacao NOT IN ('baixado', 'extraviado')")->fetch();
+                           COALESCE(SUM(e.situacao = 'disponivel'), 0) AS disponiveis,
+                           COALESCE(SUM(e.situacao = 'emprestado'), 0) AS emprestados,
+                           COALESCE(SUM(e.situacao = 'manutencao'), 0) AS manutencao,
+                           COALESCE(SUM(e.situacao = 'aguardando'), 0) AS aguardando
+                    FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL
+                    WHERE e.situacao NOT IN ('baixado', 'extraviado')")->fetch();
     $ex = array_map('intval', $ex);
     $pct = fn (int $n): string => $ex['total'] > 0 ? round($n / $ex['total'] * 100) . '% dos exemplares' : 'Nenhum exemplar registrado';
+    $ativos = $um('SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL');
     $atrasados = $um('SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL AND data_prevista < CURDATE()');
-    $hoje = $um('SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL AND data_prevista = CURDATE()');
     $semConferencia = $um("SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND status_validacao <> 'validado'");
+    $aguardandoCdd = dashboard_aguardando_cdd();
+    $pendImportacao = dashboard_pendencias_importacao();
+    $inventarios = $um("SELECT COUNT(*) FROM inventarios WHERE status IN ('aberto', 'em_andamento')");
+
+    // Últimos empréstimos registrados (abertos ou devolvidos).
+    $recentes = db_query("SELECT m.id, m.data_emprestimo, m.data_prevista, m.data_devolucao, e.codigo_individual, l.id AS livro_id, l.titulo, a.nome AS aluno, a.turma
+                          FROM emprestimos m
+                          JOIN exemplares e ON e.id = m.exemplar_id
+                          JOIN livros l ON l.id = e.livro_id
+                          JOIN alunos a ON a.id = m.aluno_id
+                          ORDER BY m.data_emprestimo DESC, m.id DESC LIMIT 6")->fetchAll();
 
     // Empréstimos dos últimos 12 meses (meses sem empréstimo aparecem com zero).
     $porMes = [];
@@ -74,12 +124,19 @@ function dashboard_dados_mysql(): array
 
     // Últimas ações registradas pelos módulos (importação etc.).
     $atividades = [];
-    foreach (db_query('SELECT a.acao, a.entidade, a.entidade_id, a.criado_em, u.nome FROM acoes_administrativas a
+    foreach (db_query('SELECT a.acao, a.entidade, a.entidade_id, a.detalhes, a.criado_em, u.nome FROM acoes_administrativas a
                        LEFT JOIN administradores u ON u.id = a.usuario_id ORDER BY a.criado_em DESC, a.id DESC LIMIT 5')->fetchAll() as $a) {
         [$modulo, $verbo] = explode('.', $a['acao'], 2) + [1 => ''];
+        $det = json_decode((string)$a['detalhes'], true) ?: [];
+        $texto = DASHBOARD_ACOES[$a['acao']] ?? ucfirst(str_replace('_', ' ', $verbo)) . ($a['entidade'] ? ' · ' . (DASHBOARD_ENTIDADES[$a['entidade']] ?? str_replace('_', ' ', $a['entidade'])) . ' nº ' . (int)$a['entidade_id'] : '');
+        if (is_string($det['titulo'] ?? null)) {
+            $texto .= ': ' . $det['titulo'];
+        } elseif (is_string($det['email'] ?? null)) {
+            $texto .= ': ' . $det['email'];
+        }
         $atividades[] = [
             'tipo' => $modulo,
-            'descricao' => ucfirst(str_replace('_', ' ', $verbo)) . ($a['entidade'] ? ' · ' . $a['entidade'] . ' nº ' . (int)$a['entidade_id'] : ''),
+            'descricao' => $texto,
             'responsavel' => $a['nome'] ?? '—',
             'data' => (new DateTimeImmutable($a['criado_em']))->format('d/m/Y H:i'),
             'situacao' => 'concluido',
@@ -91,17 +148,20 @@ function dashboard_dados_mysql(): array
     return [
         'demo' => false,
         'indicadores' => [
-            ['titulo' => 'Total de títulos', 'valor' => $titulos, 'descricao' => 'Obras cadastradas no acervo', 'icone' => 'library-big', 'tom' => 'blue', 'estado' => $semConferencia . ' aguardando conferência'],
-            ['titulo' => 'Total de exemplares', 'valor' => $ex['total'], 'descricao' => 'Unidades físicas registradas', 'icone' => 'book-copy', 'tom' => 'blue', 'estado' => $ex['aguardando'] . ' aguardando conferência'],
+            ['titulo' => 'Títulos cadastrados', 'valor' => $titulos, 'descricao' => 'Registros bibliográficos (obras e edições)', 'icone' => 'library-big', 'tom' => 'blue', 'estado' => $semConferencia . ' aguardando conferência'],
+            ['titulo' => 'Exemplares físicos', 'valor' => $ex['total'], 'descricao' => 'Unidades identificadas com código BDP', 'icone' => 'book-copy', 'tom' => 'blue', 'estado' => $ex['total'] > 0 ? $ex['aguardando'] . ' aguardando conferência' : 'Identificados no inventário físico'],
             ['titulo' => 'Disponíveis', 'valor' => $ex['disponiveis'], 'descricao' => 'Exemplares disponíveis para empréstimo', 'icone' => 'circle-check', 'tom' => 'green', 'estado' => $pct($ex['disponiveis'])],
             ['titulo' => 'Emprestados', 'valor' => $ex['emprestados'], 'descricao' => 'Exemplares com empréstimos ativos', 'icone' => 'book-open-check', 'tom' => 'indigo', 'estado' => $pct($ex['emprestados'])],
         ],
-        'secundarios' => [
+        'secundarios' => array_values(array_filter([
+            ['titulo' => 'Empréstimos ativos', 'valor' => $ativos, 'icone' => 'book-open-check', 'tom' => 'indigo', 'href' => 'emprestimos'],
             ['titulo' => 'Empréstimos atrasados', 'valor' => $atrasados, 'icone' => 'clock-alert', 'tom' => 'red', 'href' => 'atrasos'],
-            ['titulo' => 'Em manutenção', 'valor' => $ex['manutencao'], 'icone' => 'wrench', 'tom' => 'amber', 'href' => 'exemplares'],
-            ['titulo' => 'Títulos sem conferência física', 'valor' => $semConferencia, 'icone' => 'clipboard-check', 'tom' => 'amber', 'href' => 'inventario'],
-            ['titulo' => 'Devoluções previstas para hoje', 'valor' => $hoje, 'icone' => 'calendar-clock', 'tom' => 'blue', 'href' => 'devolucoes'],
-        ],
+            ['titulo' => 'Aguardando reclassificação CDD', 'valor' => $aguardandoCdd, 'icone' => 'list-tree', 'tom' => 'amber', 'href' => 'classificacao'],
+            ['titulo' => 'Pendências de importação', 'valor' => $pendImportacao, 'icone' => 'file-spreadsheet', 'tom' => 'amber', 'href' => 'historico-importacoes'],
+            // Só aparece quando existe uma rodada de inventário aberta.
+            $inventarios > 0 ? ['titulo' => 'Inventários em andamento', 'valor' => $inventarios, 'icone' => 'clipboard-check', 'tom' => 'blue', 'href' => 'inventario'] : null,
+        ])),
+        'emprestimos_recentes' => $recentes,
         'emprestimos' => ['meses12' => $meses],
         'categorias' => $categorias,
         'atividades' => $atividades,
@@ -130,13 +190,21 @@ function dashboard_alertas(): array
         $c = db_query("SELECT
                 (SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL AND data_prevista < CURDATE()) AS atrasados,
                 (SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND status_validacao <> 'validado') AS sem_conferencia,
-                (SELECT COUNT(*) FROM exemplares WHERE situacao = 'manutencao') AS manutencao")->fetch();
+                (SELECT COUNT(*) FROM exemplares WHERE situacao = 'manutencao') AS manutencao,
+                (SELECT COUNT(*) FROM inventarios WHERE status IN ('aberto', 'em_andamento')) AS inventarios")->fetch();
+        $c['importacao'] = dashboard_pendencias_importacao();
     } catch (Throwable $e) {
         error_log('[biblioteca] Falha ao carregar alertas: ' . $e->getMessage());
         return $alertas;
     }
     if ($c['atrasados'] > 0) {
         $alertas[] = ['titulo' => 'Empréstimos atrasados', 'mensagem' => "{$c['atrasados']} empréstimo(s) com o prazo de devolução vencido.", 'botao' => 'Ver atrasos', 'href' => 'atrasos', 'icone' => 'clock-alert', 'gravidade' => 'alta'];
+    }
+    if ($c['importacao'] > 0) {
+        $alertas[] = ['titulo' => 'Importação com pendências', 'mensagem' => "{$c['importacao']} linha(s) de planilha aguardam decisão ou correção.", 'botao' => 'Revisar importações', 'href' => 'historico-importacoes', 'icone' => 'file-spreadsheet', 'gravidade' => 'media'];
+    }
+    if ($c['inventarios'] > 0) {
+        $alertas[] = ['titulo' => 'Inventário em andamento', 'mensagem' => "{$c['inventarios']} rodada(s) de conferência física em aberto.", 'botao' => 'Abrir inventário', 'href' => 'inventario', 'icone' => 'clipboard-check', 'gravidade' => 'media'];
     }
     if ($c['sem_conferencia'] > 0) {
         $alertas[] = ['titulo' => 'Títulos aguardando conferência', 'mensagem' => "{$c['sem_conferencia']} título(s) ainda não passaram pela conferência física.", 'botao' => 'Consultar livros', 'href' => 'acervo', 'icone' => 'clipboard-check', 'gravidade' => 'media'];

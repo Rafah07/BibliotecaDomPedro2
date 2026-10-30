@@ -1,245 +1,254 @@
 <?php
+/**
+ * Listagem do acervo (registros bibliográficos), com pesquisa, filtros, ordenação e
+ * paginação feitos no servidor: só a página atual é enviada ao navegador.
+ */
 require_once __DIR__ . '/includes/layout.php';
-require_once __DIR__ . '/includes/acervo.php';
+require_once __DIR__ . '/includes/livros.php';
 
-$livros = acervo_livros();
-$resumo = acervo_resumo();
-$categorias = acervo_categorias();
-$autores = acervo_fonte('autores');
-$codigosPorLivro = [];
-foreach (acervo_fonte('exemplares') as $ex) {
-    $codigosPorLivro[$ex['livro_id']][] = $ex['codigo_individual'];
+$filtros = livros_filtros($_GET);
+$paginaAtual = max(1, (int)admin_param($_GET, 'pagina', '1'));
+try {
+    $resultado = livros_listar($filtros, $paginaAtual);
+    $resumo = livros_resumo();
+    $categorias = livros_categorias_ativas();
+} catch (DbIndisponivel $e) {
+    http_response_code(503);
+    admin_pagina_erro('Banco de dados indisponível', $e->getMessage());
+    exit;
+} catch (PDOException $e) {
+    error_log('[biblioteca] Erro na listagem de livros: ' . $e->getMessage());
+    http_response_code(500);
+    admin_pagina_erro('Não foi possível carregar o acervo', 'Verifique se as migrações foram aplicadas (php database/migrar.php) e tente novamente.');
+    exit;
 }
-
-// Filtros que podem chegar pelo endereço (ex.: link "Consultar livros" da página de categorias).
-$filtroInicial = [
-    'q' => is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '',
-    'categoria' => (string)(int)($_GET['categoria'] ?? 0),
-    'status' => is_string($_GET['status'] ?? null) ? $_GET['status'] : '',
-];
-$sel = fn (string $campo, string $valor): string => $filtroInicial[$campo] === $valor ? ' selected' : '';
+$livros = $resultado['itens'];
+$base = admin_url('acervo');
+$arquivados = $filtros['arquivados'] === '1';
+$podeEditar = auth_pode('livros.editar');
+$podeArquivar = auth_pode('livros.arquivar');
+$fmt = fn (int $n): string => number_format($n, 0, ',', '.');
 
 $cards = [
-    ['chave' => 'titulos', 'titulo' => 'Total de títulos', 'valor' => $resumo['titulos'], 'descricao' => 'Obras e edições cadastradas', 'icone' => 'library-big', 'tom' => 'blue'],
-    ['chave' => 'exemplares', 'titulo' => 'Total de exemplares', 'valor' => $resumo['exemplares'], 'descricao' => 'Unidades físicas registradas', 'icone' => 'book-copy', 'tom' => 'indigo'],
-    ['chave' => 'disponiveis', 'titulo' => 'Exemplares disponíveis', 'valor' => $resumo['disponiveis'], 'descricao' => 'Prontos para empréstimo', 'icone' => 'circle-check', 'tom' => 'green'],
-    ['chave' => 'pendentes', 'titulo' => 'Cadastros pendentes', 'valor' => $resumo['pendentes'], 'descricao' => 'Precisam de verificação ou complementação', 'icone' => 'clipboard-check', 'tom' => 'amber', 'filtro' => 'pendente'],
+    ['titulo' => 'Títulos cadastrados', 'valor' => $resumo['titulos'], 'descricao' => 'Registros bibliográficos ativos', 'icone' => 'library-big', 'tom' => 'blue'],
+    ['titulo' => 'Exemplares físicos', 'valor' => $resumo['exemplares'], 'descricao' => 'Unidades com código BDP', 'icone' => 'book-copy', 'tom' => 'indigo'],
+    ['titulo' => 'Exemplares disponíveis', 'valor' => $resumo['disponiveis'], 'descricao' => 'Prontos para empréstimo', 'icone' => 'circle-check', 'tom' => 'green'],
+    ['titulo' => 'Aguardando CDD', 'valor' => $resumo['aguardando_cdd'], 'descricao' => 'Sem classificação aprovada', 'icone' => 'list-tree', 'tom' => 'amber', 'href' => admin_url_filtros($base, ['cdd' => 'aguardando'])],
 ];
 
-admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261027']);
+admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261030', 'assets/css/classificacao.css?v=20261027']);
 ?>
 
-<?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Livros']]) ?>
+<?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], [$arquivados ? 'Livros arquivados' : 'Livros']]) ?>
 
 <section class="adm-page-head">
     <div>
-        <h1>Gerenciamento do Acervo</h1>
-        <p>Consulte, cadastre e organize os livros da Biblioteca Dom Pedro II.</p>
+        <h1><?= $arquivados ? 'Livros arquivados' : 'Gerenciamento do Acervo' ?></h1>
+        <p><?= $arquivados
+            ? 'Cadastros retirados do acervo. Eles continuam no banco, com todo o histórico, e podem ser restaurados.'
+            : 'Consulte, cadastre e organize os registros bibliográficos da Biblioteca Dom Pedro II.' ?></p>
     </div>
     <div class="adm-page-head__actions">
-        <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars(admin_url('importar')) ?>"><?= icon('file-spreadsheet') ?> Importar planilha</a>
-        <a class="adm-button adm-button--primary" href="<?= htmlspecialchars(admin_url('cadastrar-livro')) ?>"><?= icon('plus') ?> Cadastrar livro</a>
+        <?php if ($arquivados): ?>
+            <a class="adm-button adm-button--ghost" href="<?= e($base) ?>"><?= icon('arrow-left') ?> Voltar ao acervo</a>
+        <?php else: ?>
+            <?php if (auth_pode('importacao.executar')): ?>
+                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('importar')) ?>"><?= icon('file-spreadsheet') ?> Importar planilha</a>
+            <?php endif; ?>
+            <?php if ($podeEditar): ?>
+                <a class="adm-button adm-button--primary" href="<?= e(admin_url('cadastrar-livro')) ?>"><?= icon('plus') ?> Cadastrar livro</a>
+            <?php endif; ?>
+        <?php endif; ?>
     </div>
 </section>
 
+<?= admin_flash_html() ?>
+
+<?php if (!livros_persistem()): ?>
 <div class="adm-demo-banner" role="note">
     <?= icon('info') ?>
-    <?php if (acervo_usa_mysql()): ?>
-        <span><strong>Livros do banco de dados.</strong> Os livros importados das planilhas aparecem aqui com as pendências de reclassificação e de inventário. Arquivamentos e inclusões feitos nesta tela ainda são simulados e não são gravados.</span>
-    <?php else: ?>
-        <span><strong>Dados demonstrativos.</strong> Os livros e exemplares abaixo são fictícios. Arquivamentos e inclusões feitos nesta tela são apenas simulados e não são gravados.</span>
-    <?php endif; ?>
+    <span><strong>Dados demonstrativos.</strong> O banco MySQL não está configurado: os livros abaixo são fictícios e cadastros, edições e arquivamentos são apenas simulados.</span>
 </div>
+<?php endif; ?>
 
+<?php if (!$arquivados): ?>
 <section class="adm-stats" aria-label="Resumo do acervo">
     <?php foreach ($cards as $card): ?>
-        <?php $tag = isset($card['filtro']) ? 'button' : 'article'; ?>
-        <<?= $tag ?> class="adm-card adm-stat adm-stat--compact<?= $tag === 'button' ? ' adm-stat--action' : '' ?>"
-            <?= $tag === 'button' ? 'type="button" data-apply-filter="status" data-value="' . $card['filtro'] . '" title="Mostrar somente os cadastros pendentes"' : '' ?>>
+        <?php $tag = isset($card['href']) ? 'a' : 'article'; ?>
+        <<?= $tag ?> class="adm-card adm-stat adm-stat--compact<?= $tag === 'a' ? ' adm-stat--action' : '' ?>"<?= $tag === 'a' ? ' href="' . e($card['href']) . '" title="Mostrar só os livros sem CDD aprovada"' : '' ?>>
             <div class="adm-stat__top">
-                <p class="adm-stat__title"><?= htmlspecialchars($card['titulo']) ?></p>
+                <p class="adm-stat__title"><?= e($card['titulo']) ?></p>
                 <span class="adm-icon-box adm-icon-box--sm adm-tone--<?= $card['tom'] ?>"><?= icon($card['icone']) ?></span>
             </div>
-            <p class="adm-stat__value" data-stat="<?= $card['chave'] ?>"><?= number_format($card['valor'], 0, ',', '.') ?></p>
-            <p class="adm-stat__desc"><?= htmlspecialchars($card['descricao']) ?></p>
+            <p class="adm-stat__value"><?= $fmt($card['valor']) ?></p>
+            <p class="adm-stat__desc"><?= e($card['descricao']) ?></p>
         </<?= $tag ?>>
     <?php endforeach; ?>
 </section>
+<?php endif; ?>
 
-<section class="adm-card adm-panel" data-collection aria-labelledby="titulo-lista-livros">
+<section class="adm-card adm-panel" aria-labelledby="titulo-lista-livros">
     <div class="adm-panel__header">
         <div>
-            <h2 id="titulo-lista-livros">Livros cadastrados</h2>
-            <p data-count data-noun="título|títulos" aria-live="polite"><?= count($livros) ?> títulos</p>
+            <h2 id="titulo-lista-livros"><?= $arquivados ? 'Cadastros arquivados' : 'Livros cadastrados' ?></h2>
+            <p aria-live="polite"><?= $fmt($resultado['total']) ?> <?= $resultado['total'] === 1 ? 'título encontrado' : 'títulos encontrados' ?><?= livros_tem_filtros($filtros) ? ' com os filtros aplicados' : '' ?></p>
         </div>
+        <?php if (!$arquivados && livros_persistem() && $podeArquivar): ?>
+            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['arquivados' => '1'])) ?>"><?= icon('archive') ?> Ver arquivados</a>
+        <?php endif; ?>
     </div>
 
-    <div class="adm-toolbar">
-        <label class="adm-field-search">
+    <form class="adm-toolbar adm-toolbar--search" method="get" action="<?= e($base) ?>" data-loading-form>
+        <?php if ($arquivados): ?><input type="hidden" name="arquivados" value="1"><?php endif; ?>
+        <label class="adm-field-search adm-toolbar__q">
             <?= icon('search') ?>
             <span class="adm-visually-hidden">Pesquisar livros</span>
-            <input type="search" data-search placeholder="Pesquisar por título, autor, ISBN ou código..." value="<?= htmlspecialchars($filtroInicial['q']) ?>" autocomplete="off">
+            <input type="search" name="q" placeholder="Pesquisar por título, autor, editora ou ISBN..." value="<?= e($filtros['q']) ?>" autocomplete="off">
         </label>
-        <div class="adm-filters">
+        <div class="adm-filters adm-filters--5">
             <label class="adm-filter">
                 <span>Categoria</span>
-                <select class="adm-select" data-filter="categoria">
+                <select class="adm-select<?= $filtros['categoria'] !== '' ? ' has-value' : '' ?>" name="categoria">
                     <option value="">Todas</option>
-                    <?php foreach ($categorias as $cat): ?>
-                        <option value="<?= $cat['id'] ?>"<?= $sel('categoria', (string)$cat['id']) ?>><?= htmlspecialchars($cat['nome']) ?></option>
+                    <option value="sem"<?= $filtros['categoria'] === 'sem' ? ' selected' : '' ?>>Sem categoria</option>
+                    <?php foreach ($categorias as $cid => $nome): ?>
+                        <option value="<?= (int)$cid ?>"<?= $filtros['categoria'] === (string)$cid ? ' selected' : '' ?>><?= e($nome) ?></option>
                     <?php endforeach; ?>
                 </select>
             </label>
             <label class="adm-filter">
-                <span>Autor</span>
-                <select class="adm-select" data-filter="autor">
-                    <option value="">Todos</option>
-                    <?php
-                    $autoresOrdenados = $autores;
-                    uasort($autoresOrdenados, fn ($a, $b) => strcoll($a['nome'], $b['nome']));
-                    foreach ($autoresOrdenados as $autor): ?>
-                        <option value="<?= $autor['id'] ?>"><?= htmlspecialchars($autor['nome']) ?></option>
+                <span>Situação da CDD</span>
+                <select class="adm-select<?= $filtros['cdd'] !== '' ? ' has-value' : '' ?>" name="cdd">
+                    <option value="">Todas</option>
+                    <option value="aguardando"<?= $filtros['cdd'] === 'aguardando' ? ' selected' : '' ?>>Aguardando reclassificação (não aprovada)</option>
+                    <?php foreach (CDD_STATUS as $valor => $s): ?>
+                        <option value="<?= $valor ?>"<?= $filtros['cdd'] === $valor ? ' selected' : '' ?>><?= e($s['label']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </label>
             <label class="adm-filter">
                 <span>Situação do cadastro</span>
-                <select class="adm-select" data-filter="status">
+                <select class="adm-select<?= $filtros['situacao'] !== '' ? ' has-value' : '' ?>" name="situacao">
                     <option value="">Todas</option>
-                    <option value="pendente"<?= $sel('status', 'pendente') ?>>Todos os pendentes</option>
-                    <?php foreach (ACERVO_STATUS as $valor => $status): ?>
-                        <option value="<?= $valor ?>"<?= $sel('status', $valor) ?>><?= htmlspecialchars($status['label']) ?></option>
+                    <?php foreach (ACERVO_STATUS as $valor => $s): ?>
+                        <option value="<?= $valor ?>"<?= $filtros['situacao'] === $valor ? ' selected' : '' ?>><?= e($s['label']) ?></option>
                     <?php endforeach; ?>
-                    <option value="reclassificacao"<?= $sel('status', 'reclassificacao') ?>>Aguardando reclassificação CDD</option>
-                    <option value="inventario"<?= $sel('status', 'inventario') ?>>Aguardando inventário físico</option>
-                </select>
-            </label>
-            <label class="adm-filter">
-                <span>Disponibilidade</span>
-                <select class="adm-select" data-filter="disponibilidade">
-                    <option value="">Todas</option>
-                    <option value="com">Com exemplares disponíveis</option>
-                    <option value="sem">Sem exemplares disponíveis</option>
-                    <option value="nenhum">Sem exemplares identificados</option>
                 </select>
             </label>
             <label class="adm-filter">
                 <span>Origem do registro</span>
-                <select class="adm-select" data-filter="origem">
+                <select class="adm-select<?= $filtros['origem'] !== '' ? ' has-value' : '' ?>" name="origem">
                     <option value="">Todas</option>
                     <?php foreach (ACERVO_ORIGENS as $valor => $rotulo): ?>
-                        <option value="<?= $valor ?>"><?= htmlspecialchars($rotulo) ?></option>
+                        <option value="<?= $valor ?>"<?= $filtros['origem'] === $valor ? ' selected' : '' ?>><?= e($rotulo) ?></option>
                     <?php endforeach; ?>
                 </select>
             </label>
             <label class="adm-filter">
-                <span>Ordenação</span>
-                <select class="adm-select" data-sort-select>
-                    <option value="titulo:asc">Título (A–Z)</option>
-                    <option value="titulo:desc">Título (Z–A)</option>
-                    <option value="autor:asc">Autor (A–Z)</option>
-                    <option value="criado:desc">Cadastrados recentemente</option>
-                    <option value="exemplares:desc">Mais exemplares</option>
-                    <option value="disponiveis:desc">Mais disponíveis</option>
+                <span>Ordenar por</span>
+                <select class="adm-select" name="ordenacao">
+                    <?php
+                    $opcoesOrdem = ['titulo:asc' => 'Título (A–Z)', 'titulo:desc' => 'Título (Z–A)', 'autor:asc' => 'Autor (A–Z)', 'autor:desc' => 'Autor (Z–A)', 'cadastro:desc' => 'Cadastrados recentemente', 'cadastro:asc' => 'Cadastrados há mais tempo'];
+                    $ordemAtual = $filtros['ordem'] . ':' . $filtros['dir'];
+                    foreach ($opcoesOrdem as $valor => $rotulo): ?>
+                        <option value="<?= $valor ?>"<?= $ordemAtual === $valor ? ' selected' : '' ?>><?= $rotulo ?></option>
+                    <?php endforeach; ?>
                 </select>
             </label>
         </div>
-        <button type="button" class="adm-button adm-button--ghost adm-button--sm adm-filters-toggle" data-filters-toggle aria-expanded="false"><?= icon('list') ?> Filtros <span class="adm-filters-toggle__count" data-filters-count hidden></span></button>
-        <button type="button" class="adm-button adm-button--ghost adm-button--sm" data-clear-filters><?= icon('filter-x') ?> Limpar filtros</button>
-    </div>
+        <input type="hidden" name="por_pagina" value="<?= e($filtros['por_pagina']) ?>">
+        <button type="submit" class="adm-button adm-button--primary adm-button--sm"><?= icon('search') ?> <span>Pesquisar</span></button>
+        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['arquivados' => $filtros['arquivados']])) ?>"><?= icon('filter-x') ?> Limpar filtros</a>
+    </form>
 
-    <div class="adm-table-wrap adm-table-wrap--flush">
-        <table class="adm-table adm-table--cards adm-table--books">
+    <div class="adm-table-wrap adm-table-wrap--flush" data-loading-area>
+        <table class="adm-table adm-table--cards adm-table--livros">
             <thead>
                 <tr>
-                    <th scope="col">Capa</th>
-                    <th scope="col"><button type="button" class="adm-th-sort" data-sort="titulo">Título <?= icon('arrow-up-down') ?></button></th>
-                    <th scope="col"><button type="button" class="adm-th-sort" data-sort="autor">Autor <?= icon('arrow-up-down') ?></button></th>
-                    <th scope="col"><button type="button" class="adm-th-sort" data-sort="categoria">Categoria <?= icon('arrow-up-down') ?></button></th>
+                    <?= admin_th_ordenar('Título', 'titulo', $base, $filtros) ?>
+                    <?= admin_th_ordenar('Autor', 'autor', $base, $filtros) ?>
                     <th scope="col">ISBN</th>
-                    <th scope="col" class="adm-num"><button type="button" class="adm-th-sort" data-sort="exemplares">Exemplares <?= icon('arrow-up-down') ?></button></th>
-                    <th scope="col" class="adm-num"><button type="button" class="adm-th-sort" data-sort="disponiveis">Disponíveis <?= icon('arrow-up-down') ?></button></th>
-                    <th scope="col"><button type="button" class="adm-th-sort" data-sort="status">Cadastro <?= icon('arrow-up-down') ?></button></th>
+                    <th scope="col">Editora / ano</th>
+                    <th scope="col">CDD</th>
+                    <th scope="col">Situação da CDD</th>
+                    <th scope="col" class="adm-num" title="Exemplares físicos cadastrados (sem baixados e extraviados)">Exemplares</th>
                     <th scope="col" class="adm-actions-col">Ações</th>
                 </tr>
             </thead>
-            <tbody data-rows>
-                <?php foreach ($livros as $livro): ?>
-                    <?php
-                    $id = $livro['id'];
-                    $codigos = $codigosPorLivro[$id] ?? [];
-                    $disponibilidade = $livro['total_exemplares'] === 0 ? 'nenhum|sem' : ($livro['disponiveis'] > 0 ? 'com' : 'sem');
-                    $status = $livro['status_validacao'] . ($livro['status_validacao'] !== 'validado' ? '|pendente' : '')
-                        . ($livro['planilha'] && $livro['aguarda_reclassificacao'] ? '|reclassificacao' : '')
-                        . ($livro['planilha'] && $livro['aguarda_inventario'] ? '|inventario' : '');
-                    $urlDetalhes = admin_url('detalhes-livro') . '?id=' . $id;
-                    ?>
-                    <tr data-row
-                        data-id="<?= $id ?>"
-                        data-search="<?= htmlspecialchars(acervo_texto_busca($livro['titulo'], $livro['subtitulo'], implode(' ', $livro['autores_nomes']), $livro['isbn'], acervo_isbn_normalizar($livro['isbn']), implode(' ', $codigos), $livro['editora'])) ?>"
-                        data-categoria="<?= implode('|', $livro['categorias']) ?>"
-                        data-autor="<?= implode('|', $livro['autores']) ?>"
-                        data-status="<?= $status ?>"
-                        data-disponibilidade="<?= $disponibilidade ?>"
-                        data-origem="<?= $livro['origem_cadastro'] ?>"
-                        data-sort-titulo="<?= htmlspecialchars(acervo_texto_busca($livro['titulo'])) ?>"
-                        data-sort-autor="<?= htmlspecialchars(acervo_texto_busca($livro['autor_principal'])) ?>"
-                        data-sort-categoria="<?= htmlspecialchars(acervo_texto_busca($livro['categoria_principal'])) ?>"
-                        data-sort-exemplares="<?= $livro['total_exemplares'] ?>"
-                        data-sort-disponiveis="<?= $livro['disponiveis'] ?>"
-                        data-sort-status="<?= array_search($livro['status_validacao'], array_keys(ACERVO_STATUS), true) ?>"
-                        data-sort-criado="<?= $livro['criado_em'] . sprintf('%04d', $id) ?>">
-                        <td class="adm-td-cover"><a href="<?= htmlspecialchars($urlDetalhes) ?>" tabindex="-1" aria-hidden="true"><?= acervo_capa($livro) ?></a></td>
+            <tbody>
+                <?php foreach ($livros as $l): ?>
+                    <?php $urlDetalhes = admin_url('detalhes-livro') . '?id=' . $l['id']; ?>
+                    <tr>
                         <td class="adm-td-title">
-                            <a class="adm-book-link" href="<?= htmlspecialchars($urlDetalhes) ?>"><?= htmlspecialchars($livro['titulo']) ?></a>
-                            <small><?= htmlspecialchars(trim(($livro['editora'] ?: 'Editora não informada') . ($livro['ano_publicacao'] ? ' · ' . $livro['ano_publicacao'] : '') . ($livro['edicao'] ? ' · ' . $livro['edicao'] : ''))) ?></small>
-                        </td>
-                        <td data-label="Autor"><?= htmlspecialchars(implode(', ', $livro['autores_nomes'])) ?></td>
-                        <td data-label="Categoria"><span class="adm-chip"><?= htmlspecialchars($livro['categoria_principal']) ?></span></td>
-                        <td data-label="ISBN" class="adm-table__muted adm-mono"><?= $livro['isbn'] ? htmlspecialchars($livro['isbn']) : '<span class="adm-missing">Não informado</span>' ?></td>
-                        <td data-label="Exemplares" class="adm-num">
-                            <?= $livro['total_exemplares'] ?>
-                            <?php if ($livro['planilha'] && $livro['planilha']['quantidade_informada'] !== null && $livro['planilha']['quantidade_informada'] !== $livro['total_exemplares']): ?>
-                                <small class="adm-num__hint" title="Quantidade informada na planilha importada">planilha: <?= (int)$livro['planilha']['quantidade_informada'] ?></small>
+                            <?php if ($arquivados): ?>
+                                <strong><?= e($l['titulo']) ?></strong>
+                            <?php else: ?>
+                                <a class="adm-book-link" href="<?= e($urlDetalhes) ?>"><?= e($l['titulo']) ?></a>
                             <?php endif; ?>
+                            <?php if ($l['subtitulo']): ?><small><?= e($l['subtitulo']) ?></small><?php endif; ?>
+                            <?php if ($arquivados): ?><small>Arquivado em <?= admin_data_hora($l['arquivado_em'], false) ?></small><?php endif; ?>
+                            <small class="adm-row-tags">
+                                <?= acervo_badge_status($l['status_validacao']) ?>
+                                <?php if ($l['origem_cadastro'] === 'planilha'): ?><span class="adm-chip">Planilha</span><?php endif; ?>
+                                <?php if ($l['categorias']): ?><span class="adm-chip"><?= e($l['categorias']) ?></span><?php endif; ?>
+                            </small>
                         </td>
-                        <td data-label="Disponíveis" class="adm-num"><strong class="<?= $livro['disponiveis'] > 0 ? 'adm-text-green' : 'adm-table__muted' ?>"><?= $livro['disponiveis'] ?></strong></td>
-                        <td data-label="Cadastro"><?= acervo_badge_status($livro['status_validacao']) ?><?= acervo_badges_importacao($livro) ?></td>
+                        <td data-label="Autor"><?= $l['autores'] ? e(str_replace('; ', ', ', $l['autores'])) : '<span class="adm-missing">Não informado</span>' ?></td>
+                        <td data-label="ISBN" class="adm-mono"><?= $l['isbn'] ? e($l['isbn']) : '<span class="adm-missing">—</span>' ?></td>
+                        <td data-label="Editora / ano"><?= $l['editora'] ? e($l['editora']) : '<span class="adm-missing">Editora não informada</span>' ?>
+                            <small><?= $l['ano_publicacao'] ? (int)$l['ano_publicacao'] : 'Ano não informado' ?><?= $l['edicao'] ? ' · ' . e($l['edicao']) : '' ?></small></td>
+                        <td data-label="CDD"><?= livros_cdd_html($l) ?></td>
+                        <td data-label="Situação da CDD"><?= cdd_badge_status($l['cdd_status']) ?></td>
+                        <td data-label="Exemplares" class="adm-num">
+                            <strong><?= (int)$l['exemplares'] ?></strong>
+                            <?php if ($l['exemplares'] > 0): ?><small class="adm-num__hint"><?= (int)$l['disponiveis'] ?> disp.</small><?php endif; ?>
+                        </td>
                         <td class="adm-actions-col">
                             <div class="adm-row-actions">
-                                <a class="adm-icon-button adm-icon-button--sm" href="<?= htmlspecialchars($urlDetalhes) ?>" aria-label="Ver detalhes de <?= htmlspecialchars($livro['titulo']) ?>" title="Ver detalhes"><?= icon('eye') ?></a>
-                                <div class="adm-rowmenu">
-                                    <button type="button" class="adm-icon-button adm-icon-button--sm" data-rowmenu-toggle aria-haspopup="true" aria-expanded="false" aria-label="Mais ações para <?= htmlspecialchars($livro['titulo']) ?>"><?= icon('ellipsis-vertical') ?></button>
-                                    <div class="adm-rowmenu__list" role="menu" hidden>
-                                        <a role="menuitem" class="adm-dropdown__item" href="<?= htmlspecialchars($urlDetalhes) ?>"><?= icon('eye') ?> Ver detalhes</a>
-                                        <a role="menuitem" class="adm-dropdown__item" href="<?= htmlspecialchars(admin_url('editar-livro') . '?id=' . $id) ?>"><?= icon('pencil') ?> Editar informações</a>
-                                        <a role="menuitem" class="adm-dropdown__item" href="<?= htmlspecialchars($urlDetalhes) ?>#exemplares"><?= icon('book-copy') ?> Gerenciar exemplares</a>
-                                        <button role="menuitem" type="button" class="adm-dropdown__item" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplar</button>
-                                        <button role="menuitem" type="button" class="adm-dropdown__item adm-dropdown__item--danger" data-archive-livro="<?= $id ?>"><?= icon('archive') ?> Arquivar cadastro</button>
-                                    </div>
-                                </div>
+                                <?php if ($arquivados): ?>
+                                    <?php if ($podeArquivar): ?>
+                                        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('arquivar-livro') . '?id=' . $l['id'] . '&acao=restaurar') ?>"><?= icon('archive-restore') ?> Restaurar</a>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <a class="adm-icon-button adm-icon-button--sm" href="<?= e($urlDetalhes) ?>" aria-label="Ver detalhes de <?= e($l['titulo']) ?>" title="Ver detalhes"><?= icon('eye') ?></a>
+                                    <?php if ($podeEditar): ?>
+                                        <a class="adm-icon-button adm-icon-button--sm" href="<?= e(admin_url('editar-livro') . '?id=' . $l['id']) ?>" aria-label="Editar <?= e($l['titulo']) ?>" title="Editar"><?= icon('pencil') ?></a>
+                                    <?php endif; ?>
+                                    <?php if ($podeArquivar && livros_persistem()): ?>
+                                        <a class="adm-icon-button adm-icon-button--sm adm-icon-button--danger" href="<?= e(admin_url('arquivar-livro') . '?id=' . $l['id']) ?>" aria-label="Arquivar <?= e($l['titulo']) ?>" title="Arquivar"><?= icon('archive') ?></a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
-                <tr data-empty hidden>
-                    <td colspan="9">
-                        <div class="adm-empty">
-                            <?= icon('book-x') ?>
-                            <strong>Nenhum livro encontrado</strong>
-                            <span>Revise a pesquisa ou os filtros selecionados.</span>
-                            <button type="button" class="adm-button adm-button--ghost adm-button--sm" data-clear-filters><?= icon('filter-x') ?> Limpar filtros</button>
-                        </div>
-                    </td>
-                </tr>
+                <?php if (!$livros): ?>
+                    <tr>
+                        <td colspan="8">
+                            <div class="adm-empty">
+                                <?= icon($arquivados ? 'archive' : 'book-x') ?>
+                                <?php if (livros_tem_filtros($filtros)): ?>
+                                    <strong>Nenhum livro encontrado</strong>
+                                    <span>Nenhum título corresponde à pesquisa<?= $filtros['q'] !== '' ? ' "' . e($filtros['q']) . '"' : '' ?> e aos filtros escolhidos. Confira a grafia ou remova algum filtro.</span>
+                                    <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['arquivados' => $filtros['arquivados']])) ?>"><?= icon('filter-x') ?> Limpar filtros</a>
+                                <?php elseif ($arquivados): ?>
+                                    <strong>Nenhum livro arquivado</strong>
+                                    <span>Os cadastros arquivados aparecerão aqui.</span>
+                                <?php else: ?>
+                                    <strong>O acervo ainda está vazio</strong>
+                                    <span>Cadastre o primeiro livro ou importe a planilha do acervo.</span>
+                                    <?php if ($podeEditar): ?><a class="adm-button adm-button--primary adm-button--sm" href="<?= e(admin_url('cadastrar-livro')) ?>"><?= icon('plus') ?> Cadastrar livro</a><?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
 
-    <?php include __DIR__ . '/includes/paginacao.php'; ?>
+    <?= admin_paginacao($resultado['total'], $resultado['pagina'], (int)$filtros['por_pagina'], $base, $filtros, LIVROS_POR_PAGINA) ?>
 </section>
 
 <?php
-include __DIR__ . '/includes/modal-exemplares.php';
-echo acervo_json_script();
-admin_page_end(['assets/js/acervo.js?v=20261027']);
+admin_page_end();

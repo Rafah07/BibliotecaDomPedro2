@@ -1,5 +1,6 @@
 // Interações do módulo de acervo (livros, exemplares e categorias).
-// Tudo o que é "salvo" aqui é SIMULADO: as alterações ficam só na memória da página.
+// No modo demonstrativo, tudo o que é "salvo" aqui é SIMULADO (fica só na memória da página).
+// Com o banco configurado, o formulário de livro (data-persistir) é enviado ao servidor, que valida e grava.
 (function () {
     const dataEl = document.getElementById('acervo-data');
     const DATA = dataEl ? JSON.parse(dataEl.textContent) : { livros: [], autores: [], categorias: [], localizacoes: [], codigos: [], situacoes: {}, conservacao: {}, urls: {} };
@@ -898,7 +899,6 @@
             if (el.ano_publicacao.validity.badInput) errors.ano_publicacao = 'Digite apenas números no ano.';
             const pag = el.numero_paginas.value.trim();
             if (pag && (!/^\d+$/.test(pag) || Number(pag) < 1 || Number(pag) > 10000)) errors.numero_paginas = 'Informe um número de páginas entre 1 e 10.000.';
-            if (!el.categoria.value) errors.categoria = 'Selecione uma categoria.';
             return errors;
         }
 
@@ -985,7 +985,7 @@
                 return;
             }
 
-            if (!editing) {
+            if (!editing && DATA.livros.length) {
                 const dupes = findDuplicates();
                 if (dupes.length && (await duplicateDialog(dupes)) !== 'continuar') return;
             } else {
@@ -999,6 +999,23 @@
                     });
                     if (answer !== 'ok') return;
                 }
+            }
+
+            if (form.dataset.persistir === '1') {
+                // Envio real: o servidor valida de novo, grava e redireciona.
+                if (button?.name) {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = button.name;
+                    hidden.value = button.value;
+                    form.appendChild(hidden);
+                }
+                $$('[data-submit]', form).forEach((b) => { b.disabled = true; });
+                const label = button?.querySelector('[data-submit-label]');
+                if (label) label.textContent = 'Salvando...';
+                button?.classList.add('is-loading');
+                HTMLFormElement.prototype.submit.call(form);
+                return;
             }
 
             await simulateSave(button);

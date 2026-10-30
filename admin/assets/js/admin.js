@@ -128,6 +128,32 @@
         }
     });
 
+    // ---------- Listagens com paginação no servidor ----------
+    // "Mostrar N por página" envia o formulário ao trocar a opção (sem JavaScript, há um botão).
+    document.querySelectorAll('[data-auto-submit]').forEach((select) => {
+        select.addEventListener('change', () => select.form?.requestSubmit ? select.form.requestSubmit() : select.form?.submit());
+    });
+    // Indica o carregamento enquanto a próxima página é buscada no servidor.
+    const markLoading = () => {
+        document.querySelectorAll('[data-loading-area]').forEach((area) => {
+            area.classList.add('is-loading');
+            area.setAttribute('aria-busy', 'true');
+        });
+    };
+    document.querySelectorAll('[data-loading-form]').forEach((form) => form.addEventListener('submit', () => {
+        form.setAttribute('aria-busy', 'true');
+        markLoading();
+    }));
+    document.querySelectorAll('.adm-pagination a, a.adm-th-sort').forEach((link) => link.addEventListener('click', markLoading));
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) document.querySelectorAll('[data-loading-area].is-loading').forEach((area) => area.classList.remove('is-loading'));
+    });
+
+    // ---------- Confirmação de ações (botões com data-confirm) ----------
+    document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventListener('submit', (event) => {
+        if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+    }));
+
     // ---------- Data atual ----------
     document.querySelectorAll('[data-today]').forEach((el) => {
         const now = new Date();

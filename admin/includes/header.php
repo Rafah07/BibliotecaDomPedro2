@@ -59,7 +59,9 @@ $alertasHeader = dashboard_alertas();
                     <small><?= htmlspecialchars(AUTH_PERFIS[$usuario['perfil']] ?? '') . (db_modo() === 'demo' ? ' · conta demonstrativa' : '') ?></small>
                 </div>
                 <a class="adm-dropdown__item" role="menuitem" href="<?= htmlspecialchars(admin_url('perfil')) ?>"><?= icon('user-round') ?> Meu perfil</a>
-                <a class="adm-dropdown__item" role="menuitem" href="<?= htmlspecialchars(admin_url('configuracoes')) ?>"><?= icon('settings') ?> Configurações</a>
+                <?php if (auth_pode('usuarios.gerenciar')): ?>
+                    <a class="adm-dropdown__item" role="menuitem" href="<?= e(admin_url('administradores')) ?>"><?= icon('users') ?> Administradores</a>
+                <?php endif; ?>
                 <form method="post" action="<?= htmlspecialchars(admin_base() . 'logout.php') ?>">
                     <?= csrf_campo() ?>
                     <button class="adm-dropdown__item adm-dropdown__item--danger" role="menuitem" type="submit"><?= icon('log-out') ?> Sair</button>

@@ -2,8 +2,17 @@
 /**
  * Formulário de livro, usado pelo cadastro e pela edição.
  * Espera: $modo ('cadastrar' | 'editar'), $livroForm (array|null), $erros (array), $valores (array).
+ * Opcional: $duplicados (livros com o mesmo título, exige confirmação), $versao (atualizado_em na edição).
+ * Com o banco configurado o formulário grava de verdade (data-persistir); sem banco, só simula.
  */
 $editando = $modo === 'editar';
+$persistir = livros_persistem();
+$duplicados = $duplicados ?? [];
+$categoriasForm = livros_categorias_ativas();
+$idiomas = ACERVO_IDIOMAS;
+if (!empty($valores['idioma']) && !in_array($valores['idioma'], $idiomas, true)) {
+    array_unshift($idiomas, $valores['idioma']); // idioma vindo da planilha, mantido como está
+}
 $v = fn (string $campo, $padrao = '') => htmlspecialchars((string)($valores[$campo] ?? $padrao));
 $erro = fn (string $campo): string => isset($erros[$campo])
     ? '<span class="adm-field__error" data-error-for="' . $campo . '">' . htmlspecialchars($erros[$campo]) . '</span>'
@@ -24,7 +33,25 @@ if (($capaLivro['titulo'] ?? '') === '') {
     $capaLivro['titulo'] = 'Título do livro';
 }
 ?>
-<form class="adm-book-form" method="post" novalidate data-livro-form data-modo="<?= $modo ?>"<?= $editando ? ' data-livro-id="' . (int)$livroForm['id'] . '"' : '' ?>>
+<form class="adm-book-form" method="post" novalidate data-livro-form data-modo="<?= $modo ?>"<?= $editando ? ' data-livro-id="' . (int)$livroForm['id'] . '"' : '' ?><?= $persistir ? ' data-persistir="1"' : '' ?>>
+    <?= csrf_campo() ?>
+    <?php if ($editando): ?><input type="hidden" name="versao" value="<?= e($versao ?? '') ?>"><?php endif; ?>
+    <?php if ($duplicados): ?>
+        <div class="adm-notice adm-notice--amber" role="alert">
+            <?= icon('copy') ?>
+            <div class="adm-notice__content">
+                <strong>Já existe<?= count($duplicados) > 1 ? 'm livros' : ' um livro' ?> com este mesmo título.</strong>
+                <p>Confira se não é o mesmo registro antes de salvar. Títulos iguais são permitidos quando se trata de outra edição.</p>
+                <ul class="adm-dupe-list">
+                    <?php foreach ($duplicados as $d): ?>
+                        <li><a class="adm-link" href="<?= e(admin_url('detalhes-livro') . '?id=' . (int)$d['id']) ?>" target="_blank" rel="noopener"><?= e($d['titulo']) ?></a>
+                            <small><?= e(implode(' · ', array_filter([$d['autores'] ? str_replace('; ', ', ', $d['autores']) : 'Autor não informado', $d['editora'], $d['ano_publicacao'], $d['edicao']]))) ?></small></li>
+                    <?php endforeach; ?>
+                </ul>
+                <label class="adm-check-confirm"><input type="checkbox" name="confirmar_duplicidade" value="1"> <span>Conferi os registros acima e confirmo que se trata de outra obra ou edição.</span></label>
+            </div>
+        </div>
+    <?php endif; ?>
     <?php if ($erros): ?>
         <div class="adm-notice adm-notice--red" role="alert" data-form-errors>
             <?= icon('circle-alert') ?>
@@ -65,8 +92,8 @@ if (($capaLivro['titulo'] ?? '') === '') {
                         <input class="adm-input" type="text" name="subtitulo" maxlength="255" value="<?= $v('subtitulo') ?>">
                     </label>
 
-                    <div class="adm-field adm-field--full">
-                        <span class="adm-field__label" id="rotulo-autores">Autor</span>
+                    <div class="adm-field adm-field--full<?= $invalido('autores') ?>">
+                        <span class="adm-field__label" id="rotulo-autores">Autor ou autores</span>
                         <div class="adm-combobox" data-autores>
                             <div class="adm-chips-input">
                                 <ul class="adm-chips" data-chips aria-label="Autores selecionados">
@@ -84,6 +111,7 @@ if (($capaLivro['titulo'] ?? '') === '') {
                             <ul class="adm-combobox__list" id="lista-autores" role="listbox" hidden></ul>
                         </div>
                         <span class="adm-field__hint">Pressione Enter para adicionar. É possível informar mais de um autor.</span>
+                        <?= $erro('autores') ?>
                     </div>
 
                     <label class="adm-field<?= $invalido('isbn') ?>">
@@ -112,22 +140,44 @@ if (($capaLivro['titulo'] ?? '') === '') {
                     <label class="adm-field">
                         <span class="adm-field__label">Idioma</span>
                         <select class="adm-select" name="idioma">
-                            <?php foreach (ACERVO_IDIOMAS as $idioma): ?>
-                                <option<?= ($valores['idioma'] ?? 'Português') === $idioma ? ' selected' : '' ?>><?= $idioma ?></option>
+                            <?php foreach ($idiomas as $idioma): ?>
+                                <option<?= ($valores['idioma'] ?? 'Português') === $idioma ? ' selected' : '' ?>><?= e($idioma) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </label>
 
                     <label class="adm-field<?= $invalido('categoria') ?>">
-                        <span class="adm-field__label">Categoria <span class="adm-required" aria-hidden="true">*</span><span class="adm-visually-hidden">(obrigatório)</span></span>
-                        <select class="adm-select" name="categoria" required>
-                            <option value="">Selecione uma categoria</option>
-                            <?php foreach (acervo_categorias() as $cat): ?>
-                                <option value="<?= $cat['id'] ?>"<?= (int)($valores['categoria'] ?? 0) === $cat['id'] ? ' selected' : '' ?>><?= htmlspecialchars($cat['nome']) ?></option>
+                        <span class="adm-field__label">Categoria <span class="adm-optional">opcional</span></span>
+                        <select class="adm-select" name="categoria">
+                            <option value="">Sem categoria</option>
+                            <?php foreach ($categoriasForm as $cid => $cnome): ?>
+                                <option value="<?= (int)$cid ?>"<?= (int)($valores['categoria'] ?? 0) === (int)$cid ? ' selected' : '' ?>><?= e($cnome) ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if (!$categoriasForm): ?><span class="adm-field__hint">Nenhuma categoria cadastrada ainda.</span><?php endif; ?>
                         <?= $erro('categoria') ?>
                     </label>
+
+                    <label class="adm-field adm-field--full">
+                        <span class="adm-field__label">Assunto <span class="adm-optional">opcional</span></span>
+                        <input class="adm-input" type="text" name="assunto" maxlength="255" placeholder="Ex.: Literatura brasileira — romance" value="<?= $v('assunto') ?>">
+                        <span class="adm-field__hint">Assunto principal da obra. Ajuda na pesquisa e na classificação CDD.</span>
+                    </label>
+
+                    <?php if (!$editando): ?>
+                        <label class="adm-field<?= $invalido('cdd') ?>">
+                            <span class="adm-field__label">CDD <span class="adm-optional">se conhecida</span></span>
+                            <input class="adm-input adm-mono" type="text" name="cdd" maxlength="60" placeholder="Ex.: 869.3" value="<?= $v('cdd') ?>" autocomplete="off">
+                            <span class="adm-field__hint">Deixe em branco se não souber. A CDD informada entra como sugestão e só vale depois de aprovada na Classificação CDD.</span>
+                            <?= $erro('cdd') ?>
+                        </label>
+                        <label class="adm-field">
+                            <span class="adm-field__label">Fonte da CDD <span class="adm-optional">opcional</span></span>
+                            <input class="adm-input" type="text" name="cdd_fonte" maxlength="255" placeholder="Ex.: ficha catalográfica do livro" value="<?= $v('cdd_fonte') ?>">
+                        </label>
+                    <?php elseif ($persistir): ?>
+                        <p class="adm-field adm-field--full adm-side-note"><?= icon('list-tree') ?> A CDD é registrada e aprovada pela <a class="adm-link" href="<?= e(admin_url('classificar-livro') . '?id=' . (int)$livroForm['id']) ?>">Classificação CDD</a>, com fonte e histórico.</p>
+                    <?php endif; ?>
                 </div>
                 <div class="adm-notice adm-notice--blue adm-notice--compact" data-edition-hint hidden>
                     <?= icon('info') ?>
@@ -159,7 +209,7 @@ if (($capaLivro['titulo'] ?? '') === '') {
                         <span class="adm-field__hint"><span data-counter-value>0</span>/3000 caracteres</span>
                     </label>
                     <label class="adm-field adm-field--full">
-                        <span class="adm-field__label"><?= icon('shield-alert', 'adm-field__icon') ?> Observações internas</span>
+                        <span class="adm-field__label"><?= icon('shield-alert', 'adm-field__icon') ?> Observações</span>
                         <textarea class="adm-textarea adm-textarea--internal" name="observacoes_internas" rows="3" maxlength="1000" placeholder="Anotações para a equipe da biblioteca"><?= $v('observacoes_internas') ?></textarea>
                         <span class="adm-field__hint">Visível apenas para os administradores. Não aparece no catálogo público.</span>
                     </label>
@@ -168,6 +218,7 @@ if (($capaLivro['titulo'] ?? '') === '') {
         </div>
 
         <aside class="adm-form-layout__side">
+            <?php if (!$persistir): ?>
             <section class="adm-card adm-panel adm-form-section" aria-labelledby="secao-capa">
                 <div class="adm-form-section__header">
                     <span class="adm-step">3</span>
@@ -189,10 +240,11 @@ if (($capaLivro['titulo'] ?? '') === '') {
                     <span class="adm-field__error" data-error-for="capa"></span>
                 </div>
             </section>
+            <?php endif; ?>
 
             <section class="adm-card adm-panel adm-form-section" aria-labelledby="secao-situacao">
                 <div class="adm-form-section__header">
-                    <span class="adm-step">4</span>
+                    <span class="adm-step"><?= $persistir ? 3 : 4 ?></span>
                     <div>
                         <h2 id="secao-situacao"><?= $editando ? 'Situação do cadastro' : 'Situação inicial' ?></h2>
                         <p>Indica se os dados já foram verificados.</p>
@@ -225,19 +277,27 @@ if (($capaLivro['titulo'] ?? '') === '') {
                         <div><dt>Cadastrado em</dt><dd><?= acervo_data($livroForm['criado_em']) ?></dd></div>
                         <div><dt>Exemplares identificados</dt><dd><?= $livroForm['total_exemplares'] ?> (<?= $livroForm['disponiveis'] ?> disponíveis)</dd></div>
                     </dl>
+                    <?php if ($livroForm['origem_cadastro'] === 'planilha'): ?>
+                        <p class="adm-side-note"><?= icon('file-spreadsheet') ?> Os valores originais da planilha ficam preservados e não mudam com esta edição. <a class="adm-link" href="<?= e(admin_url('detalhes-livro') . '?id=' . (int)$livroForm['id'] . '#origem') ?>">Ver dados da importação</a></p>
+                    <?php endif; ?>
                 </section>
             <?php endif; ?>
         </aside>
     </div>
 
     <div class="adm-form-actions">
-        <p class="adm-form-actions__note"><?= icon('info') ?> Versão demonstrativa: o salvamento é apenas simulado.</p>
+        <?php if (!$persistir): ?><p class="adm-form-actions__note"><?= icon('info') ?> Versão demonstrativa: o salvamento é apenas simulado.</p><?php endif; ?>
         <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars($editando ? admin_url('detalhes-livro') . '?id=' . (int)$livroForm['id'] : admin_url('acervo')) ?>">Cancelar</a>
         <?php if ($editando): ?>
             <button type="submit" class="adm-button adm-button--primary" name="acao" value="salvar" data-submit><?= icon('check') ?> <span data-submit-label>Salvar alterações</span></button>
         <?php else: ?>
-            <button type="submit" class="adm-button adm-button--ghost" name="acao" value="salvar" data-submit><?= icon('check') ?> <span data-submit-label>Salvar livro</span></button>
-            <button type="submit" class="adm-button adm-button--primary" name="acao" value="salvar_exemplares" data-submit><?= icon('book-copy') ?> <span data-submit-label>Salvar e adicionar exemplares</span></button>
+            <?php if ($persistir): ?>
+                <button type="submit" class="adm-button adm-button--ghost" name="acao" value="salvar_novo" data-submit><?= icon('plus') ?> <span data-submit-label>Salvar e cadastrar outro</span></button>
+                <button type="submit" class="adm-button adm-button--primary" name="acao" value="salvar" data-submit><?= icon('check') ?> <span data-submit-label>Salvar livro</span></button>
+            <?php else: ?>
+                <button type="submit" class="adm-button adm-button--ghost" name="acao" value="salvar" data-submit><?= icon('check') ?> <span data-submit-label>Salvar livro</span></button>
+                <button type="submit" class="adm-button adm-button--primary" name="acao" value="salvar_exemplares" data-submit><?= icon('book-copy') ?> <span data-submit-label>Salvar e adicionar exemplares</span></button>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </form>

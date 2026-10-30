@@ -10,10 +10,17 @@
 require_once __DIR__ . '/db.php';
 
 /** Permissões de cada perfil. */
+/**
+ * Permissões de cada perfil. A conferência é sempre feita no servidor (auth_exigir / auth_pode);
+ * esconder um botão na tela é só conveniência.
+ *   livros.editar     cadastrar e editar livros
+ *   livros.arquivar   arquivar e restaurar livros
+ *   usuarios.gerenciar  cadastrar, editar, ativar/desativar contas do painel
+ */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
-    'bibliotecaria' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
-    'auxiliar' => ['painel.ver', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
+    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'auxiliar' => ['painel.ver', 'livros.editar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
     'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver'],
 ];
 
@@ -31,6 +38,12 @@ const AUTH_CONTAS_DEMO = [
 ];
 
 const AUTH_MAX_TENTATIVAS = 5;
+
+/** Sessão encerrada depois deste tempo sem uso (computadores compartilhados da escola). */
+const AUTH_INATIVIDADE_MINUTOS = 120;
+
+/** Tamanho mínimo das senhas (o mesmo de database/criar-admin.php). */
+const AUTH_SENHA_MINIMA = 10;
 
 /** Contas demonstrativas só valem sem banco e fora de produção. */
 function auth_demo_disponivel(): bool
@@ -73,20 +86,29 @@ function auth_usuario(): ?array
     if (!$sessao || ($sessao['modo'] ?? '') !== db_modo() || ($sessao['modo'] === 'demo' && !auth_demo_disponivel())) {
         return $usuario = null;
     }
+    // Sessão parada há muito tempo: exige novo login.
+    if (isset($sessao['visto']) && time() - (int)$sessao['visto'] > AUTH_INATIVIDADE_MINUTOS * 60) {
+        unset($_SESSION['auth']);
+        return $usuario = null;
+    }
+    $_SESSION['auth']['visto'] = time();
     if ($sessao['modo'] === 'mysql') {
-        // Confere a cada requisição: um usuário desativado perde o acesso imediatamente.
+        // Confere a cada requisição: um usuário desativado perde o acesso imediatamente,
+        // e uma senha redefinida encerra as sessões abertas com a senha antiga.
         try {
-            $linha = db_query('SELECT id, nome, email, perfil, cargo FROM administradores WHERE id = ? AND ativo = 1', [$sessao['id']])->fetch();
+            $linha = db_query('SELECT id, nome, email, perfil, cargo, senha_hash FROM administradores WHERE id = ? AND ativo = 1', [$sessao['id']])->fetch();
         } catch (Throwable $e) {
             error_log('[biblioteca] Falha ao carregar usuário: ' . $e->getMessage());
             return $usuario = null;
         }
-        if (!$linha) {
+        if (!$linha || !hash_equals(auth_marca_senha($linha['senha_hash']), (string)($sessao['senha'] ?? ''))) {
             unset($_SESSION['auth']);
             return $usuario = null;
         }
+        unset($linha['senha_hash']);
         $sessao = array_merge($sessao, $linha);
     }
+    unset($sessao['senha'], $sessao['visto']);
     $sessao['id'] = (int)$sessao['id'];
     $sessao['iniciais'] = auth_iniciais($sessao['nome']);
     $sessao['cargo'] = $sessao['cargo'] ?: (AUTH_PERFIS[$sessao['perfil']] ?? '');
@@ -177,9 +199,66 @@ function auth_login(string $email, string $senha): ?string
         db_query('UPDATE administradores SET senha_hash = ? WHERE id = ?', [password_hash($senha, PASSWORD_DEFAULT), $linha['id']]);
     }
     db_query('UPDATE administradores SET ultimo_acesso = NOW() WHERE id = ?', [$linha['id']]);
+    $hashAtual = (string)db_query('SELECT senha_hash FROM administradores WHERE id = ?', [$linha['id']])->fetchColumn();
     session_regenerate_id(true);
-    $_SESSION['auth'] = ['id' => (int)$linha['id'], 'modo' => 'mysql'];
+    $_SESSION['auth'] = ['id' => (int)$linha['id'], 'modo' => 'mysql', 'senha' => auth_marca_senha($hashAtual), 'visto' => time()];
     return null;
+}
+
+/**
+ * Marca da senha guardada na sessão (um resumo do hash, nunca a senha).
+ * Quando a senha muda, a marca deixa de bater e as outras sessões abertas são encerradas.
+ */
+function auth_marca_senha(string $hash): string
+{
+    return substr(hash_hmac('sha256', $hash, 'bdp-sessao'), 0, 32);
+}
+
+/** Atualiza a marca da sessão atual depois que o próprio usuário troca a senha (para não sair do painel). */
+function auth_renovar_marca_senha(string $novoHash): void
+{
+    auth_sessao();
+    if (isset($_SESSION['auth'])) {
+        $_SESSION['auth']['senha'] = auth_marca_senha($novoHash);
+    }
+}
+
+/** Regras de senha do painel. Retorna a mensagem do problema ou null quando a senha serve. */
+function auth_senha_problema(string $senha, string $confirmacao): ?string
+{
+    if (mb_strlen($senha) < AUTH_SENHA_MINIMA) {
+        return 'A senha precisa ter pelo menos ' . AUTH_SENHA_MINIMA . ' caracteres.';
+    }
+    if (strlen($senha) > 72) {
+        return 'A senha pode ter no máximo 72 caracteres.';
+    }
+    if (!preg_match('/\pL/u', $senha) || !preg_match('/\d/', $senha)) {
+        return 'Use letras e números na senha.';
+    }
+    if (!hash_equals($senha, $confirmacao)) {
+        return 'A confirmação não é igual à senha digitada.';
+    }
+    return null;
+}
+
+/**
+ * Registra uma ação administrativa (quem, o quê, quando, de onde) em acoes_administrativas.
+ * Falhas no registro não interrompem a operação; nunca grave senhas nos detalhes.
+ */
+function registrar_acao(string $acao, ?string $entidade = null, ?int $entidadeId = null, array $detalhes = []): void
+{
+    if (db_modo() !== 'mysql') {
+        return;
+    }
+    try {
+        $usuario = auth_usuario();
+        db_query(
+            'INSERT INTO acoes_administrativas (usuario_id, acao, entidade, entidade_id, detalhes, ip) VALUES (?, ?, ?, ?, ?, ?)',
+            [$usuario['id'] ?? null, $acao, $entidade, $entidadeId, $detalhes ? json_encode($detalhes, JSON_UNESCAPED_UNICODE) : null, substr((string)($_SERVER['REMOTE_ADDR'] ?? 'cli'), 0, 45)]
+        );
+    } catch (Throwable $e) {
+        error_log('[biblioteca] Falha ao registrar ação ' . $acao . ': ' . $e->getMessage());
+    }
 }
 
 function auth_logout(): void

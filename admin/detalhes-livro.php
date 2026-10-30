@@ -1,10 +1,10 @@
 <?php
 require_once __DIR__ . '/includes/layout.php';
-require_once __DIR__ . '/includes/acervo.php';
+require_once __DIR__ . '/includes/livros.php';
 
 $livro = acervo_livro((int)($_GET['id'] ?? 0));
 
-admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261027', 'assets/css/classificacao.css?v=20261027']);
+admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261030', 'assets/css/classificacao.css?v=20261027']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Detalhes']]);
 
@@ -33,6 +33,9 @@ $outras = $livro['total_exemplares'] - $livro['disponiveis'] - $emprestados - $m
 $planilha = $livro['planilha'];
 $qtdPlanilha = $planilha && $planilha['quantidade_informada'] !== null ? (int)$planilha['quantidade_informada'] : null;
 $precisaConferir = in_array($livro['status_validacao'], ['aguardando_conferencia', 'com_divergencia'], true);
+$persistir = livros_persistem();
+// Linhas das planilhas que originaram o cadastro, com os valores exatamente como vieram.
+$origem = $persistir && $planilha ? livros_repo()->origemImportacao($id) : [];
 
 $kpis = [
     ['titulo' => 'Exemplares identificados', 'valor' => $livro['total_exemplares'], 'icone' => 'book-copy', 'tom' => 'blue'],
@@ -52,6 +55,8 @@ $meta = [
     'Origem' => ACERVO_ORIGENS[$livro['origem_cadastro']],
 ];
 ?>
+
+<?= admin_flash_html() ?>
 
 <section class="adm-card adm-book-hero">
     <div class="adm-book-hero__cover"><?= acervo_capa($livro, 'lg') ?></div>
@@ -73,9 +78,17 @@ $meta = [
             <?php endforeach; ?>
         </dl>
         <div class="adm-book-hero__actions">
-            <a class="adm-button adm-button--primary" href="<?= htmlspecialchars(admin_url('editar-livro') . '?id=' . $id) ?>"><?= icon('pencil') ?> Editar livro</a>
-            <button type="button" class="adm-button adm-button--ghost" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>
-            <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars(admin_url('acervo')) ?>"><?= icon('arrow-left') ?> Voltar ao acervo</a>
+            <?php if (auth_pode('livros.editar')): ?>
+                <a class="adm-button adm-button--primary" href="<?= e(admin_url('editar-livro') . '?id=' . $id) ?>"><?= icon('pencil') ?> Editar livro</a>
+            <?php endif; ?>
+            <?php if (!$persistir): ?>
+                <button type="button" class="adm-button adm-button--ghost" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>
+            <?php endif; ?>
+            <a class="adm-button adm-button--ghost" href="<?= e(admin_url('classificar-livro') . '?id=' . $id) ?>"><?= icon('list-tree') ?> Classificação CDD</a>
+            <a class="adm-button adm-button--ghost" href="<?= e(admin_url('acervo')) ?>"><?= icon('arrow-left') ?> Voltar ao acervo</a>
+            <?php if ($persistir && auth_pode('livros.arquivar')): ?>
+                <a class="adm-button adm-button--ghost adm-button--danger-text" href="<?= e(admin_url('arquivar-livro') . '?id=' . $id) ?>"><?= icon('archive') ?> Arquivar</a>
+            <?php endif; ?>
         </div>
     </div>
 </section>
@@ -121,6 +134,9 @@ $meta = [
         <button type="button" role="tab" id="aba-exemplares" aria-controls="painel-exemplares" aria-selected="false" tabindex="-1" data-tab="exemplares"><?= icon('book-copy') ?> Exemplares <span class="adm-tabs__count" data-exemplares-count><?= count($exemplares) ?></span></button>
         <button type="button" role="tab" id="aba-movimentacoes" aria-controls="painel-movimentacoes" aria-selected="false" tabindex="-1" data-tab="movimentacoes"><?= icon('history') ?> Movimentações</button>
         <button type="button" role="tab" id="aba-inventario" aria-controls="painel-inventario" aria-selected="false" tabindex="-1" data-tab="inventario"><?= icon('clipboard-check') ?> Inventário</button>
+        <?php if ($origem): ?>
+            <button type="button" role="tab" id="aba-origem" aria-controls="painel-origem" aria-selected="false" tabindex="-1" data-tab="origem"><?= icon('file-spreadsheet') ?> Origem da importação <span class="adm-tabs__count"><?= count($origem) ?></span></button>
+        <?php endif; ?>
     </div>
 
     <div class="adm-tabpanel" role="tabpanel" id="painel-informacoes" aria-labelledby="aba-informacoes">
@@ -158,8 +174,10 @@ $meta = [
 
     <div class="adm-tabpanel" role="tabpanel" id="painel-exemplares" aria-labelledby="aba-exemplares" hidden>
         <div class="adm-tabpanel__header">
-            <p>Cada linha é uma unidade física com código próprio.</p>
-            <button type="button" class="adm-button adm-button--primary adm-button--sm" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>
+            <p>Cada linha é uma unidade física com código próprio.<?= $persistir ? ' Os exemplares são registrados na conferência física (inventário).' : '' ?></p>
+            <?php if (!$persistir): ?>
+                <button type="button" class="adm-button adm-button--primary adm-button--sm" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>
+            <?php endif; ?>
         </div>
         <div class="adm-table-wrap adm-table-wrap--inset">
             <table class="adm-table adm-table--cards">
@@ -283,10 +301,39 @@ $meta = [
             </div>
         </div>
     </div>
+
+    <?php if ($origem): ?>
+    <div class="adm-tabpanel" role="tabpanel" id="painel-origem" aria-labelledby="aba-origem" hidden>
+        <p class="adm-side-note"><?= icon('shield-check') ?> Valores exatamente como vieram da planilha. Eles são guardados à parte, não podem ser alterados e não mudam quando o cadastro do livro é editado.</p>
+        <?php foreach ($origem as $r): ?>
+            <details class="adm-origem"<?= count($origem) === 1 ? ' open' : '' ?>>
+                <summary>
+                    <strong><?= e($r['arquivo']) ?></strong> · linha <?= (int)$r['linha'] ?>
+                    <small>importado em <?= admin_data_hora($r['importado_em']) ?><?= $r['representa_exemplar'] ? ' · outra unidade do mesmo livro' : '' ?></small>
+                </summary>
+                <div class="adm-table-wrap adm-table-wrap--inset">
+                    <table class="adm-table adm-table--compact">
+                        <thead><tr><th scope="col">Coluna da planilha</th><th scope="col">Valor original</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($r['dados_originais'] as $coluna => $valor): ?>
+                                <tr><th scope="row"><?= e($coluna) ?></th><td><?= ($valor === null || $valor === '') ? '<span class="adm-missing">vazio</span>' : e(is_scalar($valor) ? (string)$valor : json_encode($valor, JSON_UNESCAPED_UNICODE)) ?></td></tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php if (!empty($r['importacao_id'])): ?>
+                    <a class="adm-link" href="<?= e(admin_url('detalhes-importacao') . '?id=' . (int)$r['importacao_id']) ?>"><?= icon('external-link') ?> Abrir a importação nº <?= (int)$r['importacao_id'] ?></a>
+                <?php endif; ?>
+            </details>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 </section>
 
 <?php
 $livroModal = $livro;
-include __DIR__ . '/includes/modal-exemplares.php';
+if (!$persistir) {
+    include __DIR__ . '/includes/modal-exemplares.php';
+}
 echo acervo_json_script();
-admin_page_end(['assets/js/acervo.js?v=20261027']);
+admin_page_end(['assets/js/acervo.js?v=20261030']);
