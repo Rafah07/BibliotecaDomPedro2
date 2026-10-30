@@ -16,10 +16,11 @@ require_once __DIR__ . '/db.php';
  *   livros.editar     cadastrar e editar livros
  *   livros.arquivar   arquivar e restaurar livros
  *   usuarios.gerenciar  cadastrar, editar, ativar/desativar contas do painel
+ *   alunos.importar   importar e atualizar o cadastro de alunos a partir de planilhas
  */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
-    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
     'auxiliar' => ['painel.ver', 'livros.editar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
     'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver'],
 ];

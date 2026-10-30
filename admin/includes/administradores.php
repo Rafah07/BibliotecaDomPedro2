@@ -11,8 +11,8 @@ use Biblioteca\Repositories\AdministradorRepository;
 
 /** O que cada perfil pode fazer, em linguagem simples (as regras reais estão em AUTH_PERMISSOES). */
 const ADMINISTRADORES_PERFIS_DESCRICAO = [
-    'administrador' => 'Acesso total: livros, classificação CDD, importações e gerenciamento das contas de acesso.',
-    'bibliotecaria' => 'Gerencia livros (cadastrar, editar, arquivar), aprova classificações CDD e executa importações. Não gerencia contas.',
+    'administrador' => 'Acesso total: livros, classificação CDD, importações (inclusive de alunos) e gerenciamento das contas de acesso.',
+    'bibliotecaria' => 'Gerencia livros (cadastrar, editar, arquivar), aprova classificações CDD e executa importações, inclusive a de alunos. Não gerencia contas.',
     'auxiliar' => 'Cadastra e edita livros, sugere classificações CDD e revisa importações. Não arquiva livros nem aprova CDD.',
     'consulta' => 'Somente consulta: vê o acervo, a classificação e as importações, sem alterar nada.',
 ];

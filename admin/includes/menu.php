@@ -38,6 +38,7 @@ const ADMIN_MENU = [
         'isbn-invalidos' => ['label' => 'ISBNs inválidos', 'icon' => 'barcode', 'arquivo' => 'isbn-invalidos.php', 'pronta' => true, 'oculto' => true],
         'etiquetas' => ['label' => 'Etiquetas', 'icon' => 'scan-barcode'],
         'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap'],
+        'importar-alunos' => ['label' => 'Importar Alunos', 'icon' => 'users', 'arquivo' => 'importar-alunos.php', 'pronta' => true, 'permissao' => 'alunos.importar'],
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column'],
         'atividades' => ['label' => 'Atividades', 'icon' => 'history'],
     ],
