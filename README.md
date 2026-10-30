@@ -104,6 +104,26 @@ No XAMPP (Windows): `C:\xampp\php\php.exe database\seeds\importar-acervo.php --a
 - Se uma tentativa parar antes de gravar livros, basta rodar o comando de novo, **sem** `--apagar-demo`: a tentativa anterior é cancelada e a importação recomeça. Se parar no meio da gravação, ela continua de onde parou.
 - O mesmo arquivo não é importado duas vezes. Para uma versão nova da planilha, passe o `.xlsx`: `php database/seeds/importar-acervo.php planilha.xlsx --aba=Catalogar`.
 
+#### Aba ENTRADA OBRAS (livros que ainda não estavam no banco)
+
+A aba **Catalogar** da planilha atualizada é igual à que já foi importada. As informações novas estão na aba **ENTRADA OBRAS** (2.384 linhas), copiada para `database/seeds/dados/entrada-obras.csv` só com os dados das obras. Na cópia, os autores separados por "/" passaram a ser separados por ";", o "-" usado como vazio virou campo vazio, e os códigos CDD/CDU anotados na coluna ISBN foram para as observações (a CDD do sistema não muda). A linha original da aba fica na coluna *Linha na aba ENTRADA OBRAS*.
+
+Com o acervo já carregado (**sem** `--apagar-demo`):
+
+```bash
+php database/seeds/importar-acervo.php database/seeds/dados/entrada-obras.csv --complementar
+```
+
+No XAMPP: `C:\xampp\php\php.exe database\seeds\importar-acervo.php database\seeds\dados\entrada-obras.csv --complementar`, dentro da pasta do projeto.
+
+- Livros que não estão no acervo são criados, como na importação normal (sem exemplares nem código BDP; a quantidade fica em `registros_legados`).
+- Linha de um livro que **já está** no acervo (mesmo ISBN, ou mesmo título e autor sem ano diferente): nada é criado. O script só preenche o ISBN, a editora e o ano quando esses campos estão **vazios** no livro, anota isso nas observações internas e no registro de ações (`livro.complementar`). Nenhum valor que já existe é trocado. A linha fica como "ignorada" na importação.
+- Mesmo título de um livro do acervo, mas com outro autor: fica como **revisar depois** em *Importações → detalhes* (pode ser o mesmo livro com o autor escrito de outro jeito, ou outro livro com o mesmo nome).
+- Mesmo título e autor com ano diferente (talvez outra edição) e ISBNs inválidos ficam pendentes, para a revisão normal e para a tela de ISBNs inválidos.
+- O mesmo arquivo não é importado duas vezes; rodar de novo não duplica nada.
+
+Resultado no banco de teste (acervo da aba Catalogar já importado): 1.642 livros novos, 44 outros exemplares, 231 linhas de livros que já estavam no acervo (111 livros ganharam ISBN, editora ou ano que faltavam), 224 para revisar depois, 67 duplicidades e 176 ISBNs inválidos pendentes.
+
 #### ISBNs inválidos
 
 Em *Importações → detalhes*, o botão **Tratar ISBNs inválidos em lote** (`admin/isbn-invalidos.php?id=N`) lista as linhas pendentes por causa do ISBN, explica o problema (dígito verificador, quantidade de dígitos, caracteres, prefixo) e sugere correções só quando os dígitos da edição não mudam. A bibliotecária (ou um administrador) pode importar em lote, sem ISBN, as linhas em que o ISBN é o **único** problema, depois de confirmar a lista de livros afetados. O ISBN da planilha continua nos dados originais da importação, em `registros_legados` e nas observações internas do livro. Linhas com outros erros ou com possível duplicidade ficam para a revisão individual; nenhum exemplar ou CDD é criado e os livros existentes não mudam. Repetir a operação não duplica nada.

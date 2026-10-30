@@ -11,6 +11,7 @@ require_once __DIR__ . '/dados-demo.php';
 const DASHBOARD_ACOES = [
     'livro.cadastrar' => 'Livro cadastrado',
     'livro.editar' => 'Livro editado',
+    'livro.complementar' => 'Livro complementado pela planilha',
     'livro.arquivar' => 'Livro arquivado',
     'livro.restaurar' => 'Livro restaurado',
     'usuario.cadastrar' => 'Conta de acesso criada',
