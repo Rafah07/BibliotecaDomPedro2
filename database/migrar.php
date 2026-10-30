@@ -1,9 +1,9 @@
 <?php
 /**
- * Aplica as migrações MySQL em ordem (admin/database/mysql/NNN_nome.sql).
+ * Aplica as migrações MySQL em ordem (database/migrations/NNN_nome.sql).
  *
- * Uso:  php admin/database/migrar.php           aplica as pendentes
- *       php admin/database/migrar.php --status  lista o que já foi aplicado
+ * Uso:  php database/migrar.php           aplica as pendentes
+ *       php database/migrar.php --status  lista o que já foi aplicado
  *
  * Cada arquivo roda uma única vez e fica registrado em "schema_migracoes".
  * As migrações só criam ou acrescentam estruturas: nenhuma apaga dados existentes.
@@ -15,10 +15,10 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
 }
-require __DIR__ . '/../includes/db.php';
+require __DIR__ . '/../config/database.php';
 
 if (!db_configurado()) {
-    fwrite(STDERR, "Banco não configurado. Copie admin/config/database.example.php para database.php e preencha os dados.\n");
+    fwrite(STDERR, "Banco não configurado. Copie .env.example para .env e preencha DB_NAME, DB_USER e DB_PASSWORD.\n");
     exit(1);
 }
 try {
@@ -35,7 +35,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS schema_migracoes (
 
 $aplicadas = $pdo->query('SELECT arquivo FROM schema_migracoes')->fetchAll(PDO::FETCH_COLUMN);
 // Prefixo numérico define a ordem (001_, 002_ ... ou 0500_): comparação natural.
-$arquivos = glob(__DIR__ . '/mysql/[0-9]*_*.sql');
+$arquivos = glob(__DIR__ . '/migrations/[0-9]*_*.sql');
 usort($arquivos, fn ($a, $b) => strnatcmp(basename($a), basename($b)));
 
 if (in_array('--status', $argv, true)) {

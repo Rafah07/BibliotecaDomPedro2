@@ -2,8 +2,14 @@
 /** Layout compartilhado do painel administrativo. */
 require_once __DIR__ . '/icones.php';
 require_once __DIR__ . '/menu.php';
-require_once __DIR__ . '/dados-demo.php';
+require_once __DIR__ . '/dashboard-dados.php';
 require_once __DIR__ . '/auth.php';
+
+// Todas as páginas do painel exigem login. Quem não entrou é levado ao login.php
+// antes de qualquer dado ser carregado.
+if (PHP_SAPI !== 'cli') {
+    auth_exigir('painel.ver');
+}
 
 /** @param string[] $estilos folhas de estilo extras (relativas a admin/), carregadas após admin.css */
 function admin_page_start(string $paginaAtual, string $tituloPagina, string $tituloHeader, string $subtituloHeader, array $estilos = []): void
@@ -21,7 +27,7 @@ function admin_page_start(string $paginaAtual, string $tituloPagina, string $tit
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261028')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261029')) ?>">
     <?php foreach ($estilos as $estilo): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset($estilo)) ?>">
     <?php endforeach; ?>
@@ -46,13 +52,13 @@ function admin_page_end(array $scripts = []): void
     ?>
         </main>
         <footer class="adm-footer">
-            Biblioteca Dom Pedro II · Painel administrativo (protótipo — dados demonstrativos)
+            Biblioteca Dom Pedro II · Painel administrativo<?= db_modo() === 'demo' ? ' (modo demonstrativo — dados fictícios)' : '' ?>
         </footer>
     </div>
 </div>
 <div class="adm-toasts" aria-live="polite" aria-atomic="false"></div>
 <div class="adm-tooltip" role="tooltip" hidden></div>
-<script src="<?= htmlspecialchars(admin_asset('assets/js/admin.js?v=20261028')) ?>"></script>
+<script src="<?= htmlspecialchars(admin_asset('assets/js/admin.js?v=20261029')) ?>"></script>
 <?php foreach ($scripts as $script): ?>
 <script src="<?= htmlspecialchars(admin_asset($script)) ?>"></script>
 <?php endforeach; ?>

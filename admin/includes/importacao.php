@@ -3,10 +3,10 @@
  * Módulo de importação das planilhas (Etapa 3): carregamento das classes,
  * área privada de arquivos, rótulos e registro de ações.
  *
- * As classes ficam em src/ (namespace Biblioteca\). Com o Composer instalado
- * (composer install, necessário para ler .xlsx com o PhpSpreadsheet), o autoload
- * vem de vendor/; sem ele, um carregador simples atende às classes do projeto e
- * os arquivos .csv continuam funcionando.
+ * As classes ficam em src/ (namespace Biblioteca\) e são carregadas por config/app.php:
+ * com o Composer instalado (composer install, necessário para ler .xlsx com o
+ * PhpSpreadsheet), pelo autoload de vendor/; sem ele, por um carregador simples,
+ * e os arquivos .csv continuam funcionando.
  */
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/menu.php';
@@ -15,22 +15,6 @@ require_once __DIR__ . '/icones.php';
 use Biblioteca\Repositories\ImportacaoRepository;
 use Biblioteca\Services\ExcelImportService;
 use Biblioteca\Services\ImportValidationService;
-
-(function () {
-    $raiz = dirname(__DIR__, 2);
-    if (is_file($raiz . '/vendor/autoload.php')) {
-        require_once $raiz . '/vendor/autoload.php';
-        return;
-    }
-    spl_autoload_register(function (string $classe) use ($raiz) {
-        if (str_starts_with($classe, 'Biblioteca\\')) {
-            $arquivo = $raiz . '/src/' . str_replace('\\', '/', substr($classe, 11)) . '.php';
-            if (is_file($arquivo)) {
-                require $arquivo;
-            }
-        }
-    });
-})();
 
 const IMPORTACAO_STATUS = [
     'enviada' => ['label' => 'Arquivo enviado', 'tom' => 'blue', 'etapa' => 2],
@@ -208,7 +192,7 @@ function importacao_etapas(int $atual): string
 /** Aviso exibido quando o MySQL ainda não está configurado ou disponível. */
 function importacao_aviso_banco(?string $erro = null): string
 {
-    $msg = $erro ?? 'Para importar planilhas, configure o MySQL (copie admin/config/database.example.php para database.php), rode "php admin/database/migrar.php" e entre com um usuário administrativo. No modo demonstrativo nenhuma planilha é lida ou gravada.';
+    $msg = $erro ?? 'Para importar planilhas, configure o MySQL (copie .env.example para .env e preencha os dados do banco), rode "php database/migrar.php" e entre com um usuário administrativo. No modo demonstrativo nenhuma planilha é lida ou gravada.';
     return '<div class="adm-notice adm-notice--amber" role="note">' . icon('triangle-alert')
         . '<div class="adm-notice__content"><strong>Importação indisponível</strong><p>' . htmlspecialchars($msg) . '</p></div></div>';
 }

@@ -1,12 +1,26 @@
 <?php
 require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/dashboard-dados.php';
 
-$indicadores = demo_indicadores();
-$secundarios = demo_indicadores_secundarios();
-$atividades = demo_atividades_recentes();
-$alertas = demo_alertas();
-$acoes = demo_acoes_rapidas();
-$inventario = demo_inventario();
+try {
+    $dados = dashboard_dados();
+} catch (DbIndisponivel $e) {
+    http_response_code(503);
+    admin_pagina_erro('Banco de dados indisponível', $e->getMessage());
+    exit;
+} catch (PDOException $e) {
+    error_log('[biblioteca] Erro no dashboard: ' . $e->getMessage());
+    http_response_code(500);
+    admin_pagina_erro('Não foi possível carregar o dashboard', 'Verifique se as migrações foram aplicadas (php database/migrar.php) e tente novamente.');
+    exit;
+}
+$demo = $dados['demo'];
+$indicadores = $dados['indicadores'];
+$secundarios = $dados['secundarios'];
+$atividades = $dados['atividades'];
+$alertas = $dados['alertas'];
+$acoes = demo_acoes_rapidas(); // atalhos fixos do menu, não são dados
+$inventario = $dados['inventario'];
 
 function numero_br(float $valor, int $casas = 0): string
 {
@@ -19,6 +33,7 @@ $tiposAtividade = [
     'cadastro' => ['label' => 'Cadastro', 'icone' => 'book-plus', 'tom' => 'indigo'],
     'inventario' => ['label' => 'Inventário', 'icone' => 'clipboard-check', 'tom' => 'amber'],
     'importacao' => ['label' => 'Importação', 'icone' => 'file-spreadsheet', 'tom' => 'teal'],
+    'cdd' => ['label' => 'Classificação CDD', 'icone' => 'list-tree', 'tom' => 'indigo'],
 ];
 $situacoes = [
     'concluido' => ['label' => 'Concluído', 'tom' => 'green'],
@@ -36,8 +51,9 @@ $hoje = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
 $dataExtenso = sprintf('%s, %d de %s de %d', $diasSemana[(int)$hoje->format('w')], (int)$hoje->format('j'), $meses[(int)$hoje->format('n') - 1], (int)$hoje->format('Y'));
 
 $dadosGraficos = [
-    'emprestimos' => demo_emprestimos_por_mes(),
-    'categorias' => demo_acervo_por_categoria(),
+    'demo' => $demo,
+    'emprestimos' => $dados['emprestimos'],
+    'categorias' => $dados['categorias'],
 ];
 
 admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão geral da Biblioteca Dom Pedro II');
@@ -54,10 +70,12 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
     </div>
 </section>
 
+<?php if ($demo): ?>
 <div class="adm-demo-banner" role="note">
     <?= icon('info') ?>
-    <span><strong>Dados demonstrativos.</strong> Todos os números, gráficos, atividades e alertas desta tela são fictícios e servem apenas para visualizar o painel.</span>
+    <span><strong>Dados demonstrativos.</strong> O banco MySQL não está configurado: todos os números, gráficos, atividades e alertas desta tela são fictícios.</span>
 </div>
+<?php endif; ?>
 
 <section class="adm-section" aria-labelledby="titulo-indicadores">
     <h2 class="adm-visually-hidden" id="titulo-indicadores">Indicadores do acervo</h2>
@@ -102,11 +120,11 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
             </div>
         </div>
         <div class="adm-chart adm-chart--bars is-loading" data-chart="emprestimos">
-            <canvas id="grafico-emprestimos" role="img" aria-label="Gráfico de barras com a quantidade de empréstimos por mês (dados demonstrativos)"></canvas>
+            <canvas id="grafico-emprestimos" role="img" aria-label="Gráfico de barras com a quantidade de empréstimos por mês<?= $demo ? ' (dados demonstrativos)' : '' ?>"></canvas>
             <div class="adm-chart__loading" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
             <p class="adm-chart__fallback" hidden>Não foi possível carregar o gráfico. Verifique a conexão com a internet.</p>
         </div>
-        <p class="adm-panel__footnote" data-chart-summary>Total no período: <strong>768</strong> empréstimos · dados demonstrativos</p>
+        <p class="adm-panel__footnote" data-chart-summary>Total no período: <strong><?= numero_br(array_sum(array_column(array_slice($dados['emprestimos']['meses12'], -6), 'total'))) ?></strong> empréstimos<?= $demo ? ' · dados demonstrativos' : '' ?></p>
     </article>
 
     <article class="adm-card adm-panel">
@@ -118,11 +136,12 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
         </div>
         <div class="adm-donut">
             <div class="adm-chart adm-chart--donut is-loading" data-chart="categorias">
-                <canvas id="grafico-categorias" role="img" aria-label="Gráfico de rosca com a distribuição do acervo por categoria (dados demonstrativos)"></canvas>
+                <canvas id="grafico-categorias" role="img" aria-label="Gráfico de rosca com a distribuição do acervo por categoria<?= $demo ? ' (dados demonstrativos)' : '' ?>"></canvas>
                 <div class="adm-chart__loading adm-chart__loading--ring" aria-hidden="true"></div>
                 <p class="adm-chart__fallback" hidden>Gráfico indisponível.</p>
             </div>
             <ul class="adm-legend">
+                <?php if (!$dadosGraficos['categorias']): ?><li>Nenhum título com categoria ainda.</li><?php endif; ?>
                 <?php foreach ($dadosGraficos['categorias'] as $cat): ?>
                     <li>
                         <span class="adm-legend__swatch" style="background: <?= htmlspecialchars($cat['cor']) ?>"></span>
@@ -219,7 +238,7 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
                     <h2 id="titulo-atencao">Atenção necessária</h2>
                     <p>Pendências para os responsáveis pela biblioteca</p>
                 </div>
-                <span class="adm-demo-tag">Exemplo</span>
+                <?php if ($demo): ?><span class="adm-demo-tag">Exemplo</span><?php endif; ?>
             </div>
             <?php if (!$alertas): ?>
                 <div class="adm-empty">
@@ -280,5 +299,5 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 <?php
 admin_page_end([
     'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
-    'assets/js/dashboard.js?v=20261028',
+    'assets/js/dashboard.js?v=20261029',
 ]);

@@ -2,8 +2,7 @@
 -- 001 · Módulo de acervo — MySQL 8.0+
 -- Biblioteca Dom Pedro II
 --
--- Versão MySQL da estrutura da Etapa 2 (admin/database/acervo.sql, que era
--- PostgreSQL). A partir da Etapa 4, o MySQL é o banco principal do painel.
+-- Estrutura do acervo definida na Etapa 2. O MySQL é o único banco do sistema.
 --
 -- Regras mantidas:
 --   * "livros" guarda a obra/edição; "exemplares" guarda cada unidade física.
@@ -12,7 +11,7 @@
 --   * Livros e categorias são arquivados (arquivado_em), não excluídos.
 --   * Códigos BDP são únicos e gerados no servidor (gerar_exemplares).
 --
--- Aplicar com: php admin/database/migrar.php
+-- Aplicar com: php database/migrar.php
 -- =========================================================
 
 CREATE TABLE categorias (

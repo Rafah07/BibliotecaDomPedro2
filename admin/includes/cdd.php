@@ -1362,7 +1362,7 @@ function cdd_pagina_iniciar(string $permissao = 'cdd.ver'): array
         error_log('[biblioteca] Erro no módulo CDD: ' . $e->getMessage());
         http_response_code(500);
         $msg = str_contains($e->getMessage(), "doesn't exist")
-            ? 'As tabelas da classificação ainda não existem. Rode "php admin/database/migrar.php" e recarregue a página.'
+            ? 'As tabelas da classificação ainda não existem. Rode "php database/migrar.php" e recarregue a página.'
             : 'Ocorreu um erro ao consultar o banco de dados. Tente novamente.';
         admin_pagina_erro('Não foi possível carregar a classificação', $msg);
         exit;

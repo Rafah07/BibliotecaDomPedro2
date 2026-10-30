@@ -2,7 +2,7 @@
 /**
  * Cria (ou reativa) um usuário administrativo no MySQL.
  *
- * Uso: php admin/database/criar-admin.php "Nome Completo" email@escola perfil
+ * Uso: php database/criar-admin.php "Nome Completo" email@escola perfil
  * Perfis: administrador | bibliotecaria | auxiliar | consulta
  * A senha é pedida no terminal (não fica no histórico do shell).
  */
@@ -10,12 +10,12 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
 }
-require __DIR__ . '/../includes/auth.php';
+require __DIR__ . '/../admin/includes/auth.php';
 
 [, $nome, $email, $perfil] = $argv + [null, '', '', 'bibliotecaria'];
 $email = mb_strtolower(trim((string)$email));
 if (trim((string)$nome) === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !isset(AUTH_PERFIS[$perfil])) {
-    fwrite(STDERR, "Uso: php admin/database/criar-admin.php \"Nome\" email perfil\nPerfis: " . implode(', ', array_keys(AUTH_PERFIS)) . "\n");
+    fwrite(STDERR, "Uso: php database/criar-admin.php \"Nome\" email perfil\nPerfis: " . implode(', ', array_keys(AUTH_PERFIS)) . "\n");
     exit(1);
 }
 $senha = getenv('BDP_NOVA_SENHA') ?: null;
