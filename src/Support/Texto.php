@@ -32,17 +32,47 @@ final class Texto
         return $texto === '' ? null : $texto;
     }
 
+    /** Letras latinas acentuadas e suas versões sem acento (não depende das extensões intl ou iconv). */
+    private const ACENTOS = [
+        'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a', 'å' => 'a', 'ā' => 'a',
+        'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e', 'ē' => 'e',
+        'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i', 'ī' => 'i',
+        'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o', 'ø' => 'o', 'ō' => 'o',
+        'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u', 'ū' => 'u',
+        'ç' => 'c', 'ñ' => 'n', 'ý' => 'y', 'ÿ' => 'y', 'š' => 's', 'ž' => 'z',
+        'æ' => 'ae', 'œ' => 'oe', 'ß' => 'ss',
+        'Á' => 'A', 'À' => 'A', 'Â' => 'A', 'Ã' => 'A', 'Ä' => 'A', 'Å' => 'A', 'Ā' => 'A',
+        'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E', 'Ē' => 'E',
+        'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I', 'Ī' => 'I',
+        'Ó' => 'O', 'Ò' => 'O', 'Ô' => 'O', 'Õ' => 'O', 'Ö' => 'O', 'Ø' => 'O', 'Ō' => 'O',
+        'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U', 'Ū' => 'U',
+        'Ç' => 'C', 'Ñ' => 'N', 'Ý' => 'Y', 'Š' => 'S', 'Ž' => 'Z', 'Æ' => 'AE', 'Œ' => 'OE',
+    ];
+
+    /**
+     * Remove os acentos. A tabela acima cobre o português e as línguas latinas comuns em
+     * qualquer instalação (o iconv do Windows/XAMPP troca "í" por "?" e a extensão intl
+     * costuma estar desligada); o intl, se existir, só cuida de letras fora da tabela.
+     */
+    public static function semAcento(string $texto): string
+    {
+        $texto = strtr($texto, self::ACENTOS);
+        if (class_exists(\Normalizer::class) && preg_match('/[^\x00-\x7F]/', $texto)) {
+            $decomposto = \Normalizer::normalize($texto, \Normalizer::FORM_D);
+            if ($decomposto !== false) {
+                $texto = preg_replace('/\p{Mn}+/u', '', $decomposto) ?? $texto;
+            }
+        }
+        return $texto;
+    }
+
     /** Minúsculas, sem acentos e só com letras/números separados por um espaço. Usada para comparar. */
     public static function chave(?string $texto): string
     {
         if ($texto === null || $texto === '') {
             return '';
         }
-        $texto = mb_strtolower($texto, 'UTF-8');
-        $semAcento = class_exists(\Normalizer::class)
-            ? preg_replace('/\p{Mn}+/u', '', \Normalizer::normalize($texto, \Normalizer::FORM_D))
-            : iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
-        $texto = $semAcento !== false && $semAcento !== null ? $semAcento : $texto;
+        $texto = self::semAcento(mb_strtolower($texto, 'UTF-8'));
         $texto = preg_replace('/[^a-z0-9]+/', ' ', $texto);
         return trim(preg_replace('/\s+/', ' ', $texto));
     }

@@ -62,6 +62,13 @@ confere('sinal de negativo preservado', Texto::limpar('-2') === '-2');
 confere('autor em ordem diferente tem a mesma chave', Texto::chaveAutor('ASSIS, Machado de') === Texto::chaveAutor('Machado de Assis'));
 confere('artigo inicial ignorado na chave da obra', Texto::chaveObra('O Cortiço', 'Azevedo, Aluísio') === Texto::chaveObra('Cortiço', 'Aluísio Azevedo'));
 
+$tabela = (new ReflectionClassConstant(Texto::class, 'ACENTOS'))->getValue();
+$letras = preg_split('//u', 'áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ', -1, PREG_SPLIT_NO_EMPTY);
+confere('acentos do português removidos sem depender de intl/iconv', array_diff($letras, array_keys($tabela)) === [], implode('', array_diff($letras, array_keys($tabela))));
+confere('chave sem acentos', Texto::chave('Título') === 'titulo' && Texto::chave('Subtítulo') === 'subtitulo' && Texto::chave('Edição') === 'edicao'
+    && Texto::chave('Localização na  (Estante) ') === 'localizacao na estante' && Texto::chave('AÇÃO É ÚNICA') === 'acao e unica');
+confere('chave igual com e sem acento (duplicidades)', Texto::chaveObra('Memórias Póstumas de Brás Cubas', 'Assis, Machado de') === Texto::chaveObra('MEMORIAS POSTUMAS DE BRAS CUBAS', 'MACHADO DE ASSIS'));
+
 echo "Mapeamento\n";
 $cab = ['Localização na Estante', 'Cód. Autor', 'CDD', 'Sobrenome/Prenome do Autor', 'Título', 'Subtítulo', 'Assunto', 'ISBN', 'Quantidade', 'Nº'];
 $map = $v->sugerirMapeamento($cab);
@@ -74,6 +81,15 @@ confere('coluna ignorada não entra nos dados', !in_array('Nº', array_keys($v->
     && !isset($v->mapear(['Nº' => '9'], ['Nº' => 'ignorar'])['ignorar']));
 $extra = $v->mapear(['Título' => 'Duna', 'Doador' => 'Escola X'], ['Título' => 'titulo', 'Doador' => 'extra']);
 confere('coluna extra preservada nas observações', str_contains($extra['observacoes'] ?? '', 'Doador: Escola X'));
+
+// Cabeçalhos reais da aba "Catalogar" (database/seeds/dados/acervo-catalogar.csv).
+$catalogar = ['Localização na  (Estante) ', 'Cod.Autor', 'CDD', 'Sobrenome/Prenome do Autor', 'Título', 'Subtítulo', 'Assunto', 'Edição',
+    'Local de Publicação', 'Editora', 'Ano de Publicação', 'ISBN', 'Qtd', 'NºEstante'];
+$mapCat = $v->sugerirMapeamento($catalogar);
+$esperadoCat = ['Localização na  (Estante) ' => 'localizacao_antiga', 'Cod.Autor' => 'codigo_autor_antigo', 'CDD' => 'cdd_original',
+    'Sobrenome/Prenome do Autor' => 'autor', 'Título' => 'titulo', 'Subtítulo' => 'subtitulo', 'Assunto' => 'assunto_original', 'Edição' => 'edicao',
+    'Local de Publicação' => 'ignorar', 'Editora' => 'editora', 'Ano de Publicação' => 'ano_publicacao', 'ISBN' => 'isbn', 'Qtd' => 'quantidade_informada', 'NºEstante' => 'ignorar'];
+confere('aba Catalogar mapeada por completo', $mapCat === $esperadoCat, json_encode(array_diff_assoc($mapCat, $esperadoCat), JSON_UNESCAPED_UNICODE));
 
 echo "Validação\n";
 $linha = fn (array $dados) => $analisar(array_combine($cab, array_pad($dados, count($cab), '')), $map);
