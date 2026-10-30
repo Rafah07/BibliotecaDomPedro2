@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/livros.php';
 
 $livro = acervo_livro((int)($_GET['id'] ?? 0));
 
-admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261030', 'assets/css/classificacao.css?v=20261027']);
+admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261030', 'assets/css/classificacao.css?v=20261027', 'assets/css/inventario.css?v=20261030']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Detalhes']]);
 
@@ -37,7 +37,11 @@ $persistir = livros_persistem();
 // Linhas das planilhas que originaram o cadastro, com os valores exatamente como vieram.
 $origem = $persistir && $planilha ? livros_repo()->origemImportacao($id) : [];
 
+// Os três números ficam separados: quantidade da planilha (referência), exemplares físicos e disponíveis.
+$podeCadastrarExemplar = $persistir && auth_pode('exemplares.gerenciar') && empty($livro['arquivado_em']);
+$podeEtiquetas = $persistir && auth_pode('etiquetas.gerar') && $exemplares;
 $kpis = [
+    ...($persistir ? [['titulo' => 'Quantidade na planilha', 'valor' => $qtdPlanilha ?? '—', 'icone' => 'file-spreadsheet', 'tom' => 'muted', 'dica' => 'Valor histórico das planilhas: só referência, não gera exemplares']] : []),
     ['titulo' => 'Exemplares identificados', 'valor' => $livro['total_exemplares'], 'icone' => 'book-copy', 'tom' => 'blue'],
     ['titulo' => 'Disponíveis', 'valor' => $livro['disponiveis'], 'icone' => 'circle-check', 'tom' => 'green'],
     ['titulo' => 'Emprestados', 'valor' => $emprestados, 'icone' => 'book-open-check', 'tom' => 'indigo'],
@@ -83,6 +87,11 @@ $meta = [
             <?php endif; ?>
             <?php if (!$persistir): ?>
                 <button type="button" class="adm-button adm-button--ghost" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>
+            <?php elseif ($podeCadastrarExemplar): ?>
+                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('cadastrar-exemplar') . '?livro=' . $id) ?>"><?= icon('plus') ?> Cadastrar exemplar</a>
+            <?php endif; ?>
+            <?php if ($podeEtiquetas): ?>
+                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('etiquetas') . '?origem=filtro&livro=' . $id) ?>"><?= icon('printer') ?> Imprimir etiquetas</a>
             <?php endif; ?>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('classificar-livro') . '?id=' . $id) ?>"><?= icon('list-tree') ?> Classificação CDD</a>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('acervo')) ?>"><?= icon('arrow-left') ?> Voltar ao acervo</a>
@@ -114,7 +123,7 @@ $meta = [
     </section>
 <?php endif; ?>
 
-<section class="adm-kpis" aria-label="Exemplares deste livro">
+<section class="adm-kpis<?= count($kpis) === 6 ? ' adm-kpis--6' : '' ?>" aria-label="Exemplares deste livro">
     <?php foreach ($kpis as $kpi): ?>
         <article class="adm-card adm-kpi"<?= isset($kpi['dica']) ? ' title="' . htmlspecialchars($kpi['dica']) . '"' : '' ?>>
             <span class="adm-icon-box adm-icon-box--sm adm-tone--<?= $kpi['tom'] ?>"><?= icon($kpi['icone']) ?></span>
@@ -177,6 +186,8 @@ $meta = [
             <p>Cada linha é uma unidade física com código próprio.<?= $persistir ? ' Os exemplares são registrados na conferência física (inventário).' : '' ?></p>
             <?php if (!$persistir): ?>
                 <button type="button" class="adm-button adm-button--primary adm-button--sm" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>
+            <?php elseif ($podeCadastrarExemplar): ?>
+                <a class="adm-button adm-button--primary adm-button--sm" href="<?= e(admin_url('cadastrar-exemplar') . '?livro=' . $id) ?>"><?= icon('plus') ?> Cadastrar exemplar</a>
             <?php endif; ?>
         </div>
         <div class="adm-table-wrap adm-table-wrap--inset">
@@ -193,9 +204,9 @@ $meta = [
                 </thead>
                 <tbody data-exemplares-rows data-livro-id="<?= $id ?>">
                     <?php foreach ($exemplares as $ex): ?>
-                        <?php $url = admin_url('detalhes-exemplar') . '?codigo=' . $ex['codigo_individual']; ?>
+                        <?php $url = admin_url('detalhes-exemplar') . '?codigo=' . rawurlencode($ex['codigo_individual']); ?>
                         <tr>
-                            <td class="adm-td-title"><a class="adm-code" href="<?= htmlspecialchars($url) ?>"><?= $ex['codigo_individual'] ?></a></td>
+                            <td class="adm-td-title"><a class="adm-code" href="<?= htmlspecialchars($url) ?>"><?= htmlspecialchars($ex['codigo_individual']) ?></a></td>
                             <td data-label="Localização"><?= htmlspecialchars(acervo_local_texto($ex['localizacao'])) ?></td>
                             <td data-label="Conservação"><?= acervo_badge_conservacao($ex['estado_conservacao']) ?></td>
                             <td data-label="Situação"><?= acervo_badge_situacao($ex['situacao']) ?></td>

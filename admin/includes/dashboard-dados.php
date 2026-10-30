@@ -23,9 +23,33 @@ const DASHBOARD_ACOES = [
     'emprestimo.registrar' => 'Empréstimo registrado',
     'emprestimo.renovar' => 'Empréstimo renovado',
     'devolucao.registrar' => 'Devolução registrada',
+    'exemplar.cadastrar' => 'Exemplar físico cadastrado',
+    'exemplar.editar' => 'Exemplar editado',
+    'exemplar.transferir' => 'Exemplar transferido de localização',
+    'exemplar.situacao' => 'Situação do exemplar alterada',
+    'exemplar.extravio' => 'Exemplar registrado como extraviado',
+    'exemplar.baixar' => 'Baixa de exemplar',
+    'etiqueta.gerar' => 'Etiquetas geradas',
+    'etiqueta.modelo' => 'Modelo de etiqueta salvo',
+    'localizacao.cadastrar' => 'Localização cadastrada',
+    'localizacao.editar' => 'Localização editada',
+    'localizacao.ativar' => 'Localização reativada',
+    'localizacao.desativar' => 'Localização desativada',
+    'inventario.criar' => 'Inventário criado',
+    'inventario.editar' => 'Inventário editado',
+    'inventario.iniciar' => 'Conferência do inventário iniciada',
+    'inventario.pausar' => 'Inventário pausado',
+    'inventario.retomar' => 'Inventário retomado',
+    'inventario.concluir' => 'Inventário concluído',
+    'inventario.cancelar' => 'Inventário cancelado',
+    'inventario.decidir' => 'Decisão de inventário registrada',
+    'inventario.corrigir' => 'Conferência corrigida',
+    'inventario.manter_ausentes' => 'Não localizados mantidos sem alteração',
+    'inventario.exportar' => 'Relatório de inventário exportado',
 ];
 
-const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta', 'emprestimo' => 'empréstimo'];
+const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta', 'emprestimo' => 'empréstimo',
+    'exemplar' => 'exemplar', 'localizacao' => 'localização', 'inventario' => 'inventário', 'etiqueta_modelo' => 'modelo de etiqueta'];
 
 const DASHBOARD_CORES = ['#143477', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
 
@@ -97,7 +121,15 @@ function dashboard_dados_mysql(): array
     $semConferencia = $um("SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND status_validacao <> 'validado'");
     $aguardandoCdd = dashboard_aguardando_cdd();
     $pendImportacao = dashboard_pendencias_importacao();
-    $inventarios = $um("SELECT COUNT(*) FROM inventarios WHERE status IN ('aberto', 'em_andamento')");
+    $inventarios = $um("SELECT COUNT(*) FROM inventarios WHERE status IN ('em_andamento', 'pausado')");
+    // Acervo físico (exemplares de livros ativos, sem baixados e extraviados).
+    $semLocal = $um("SELECT COUNT(*) FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL
+                     WHERE e.localizacao_id IS NULL AND e.situacao NOT IN ('baixado', 'extraviado')");
+    $livrosSemExemplar = $um("SELECT COUNT(*) FROM livros l WHERE l.arquivado_em IS NULL
+                              AND NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = l.id AND e.situacao NOT IN ('baixado', 'extraviado'))");
+    $divergenciasPendentes = $um("SELECT COUNT(*) FROM inventario_itens i JOIN inventarios v ON v.id = i.inventario_id
+                                  WHERE v.status IN ('em_andamento', 'pausado') AND i.decisao IS NULL AND i.conferido_em IS NOT NULL
+                                    AND (i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao)");
 
     // Últimos empréstimos registrados (abertos ou devolvidos).
     $recentes = db_query("SELECT m.id, m.data_emprestimo, m.data_prevista, m.data_devolucao, e.codigo_individual, l.id AS livro_id, l.titulo, a.nome AS aluno, a.turma
@@ -163,7 +195,7 @@ function dashboard_dados_mysql(): array
         'demo' => false,
         'indicadores' => [
             ['titulo' => 'Títulos cadastrados', 'valor' => $titulos, 'descricao' => 'Registros bibliográficos (obras e edições)', 'icone' => 'library-big', 'tom' => 'blue', 'estado' => $semConferencia . ' aguardando conferência'],
-            ['titulo' => 'Exemplares físicos', 'valor' => $ex['total'], 'descricao' => 'Unidades identificadas com código BDP', 'icone' => 'book-copy', 'tom' => 'blue', 'estado' => $ex['total'] > 0 ? $ex['aguardando'] . ' aguardando conferência' : 'Identificados no inventário físico'],
+            ['titulo' => 'Exemplares físicos', 'valor' => $ex['total'], 'descricao' => 'Unidades identificadas com código BDP', 'icone' => 'book-copy', 'tom' => 'blue', 'estado' => $ex['total'] > 0 ? $ex['aguardando'] . ' aguardando liberação' : 'Identificados no inventário físico'],
             ['titulo' => 'Disponíveis', 'valor' => $ex['disponiveis'], 'descricao' => 'Exemplares disponíveis para empréstimo', 'icone' => 'circle-check', 'tom' => 'green', 'estado' => $pct($ex['disponiveis'])],
             ['titulo' => 'Emprestados', 'valor' => $ex['emprestados'], 'descricao' => 'Exemplares com empréstimos ativos', 'icone' => 'book-open-check', 'tom' => 'indigo', 'estado' => $pct($ex['emprestados'])],
         ],
@@ -173,17 +205,27 @@ function dashboard_dados_mysql(): array
             ['titulo' => 'Devoluções realizadas', 'valor' => $devolvidos, 'icone' => 'rotate-ccw', 'tom' => 'green', 'href' => 'devolucoes'],
             ['titulo' => 'Aguardando reclassificação CDD', 'valor' => $aguardandoCdd, 'icone' => 'list-tree', 'tom' => 'amber', 'href' => 'classificacao'],
             ['titulo' => 'Pendências de importação', 'valor' => $pendImportacao, 'icone' => 'file-spreadsheet', 'tom' => 'amber', 'href' => 'historico-importacoes'],
-            // Só aparece quando existe uma rodada de inventário aberta.
-            $inventarios > 0 ? ['titulo' => 'Inventários em andamento', 'valor' => $inventarios, 'icone' => 'clipboard-check', 'tom' => 'blue', 'href' => 'inventario'] : null,
+            ['titulo' => 'Sem localização confirmada', 'valor' => $semLocal, 'icone' => 'map-pin-off', 'tom' => 'amber', 'href' => 'exemplares?localizacao=sem'],
+            ['titulo' => 'Livros sem exemplar físico', 'valor' => $livrosSemExemplar, 'icone' => 'book-x', 'tom' => 'red', 'href' => 'acervo?exemplares=sem'],
+            ['titulo' => 'Inventários em andamento', 'valor' => $inventarios, 'icone' => 'clipboard-check', 'tom' => 'blue', 'href' => 'inventario'],
+            // Só aparece quando há divergência de inventário esperando decisão.
+            $divergenciasPendentes > 0 ? ['titulo' => 'Divergências de inventário pendentes', 'valor' => $divergenciasPendentes, 'icone' => 'triangle-alert', 'tom' => 'red', 'href' => 'inventario'] : null,
         ])),
         'emprestimos_recentes' => $recentes,
         'emprestimos' => ['meses12' => $meses],
         'categorias' => $categorias,
         'atividades' => $atividades,
         'alertas' => $alertas,
-        // Até o módulo de inventário existir, o esperado é o total de exemplares e todos estão pendentes,
-        // exceto os que já foram conferidos (conferido_em preenchido).
+        // Com um inventário em andamento ou pausado, os números são os dele (lista prevista congelada no início).
+        // Sem inventário ativo, o esperado é o total de exemplares e os conferidos são os que já passaram por uma conferência.
         'inventario' => (function () use ($um, $ex) {
+            $ativo = db_query("SELECT id, titulo FROM inventarios WHERE status IN ('em_andamento', 'pausado') ORDER BY id DESC LIMIT 1")->fetch();
+            if ($ativo) {
+                $r = (new Biblioteca\Repositories\InventarioRepository(db()))->resumo((int)$ativo['id']);
+                $comDivergencia = $r['divergencias'];
+                return ['esperado' => $r['previstos'], 'encontrados' => max(0, $r['previstos_conferidos'] - min($comDivergencia, $r['previstos_conferidos'])),
+                        'pendentes' => $r['nao_conferidos'], 'divergencias' => min($comDivergencia, $r['previstos_conferidos']), 'titulo' => $ativo['titulo'], 'id' => (int)$ativo['id']];
+            }
             $conferidos = $um("SELECT COUNT(*) FROM exemplares WHERE conferido_em IS NOT NULL AND situacao NOT IN ('baixado', 'extraviado')");
             return ['esperado' => $ex['total'], 'encontrados' => $conferidos, 'pendentes' => $ex['total'] - $conferidos, 'divergencias' => 0];
         })(),
@@ -206,7 +248,10 @@ function dashboard_alertas(): array
                 (SELECT COUNT(*) FROM emprestimos WHERE data_devolucao IS NULL AND data_prevista < ?) AS atrasados,
                 (SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND status_validacao <> 'validado') AS sem_conferencia,
                 (SELECT COUNT(*) FROM exemplares WHERE situacao = 'manutencao') AS manutencao,
-                (SELECT COUNT(*) FROM inventarios WHERE status IN ('aberto', 'em_andamento')) AS inventarios", [dashboard_hoje()])->fetch();
+                (SELECT COUNT(*) FROM inventarios WHERE status IN ('em_andamento', 'pausado')) AS inventarios,
+                (SELECT COUNT(*) FROM inventario_itens i JOIN inventarios v ON v.id = i.inventario_id
+                  WHERE v.status IN ('em_andamento', 'pausado') AND i.decisao IS NULL AND i.conferido_em IS NOT NULL
+                    AND (i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao)) AS divergencias", [dashboard_hoje()])->fetch();
         $c['importacao'] = dashboard_pendencias_importacao();
     } catch (Throwable $e) {
         error_log('[biblioteca] Falha ao carregar alertas: ' . $e->getMessage());
@@ -221,6 +266,9 @@ function dashboard_alertas(): array
     }
     if ($c['inventarios'] > 0) {
         $alertas[] = ['titulo' => 'Inventário em andamento', 'mensagem' => "{$c['inventarios']} rodada(s) de conferência física em aberto.", 'botao' => 'Abrir inventário', 'href' => 'inventario', 'icone' => 'clipboard-check', 'gravidade' => 'media'];
+    }
+    if ($c['divergencias'] > 0) {
+        $alertas[] = ['titulo' => 'Divergências de inventário', 'mensagem' => "{$c['divergencias']} divergência(s) encontrada(s) na conferência aguardam decisão.", 'botao' => 'Decidir pendências', 'href' => 'inventario', 'icone' => 'triangle-alert', 'gravidade' => 'alta'];
     }
     if ($c['sem_conferencia'] > 0) {
         $alertas[] = ['titulo' => 'Títulos aguardando conferência', 'mensagem' => "{$c['sem_conferencia']} título(s) ainda não passaram pela conferência física.", 'botao' => 'Consultar livros', 'href' => 'acervo', 'icone' => 'clipboard-check', 'gravidade' => 'media'];

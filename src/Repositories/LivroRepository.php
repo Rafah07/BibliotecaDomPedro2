@@ -115,6 +115,12 @@ final class LivroRepository
             $params[] = $cdd;
         }
 
+        // Exemplares físicos cadastrados (sem baixados e extraviados), independentemente da planilha.
+        $exemplares = (string)($f['exemplares'] ?? '');
+        if ($exemplares === 'com' || $exemplares === 'sem') {
+            $where[] = ($exemplares === 'sem' ? 'NOT ' : '') . "EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = l.id AND e.situacao NOT IN ('baixado', 'extraviado'))";
+        }
+
         $situacao = (string)($f['situacao'] ?? '');
         if (in_array($situacao, ['validado', 'aguardando_conferencia', 'dados_incompletos', 'com_divergencia'], true)) {
             $where[] = 'l.status_validacao = ?';
@@ -142,6 +148,7 @@ final class LivroRepository
                        (SELECT COUNT(*) FROM exemplares e WHERE e.livro_id = l.id AND e.situacao NOT IN ('baixado', 'extraviado')) AS exemplares,
                        (SELECT COUNT(*) FROM exemplares e WHERE e.livro_id = l.id AND e.situacao = 'disponivel') AS disponiveis,
                        (SELECT r.cdd_original FROM registros_legados r WHERE r.livro_id = l.id ORDER BY r.id DESC LIMIT 1) AS cdd_antiga,
+                       (SELECT SUM(r.quantidade_informada) FROM registros_legados r WHERE r.livro_id = l.id) AS quantidade_planilha,
                        cc.status AS cdd_status, cc.cdd_aprovada, cc.cdd_proposta
                 FROM livros l LEFT JOIN classificacoes_cdd cc ON cc.livro_id = l.id
                 WHERE l.id IN ($marcas)";

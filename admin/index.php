@@ -117,8 +117,9 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
     <div class="adm-stats adm-stats--small">
         <?php foreach ($secundarios as $card): ?>
             <?php // Números da circulação sem link para quem não pode abrir as páginas de empréstimos.
-            $link = !in_array($card['href'], ['emprestimos', 'atrasos', 'devolucoes'], true) || $verEmprestimos; ?>
-            <<?= $link ? 'a' : 'div' ?> class="adm-card adm-mini"<?= $link ? ' href="' . htmlspecialchars(admin_url($card['href'])) . '"' : '' ?>>
+            $link = !in_array($card['href'], ['emprestimos', 'atrasos', 'devolucoes'], true) || $verEmprestimos;
+            [$pagina, $consulta] = explode('?', $card['href'], 2) + [1 => '']; // "pagina?filtro=valor" ?>
+            <<?= $link ? 'a' : 'div' ?> class="adm-card adm-mini"<?= $link ? ' href="' . htmlspecialchars(admin_url($pagina) . ($consulta !== '' ? '?' . $consulta : '')) . '"' : '' ?>>
                 <span class="adm-icon-box adm-icon-box--sm adm-tone--<?= htmlspecialchars($card['tom']) ?>"><?= icon($card['icone']) ?></span>
                 <span class="adm-mini__body">
                     <span class="adm-mini__value"><?= numero_br($card['valor']) ?></span>
@@ -360,7 +361,7 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
                 <div><dt><span class="adm-dot adm-dot--warn"></span>Divergências</dt><dd><?= numero_br($inventario['divergencias']) ?></dd></div>
             </dl>
 
-            <p class="adm-inventory__message"><?= icon('info') ?> Continue a conferência física para validar os exemplares existentes na biblioteca.</p>
+            <p class="adm-inventory__message"><?= icon('info') ?> <?= $dados['demo'] ? 'Continue a conferência física para validar os exemplares existentes na biblioteca.' : (isset($inventario['titulo']) ? 'Inventário em andamento: ' . htmlspecialchars($inventario['titulo']) . '.' : 'Nenhum inventário em andamento. Os números mostram os exemplares que já passaram por alguma conferência.') ?></p>
             <a class="adm-button adm-button--primary adm-button--block" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('scan-barcode') ?> Continuar inventário</a>
         </section>
     </aside>

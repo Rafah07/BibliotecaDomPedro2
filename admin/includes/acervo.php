@@ -25,7 +25,8 @@ const ACERVO_SITUACOES = [
     'manutencao' => ['label' => 'Em manutenção', 'tom' => 'amber'],
     'extraviado' => ['label' => 'Extraviado', 'tom' => 'red'],
     'baixado' => ['label' => 'Baixado', 'tom' => 'muted'],
-    'aguardando' => ['label' => 'Aguardando identificação', 'tom' => 'teal'],
+    'aguardando' => ['label' => 'Aguardando liberação', 'tom' => 'teal'],
+    'danificado' => ['label' => 'Danificado', 'tom' => 'red'],
 ];
 
 const ACERVO_CONSERVACAO = [
@@ -46,6 +47,9 @@ const ACERVO_MOVIMENTOS = [
     'inventario' => ['label' => 'Inventário', 'icone' => 'clipboard-check', 'tom' => 'amber'],
     'extravio' => ['label' => 'Extravio', 'icone' => 'circle-alert', 'tom' => 'red'],
     'baixa' => ['label' => 'Baixa', 'icone' => 'package-x', 'tom' => 'red'],
+    'renovacao' => ['label' => 'Renovação', 'icone' => 'refresh-cw', 'tom' => 'teal'],
+    'conservacao' => ['label' => 'Conservação', 'icone' => 'wrench', 'tom' => 'blue'],
+    'situacao' => ['label' => 'Situação', 'icone' => 'refresh-cw', 'tom' => 'blue'],
 ];
 
 // ---------------------------------------------------------------

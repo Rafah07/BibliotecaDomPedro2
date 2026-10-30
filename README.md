@@ -66,6 +66,7 @@ cp .env.example .env
 | `CDD_CONTATO`, `CDD_FONTE_*` | Fontes consultadas pela classificação CDD. |
 | `STORAGE_IMPORTACOES` | Pasta privada das planilhas enviadas (padrão `storage/importacoes`). |
 | `APP_TIMEZONE` | Fuso da escola, usado nas datas dos empréstimos e no cálculo de atrasos (padrão `America/Sao_Paulo`). |
+| `ETIQUETA_BIBLIOTECA` | Nome impresso nas etiquetas dos exemplares (vazio: Biblioteca Dom Pedro II). Veja [`docs/inventario-exemplares-etiquetas.md`](docs/inventario-exemplares-etiquetas.md). |
 | `EMPRESTIMO_PRAZO_DIAS`, `EMPRESTIMO_RENOVACAO_DIAS`, `EMPRESTIMO_MAX_RENOVACOES`, `EMPRESTIMO_RENOVAR_ATRASADO`, `EMPRESTIMO_PRAZO_MAXIMO_DIAS` | Regras de empréstimo. Vazias, valem os padrões **provisórios** (14 dias, sem limite de renovações, renovação de atrasados permitida). Veja [`docs/emprestimos.md`](docs/emprestimos.md). |
 
 O `.env` está no `.gitignore` e **nunca** deve ser enviado ao GitHub. Variáveis definidas no próprio servidor têm prioridade sobre o arquivo.
@@ -244,6 +245,7 @@ php admin/tests/isbn-lote-teste.php    # ISBNs inválidos em lote; cria e apaga 
 php admin/tests/painel-teste.php       # livros, contas, permissões, CSRF, XSS e SQL; banco temporário com 3.000 livros fictícios
 php admin/tests/alunos-importacao-teste.php  # importação de alunos; banco temporário e planilhas só com alunos fictícios
 php admin/tests/emprestimos-teste.php  # empréstimos, devoluções, renovações, atrasos, concorrência e permissões; banco temporário, só dados fictícios
+php admin/tests/inventario-teste.php   # exemplares, códigos BDP, localizações, inventário, etiquetas, relatórios e permissões; banco temporário, só dados fictícios
 ```
 
 ## Situação das funcionalidades
@@ -259,12 +261,13 @@ php admin/tests/emprestimos-teste.php  # empréstimos, devoluções, renovaçõe
 - Classificação CDD (pesquisa nas fontes, revisão, aprovação, histórico, relatórios).
 - Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
 - Importação local de alunos (`.xlsx`/`.csv`) com mapeamento de colunas, prévia, prevenção de duplicidades pela matrícula e atualização separada com confirmação. O arquivo não é guardado no servidor. Veja [`docs/importacao-alunos.md`](docs/importacao-alunos.md).
+- Acervo físico: cadastro manual de exemplares (código BDP gerado na confirmação), localizações (setor, estante, prateleira), inventário digital com leitor de código de barras, decisões sobre divergências, relatórios CSV/PDF e etiquetas em PDF no tamanho real. Veja [`docs/inventario-exemplares-etiquetas.md`](docs/inventario-exemplares-etiquetas.md).
 - Circulação: empréstimos (só de exemplares físicos disponíveis, para alunos cadastrados e ativos), devoluções, renovações com regras configuráveis, atrasos, histórico por aluno e por exemplar, e indicadores no dashboard. Veja [`docs/emprestimos.md`](docs/emprestimos.md).
 
 **Pendentes**
 
-- Cadastro de exemplares e de categorias ainda é **simulado** (valida, mas não grava no banco): os exemplares nascem no inventário físico.
-- Inventário físico (estrutura do banco pronta: `inventarios`), etiquetas com código BDP.
+- Cadastro de categorias ainda é **simulado** (valida, mas não grava no banco).
+- QR Code nas etiquetas (hoje só código de barras Code 128) e distribuição física por CDD (a ser definida com a bibliotecária).
 - Reservas de livros (a renovação já tem o ponto de verificação preparado) e avisos de atraso por e-mail (exigem autorização da escola).
 - Tela de consulta/edição de alunos, relatórios gerais, página de atividades e configurações.
 - Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.

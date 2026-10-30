@@ -105,7 +105,7 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
             <span class="adm-visually-hidden">Pesquisar livros</span>
             <input type="search" name="q" placeholder="Pesquisar por título, autor, editora ou ISBN..." value="<?= e($filtros['q']) ?>" autocomplete="off">
         </label>
-        <div class="adm-filters adm-filters--5">
+        <div class="adm-filters adm-filters--3">
             <label class="adm-filter">
                 <span>Categoria</span>
                 <select class="adm-select<?= $filtros['categoria'] !== '' ? ' has-value' : '' ?>" name="categoria">
@@ -142,6 +142,14 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
                     <?php foreach (ACERVO_ORIGENS as $valor => $rotulo): ?>
                         <option value="<?= $valor ?>"<?= $filtros['origem'] === $valor ? ' selected' : '' ?>><?= e($rotulo) ?></option>
                     <?php endforeach; ?>
+                </select>
+            </label>
+            <label class="adm-filter">
+                <span>Exemplares físicos</span>
+                <select class="adm-select<?= $filtros['exemplares'] !== '' ? ' has-value' : '' ?>" name="exemplares">
+                    <option value="">Todos os livros</option>
+                    <option value="sem"<?= $filtros['exemplares'] === 'sem' ? ' selected' : '' ?>>Sem exemplar físico cadastrado</option>
+                    <option value="com"<?= $filtros['exemplares'] === 'com' ? ' selected' : '' ?>>Com exemplar físico</option>
                 </select>
             </label>
             <label class="adm-filter">
@@ -202,6 +210,7 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
                         <td data-label="Exemplares" class="adm-num">
                             <strong><?= (int)$l['exemplares'] ?></strong>
                             <?php if ($l['exemplares'] > 0): ?><small class="adm-num__hint"><?= (int)$l['disponiveis'] ?> disp.</small><?php endif; ?>
+                            <?php if (isset($l['quantidade_planilha']) && $l['quantidade_planilha'] !== null): ?><small class="adm-num__hint" title="Quantidade informada na planilha antiga (só referência)">planilha: <?= (int)$l['quantidade_planilha'] ?></small><?php endif; ?>
                         </td>
                         <td class="adm-actions-col">
                             <div class="adm-row-actions">

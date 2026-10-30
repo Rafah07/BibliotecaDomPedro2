@@ -235,7 +235,7 @@ function importar_apagar_demo(PDO $pdo, bool $semPergunta): void
     $tabelas = [
         'cdd_lote_itens', 'cdd_lotes', 'cdd_consultas', 'cdd_pesquisas', 'classificacoes_cdd_historico', 'classificacoes_cdd',
         'registros_legados', 'importacao_itens', 'importacoes',
-        'inventario_conferencias', 'inventarios', 'emprestimos', 'movimentacoes', 'exemplares',
+        'inventario_itens', 'inventario_conferencias', 'inventarios', 'emprestimos', 'movimentacoes', 'exemplares',
         'livro_autores', 'livro_categorias', 'livros', 'autores', 'categorias', 'localizacoes',
     ];
     $contar = fn (string $t) => (int)$pdo->query("SELECT COUNT(*) FROM $t")->fetchColumn();
