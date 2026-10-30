@@ -17,11 +17,15 @@ require_once __DIR__ . '/db.php';
  *   livros.arquivar   arquivar e restaurar livros
  *   usuarios.gerenciar  cadastrar, editar, ativar/desativar contas do painel
  *   alunos.importar   importar e atualizar o cadastro de alunos a partir de planilhas
+ *   emprestimos.ver   ver empréstimos, atrasos e históricos (contém dados pessoais dos alunos)
+ *   emprestimos.registrar  registrar empréstimos, devoluções e renovações no prazo padrão
+ *   emprestimos.prazo escolher outra data de devolução (no empréstimo e na renovação) e
+ *                     informar a data real de uma devolução registrada depois
  */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
-    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
-    'auxiliar' => ['painel.ver', 'livros.editar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
+    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar'],
+    'auxiliar' => ['painel.ver', 'livros.editar', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar'],
     'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver'],
 ];
 

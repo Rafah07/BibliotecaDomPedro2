@@ -19,9 +19,15 @@ $indicadores = $dados['indicadores'];
 $secundarios = $dados['secundarios'];
 $atividades = $dados['atividades'];
 $alertas = $dados['alertas'];
-$recentes = $dados['emprestimos_recentes'];
+// A tabela de empréstimos recentes mostra nomes de alunos: só para quem pode ver a circulação.
+$verEmprestimos = auth_pode('emprestimos.ver');
+$recentes = $verEmprestimos ? $dados['emprestimos_recentes'] : [];
 // Atalhos para as páginas que já funcionam, conforme o perfil de quem entrou.
 $acoes = array_values(array_filter([
+    auth_pode('emprestimos.registrar') ? ['titulo' => 'Novo empréstimo', 'descricao' => 'Emprestar um exemplar a um aluno cadastrado.', 'icone' => 'book-open-check', 'href' => 'novo-emprestimo'] : null,
+    auth_pode('emprestimos.registrar') ? ['titulo' => 'Registrar devolução', 'descricao' => 'Ler o código do exemplar e confirmar a devolução.', 'icone' => 'rotate-ccw', 'href' => 'devolucoes'] : null,
+    auth_pode('emprestimos.ver') ? ['titulo' => 'Consultar atrasos', 'descricao' => 'Empréstimos com o prazo vencido.', 'icone' => 'clock-alert', 'href' => 'atrasos'] : null,
+    auth_pode('emprestimos.ver') ? ['titulo' => 'Histórico de empréstimos', 'descricao' => 'Ativos, devolvidos e histórico completo.', 'icone' => 'history', 'href' => 'emprestimos'] : null,
     auth_pode('livros.editar') ? ['titulo' => 'Cadastrar livro', 'descricao' => 'Adicionar uma nova obra ao acervo.', 'icone' => 'book-plus', 'href' => 'cadastrar-livro'] : null,
     ['titulo' => 'Consultar acervo', 'descricao' => 'Pesquisar livros por título, autor ou ISBN.', 'icone' => 'library-big', 'href' => 'acervo'],
     ['titulo' => 'Classificação CDD', 'descricao' => 'Pesquisar, sugerir e aprovar classificações.', 'icone' => 'list-tree', 'href' => 'classificacao'],
@@ -77,7 +83,9 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
     </div>
     <div class="adm-welcome__aside">
         <span class="adm-date"><?= icon('calendar') ?> <time data-today datetime="<?= $hoje->format('Y-m-d') ?>"><?= htmlspecialchars($dataExtenso) ?></time></span>
-        <?php if (auth_pode('livros.editar')): ?>
+        <?php if (auth_pode('emprestimos.registrar') && !$demo): ?>
+            <a class="adm-button adm-button--primary" href="<?= e(admin_url('novo-emprestimo')) ?>"><?= icon('plus') ?> Novo empréstimo</a>
+        <?php elseif (auth_pode('livros.editar')): ?>
             <a class="adm-button adm-button--primary" href="<?= e(admin_url('cadastrar-livro')) ?>"><?= icon('plus') ?> Cadastrar livro</a>
         <?php endif; ?>
     </div>
@@ -108,14 +116,16 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 
     <div class="adm-stats adm-stats--small">
         <?php foreach ($secundarios as $card): ?>
-            <a class="adm-card adm-mini" href="<?= htmlspecialchars(admin_url($card['href'])) ?>">
+            <?php // Números da circulação sem link para quem não pode abrir as páginas de empréstimos.
+            $link = !in_array($card['href'], ['emprestimos', 'atrasos', 'devolucoes'], true) || $verEmprestimos; ?>
+            <<?= $link ? 'a' : 'div' ?> class="adm-card adm-mini"<?= $link ? ' href="' . htmlspecialchars(admin_url($card['href'])) . '"' : '' ?>>
                 <span class="adm-icon-box adm-icon-box--sm adm-tone--<?= htmlspecialchars($card['tom']) ?>"><?= icon($card['icone']) ?></span>
                 <span class="adm-mini__body">
                     <span class="adm-mini__value"><?= numero_br($card['valor']) ?></span>
                     <span class="adm-mini__title"><?= htmlspecialchars($card['titulo']) ?></span>
                 </span>
-                <?= icon('arrow-right', 'adm-mini__arrow') ?>
-            </a>
+                <?= $link ? icon('arrow-right', 'adm-mini__arrow') : '' ?>
+            </<?= $link ? 'a' : 'div' ?>>
         <?php endforeach; ?>
     </div>
 </section>
@@ -169,6 +179,7 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 
 <div class="adm-columns">
     <div class="adm-columns__main">
+        <?php if ($verEmprestimos): ?>
         <article class="adm-card adm-panel" aria-labelledby="titulo-emprestimos-recentes">
             <div class="adm-panel__header">
                 <div>
@@ -193,19 +204,19 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
                                 <div class="adm-empty">
                                     <?= icon('book-open-check') ?>
                                     <strong>Nenhum empréstimo registrado</strong>
-                                    <span>Os empréstimos aparecerão aqui quando o módulo de circulação começar a ser usado.</span>
+                                    <span>Os empréstimos aparecerão aqui assim que forem registrados em Circulação → Empréstimos.</span>
                                 </div>
                             </td></tr>
                         <?php endif; ?>
                         <?php foreach ($recentes as $r): ?>
                             <?php
-                            $atrasado = $r['data_devolucao'] === null && $r['data_prevista'] < date('Y-m-d');
+                            $atrasado = $r['data_devolucao'] === null && $r['data_prevista'] < dashboard_hoje();
                             [$rotulo, $tom] = $r['data_devolucao'] !== null ? ['Devolvido em ' . admin_data_hora($r['data_devolucao'], false), 'green']
                                 : ($atrasado ? ['Atrasado desde ' . admin_data_hora($r['data_prevista'], false), 'red'] : ['Previsto para ' . admin_data_hora($r['data_prevista'], false), 'blue']);
                             ?>
                             <tr>
                                 <td class="adm-table__strong"><a class="adm-link" href="<?= e(admin_url('detalhes-livro') . '?id=' . (int)$r['livro_id']) ?>"><?= e($r['titulo']) ?></a></td>
-                                <td class="adm-mono"><?= e($r['codigo_individual']) ?></td>
+                                <td class="adm-mono"><a class="adm-link" href="<?= e(admin_url('emprestimo') . '?id=' . (int)$r['id']) ?>"><?= e($r['codigo_individual']) ?></a></td>
                                 <td><?= e($r['aluno']) ?><?= $r['turma'] ? ' <small class="adm-table__muted">' . e($r['turma']) . '</small>' : '' ?></td>
                                 <td class="adm-table__muted"><?= admin_data_hora($r['data_emprestimo']) ?></td>
                                 <td><span class="adm-status adm-tone--<?= $tom ?>"><?= e($rotulo) ?></span></td>
@@ -215,6 +226,7 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
                 </table>
             </div>
         </article>
+        <?php endif; ?>
 
         <article class="adm-card adm-panel">
             <div class="adm-panel__header">

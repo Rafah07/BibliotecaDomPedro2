@@ -65,6 +65,8 @@ cp .env.example .env
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Conexão com o MySQL. |
 | `CDD_CONTATO`, `CDD_FONTE_*` | Fontes consultadas pela classificação CDD. |
 | `STORAGE_IMPORTACOES` | Pasta privada das planilhas enviadas (padrão `storage/importacoes`). |
+| `APP_TIMEZONE` | Fuso da escola, usado nas datas dos empréstimos e no cálculo de atrasos (padrão `America/Sao_Paulo`). |
+| `EMPRESTIMO_PRAZO_DIAS`, `EMPRESTIMO_RENOVACAO_DIAS`, `EMPRESTIMO_MAX_RENOVACOES`, `EMPRESTIMO_RENOVAR_ATRASADO`, `EMPRESTIMO_PRAZO_MAXIMO_DIAS` | Regras de empréstimo. Vazias, valem os padrões **provisórios** (14 dias, sem limite de renovações, renovação de atrasados permitida). Veja [`docs/emprestimos.md`](docs/emprestimos.md). |
 
 O `.env` está no `.gitignore` e **nunca** deve ser enviado ao GitHub. Variáveis definidas no próprio servidor têm prioridade sobre o arquivo.
 
@@ -166,7 +168,9 @@ BibliotecaDomPedro2/
 │   ├── livros.php, exemplares.php, categorias.php, cadastrar/editar/detalhes-*.php
 │   ├── classificacao.php, classificar-livro.php, revisao-cdd.php, historico-cdd.php, relatorio-cdd.php
 │   ├── importacao.php, detalhes-importacao.php, historico-importacoes.php
-│   ├── em-desenvolvimento.php tela das páginas ainda não criadas (inventário, empréstimos...)
+│   ├── emprestimos.php, novo-emprestimo.php, emprestimo.php, devolver-/renovar-emprestimo.php
+│   ├── devolucoes.php, atrasos.php, historico-aluno.php, historico-exemplar.php
+│   ├── em-desenvolvimento.php tela das páginas ainda não criadas (inventário, etiquetas...)
 │   ├── api/                   endpoints JSON (login + token CSRF)
 │   ├── includes/              layout, menu, autenticação, módulos
 │   ├── assets/                CSS e JS do painel
@@ -195,7 +199,7 @@ BibliotecaDomPedro2/
 - Links e arquivos públicos com `url()` e `asset()`: `url('biblioteca_php/catalogo.php')`, `asset('css/style.css')`. No painel, `admin_url('id-do-menu')`.
 - Textos exibidos sempre escapados (`e()` ou `htmlspecialchars`), consultas sempre preparadas (`db_query($sql, [$valor])`).
 - SQL fica nos Repositories (ou nos arquivos de módulo do painel), não no meio do HTML.
-- Mudanças no banco: crie um novo arquivo em `database/migrations/` (nunca edite um que já foi aplicado). Prefixos: `001–002` base, `010` circulação, `030` importação, `040` CDD, `050+` inventário.
+- Mudanças no banco: crie um novo arquivo em `database/migrations/` (nunca edite um que já foi aplicado). Prefixos: `001–002` base, `010` alunos e empréstimos, `030` importação, `040` CDD, `050` inventário, `060` circulação (renovações).
 
 ## Banco de dados
 
@@ -209,14 +213,15 @@ BibliotecaDomPedro2/
 | Histórico de cada exemplar | `movimentacoes` | 001 |
 | Administradores | `administradores`, `login_tentativas` | 002 |
 | Alunos (sem login) | `alunos` | 010 |
-| Empréstimos | `emprestimos` | 010 |
+| Empréstimos | `emprestimos` | 010 + 060 |
+| Renovações de empréstimos | `emprestimo_renovacoes` (imutável) | 060 |
 | Importações | `importacoes`, `importacao_itens`, `importacao_mapeamentos` | 030 |
 | Dados antigos das planilhas | `registros_legados` (imutável) | 030 |
 | Histórico de atividades | `acoes_administrativas` | 030 |
 | Classificações CDD | `classificacoes_cdd`, `classificacoes_cdd_historico`, `cdd_*` | 040 |
 | Inventários | `inventarios`, `inventario_conferencias` | 001 + 050 |
 
-Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pertence a um livro; o código BDP é único; o ISBN identifica a edição, não o exemplar; a quantidade antiga das planilhas fica em `registros_legados` e **nunca** vira exemplar disponível; a CDD fica em `classificacoes_cdd` com histórico que não pode ser alterado; um exemplar só pode ter um empréstimo em aberto; empréstimos e registros legados não podem ser apagados.
+Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pertence a um livro; o código BDP é único; o ISBN identifica a edição, não o exemplar; a quantidade antiga das planilhas fica em `registros_legados` e **nunca** vira exemplar disponível; a CDD fica em `classificacoes_cdd` com histórico que não pode ser alterado; um exemplar só pode ter um empréstimo em aberto; empréstimos, renovações e registros legados não podem ser apagados; um empréstimo devolvido não pode ser alterado, e o aluno, o exemplar e a data de retirada de um empréstimo nunca mudam.
 
 ## Segurança do painel
 
@@ -238,6 +243,7 @@ php admin/tests/cdd-teste.php          # regras da CDD; com banco e livros cadas
 php admin/tests/isbn-lote-teste.php    # ISBNs inválidos em lote; cria e apaga um banco temporário (não usa o DB_NAME do .env)
 php admin/tests/painel-teste.php       # livros, contas, permissões, CSRF, XSS e SQL; banco temporário com 3.000 livros fictícios
 php admin/tests/alunos-importacao-teste.php  # importação de alunos; banco temporário e planilhas só com alunos fictícios
+php admin/tests/emprestimos-teste.php  # empréstimos, devoluções, renovações, atrasos, concorrência e permissões; banco temporário, só dados fictícios
 ```
 
 ## Situação das funcionalidades
@@ -253,12 +259,13 @@ php admin/tests/alunos-importacao-teste.php  # importação de alunos; banco tem
 - Classificação CDD (pesquisa nas fontes, revisão, aprovação, histórico, relatórios).
 - Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
 - Importação local de alunos (`.xlsx`/`.csv`) com mapeamento de colunas, prévia, prevenção de duplicidades pela matrícula e atualização separada com confirmação. O arquivo não é guardado no servidor. Veja [`docs/importacao-alunos.md`](docs/importacao-alunos.md).
+- Circulação: empréstimos (só de exemplares físicos disponíveis, para alunos cadastrados e ativos), devoluções, renovações com regras configuráveis, atrasos, histórico por aluno e por exemplar, e indicadores no dashboard. Veja [`docs/emprestimos.md`](docs/emprestimos.md).
 
 **Pendentes**
 
 - Cadastro de exemplares e de categorias ainda é **simulado** (valida, mas não grava no banco): os exemplares nascem no inventário físico.
 - Inventário físico (estrutura do banco pronta: `inventarios`), etiquetas com código BDP.
-- Empréstimos, devoluções e atrasos (estrutura pronta: `alunos`, `emprestimos`).
+- Reservas de livros (a renovação já tem o ponto de verificação preparado) e avisos de atraso por e-mail (exigem autorização da escola).
 - Tela de consulta/edição de alunos, relatórios gerais, página de atividades e configurações.
 - Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.
 - Pesquisas das fontes CDD nunca foram testadas com internet neste ambiente de desenvolvimento.

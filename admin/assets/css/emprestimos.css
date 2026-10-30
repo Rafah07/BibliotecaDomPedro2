@@ -1,0 +1,101 @@
+/* Circulação: empréstimos, devoluções, atrasos e históricos (complementa admin.css e acervo.css). */
+
+/* Abas como links (filtro feito no servidor), no mesmo visual das abas do acervo */
+.adm-tabs--links { margin: -20px -20px 16px; }
+.adm-tabs--links a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 12px 14px;
+    color: var(--adm-muted);
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color .15s ease;
+}
+.adm-tabs--links a .icon { width: 17px; height: 17px; }
+.adm-tabs--links a:hover { color: var(--adm-text); }
+.adm-tabs--links a[aria-current="page"] { color: var(--adm-blue-accent); }
+.adm-tabs--links a[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: -1px;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: var(--adm-blue-accent);
+}
+
+a.adm-stat--action { color: inherit; text-decoration: none; }
+.adm-stat__value--texto { font-size: 22px; }
+.adm-atraso { color: var(--adm-red); }
+.adm-text-warn { color: var(--adm-amber-text) !important; }
+.adm-table--emprestimos .adm-td-title { white-space: normal; min-width: 200px; }
+.adm-table--emprestimos .adm-td-title small { max-width: 260px; white-space: normal; }
+/* Ações sempre visíveis em telas médias, como na listagem de livros */
+.adm-table--emprestimos .adm-actions-col { position: sticky; right: 0; background: var(--adm-white); box-shadow: -8px 0 12px -10px rgba(23, 32, 51, .25); white-space: nowrap; }
+.adm-table--emprestimos th.adm-actions-col { background: var(--adm-bg); }
+.adm-table--emprestimos .adm-td-wrap { white-space: normal; min-width: 180px; }
+
+/* Etapas do novo empréstimo */
+.adm-passos { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; margin: 0 0 16px; padding: 0; color: var(--adm-muted); font-weight: 600; font-size: 13.5px; }
+.adm-passos li { display: inline-flex; align-items: center; gap: 8px; }
+.adm-passos span {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 1px solid var(--adm-border);
+    background: var(--adm-white);
+    font-size: 12.5px;
+}
+.adm-passos span .icon { width: 14px; height: 14px; }
+.adm-passos .is-current { color: var(--adm-blue-accent); }
+.adm-passos .is-current span { border-color: var(--adm-blue-accent); background: var(--adm-blue-50); }
+.adm-passos .is-done { color: var(--adm-green); }
+.adm-passos .is-done span { border-color: var(--adm-green); background: var(--adm-green-50); }
+.adm-form-section.is-pending { opacity: .65; }
+
+/* Escolha atual (aluno ou exemplar) */
+.adm-escolha {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--adm-blue-100);
+    border-radius: var(--adm-radius);
+    background: var(--adm-blue-50);
+}
+.adm-escolha > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.adm-escolha small { color: var(--adm-muted); overflow-wrap: anywhere; }
+.adm-escolha.is-blocked { border-color: #fecaca; background: var(--adm-red-50); }
+
+/* Resultados da pesquisa de alunos e exemplares */
+.adm-resultados { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.adm-resultados li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--adm-border);
+    border-radius: var(--adm-radius);
+    background: var(--adm-white);
+}
+.adm-resultados li > div { min-width: 0; display: grid; gap: 3px; }
+.adm-resultados small { color: var(--adm-muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.adm-resultados li.is-blocked { background: var(--adm-bg); }
+
+@media (max-width: 720px) {
+    .adm-escolha,
+    .adm-resultados li { flex-wrap: wrap; }
+    .adm-escolha .adm-button,
+    .adm-resultados .adm-button { width: 100%; justify-content: center; }
+    .adm-table--emprestimos .adm-row-actions { display: flex; flex-wrap: wrap; width: 100%; }
+    .adm-table--emprestimos tbody tr .adm-td-title { grid-column: 1 / -1; }
+    /* Ações no fim do card, abaixo dos dados */
+    .adm-table--emprestimos .adm-actions-col { position: static; box-shadow: none; background: transparent !important; grid-column: 1 / -1; grid-row: 20; padding-top: 10px !important; text-align: left !important; }
+}

@@ -27,9 +27,16 @@ const ADMIN_MENU = [
         'inventario' => ['label' => 'Inventário', 'icon' => 'clipboard-check'],
     ],
     'Circulação' => [
-        'emprestimos' => ['label' => 'Empréstimos', 'icon' => 'book-open-check'],
-        'devolucoes' => ['label' => 'Devoluções', 'icon' => 'rotate-ccw'],
-        'atrasos' => ['label' => 'Atrasos', 'icon' => 'clock-alert'],
+        // Circulação: só para quem pode ver empréstimos (dados pessoais dos alunos).
+        'emprestimos' => ['label' => 'Empréstimos', 'icon' => 'book-open-check', 'arquivo' => 'emprestimos.php', 'pronta' => true, 'permissao' => 'emprestimos.ver'],
+        'novo-emprestimo' => ['label' => 'Novo empréstimo', 'icon' => 'plus', 'arquivo' => 'novo-emprestimo.php', 'pronta' => true, 'oculto' => true],
+        'emprestimo' => ['label' => 'Detalhes do empréstimo', 'icon' => 'book-open-check', 'arquivo' => 'emprestimo.php', 'pronta' => true, 'oculto' => true],
+        'devolver-emprestimo' => ['label' => 'Registrar devolução', 'icon' => 'rotate-ccw', 'arquivo' => 'devolver-emprestimo.php', 'pronta' => true, 'oculto' => true],
+        'renovar-emprestimo' => ['label' => 'Renovar empréstimo', 'icon' => 'refresh-cw', 'arquivo' => 'renovar-emprestimo.php', 'pronta' => true, 'oculto' => true],
+        'devolucoes' => ['label' => 'Devoluções', 'icon' => 'rotate-ccw', 'arquivo' => 'devolucoes.php', 'pronta' => true, 'permissao' => 'emprestimos.ver'],
+        'atrasos' => ['label' => 'Atrasos', 'icon' => 'clock-alert', 'arquivo' => 'atrasos.php', 'pronta' => true, 'permissao' => 'emprestimos.ver'],
+        'historico-aluno' => ['label' => 'Histórico do aluno', 'icon' => 'graduation-cap', 'arquivo' => 'historico-aluno.php', 'pronta' => true, 'oculto' => true],
+        'historico-exemplar' => ['label' => 'Histórico do exemplar', 'icon' => 'history', 'arquivo' => 'historico-exemplar.php', 'pronta' => true, 'oculto' => true],
     ],
     'Gerenciamento' => [
         'importar' => ['label' => 'Importar Excel', 'icon' => 'file-spreadsheet', 'arquivo' => 'importacao.php', 'pronta' => true],

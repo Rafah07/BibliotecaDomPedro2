@@ -50,6 +50,9 @@ foreach (str_split(md5($ex['codigo_individual']) . md5(strrev($ex['codigo_indivi
     </div>
     <div class="adm-page-head__actions">
         <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars(admin_url('exemplares')) ?>"><?= icon('arrow-left') ?> Voltar aos exemplares</a>
+        <?php if (acervo_usa_mysql() && auth_pode('emprestimos.ver')): ?>
+            <a class="adm-button adm-button--primary" href="<?= e(admin_url('historico-exemplar') . '?id=' . (int)$ex['id']) ?>"><?= icon('history') ?> Empréstimos deste exemplar</a>
+        <?php endif; ?>
     </div>
 </section>
 
