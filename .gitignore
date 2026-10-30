@@ -1,6 +1,34 @@
 # Credenciais locais: nunca enviar ao repositório.
 /.env
+/.env.*
+!/.env.example
 /vendor/
 /storage/importacoes/*
 !/storage/importacoes/.gitkeep
 !/storage/importacoes/.htaccess
+
+# Capas enviadas pelo painel ficam só no servidor (cada escola tem as suas).
+/uploads/capas/*
+!/uploads/capas/.htaccess
+
+# Backups, exportações do banco, planilhas com dados pessoais e logs nunca vão para o GitHub.
+/backups/
+/backup/
+*.bak
+*.backup
+*.old
+*.orig
+*.log
+*.dump
+*.sql.gz
+*.zip
+*.rar
+*.7z
+/database/*.sql
+/*.sql
+/*.csv
+/*.xlsx
+/*.xls
+/storage/logs/
+.DS_Store
+Thumbs.db

@@ -6,40 +6,69 @@ use Biblioteca\Repositories\CatalogoRepository;
 use Throwable;
 
 /**
- * Regras do catálogo público: de onde vêm os livros e como cada um é apresentado.
+ * Regras do catálogo público: de onde vêm os livros, quais filtros são aceitos e como
+ * cada livro e sua disponibilidade são apresentados.
  *
  * Fontes possíveis (fonte()):
- *  - "acervo"        MySQL configurado e com livros: só dados reais.
- *  - "vazio"         MySQL configurado, mas sem livros: estado vazio (nada fictício).
- *  - "indisponivel"  MySQL configurado, mas fora do ar ou sem as tabelas: estado vazio com aviso.
- *  - "demonstracao"  MySQL não configurado: livros de exemplo, sempre identificados como tal.
- * Dados fictícios e dados reais nunca aparecem juntos.
+ *  - "acervo"          MySQL configurado e com livros ativos.
+ *  - "vazio"           MySQL configurado, mas nenhum livro ativo: estado vazio.
+ *  - "indisponivel"    MySQL fora do ar ou sem as tabelas: estado vazio com aviso.
+ *  - "nao_configurado" sem banco configurado (.env): estado vazio com aviso.
+ * O site público nunca mostra livros fictícios.
+ *
+ * Disponibilidade (ver disponibilidade()):
+ *  - sem exemplares identificados: o livro está no catálogo, mas nenhuma unidade física foi
+ *    cadastrada ainda (a quantidade das planilhas antigas NÃO conta);
+ *  - com exemplares e pelo menos um "disponivel": mostra quantos estão disponíveis;
+ *  - com exemplares, mas nenhum disponível (emprestados, em preparo ou manutenção).
  */
 final class CatalogoService
 {
     public const POR_PAGINA = 24;
 
+    public const CAMPOS_BUSCA = [
+        'tudo' => 'Todos os campos',
+        'titulo' => 'Título',
+        'autor' => 'Autor',
+        'isbn' => 'ISBN',
+        'assunto' => 'Assunto ou categoria',
+    ];
+
+    public const ORDENS = [
+        'titulo' => 'Título (A–Z)',
+        'titulo_desc' => 'Título (Z–A)',
+        'autor' => 'Autor (A–Z)',
+        'ano_desc' => 'Ano de publicação (mais novos)',
+        'ano_asc' => 'Ano de publicação (mais antigos)',
+        'recentes' => 'Adicionados recentemente',
+    ];
+
+    public const DISPONIBILIDADES = [
+        '' => 'Todos os livros do catálogo',
+        'disponivel' => 'Com exemplar disponível agora',
+        'identificado' => 'Com exemplares físicos identificados',
+    ];
+
     private const ICONES = [
-        'ficção' => ['auto_stories', 'tone-blue'], 'romance' => ['favorite', 'tone-pink'],
-        'fantasia' => ['auto_awesome', 'tone-purple'], 'aventura' => ['explore', 'tone-orange'],
-        'história' => ['history_edu', 'tone-green'], 'clássicos' => ['menu_book', 'tone-navy'],
-        'fábula' => ['local_library', 'tone-sky'], 'poesia' => ['edit_note', 'tone-pink'],
-        'ciências' => ['science', 'tone-green'], 'biografia' => ['person', 'tone-orange'],
+        'ficção' => ['sparkles', 'tone-blue'], 'romance' => ['heart', 'tone-pink'],
+        'fantasia' => ['sparkles', 'tone-purple'], 'aventura' => ['compass', 'tone-orange'],
+        'história' => ['landmark', 'tone-green'], 'clássicos' => ['book-open', 'tone-navy'],
+        'poesia' => ['feather', 'tone-pink'], 'ciências' => ['flask-conical', 'tone-green'],
+        'biografia' => ['user-round', 'tone-orange'],
     ];
     private const TONS = ['tone-blue', 'tone-purple', 'tone-orange', 'tone-green', 'tone-pink', 'tone-navy', 'tone-sky'];
 
     private string $fonte;
+    private ?array $categoriasCache = null;
 
-    /**
-     * @param array{livros: array, generos: array, autores: array} $exemplos dados de includes/dados-exemplo.php
-     */
-    public function __construct(private ?CatalogoRepository $repo, private array $exemplos, bool $bancoIndisponivel = false)
+    public function __construct(private ?CatalogoRepository $repo, bool $bancoIndisponivel = false)
     {
         if ($bancoIndisponivel) {
             $this->fonte = 'indisponivel';
         } elseif ($repo === null) {
-            $this->fonte = 'demonstracao';
+            $this->fonte = 'nao_configurado';
         } else {
+            $this->fonte = 'acervo';
             $this->fonte = $this->tentar(fn () => $repo->totalLivros() > 0 ? 'acervo' : 'vazio', 'indisponivel');
         }
     }
@@ -49,142 +78,245 @@ final class CatalogoService
         return $this->fonte;
     }
 
-    public function ehDemonstracao(): bool
+    public function disponivel(): bool
     {
-        return $this->fonte === 'demonstracao';
+        return $this->fonte === 'acervo';
     }
 
-    /** @return array{itens: list<array>, total: int, pagina: int, paginas: int} */
-    public function buscarLivros(string $busca, string $genero, int $pagina = 1): array
+    /**
+     * Lê e valida os filtros da URL. Valores inválidos são ignorados (nunca chegam ao SQL).
+     * @return array{q: string, campo: string, categoria: int, autor: int, ano_de: ?int, ano_ate: ?int, disponibilidade: string, ordem: string, pagina: int}
+     */
+    public static function filtros(array $get): array
     {
-        $pagina = max(1, $pagina);
-        if ($this->fonte === 'demonstracao') {
-            $itens = array_values(array_filter($this->exemplos['livros'], static function ($l) use ($busca, $genero) {
-                $combinaBusca = $busca === '' || stripos($l['titulo'] . ' ' . $l['autor'] . ' ' . $l['genero'], $busca) !== false;
-                return $combinaBusca && ($genero === '' || $l['genero'] === $genero);
-            }));
-            return ['itens' => array_map([$this, 'livroExemplo'], $itens), 'total' => count($itens), 'pagina' => 1, 'paginas' => 1];
+        $texto = static fn (string $campo, int $max): string => isset($get[$campo]) && is_string($get[$campo]) ? mb_substr(trim($get[$campo]), 0, $max) : '';
+        $inteiro = static function (string $campo, int $min, int $max) use ($texto): ?int {
+            $v = $texto($campo, 10);
+            return preg_match('/^\d+$/', $v) && (int)$v >= $min && (int)$v <= $max ? (int)$v : null;
+        };
+        $campo = $texto('campo', 20);
+        $ordem = $texto('ordem', 20);
+        $disp = $texto('disponibilidade', 20);
+        $anoDe = $inteiro('ano_de', 1000, 2100);
+        $anoAte = $inteiro('ano_ate', 1000, 2100);
+        if ($anoDe !== null && $anoAte !== null && $anoDe > $anoAte) {
+            [$anoDe, $anoAte] = [$anoAte, $anoDe];
         }
-        if ($this->fonte !== 'acervo') {
-            return ['itens' => [], 'total' => 0, 'pagina' => 1, 'paginas' => 1];
-        }
-        $resultado = $this->tentar(
-            fn () => $this->repo->buscar($busca, $genero, self::POR_PAGINA, ($pagina - 1) * self::POR_PAGINA),
-            ['itens' => [], 'total' => 0]
-        );
+        $q = preg_replace('/[\x00-\x1F\x7F]/u', '', $texto('q', 120)) ?? '';
         return [
-            'itens' => array_map([$this, 'livroAcervo'], $resultado['itens']),
-            'total' => $resultado['total'],
-            'pagina' => $pagina,
-            'paginas' => max(1, (int)ceil($resultado['total'] / self::POR_PAGINA)),
+            'q' => $q,
+            'campo' => isset(self::CAMPOS_BUSCA[$campo]) ? $campo : 'tudo',
+            'categoria' => $inteiro('categoria', 1, PHP_INT_MAX) ?? 0,
+            'autor' => $inteiro('autor', 1, PHP_INT_MAX) ?? 0,
+            'ano_de' => $anoDe,
+            'ano_ate' => $anoAte,
+            'disponibilidade' => isset(self::DISPONIBILIDADES[$disp]) ? $disp : '',
+            'ordem' => isset(self::ORDENS[$ordem]) ? $ordem : 'titulo',
+            'pagina' => $inteiro('pagina', 1, 100000) ?? 1,
         ];
     }
 
-    /** Livros para a página inicial. */
-    public function destaques(int $quantidade = 4): array
+    /** true quando algum filtro (além da ordenação e da página) está aplicado. */
+    public static function temFiltros(array $f): bool
     {
-        return match ($this->fonte) {
-            'demonstracao' => array_map([$this, 'livroExemplo'], array_slice($this->exemplos['livros'], 0, $quantidade)),
-            'acervo' => array_map([$this, 'livroAcervo'], $this->tentar(fn () => $this->repo->recentes($quantidade), [])),
-            default => [],
-        };
+        return $f['q'] !== '' || $f['categoria'] || $f['autor'] || $f['ano_de'] !== null || $f['ano_ate'] !== null || $f['disponibilidade'] !== '';
     }
 
-    /** Gêneros (categorias) com ícone, cor e quantidade de títulos. */
-    public function generos(): array
+    /** @return array{itens: list<array>, total: int, pagina: int, paginas: int} */
+    public function buscarLivros(array $f): array
     {
-        if ($this->fonte === 'demonstracao') {
-            return array_map(fn ($g) => $g + [
-                'total' => count(array_filter($this->exemplos['livros'], static fn ($l) => $l['genero'] === $g['nome'])),
-            ], $this->exemplos['generos']);
+        $vazio = ['itens' => [], 'total' => 0, 'pagina' => 1, 'paginas' => 1];
+        if ($this->fonte !== 'acervo') {
+            return $vazio;
         }
+        $pagina = max(1, $f['pagina']);
+        $resultado = $this->tentar(fn () => $this->repo->buscar($f, self::POR_PAGINA, ($pagina - 1) * self::POR_PAGINA), null);
+        if ($resultado === null) {
+            return $vazio;
+        }
+        $paginas = max(1, (int)ceil($resultado['total'] / self::POR_PAGINA));
+        if ($pagina > $paginas && $resultado['total'] > 0) {
+            // Página além do fim (link antigo ou digitado): mostra a última.
+            $pagina = $paginas;
+            $resultado = $this->tentar(fn () => $this->repo->buscar($f, self::POR_PAGINA, ($pagina - 1) * self::POR_PAGINA), $resultado);
+        }
+        return [
+            'itens' => array_map([$this, 'livroResumo'], $resultado['itens']),
+            'total' => $resultado['total'],
+            'pagina' => $pagina,
+            'paginas' => $paginas,
+        ];
+    }
+
+    /** Livros adicionados recentemente (página inicial). */
+    public function recentes(int $quantidade = 8): array
+    {
         if ($this->fonte !== 'acervo') {
             return [];
         }
-        $generos = [];
-        foreach ($this->tentar(fn () => $this->repo->categorias(), []) as $i => $c) {
-            [$icone, $cor] = self::ICONES[mb_strtolower($c['nome'])] ?? ['category', self::TONS[$i % count(self::TONS)]];
-            $generos[] = [
-                'nome' => $c['nome'],
-                'desc' => (string)$c['descricao'],
-                'icon' => $icone,
-                'cor' => $cor,
-                'total' => (int)$c['total'],
-            ];
+        return array_map([$this, 'livroResumo'], $this->tentar(fn () => $this->repo->recentes($quantidade), []));
+    }
+
+    /** Números gerais para a página inicial, ou null se não houver acervo. */
+    public function estatisticas(): ?array
+    {
+        if ($this->fonte !== 'acervo') {
+            return null;
         }
-        return $generos;
+        $e = $this->tentar(fn () => $this->repo->estatisticas(), null);
+        return $e ? array_map('intval', $e) : null;
+    }
+
+    /**
+     * Livro para a página de detalhes, ou null se não existir, estiver arquivado ou o catálogo
+     * estiver indisponível.
+     */
+    public function livro(int $id): ?array
+    {
+        if ($this->fonte !== 'acervo' || $id < 1) {
+            return null;
+        }
+        $l = $this->tentar(fn () => $this->repo->livro($id), null);
+        if (!$l) {
+            return null;
+        }
+        $situacoes = $l['situacoes'];
+        $total = array_sum($situacoes);
+        $disponiveis = $situacoes['disponivel'] ?? 0;
+        $emprestados = $situacoes['emprestado'] ?? 0;
+        return [
+            'id' => (int)$l['id'],
+            'titulo' => $l['titulo'],
+            'subtitulo' => (string)$l['subtitulo'],
+            'autores' => $l['autores'],
+            'autor' => implode(', ', array_column($l['autores'], 'nome')),
+            'categorias' => $l['categorias'],
+            'isbn' => (string)$l['isbn'],
+            'editora' => (string)$l['editora'],
+            'ano' => $l['ano_publicacao'] !== null ? (int)$l['ano_publicacao'] : null,
+            'edicao' => (string)$l['edicao'],
+            'idioma' => (string)$l['idioma'],
+            'paginas' => $l['numero_paginas'] !== null ? (int)$l['numero_paginas'] : null,
+            'sinopse' => trim((string)$l['sinopse']),
+            'assunto' => trim((string)$l['assunto']),
+            'palavras_chave' => array_values(array_filter(array_map('trim', preg_split('/[;,]/', (string)$l['palavras_chave']) ?: []))),
+            'cdd' => $l['cdd'],
+            'capa' => self::capaSegura((string)$l['capa']),
+            'classe' => self::classeCapa((int)$l['id']),
+            'disponibilidade' => self::disponibilidade($total, $disponiveis),
+            'exemplares' => ['total' => $total, 'disponiveis' => $disponiveis, 'emprestados' => $emprestados, 'outros' => $total - $disponiveis - $emprestados],
+        ];
+    }
+
+    /** Outros livros do mesmo autor e da mesma categoria (somente relações reais do cadastro). */
+    public function relacionados(array $livro, int $limite = 4): array
+    {
+        $autor = $this->tentar(fn () => $this->repo->doMesmoAutor($livro['id'], array_column($livro['autores'], 'id'), $limite), []);
+        $ja = array_merge([$livro['id']], array_map(static fn ($l) => (int)$l['id'], $autor));
+        $categoria = array_values(array_filter(
+            $this->tentar(fn () => $this->repo->daMesmaCategoria($livro['id'], array_column($livro['categorias'], 'id'), $limite + count($autor)), []),
+            static fn ($l) => !in_array((int)$l['id'], $ja, true)
+        ));
+        return [
+            'autor' => array_map([$this, 'livroResumo'], $autor),
+            'categoria' => array_map([$this, 'livroResumo'], array_slice($categoria, 0, $limite)),
+        ];
+    }
+
+    /** Categorias com ícone, cor e quantidade de títulos (somente as que têm livros ativos). */
+    public function categorias(): array
+    {
+        if ($this->fonte !== 'acervo') {
+            return [];
+        }
+        if ($this->categoriasCache !== null) {
+            return $this->categoriasCache;
+        }
+        $categorias = [];
+        foreach ($this->tentar(fn () => $this->repo->categorias(), []) as $i => $c) {
+            if ((int)$c['total'] === 0) {
+                continue;
+            }
+            [$icone, $cor] = self::ICONES[mb_strtolower($c['nome'])] ?? ['tag', self::TONS[$i % count(self::TONS)]];
+            $categorias[] = ['id' => (int)$c['id'], 'nome' => $c['nome'], 'desc' => (string)$c['descricao'], 'icon' => $icone, 'cor' => $cor, 'total' => (int)$c['total']];
+        }
+        return $this->categoriasCache = $categorias;
     }
 
     /** Autores com a quantidade de títulos no acervo. */
     public function autores(string $busca = '', int $limite = 60): array
     {
-        if ($this->fonte === 'demonstracao') {
-            $lista = array_filter($this->exemplos['autores'], static fn ($a) => $busca === '' || stripos($a['nome'] . ' ' . $a['tag'], $busca) !== false);
-            return array_map(fn ($a) => $a + [
-                'total' => count(array_filter($this->exemplos['livros'], static fn ($l) => $l['autor'] === $a['nome'])),
-            ], array_values($lista));
-        }
         if ($this->fonte !== 'acervo') {
             return [];
         }
         $autores = [];
         foreach ($this->tentar(fn () => $this->repo->autores($busca, $limite), []) as $i => $a) {
-            $autores[] = [
-                'nome' => $a['nome'],
-                'tag' => (int)$a['total'] === 1 ? '1 título no acervo' : $a['total'] . ' títulos no acervo',
-                'desc' => '',
-                'cor' => self::TONS[$i % count(self::TONS)],
-                'total' => (int)$a['total'],
-            ];
+            $autores[] = ['id' => (int)$a['id'], 'nome' => $a['nome'], 'total' => (int)$a['total'], 'cor' => self::TONS[$i % count(self::TONS)]];
         }
         return $autores;
     }
 
-    private function livroExemplo(array $l): array
+    public function nomeAutor(int $id): ?string
     {
-        return [
-            'titulo' => $l['titulo'],
-            'autor' => $l['autor'],
-            'genero' => $l['genero'],
-            'isbn' => '',
-            'capa' => null,
-            'classe' => $l['classe'],
-            'disponibilidade' => null, // exemplos não têm exemplares
-        ];
+        return $id > 0 && $this->fonte === 'acervo' ? $this->tentar(fn () => $this->repo->nomeAutor($id), null) : null;
     }
 
-    private function livroAcervo(array $l): array
+    /** Rótulo e tom da disponibilidade (os três casos descritos no topo da classe). */
+    public static function disponibilidade(int $exemplares, int $disponiveis): array
     {
-        $exemplares = (int)$l['exemplares'];
-        $disponiveis = (int)$l['disponiveis'];
-        $disponibilidade = match (true) {
-            $exemplares === 0 => ['rotulo' => 'Aguardando conferência', 'tom' => 'muted'],
-            $disponiveis === 0 => ['rotulo' => 'Indisponível no momento', 'tom' => 'busy'],
-            default => ['rotulo' => $disponiveis === 1 ? '1 disponível' : $disponiveis . ' disponíveis', 'tom' => 'ok'],
+        return match (true) {
+            $exemplares === 0 => ['estado' => 'sem_exemplar', 'rotulo' => 'Exemplares ainda não identificados', 'tom' => 'muted'],
+            $disponiveis === 0 => ['estado' => 'indisponivel', 'rotulo' => 'Nenhum disponível no momento', 'tom' => 'busy'],
+            default => ['estado' => 'disponivel', 'rotulo' => $disponiveis === 1 ? '1 disponível' : $disponiveis . ' disponíveis', 'tom' => 'ok'],
         };
-        $capa = (string)$l['capa'];
+    }
+
+    /**
+     * Endereço da capa, se for seguro exibi-la: somente imagens do próprio site
+     * (ex.: "uploads/capas/livro-12-ab12cd.jpg"). Endereços externos são ignorados para que
+     * o navegador dos alunos não envie dados a outros serviços.
+     */
+    public static function capaSegura(string $capa): ?string
+    {
+        $capa = trim($capa);
+        if ($capa === '' || str_contains($capa, '..') || str_contains($capa, '\\')) {
+            return null;
+        }
+        return preg_match('#^/?(uploads/capas|assets/capas)/[A-Za-z0-9._-]+\.(jpe?g|png|webp)$#i', $capa) ? ltrim($capa, '/') : null;
+    }
+
+    private static function classeCapa(int $id): string
+    {
+        return 'cover-' . ($id % 12 + 1);
+    }
+
+    private function livroResumo(array $l): array
+    {
         return [
+            'id' => (int)$l['id'],
             'titulo' => $l['titulo'],
-            'autor' => (string)($l['autores'] ?? '') ?: 'Autor não informado',
-            'genero' => (string)($l['categoria'] ?? ''),
+            'subtitulo' => (string)$l['subtitulo'],
+            'autor' => (string)($l['autores'] ?? ''),
+            'categoria' => (string)($l['categoria'] ?? ''),
+            'assunto' => trim((string)($l['assunto'] ?? '')),
             'isbn' => (string)$l['isbn'],
-            // Só endereços http(s) ou caminhos do próprio site.
-            'capa' => preg_match('#^(https?://|/|[a-z0-9_-]+/)#i', $capa) ? $capa : null,
-            'classe' => 'cover-' . ((int)$l['id'] % 12 + 1),
-            'disponibilidade' => $disponibilidade,
+            'editora' => (string)($l['editora'] ?? ''),
+            'ano' => $l['ano_publicacao'] !== null ? (int)$l['ano_publicacao'] : null,
+            'edicao' => (string)($l['edicao'] ?? ''),
+            'capa' => self::capaSegura((string)$l['capa']),
+            'classe' => self::classeCapa((int)$l['id']),
+            'disponibilidade' => self::disponibilidade((int)$l['exemplares'], (int)$l['disponiveis']),
         ];
     }
 
-    /** Executa uma consulta; em caso de erro, registra no log e devolve o valor padrão. */
+    /** Executa uma consulta; em caso de erro, registra no log (nunca na tela) e devolve o padrão. */
     private function tentar(callable $consulta, mixed $padrao): mixed
     {
         try {
             return $consulta();
         } catch (Throwable $e) {
             error_log('[biblioteca] Falha no catálogo público: ' . $e->getMessage());
-            if ($this->fonte ?? null) {
-                $this->fonte = 'indisponivel';
-            }
+            $this->fonte = 'indisponivel';
             return $padrao;
         }
     }

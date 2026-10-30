@@ -472,8 +472,10 @@ function acervo_badge_conservacao(string $estado): string
 function acervo_capa(array $livro, string $tamanho = 'sm'): string
 {
     $classe = 'adm-cover adm-cover--' . $tamanho;
-    if (!empty($livro['capa'])) {
-        return '<span class="' . $classe . '"><img src="' . htmlspecialchars($livro['capa']) . '" alt="Capa de ' . htmlspecialchars($livro['titulo']) . '" loading="lazy"></span>';
+    // Só imagens enviadas ao próprio site (uploads/capas), as mesmas que o site público aceita.
+    $capa = \Biblioteca\Services\CatalogoService::capaSegura((string)($livro['capa'] ?? ''));
+    if ($capa !== null) {
+        return '<span class="' . $classe . '"><img src="' . htmlspecialchars(url($capa)) . '" alt="Capa de ' . htmlspecialchars($livro['titulo']) . '" loading="lazy"></span>';
     }
     $autor = $livro['autor_principal'] ?? '';
     return '<span class="' . $classe . ' adm-cover--placeholder" style="--cover: ' . htmlspecialchars($livro['cor'] ?? '#143477') . '" role="img" aria-label="Capa padrão de ' . htmlspecialchars($livro['titulo']) . '">'

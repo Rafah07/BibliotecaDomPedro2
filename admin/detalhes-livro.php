@@ -84,6 +84,12 @@ $meta = [
         <div class="adm-book-hero__actions">
             <?php if (auth_pode('livros.editar')): ?>
                 <a class="adm-button adm-button--primary" href="<?= e(admin_url('editar-livro') . '?id=' . $id) ?>"><?= icon('pencil') ?> Editar livro</a>
+                <?php if ($persistir && empty($livro['arquivado_em'])): ?>
+                    <a class="adm-button adm-button--ghost" href="<?= e(admin_url('capa-livro') . '?id=' . $id) ?>"><?= icon('image') ?> Capa</a>
+                <?php endif; ?>
+            <?php endif; ?>
+            <?php if ($persistir && empty($livro['arquivado_em'])): ?>
+                <a class="adm-button adm-button--ghost" href="<?= e(url('biblioteca_php/livro.php?id=' . $id)) ?>" target="_blank" rel="noopener"><?= icon('external-link') ?> Ver no site</a>
             <?php endif; ?>
             <?php if (!$persistir): ?>
                 <button type="button" class="adm-button adm-button--ghost" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>

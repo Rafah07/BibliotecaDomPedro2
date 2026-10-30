@@ -1,19 +1,53 @@
 <?php
+/**
+ * Página institucional. Os textos vêm do painel (Sistema → Site público); campos não preenchidos
+ * aparecem como "aguardando confirmação da escola" — nada é inventado.
+ */
 require_once __DIR__ . '/../includes/layout.php';
-page_start('Sobre', 'sobre');
-page_heading('Nossa biblioteca', 'Um espaço para descobrir', 'Conheça a proposta da Biblioteca Dom Pedro II e o que estamos construindo.', 'info');
+
+$site = site_conteudo();
+$contatos = array_filter([
+    'map-pin' => ['Localização', $site->valor('endereco')],
+    'phone' => ['Telefone', $site->valor('telefone')],
+    'mail' => ['E-mail', $site->valor('email')],
+], static fn ($c) => $c[1] !== '');
+
+page_start('Sobre a biblioteca', 'sobre', 'Conheça a Biblioteca Dom Pedro II: apresentação, espaço, objetivos, horários e contato.');
+page_heading('Nossa biblioteca', 'Sobre a Biblioteca Dom Pedro II', $site->valor('escola_nome'), 'info');
 ?>
 <section class="about-hero panel">
-    <div class="about-copy"><p class="page-eyebrow">BIBLIOTECA DOM PEDRO II</p><h2>Mais histórias, mais descobertas.</h2><p>Este site foi pensado para aproximar a comunidade escolar dos livros e tornar a busca por novas leituras mais simples e agradável.</p><p>Aqui você poderá explorar o catálogo, conhecer diferentes gêneros e descobrir autores.</p><a class="action-button" href="<?= e(url('biblioteca_php/catalogo.php')) ?>"><span class="material-symbols-outlined">menu_book</span> Conhecer o catálogo</a></div>
-    <div class="about-emblem"><img src="<?= e(asset('img/emblema.png')) ?>" alt="Emblema da escola"></div>
-</section>
-<section class="panel spaced-panel">
-    <div class="section-topline"><div><p class="page-eyebrow">O que queremos oferecer</p><h2>Uma biblioteca mais acessível</h2></div></div>
-    <div class="info-card-grid">
-        <article class="info-card"><span class="material-symbols-outlined">search</span><h3>Busca fácil</h3><p>Pesquise títulos, autores e gêneros para encontrar livros com rapidez.</p></article>
-        <article class="info-card"><span class="material-symbols-outlined">favorite</span><h3>Incentivo à leitura</h3><p>Descubra livros, explore novos assuntos e encontre sugestões de leitura.</p></article>
-        <article class="info-card"><span class="material-symbols-outlined">groups</span><h3>Comunidade escolar</h3><p>Um espaço pensado para aproximar a escola, a biblioteca e os leitores.</p></article>
+    <div class="about-copy">
+        <p class="page-eyebrow">Apresentação</p>
+        <h2>Um espaço para ler, estudar e descobrir</h2>
+        <?= site_bloco('apresentacao') ?>
+        <a class="action-button" href="<?= e(url('biblioteca_php/catalogo.php')) ?>"><?= icon('library-big') ?> Consultar o catálogo</a>
     </div>
+    <div class="about-emblem"><img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="Emblema da escola" width="360" height="240" loading="lazy"></div>
 </section>
-<section class="secondary-banner"><span class="material-symbols-outlined">lightbulb</span><div><h2>Site em desenvolvimento</h2><p>Esta versão apresenta apenas o design inicial. Informações e recursos definitivos serão adicionados após a validação com a escola.</p></div></section>
+
+<section class="info-card-grid spaced-panel">
+    <article class="info-card"><?= icon('landmark') ?><h2>O espaço</h2><?= site_bloco('espaco') ?></article>
+    <article class="info-card"><?= icon('target') ?><h2>Objetivos da biblioteca escolar</h2><?= site_bloco('objetivos') ?></article>
+    <article class="info-card"><?= icon('lightbulb') ?><h2>Orientações de uso</h2><?= site_bloco('orientacoes') ?></article>
+</section>
+
+<section class="contact-layout spaced-panel">
+    <article class="panel" id="horario">
+        <div class="section-topline"><div><p class="page-eyebrow">Atendimento</p><h2>Horário de funcionamento</h2></div></div>
+        <?= site_bloco('horario') ?>
+    </article>
+    <article class="panel" id="contato">
+        <div class="section-topline"><div><p class="page-eyebrow">Fale com a biblioteca</p><h2>Contato</h2></div></div>
+        <?php if ($contatos): ?>
+            <?php foreach ($contatos as $icone => [$rotulo, $valor]): ?>
+                <div class="contact-detail"><?= icon($icone) ?><div><strong><?= e($rotulo) ?></strong>
+                    <p><?= $icone === 'mail' ? '<a href="mailto:' . e($valor) . '">' . e($valor) . '</a>' : e($valor) ?></p></div></div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <p class="pending-note"><?= icon('clock') ?> Os contatos oficiais da biblioteca ainda não foram informados pela escola.</p>
+        <?php endif; ?>
+        <?php if ($site->preenchido('contato_observacao')): ?><div class="rich-text"><?= site_texto_html($site->valor('contato_observacao')) ?></div><?php endif; ?>
+        <p class="muted-text">Para dúvidas sobre livros e empréstimos, procure a equipe pessoalmente na biblioteca.</p>
+    </article>
+</section>
 <?php page_end(); ?>
