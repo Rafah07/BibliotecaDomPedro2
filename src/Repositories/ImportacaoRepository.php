@@ -4,6 +4,7 @@ namespace Biblioteca\Repositories;
 
 use Biblioteca\Services\ImportValidationService;
 use Biblioteca\Support\Isbn;
+use Biblioteca\Support\IsbnDiagnostico;
 use Biblioteca\Support\Texto;
 use PDO;
 use PDOException;
@@ -345,6 +346,9 @@ final class ImportacaoRepository
             case 'problemas':
                 $where[] = "it.status_validacao <> 'valido'";
                 break;
+            case 'isbn_invalido':
+                $where[] = 'it.processado_em IS NULL AND ' . self::SQL_ISBN_INVALIDO;
+                break;
         }
         $busca = trim($busca);
         if ($busca !== '') {
@@ -623,6 +627,236 @@ final class ImportacaoRepository
     }
 
     // ---------------------------------------------------------------
+    // ISBNs inválidos: tratamento em lote
+    // ---------------------------------------------------------------
+
+    /** Linha cujo problema inclui "ISBN inválido". */
+    private const SQL_ISBN_INVALIDO = "JSON_SEARCH(it.erros_json, 'one', 'isbn_invalido', NULL, '$[*].codigo') IS NOT NULL";
+
+    /** Quantas linhas ainda não gravadas têm ISBN inválido. */
+    public function contagemIsbnInvalido(int $id): int
+    {
+        return (int)$this->valor('SELECT COUNT(*) FROM importacao_itens it WHERE it.importacao_id = ? AND it.processado_em IS NULL AND ' . self::SQL_ISBN_INVALIDO, [$id]);
+    }
+
+    /**
+     * Linhas ainda não gravadas com ISBN inválido, cada uma com o diagnóstico do ISBN
+     * e com a resposta: pode ser importada sem ISBN? (só quando o ISBN é o único impedimento).
+     */
+    public function pendenciasIsbn(int $id): array
+    {
+        $imp = $this->buscar($id);
+        if (!$imp) {
+            return [];
+        }
+        $stmt = $this->pdo->prepare(
+            'SELECT it.*, a.nome AS revisado_por_nome FROM importacao_itens it LEFT JOIN administradores a ON a.id = it.revisado_por
+             WHERE it.importacao_id = ? AND it.processado_em IS NULL AND ' . self::SQL_ISBN_INVALIDO . ' ORDER BY it.numero_linha'
+        );
+        $stmt->execute([$id]);
+        $lista = [];
+        foreach ($stmt->fetchAll() as $item) {
+            $item = $this->decodificarItem($item);
+            $item['isbn_original'] = $this->isbnOriginal($item, $imp);
+            $item['diagnostico'] = IsbnDiagnostico::analisar((string)($item['dados_normalizados_json']['isbn_informado'] ?? $item['isbn_original'] ?? ''));
+            $item['avaliacao'] = $this->avaliarSemIsbn($item, $imp);
+            $lista[] = $item;
+        }
+        return $lista;
+    }
+
+    /** Linhas desta importação gravadas sem ISBN pelo tratamento em lote (o ISBN original fica para conferência). */
+    public function importadosSemIsbn(int $id): array
+    {
+        $imp = $this->buscar($id);
+        $stmt = $this->pdo->prepare(
+            "SELECT it.*, l.titulo AS livro_resultante_titulo, a.nome AS revisado_por_nome
+             FROM importacao_itens it
+             LEFT JOIN livros l ON l.id = it.livro_resultante_id
+             LEFT JOIN administradores a ON a.id = it.revisado_por
+             WHERE it.importacao_id = ? AND it.resultado_importacao = 'criado'
+               AND JSON_UNQUOTE(JSON_EXTRACT(it.dados_corrigidos_json, '$.isbn')) = ''
+             ORDER BY it.numero_linha"
+        );
+        $stmt->execute([$id]);
+        $lista = [];
+        foreach ($stmt->fetchAll() as $item) {
+            $item = $this->decodificarItem($item);
+            $item['isbn_original'] = $this->isbnOriginal($item, $imp);
+            if ($item['isbn_original'] !== null) {
+                $lista[] = $item;
+            }
+        }
+        return $lista;
+    }
+
+    /**
+     * Uma linha pode ser importada sem ISBN quando:
+     *   * ainda não foi gravada no acervo e não foi marcada para ignorar ou vincular;
+     *   * o ISBN inválido é o seu único erro e ela não tem possível duplicidade
+     *     (as linhas com duplicidade esperam a decisão da bibliotecária);
+     *   * sem o ISBN, a linha passa na validação.
+     * Retirar um ISBN inválido não cria duplicidades novas: a chave de ISBN da linha
+     * já era vazia (ISBN inválido não é comparado), e título/autor não mudam.
+     * @return array{elegivel: bool, motivos: string[]}
+     */
+    public function avaliarSemIsbn(array $item, array $imp): array
+    {
+        if ($item['processado_em'] !== null) {
+            return ['elegivel' => false, 'motivos' => [$item['resultado_importacao'] === 'falhou'
+                ? 'A gravação anterior desta linha falhou. Revise-a individualmente.'
+                : 'Esta linha já foi gravada no acervo.']];
+        }
+        $motivos = [];
+        if (!in_array($item['acao_importacao'], [null, 'criar', 'revisar_depois'], true)) {
+            $motivos[] = 'A linha já tem outra decisão ("' . $item['acao_importacao'] . '"). Altere-a na revisão individual.';
+        }
+        $problemas = $item['erros_json'] ?? [];
+        if (!in_array('isbn_invalido', array_column($problemas, 'codigo'), true)) {
+            $motivos[] = 'A linha não tem erro de ISBN.';
+        }
+        foreach ($problemas as $p) {
+            if (in_array($p['nivel'], ['erro', 'duplicidade'], true) && $p['codigo'] !== 'isbn_invalido') {
+                $motivos[] = $p['mensagem'];
+            }
+        }
+        if (!$motivos) {
+            [, $n] = $this->semIsbn($item, $imp);
+            foreach ($this->validador->validarLinha($n) as $p) {
+                if ($p['nivel'] === 'erro') {
+                    $motivos[] = $p['mensagem'];
+                }
+            }
+        }
+        return ['elegivel' => !$motivos, 'motivos' => array_values(array_unique($motivos))];
+    }
+
+    /**
+     * Importa as linhas escolhidas sem o ISBN inválido.
+     *
+     * Para cada linha: o ISBN é retirado só dos dados corrigidos (dados_corrigidos_json.isbn = ""),
+     * o original continua em dados_originais_json e é copiado para registros_legados e para as
+     * observações internas do livro. Tudo roda em uma transação, com um savepoint por linha:
+     * uma linha que falha não leva as outras junto e volta a ficar pendente, sem alteração.
+     * Linhas já gravadas são puladas (repetir a operação não duplica nada); linhas que não
+     * cumprem as regras de avaliarSemIsbn() continuam pendentes.
+     * Não cria exemplares nem classificações CDD e não altera livros existentes.
+     *
+     * @param int[] $itemIds
+     * @return array{concluidos: array, pendentes: array, ja_importados: array, status: string}
+     */
+    public function importarSemIsbn(int $id, array $itemIds, int $usuarioId, string $ip = 'cli'): array
+    {
+        $itemIds = array_slice(array_values(array_unique(array_filter(array_map('intval', $itemIds), fn ($v) => $v > 0))), 0, 500);
+        if (!$itemIds) {
+            throw new RuntimeException('Selecione pelo menos um registro.');
+        }
+        $resultado = $this->transacao(function () use ($id, $itemIds, $usuarioId, $ip) {
+            $imp = $this->buscar($id, true); // bloqueia a importação: uma operação por vez
+            if (!$imp || !in_array($imp['status'], self::STATUS_EDITAVEIS, true)) {
+                throw new RuntimeException('Esta importação não está aberta para revisão.');
+            }
+            $stmt = $this->pdo->prepare(
+                'SELECT * FROM importacao_itens WHERE importacao_id = ? AND id IN (' . implode(',', array_fill(0, count($itemIds), '?')) . ') ORDER BY numero_linha FOR UPDATE'
+            );
+            $stmt->execute([$id, ...$itemIds]);
+            $itens = array_map([$this, 'decodificarItem'], $stmt->fetchAll());
+
+            $res = ['concluidos' => [], 'pendentes' => [], 'ja_importados' => []];
+            $encontrados = array_map('intval', array_column($itens, 'id'));
+            foreach (array_diff($itemIds, $encontrados) as $faltando) {
+                $res['pendentes'][] = ['item_id' => $faltando, 'linha' => null, 'titulo' => null, 'motivos' => ['Registro não encontrado nesta importação.']];
+            }
+            $corrigir = $this->pdo->prepare(
+                'UPDATE importacao_itens SET dados_corrigidos_json = ?, dados_normalizados_json = ?, hash_linha = ?, chave_isbn = ?, chave_obra = ?,
+                        status_validacao = ?, erros_json = ?, acao_importacao = \'criar\', acao_automatica = 0, livro_vinculado_id = NULL, item_referencia_id = NULL,
+                        revisado_por = ?, revisado_em = NOW() WHERE id = ? AND processado_em IS NULL'
+            );
+            $marcar = $this->pdo->prepare(
+                "UPDATE importacao_itens SET processado_em = NOW(), livro_resultante_id = ?, resultado_importacao = 'criado', mensagem_processamento = NULL WHERE id = ?"
+            );
+            $registrar = $this->pdo->prepare(
+                "INSERT INTO acoes_administrativas (usuario_id, acao, entidade, entidade_id, detalhes, ip) VALUES (?, 'importacao.importar_sem_isbn', 'importacao_item', ?, ?, ?)"
+            );
+            foreach ($itens as $item) {
+                $resumo = ['item_id' => (int)$item['id'], 'linha' => (int)$item['numero_linha'], 'titulo' => $item['dados_normalizados_json']['titulo'] ?? null];
+                if ($item['processado_em'] !== null && $item['resultado_importacao'] !== 'falhou') {
+                    $res['ja_importados'][] = $resumo + ['livro_id' => (int)$item['livro_resultante_id']];
+                    continue;
+                }
+                $avaliacao = $this->avaliarSemIsbn($item, $imp);
+                if (!$avaliacao['elegivel']) {
+                    $res['pendentes'][] = $resumo + ['motivos' => $avaliacao['motivos']];
+                    continue;
+                }
+                $isbnOriginal = $this->isbnOriginal($item, $imp);
+                $isbnRemovido = $item['dados_normalizados_json']['isbn_informado'] ?? $isbnOriginal;
+                $this->pdo->exec('SAVEPOINT sem_isbn');
+                try {
+                    [$correcoes, $n] = $this->semIsbn($item, $imp);
+                    $chaves = $this->validador->chaves($n);
+                    // Mantém as duplicidades/avisos já calculados; troca só a validação da linha.
+                    $problemas = array_merge(
+                        $this->validador->validarLinha($n),
+                        array_values(array_filter($item['erros_json'] ?? [], fn ($p) => $p['nivel'] === 'duplicidade' || in_array($p['codigo'], ['possui_copias', 'outra_edicao'], true)))
+                    );
+                    $corrigir->execute([$this->json($correcoes), $this->json($n), $chaves['hash'], $chaves['isbn'], $chaves['obra'],
+                        ImportValidationService::situacao($problemas), $this->json($problemas), $usuarioId, $item['id']]);
+                    $item = $this->decodificarItem($this->pdo->query('SELECT * FROM importacao_itens WHERE id = ' . (int)$item['id'])->fetch());
+                    $item['isbn_removido'] = $isbnRemovido;
+                    [$livroId] = $this->gravarItem($imp, $item, $usuarioId);
+                    $marcar->execute([$livroId, $item['id']]);
+                    $registrar->execute([$usuarioId, $item['id'], $this->json([
+                        'importacao_id' => $id, 'linha' => (int)$item['numero_linha'], 'isbn_original' => $isbnOriginal,
+                        'isbn_removido' => $isbnRemovido, 'livro_id' => $livroId,
+                    ]), mb_substr($ip, 0, 45)]);
+                    $this->pdo->exec('RELEASE SAVEPOINT sem_isbn');
+                    $res['concluidos'][] = $resumo + ['livro_id' => $livroId, 'isbn_original' => $isbnOriginal];
+                } catch (ItemNaoGravado | PDOException $e) {
+                    $this->pdo->exec('ROLLBACK TO SAVEPOINT sem_isbn');
+                    if ($e instanceof PDOException) {
+                        error_log('[biblioteca] Falha ao importar sem ISBN a linha ' . $item['numero_linha'] . ': ' . $e->getMessage());
+                    }
+                    $res['pendentes'][] = $resumo + ['motivos' => [$e instanceof ItemNaoGravado ? $e->getMessage() : $this->mensagemBanco($e)]];
+                }
+            }
+
+            $this->atualizarTotais($id);
+            $status = $imp['status'];
+            if ($status === 'parcial') {
+                $r = $this->resumoConfirmacao($id);
+                if ($r['revisar_depois'] + $r['sem_decisao'] + $r['com_erro'] + $r['falharam'] + $r['a_gravar'] === 0) {
+                    $this->pdo->prepare("UPDATE importacoes SET status = 'concluida', finalizado_em = NOW() WHERE id = ?")->execute([$id]);
+                    $status = 'concluida';
+                }
+            }
+            $res['status'] = $status;
+            return $res;
+        });
+        if ($resultado['concluidos'] && in_array($resultado['status'], self::STATUS_EDITAVEIS, true)) {
+            // Os livros novos entram na comparação das linhas que continuam pendentes.
+            $this->recalcular($id);
+        }
+        return $resultado;
+    }
+
+    /** ISBN exatamente como veio na planilha (coluna mapeada para "isbn"). */
+    private function isbnOriginal(array $item, ?array $imp): ?string
+    {
+        $bruto = $this->validador->mapear($item['dados_originais_json'] ?? [], $imp['mapeamento_json'] ?? [])['isbn'] ?? null;
+        return $bruto !== null && trim($bruto) !== '' ? trim($bruto) : null;
+    }
+
+    /** Correções da linha com o ISBN retirado e os dados normalizados resultantes. */
+    private function semIsbn(array $item, array $imp): array
+    {
+        $correcoes = $item['dados_corrigidos_json'] ?? [];
+        $correcoes['isbn'] = '';
+        $brutos = $this->validador->mapear($item['dados_originais_json'], $imp['mapeamento_json'] ?? []);
+        return [$correcoes, $this->validador->aplicarCorrecoes($brutos, $correcoes)];
+    }
+
+    // ---------------------------------------------------------------
     // Confirmação
     // ---------------------------------------------------------------
 
@@ -781,6 +1015,10 @@ final class ImportacaoRepository
     private function criarLivro(array $imp, array $item, array $n): int
     {
         $isbn = $n['isbn'] !== null && Isbn::valido($n['isbn']) ? $n['isbn'] : null;
+        $nota = 'Importado da planilha "' . $imp['nome_arquivo'] . '", linha ' . $item['numero_linha'] . '.';
+        if (!empty($item['isbn_removido'])) {
+            $nota .= ' ISBN informado na planilha (inválido, não gravado): "' . $item['isbn_removido'] . '". Confira no livro físico.';
+        }
         if ($isbn !== null) {
             $existente = $this->valor('SELECT id FROM livros WHERE isbn_ativo IN (?, ?)', [$isbn, Isbn::para13($isbn)]);
             if ($existente) {
@@ -797,7 +1035,7 @@ final class ImportacaoRepository
             $n['titulo'], $n['subtitulo'], $isbn, $n['editora'], $ano, $n['edicao'],
             $n['idioma'] ? $this->corte($n['idioma'], 30) : 'Português',
             $this->corte($n['assunto_original'], 255),
-            'Importado da planilha "' . $imp['nome_arquivo'] . '", linha ' . $item['numero_linha'] . '.',
+            $nota,
             $status,
         ]);
         $livroId = (int)$this->pdo->lastInsertId();

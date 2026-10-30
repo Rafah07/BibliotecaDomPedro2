@@ -34,7 +34,7 @@ $editavel = in_array($status, ImportacaoRepository::STATUS_EDITAVEIS, true);
 $podeRevisar = $editavel && auth_pode('importacao.revisar');
 $podeExecutar = auth_pode('importacao.executar');
 
-$filtro = is_string($_GET['filtro'] ?? null) && (array_key_exists($_GET['filtro'], ImportacaoRepository::FILTROS) || $_GET['filtro'] === 'problemas') ? $_GET['filtro'] : '';
+$filtro = is_string($_GET['filtro'] ?? null) && (array_key_exists($_GET['filtro'], ImportacaoRepository::FILTROS) || in_array($_GET['filtro'], ['problemas', 'isbn_invalido'], true)) ? $_GET['filtro'] : '';
 $busca = is_string($_GET['q'] ?? null) ? mb_substr(trim($_GET['q']), 0, 100) : '';
 $porPagina = 50;
 $pagina = max(1, (int)($_GET['pagina'] ?? 1));
@@ -42,6 +42,7 @@ $lista = $repo->itens($id, $filtro, $busca, $pagina, $porPagina);
 $paginas = max(1, (int)ceil($lista['total'] / $porPagina));
 $contagem = $repo->contagemFiltros($id);
 $resumo = $repo->resumoConfirmacao($id);
+$isbnInvalidos = $repo->contagemIsbnInvalido($id);
 
 $etapa = match ($status) {
     'enviada' => 2,
@@ -72,7 +73,7 @@ $icones = [];
 foreach (['plus', 'link', 'copy', 'hourglass', 'ban', 'undo-2', 'search', 'save'] as $nome) {
     $icones[$nome] = ADMIN_ICONS[$nome];
 }
-$cfgJs = ['api' => admin_base() . 'api/importacoes/', 'csrf' => csrf_token(), 'id' => $id, 'status' => $status, 'icones' => $icones];
+$cfgJs = ['api' => admin_base() . 'api/importacoes/', 'csrf' => csrf_token(), 'id' => $id, 'status' => $status, 'icones' => $icones, 'abrir' => (int)($_GET['abrir'] ?? 0) ?: null];
 
 /** Primeiro problema relevante da linha, para a coluna "Problema identificado". */
 function detalhes_problema(array $item): string
@@ -106,7 +107,7 @@ function detalhes_decisao(array $item): string
     return '<span class="adm-status adm-status--soft adm-tone--' . ($bloqueada ? 'red' : $a['tom']) . '">' . htmlspecialchars($a['label']) . ($bloqueada ? ' (corrija o erro)' : '') . '</span>';
 }
 
-admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261027', 'assets/css/importacao.css?v=20261027']);
+admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261027', 'assets/css/importacao.css?v=20261030']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Importação', admin_url('importar')], ['Histórico', admin_url('historico-importacoes')], ['Importação nº ' . $id]]) ?>
@@ -232,14 +233,24 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
             $lote[] = ['filtro' => 'erro', 'decisao' => 'ignorar', 'rotulo' => 'Ignorar linhas com erro', 'icone' => 'ban', 'confirmar' => 'Ignorar todas as linhas com erro que ainda não tiveram decisão? Elas continuarão no histórico e no relatório.'];
         }
         ?>
-        <?php if ($lote): ?>
+        <?php if ($lote || $isbnInvalidos): ?>
             <div class="adm-imp-bulk">
                 <span><?= icon('layers') ?> Decisões em lote:</span>
+                <?php if ($isbnInvalidos): ?>
+                    <a class="adm-button adm-button--primary adm-button--sm" href="<?= htmlspecialchars(admin_url('isbn-invalidos') . '?id=' . $id) ?>"><?= icon('barcode') ?> Tratar ISBNs inválidos em lote (<?= number_format($isbnInvalidos, 0, ',', '.') ?>)</a>
+                <?php endif; ?>
                 <?php foreach ($lote as $l): ?>
                     <button type="button" class="adm-button adm-button--ghost adm-button--sm" data-decidir-lote="<?= $l['decisao'] ?>" data-filtro="<?= $l['filtro'] ?>" data-confirmar="<?= htmlspecialchars($l['confirmar']) ?>" data-bloquear-durante><?= icon($l['icone']) ?> <?= htmlspecialchars($l['rotulo']) ?></button>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+    <?php elseif ($isbnInvalidos): ?>
+        <div class="adm-imp-bulk">
+            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= htmlspecialchars(admin_url('isbn-invalidos') . '?id=' . $id) ?>"><?= icon('barcode') ?> Ver ISBNs inválidos (<?= number_format($isbnInvalidos, 0, ',', '.') ?>)</a>
+        </div>
+    <?php endif; ?>
+    <?php if ($filtro === 'isbn_invalido'): ?>
+        <p class="adm-imp-filtro-nota"><?= icon('barcode') ?> Mostrando só as linhas pendentes com ISBN inválido. Clique em uma linha para corrigir o ISBN ou decidir o que fazer.</p>
     <?php endif; ?>
 
     <?php if (!$lista['itens']): ?>
@@ -450,4 +461,4 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
 
 <script type="application/json" id="revisao-config"><?= json_encode($cfgJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php
-admin_page_end(['assets/js/importacao.js?v=20261027']);
+admin_page_end(['assets/js/importacao.js?v=20261030']);

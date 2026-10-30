@@ -403,6 +403,9 @@
             });
         });
 
+        // Link direto para uma linha (ex.: "Revisar linha" no tratamento de ISBNs inválidos).
+        if (cfg.abrir) setTimeout(() => abrirItem(cfg.abrir), 0);
+
         async function abrirItem(id) {
             $('[data-linha-corpo]', modal).innerHTML = '<p class="adm-imp-loading">Carregando…</p>';
             abrirModal(modal);
