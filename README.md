@@ -103,6 +103,10 @@ No XAMPP (Windows): `C:\xampp\php\php.exe database\seeds\importar-acervo.php --a
 - Se uma tentativa parar antes de gravar livros, basta rodar o comando de novo, **sem** `--apagar-demo`: a tentativa anterior é cancelada e a importação recomeça. Se parar no meio da gravação, ela continua de onde parou.
 - O mesmo arquivo não é importado duas vezes. Para uma versão nova da planilha, passe o `.xlsx`: `php database/seeds/importar-acervo.php planilha.xlsx --aba=Catalogar`.
 
+#### ISBNs inválidos
+
+Em *Importações → detalhes*, o botão **Tratar ISBNs inválidos em lote** (`admin/isbn-invalidos.php?id=N`) lista as linhas pendentes por causa do ISBN, explica o problema (dígito verificador, quantidade de dígitos, caracteres, prefixo) e sugere correções só quando os dígitos da edição não mudam. A bibliotecária (ou um administrador) pode importar em lote, sem ISBN, as linhas em que o ISBN é o **único** problema, depois de confirmar a lista de livros afetados. O ISBN da planilha continua nos dados originais da importação, em `registros_legados` e nas observações internas do livro. Linhas com outros erros ou com possível duplicidade ficam para a revisão individual; nenhum exemplar ou CDD é criado e os livros existentes não mudam. Repetir a operação não duplica nada.
+
 ### 7. Servidor local
 
 Na pasta do projeto:
@@ -207,6 +211,7 @@ Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pert
 ```bash
 php admin/tests/importacao-teste.php   # leitura de planilhas e validações (sem banco)
 php admin/tests/cdd-teste.php          # regras da CDD; com banco e livros cadastrados, testa também o MySQL
+php admin/tests/isbn-lote-teste.php    # ISBNs inválidos em lote; cria e apaga um banco temporário (não usa o DB_NAME do .env)
 ```
 
 ## Situação das funcionalidades

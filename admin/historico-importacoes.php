@@ -21,7 +21,7 @@ $importacoes = importacao_repo()->listar(['status' => $filtroStatus, 'limite' =>
 $relatorio = fn (int $id, string $tipo) => admin_base() . 'api/importacoes/relatorio.php?tipo=' . $tipo . '&id=' . $id;
 $detalhes = fn (int $id, string $filtro = '') => admin_url('detalhes-importacao') . '?id=' . $id . ($filtro ? '&filtro=' . $filtro : '') . ($filtro ? '#revisao' : '');
 
-admin_page_start('importar', 'Histórico de importações', 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261027', 'assets/css/importacao.css?v=20261027']);
+admin_page_start('importar', 'Histórico de importações', 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261027', 'assets/css/importacao.css?v=20261030']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Importação', admin_url('importar')], ['Histórico']]) ?>

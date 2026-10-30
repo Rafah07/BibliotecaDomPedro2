@@ -34,6 +34,7 @@ const ADMIN_MENU = [
         'importar' => ['label' => 'Importar Excel', 'icon' => 'file-spreadsheet', 'arquivo' => 'importacao.php', 'pronta' => true],
         'historico-importacoes' => ['label' => 'Histórico de importações', 'icon' => 'history', 'arquivo' => 'historico-importacoes.php', 'pronta' => true, 'oculto' => true],
         'detalhes-importacao' => ['label' => 'Detalhes da importação', 'icon' => 'file-spreadsheet', 'arquivo' => 'detalhes-importacao.php', 'pronta' => true, 'oculto' => true],
+        'isbn-invalidos' => ['label' => 'ISBNs inválidos', 'icon' => 'barcode', 'arquivo' => 'isbn-invalidos.php', 'pronta' => true, 'oculto' => true],
         'etiquetas' => ['label' => 'Etiquetas', 'icon' => 'scan-barcode'],
         'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap'],
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column'],
