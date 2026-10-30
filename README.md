@@ -237,6 +237,7 @@ php admin/tests/importacao-teste.php   # leitura de planilhas e validações (se
 php admin/tests/cdd-teste.php          # regras da CDD; com banco e livros cadastrados, testa também o MySQL
 php admin/tests/isbn-lote-teste.php    # ISBNs inválidos em lote; cria e apaga um banco temporário (não usa o DB_NAME do .env)
 php admin/tests/painel-teste.php       # livros, contas, permissões, CSRF, XSS e SQL; banco temporário com 3.000 livros fictícios
+php admin/tests/alunos-importacao-teste.php  # importação de alunos; banco temporário e planilhas só com alunos fictícios
 ```
 
 ## Situação das funcionalidades
@@ -251,13 +252,14 @@ php admin/tests/painel-teste.php       # livros, contas, permissões, CSRF, XSS 
 - Gerenciamento de administradores (cadastro, edição, ativação, redefinição de senha) e página "Meu perfil" (troca da própria senha).
 - Classificação CDD (pesquisa nas fontes, revisão, aprovação, histórico, relatórios).
 - Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
+- Importação local de alunos (`.xlsx`/`.csv`) com mapeamento de colunas, prévia, prevenção de duplicidades pela matrícula e atualização separada com confirmação. O arquivo não é guardado no servidor. Veja [`docs/importacao-alunos.md`](docs/importacao-alunos.md).
 
 **Pendentes**
 
 - Cadastro de exemplares e de categorias ainda é **simulado** (valida, mas não grava no banco): os exemplares nascem no inventário físico.
 - Inventário físico (estrutura do banco pronta: `inventarios`), etiquetas com código BDP.
 - Empréstimos, devoluções e atrasos (estrutura pronta: `alunos`, `emprestimos`).
-- Cadastro de alunos, relatórios gerais, página de atividades e configurações.
+- Tela de consulta/edição de alunos, relatórios gerais, página de atividades e configurações.
 - Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.
 - Pesquisas das fontes CDD nunca foram testadas com internet neste ambiente de desenvolvimento.
 

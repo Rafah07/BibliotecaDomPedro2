@@ -1,0 +1,30 @@
+/* Importar Alunos: complementa importacao.css e acervo.css. */
+.adm-stats--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.adm-alu-kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.adm-alu-kpis .adm-kpi { border: 1px solid var(--adm-border); border-left-width: 4px; border-radius: var(--adm-radius); background: var(--adm-white); }
+.adm-alu-kpi--blue { border-left-color: var(--adm-blue-accent) !important; }
+.adm-alu-kpi--green { border-left-color: var(--adm-green) !important; }
+.adm-alu-kpi--indigo { border-left-color: #4f5fb0 !important; }
+.adm-alu-kpi--muted { border-left-color: #94a3b8 !important; }
+.adm-alu-kpi--amber { border-left-color: var(--adm-amber) !important; }
+.adm-alu-kpi--red { border-left-color: var(--adm-red) !important; }
+
+.adm-alu-opcoes { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 10px; }
+.adm-alu-opcoes legend { padding: 0; margin-bottom: 8px; font-weight: 700; }
+.adm-radio-cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.adm-alu-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.45; cursor: pointer; }
+.adm-alu-check input { margin: 3px 0 0; width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--adm-blue-accent); }
+
+.adm-alu-tabs { margin: 0; padding: 0; }
+.adm-alu-previa td { vertical-align: top; }
+.adm-alu-previa .adm-alu-msgs { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.4; }
+.adm-alu-msgs li.is-erro { color: var(--adm-red); }
+.adm-alu-msgs li.is-aviso { color: #92600a; }
+.adm-alu-diff { display: block; font-size: 12px; line-height: 1.35; }
+.adm-alu-diff del { color: var(--adm-muted); }
+.adm-alu-diff ins { text-decoration: none; font-weight: 600; color: var(--adm-blue-accent); }
+.adm-alu-subtitulo { margin: 8px 0 4px; font-size: 15px; }
+
+@media (max-width: 760px) {
+    .adm-stats--2, .adm-radio-cards--2 { grid-template-columns: 1fr; }
+}
