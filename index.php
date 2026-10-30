@@ -1,137 +1,101 @@
 <?php
-$base = "../";
-$currentPage = "inicio";
+/** Página inicial oficial do site (antes duplicada em Index/Index.php). */
+require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/catalogo.php';
 
-$livros = [
-    ['titulo' => 'Jogos Vorazes', 'autor' => 'Suzanne Collins', 'classe' => 'cover-1'],
-    ['titulo' => 'O Pequeno Príncipe', 'autor' => 'Antoine de Saint-Exupéry', 'classe' => 'cover-2'],
-    ['titulo' => 'Harry Potter e a Pedra Filosofal', 'autor' => 'J. K. Rowling', 'classe' => 'cover-3'],
-    ['titulo' => 'A Menina que Roubava Livros', 'autor' => 'Markus Zusak', 'classe' => 'cover-4'],
-];
+$catalogo = catalogo();
+$demonstracao = $catalogo->ehDemonstracao();
+$livros = $catalogo->destaques(4);
 
-$generos = [
-    ['nome' => 'Ficção', 'valor' => 32],
-    ['nome' => 'Romance', 'valor' => 24],
-    ['nome' => 'Fantasia', 'valor' => 20],
-    ['nome' => 'Aventura', 'valor' => 14],
-    ['nome' => 'História', 'valor' => 8],
-    ['nome' => 'Outros', 'valor' => 2],
-];
+// Gêneros e autores com mais títulos. Na demonstração, os números são ilustrativos.
+$generos = $catalogo->generos();
+usort($generos, static fn ($a, $b) => $b['total'] <=> $a['total']);
+$generos = array_slice($generos, 0, 6);
+$totalGeneros = max(1, array_sum(array_column($generos, 'total')));
+$autores = array_slice($catalogo->autores(), 0, 5);
 
-$autores = [
-    ['nome' => 'Machado de Assis', 'buscas' => 28],
-    ['nome' => 'J. K. Rowling', 'buscas' => 24],
-    ['nome' => 'Suzanne Collins', 'buscas' => 18],
-    ['nome' => 'Monteiro Lobato', 'buscas' => 16],
-    ['nome' => 'Markus Zusak', 'buscas' => 14],
-];
+page_start('', 'inicio');
 ?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Biblioteca Escolar</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=20261013">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-</head>
-<body>
-<div class="app-shell sidebar-collapsed">
-    <div class="sidebar-backdrop" hidden></div>
-    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
-
-    <main class="main-content">
-        <header class="topbar">
-            <form class="search-bar" action="../biblioteca_php/catalogo.php" method="get">
-                <span class="material-symbols-outlined">search</span>
-                <input type="search" name="q" placeholder="Pesquisar livros, autores ou gêneros..." aria-label="Pesquisar">
-            </form>
-
-            <div class="sidebar-logo">
-                <img src="../assets/img/emblema.png" alt="Logo da escola">
-            </div>
-        </header>
-
         <section class="hero"></section>
+
+        <?= catalogo_aviso() ?>
 
         <section class="dashboard-grid">
             <section class="panel recommendations-panel">
                 <div class="panel-header">
                     <div>
-                        <span class="section-icon">☆</span>
-                        <h2>Recomendações da Biblioteca</h2>
+                        <span class="section-icon" aria-hidden="true">☆</span>
+                        <h2><?= $demonstracao ? 'Recomendações da Biblioteca' : 'Chegaram ao acervo' ?></h2>
                     </div>
-                    <a href="../biblioteca_php/catalogo.php">Ver todos →</a>
+                    <a href="<?= e(url('biblioteca_php/catalogo.php')) ?>">Ver todos →</a>
                 </div>
 
-                <div class="filter-tabs" role="tablist">
-                    <button class="tab active" type="button">Destaques</button>
-                    <button class="tab" type="button">Mais emprestados</button>
-                    <button class="tab" type="button">Novidades</button>
-                    <button class="tab" type="button">Escolha dos bibliotecários</button>
-                </div>
-
-                <div class="books-grid">
-                    <?php foreach ($livros as $livro): ?>
-                        <article class="book-card">
-                            <div class="book-cover <?= htmlspecialchars($livro['classe']) ?>">
-                                <span><?= htmlspecialchars($livro['titulo']) ?></span>
-                            </div>
-                            <h3><?= htmlspecialchars($livro['titulo']) ?></h3>
-                            <p><?= htmlspecialchars($livro['autor']) ?></p>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
+                <?php if ($livros): ?>
+                    <div class="books-grid">
+                        <?php foreach ($livros as $livro): ?>
+                            <article class="book-card">
+                                <?= book_cover($livro) ?>
+                                <h3><?= e($livro['titulo']) ?></h3>
+                                <p><?= e($livro['autor']) ?></p>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state"><span class="material-symbols-outlined" aria-hidden="true">auto_stories</span><h3>Nenhum livro para mostrar ainda</h3><p>Os destaques aparecerão quando o acervo for cadastrado.</p></div>
+                <?php endif; ?>
             </section>
 
             <div class="right-column">
                 <section class="panel genres-panel">
                     <div class="panel-header compact">
                         <div>
-                            <span class="material-symbols-outlined">book</span>
-                            <h2>Gêneros mais procurados</h2>
+                            <span class="material-symbols-outlined" aria-hidden="true">book</span>
+                            <h2><?= $demonstracao ? 'Gêneros mais procurados' : 'Gêneros do acervo' ?></h2>
                         </div>
-                        <a href="../biblioteca_php/generos.php">Ver todos →</a>
+                        <a href="<?= e(url('biblioteca_php/generos.php')) ?>">Ver todos →</a>
                     </div>
 
-                    <div class="bars">
-                        <?php foreach ($generos as $genero): ?>
-                            <div class="bar-row">
-                                <span><?= htmlspecialchars($genero['nome']) ?></span>
-                                <div class="bar-track">
-                                    <div class="bar-fill" style="width: <?= (int)$genero['valor'] * 3 ?>%"></div>
+                    <?php if ($generos): ?>
+                        <div class="bars">
+                            <?php foreach ($generos as $genero): ?>
+                                <?php $pct = (int)round($genero['total'] / $totalGeneros * 100); ?>
+                                <div class="bar-row">
+                                    <span><?= e($genero['nome']) ?></span>
+                                    <div class="bar-track"><div class="bar-fill" style="width: <?= min(100, $pct * 2) ?>%"></div></div>
+                                    <strong><?= $pct ?>%</strong>
                                 </div>
-                                <strong><?= (int)$genero['valor'] ?>%</strong>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php if ($demonstracao): ?><p class="prototype-footnote">Percentuais calculados sobre os livros de exemplo.</p><?php endif; ?>
+                    <?php else: ?>
+                        <p class="prototype-footnote">Nenhum gênero cadastrado ainda.</p>
+                    <?php endif; ?>
                 </section>
 
                 <section class="panel authors-panel">
                     <div class="panel-header compact">
                         <div>
-                            <span class="section-icon">●●</span>
-                            <h2>Autores mais procurados</h2>
+                            <span class="section-icon" aria-hidden="true">●●</span>
+                            <h2><?= $demonstracao ? 'Autores em destaque' : 'Autores do acervo' ?></h2>
                         </div>
-                        <a href="../biblioteca_php/autores.php">Ver todos →</a>
+                        <a href="<?= e(url('biblioteca_php/autores.php')) ?>">Ver todos →</a>
                     </div>
 
-                    <ol class="authors-list">
-                        <?php foreach ($autores as $indice => $autor): ?>
-                            <li>
-                                <span class="ranking"><?= $indice + 1 ?></span>
-                                <span class="avatar"><?= strtoupper(substr($autor['nome'], 0, 1)) ?></span>
-                                <strong><?= htmlspecialchars($autor['nome']) ?></strong>
-                                <span class="search-count"><?= (int)$autor['buscas'] ?> buscas</span>
-                            </li>
-                        <?php endforeach; ?>
-                    </ol>
+                    <?php if ($autores): ?>
+                        <ol class="authors-list">
+                            <?php foreach ($autores as $indice => $autor): ?>
+                                <li>
+                                    <span class="ranking"><?= $indice + 1 ?></span>
+                                    <span class="avatar"><?= e(initial($autor['nome'])) ?></span>
+                                    <strong><?= e($autor['nome']) ?></strong>
+                                    <span class="search-count"><?= (int)$autor['total'] ?> <?= (int)$autor['total'] === 1 ? 'título' : 'títulos' ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                    <?php else: ?>
+                        <p class="prototype-footnote">Nenhum autor cadastrado ainda.</p>
+                    <?php endif; ?>
                 </section>
             </div>
         </section>
-    </main>
-</div>
-
-<script src="../assets/js/app.js?v=20261013"></script>
-</body>
-</html>
+<?php page_end(); ?>

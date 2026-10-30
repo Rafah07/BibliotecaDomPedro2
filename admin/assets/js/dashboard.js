@@ -1,5 +1,5 @@
-// Gráficos do dashboard. Os dados vêm de admin/includes/dados-demo.php (bloco #dashboard-data),
-// assim a troca por consultas reais acontece em um único lugar.
+// Gráficos do dashboard. Os dados vêm de admin/includes/dashboard-dados.php (bloco #dashboard-data):
+// do MySQL quando configurado, ou de dados-demo.php no modo demonstrativo (data.demo).
 (function () {
     const dataEl = document.getElementById('dashboard-data');
     if (!dataEl) return;
@@ -56,7 +56,7 @@
 
         if (summary) {
             const total = values.reduce((a, b) => a + b, 0);
-            summary.innerHTML = `Total no período: <strong>${formatNumber(total)}</strong> empréstimos · dados demonstrativos`;
+            summary.innerHTML = `Total no período: <strong>${formatNumber(total)}</strong> empréstimos${data.demo ? ' · dados demonstrativos' : ''}`;
         }
 
         const colors = values.map((_, i) => (i === last ? '#2457C5' : '#A9C1F2'));
