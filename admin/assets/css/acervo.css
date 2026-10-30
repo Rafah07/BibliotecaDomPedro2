@@ -923,3 +923,84 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
 /* Pendências dos livros importados de planilha (reclassificação CDD e inventário físico) */
 .adm-badge-stack { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .adm-badge-stack .adm-status { font-size: 0.72rem; white-space: nowrap; }
+
+/* ---------- Listagens com paginação no servidor (livros, administradores) ---------- */
+.adm-toolbar--search { grid-template-columns: minmax(0, 1fr) auto auto; }
+.adm-toolbar--search .adm-toolbar__q { grid-column: 1; grid-row: 1; }
+.adm-toolbar--search .adm-filters { grid-column: 1 / -1; grid-row: 2; }
+.adm-toolbar--search [type=submit] { grid-column: 2; grid-row: 1; }
+.adm-toolbar--search .adm-button:not([type=submit]) { grid-column: 3; grid-row: 1; }
+form[aria-busy="true"] [type=submit] .icon { animation: adm-spin .8s linear infinite; }
+[data-loading-area].is-loading { opacity: .55; pointer-events: none; transition: opacity .15s ease; }
+
+.adm-page {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid var(--adm-border);
+    border-radius: 8px;
+    background: var(--adm-white);
+    color: var(--adm-text);
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+}
+a.adm-page:hover { background: var(--adm-blue-50); border-color: var(--adm-blue-100); }
+.adm-page.is-active { background: var(--adm-blue-accent); border-color: var(--adm-blue-accent); color: #fff; }
+.adm-page.is-disabled { opacity: .45; cursor: not-allowed; }
+.adm-page--gap { border-color: transparent; background: none; }
+.adm-page .icon { width: 16px; height: 16px; }
+.adm-pagination__size label { display: inline-flex; align-items: center; gap: 8px; }
+
+a.adm-th-sort { text-decoration: none; }
+.adm-th-sort.is-active { color: var(--adm-blue-accent); }
+.adm-th-sort.is-active .icon { opacity: 1; }
+
+.adm-row-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.adm-row-tags .adm-status, .adm-row-tags .adm-chip { font-size: 11px; }
+.adm-table--livros td { vertical-align: top; }
+.adm-table--livros .adm-td-title, .adm-table--livros td[data-label="Autor"], .adm-table--livros td[data-label="Editora / ano"] { white-space: normal; }
+.adm-table--livros .adm-td-title { min-width: 240px; max-width: 340px; }
+.adm-table--livros .adm-td-title small { white-space: normal; max-width: none; }
+.adm-table--livros td[data-label="Autor"] { min-width: 150px; max-width: 220px; }
+.adm-table--livros td[data-label="Editora / ano"] { min-width: 120px; max-width: 190px; }
+.adm-table--livros td[data-label="Editora / ano"] small { display: block; color: var(--adm-muted); }
+.adm-table--compact th, .adm-table--compact td { padding-top: 8px; padding-bottom: 8px; }
+.adm-table--compact tbody th { font-weight: 600; color: var(--adm-muted); text-align: left; width: 40%; }
+
+.adm-dupe-list { margin: 8px 0 12px; padding-left: 18px; display: grid; gap: 6px; }
+.adm-dupe-list small { display: block; color: var(--adm-muted); }
+
+.adm-origem { border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); padding: 12px 14px; margin-top: 12px; }
+.adm-origem summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.adm-origem summary small { color: var(--adm-muted); }
+.adm-origem .adm-table-wrap { margin: 12px 0; }
+
+.adm-confirm-form { display: grid; gap: 14px; }
+.adm-status-dot { display: inline-flex; align-items: center; gap: 6px; }
+.adm-status-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--adm-green, #16a34a); }
+.adm-status-dot--off { color: var(--adm-muted); }
+.adm-status-dot--off::before { background: #94a3b8; }
+
+@media (max-width: 1100px) {
+    .adm-filters--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+    .adm-toolbar--search { grid-template-columns: 1fr 1fr; }
+    .adm-toolbar--search .adm-toolbar__q { grid-column: 1 / -1; }
+    .adm-toolbar--search .adm-filters { grid-row: 2; grid-template-columns: 1fr; }
+    .adm-toolbar--search [type=submit] { grid-column: 1; grid-row: 3; }
+    .adm-toolbar--search .adm-button:not([type=submit]) { grid-column: 2; grid-row: 3; }
+    .adm-table--livros .adm-td-title { max-width: none; }
+}
+
+/* Formulários curtos (contas de acesso, meu perfil, arquivamento) */
+.adm-form-actions--static { position: static; margin: 20px 0 0; padding: 16px 0 0; background: none; box-shadow: none; border-top: 1px solid var(--adm-border); }
+.adm-form-section > .adm-field + .adm-field,
+.adm-form-section > .adm-notice + .adm-field { margin-top: 12px; }
+.adm-form-section > .adm-field + .adm-button { margin-top: 16px; }
+.adm-perfis-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 13px; color: #334155; }
+.adm-perfis-lista strong { display: block; color: var(--adm-text); margin-bottom: 2px; }

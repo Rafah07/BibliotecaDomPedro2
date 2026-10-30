@@ -27,7 +27,7 @@ if (($argv[1] ?? '') === '--requisicao') {
     $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
     $_GET = ['id' => $req['importacao']];
     $_POST = $req['post'];
-    $_SESSION = ['auth' => ['id' => $req['usuario'], 'modo' => 'mysql'], 'csrf' => 'token-de-teste'];
+    $_SESSION = ['auth' => ['id' => $req['usuario'], 'modo' => 'mysql', 'senha' => $req['senha']], 'csrf' => 'token-de-teste'];
     register_shutdown_function(function () {
         file_put_contents(getenv('TESTE_SAIDA'), json_encode(['flash' => $_SESSION['isbn_lote_flash'] ?? null]));
     });
@@ -185,7 +185,9 @@ $estado = fn () => [$num('SELECT COUNT(*) FROM livros'), $num('SELECT COUNT(*) F
 $requisicao = function (int $usuario, array $post, string $metodo = 'POST') use ($impId): ?array {
     $arq = tempnam(sys_get_temp_dir(), 'bdp');
     putenv("TESTE_SAIDA=$arq");
-    $dados = base64_encode(json_encode(['usuario' => $usuario, 'post' => $post, 'metodo' => $metodo, 'importacao' => $impId]));
+    // A sessão leva a marca da senha atual, como no login real (auth_marca_senha).
+    $marca = auth_marca_senha((string)db_query('SELECT senha_hash FROM administradores WHERE id = ?', [$usuario])->fetchColumn());
+    $dados = base64_encode(json_encode(['usuario' => $usuario, 'post' => $post, 'metodo' => $metodo, 'importacao' => $impId, 'senha' => $marca]));
     exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --requisicao ' . escapeshellarg($dados) . ' 2>&1', $saida);
     $r = json_decode((string)file_get_contents($arq), true);
     unlink($arq);

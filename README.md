@@ -84,6 +84,7 @@ php database/criar-admin.php "Nome Completo" email@escola.com.br bibliotecaria
 ```
 
 A senha (mínimo de 10 caracteres) é pedida no terminal. Perfis: `administrador`, `bibliotecaria`, `auxiliar`, `consulta`.
+Depois do primeiro administrador, as demais contas podem ser criadas pelo painel, em **Sistema → Administradores**.
 
 Opcional, **somente em um banco de testes**: `php database/seeds/popular-demo.php` copia os livros fictícios para um banco vazio (recusa rodar com `APP_ENV=production` ou com livros já cadastrados).
 
@@ -202,7 +203,10 @@ Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pert
 - Todas as páginas de `admin/` exigem login; as APIs respondem 401/403 sem sessão ou sem permissão.
 - Senhas com `password_hash`/`password_verify`, sessão com cookie `HttpOnly` e `SameSite=Lax`, ID regenerado no login, bloqueio após 5 tentativas em 15 minutos.
 - Formulários e APIs que alteram dados exigem token CSRF; o logout é feito por POST.
-- Permissões por perfil em `admin/includes/auth.php` (`AUTH_PERMISSOES`).
+- Permissões por perfil em `admin/includes/auth.php` (`AUTH_PERMISSOES`), conferidas no servidor em cada página e ação (esconder botões é só conveniência). Só o perfil `administrador` gerencia contas; o último administrador ativo não pode ser desativado nem rebaixado.
+- Sessão encerrada após 2 horas sem uso; redefinir a senha de alguém encerra as sessões abertas com a senha antiga.
+- Cadastros, edições, arquivamentos e mudanças de contas ficam em `acoes_administrativas` (quem, quando, o quê). Senhas nunca são registradas.
+- Livros não são excluídos: são **arquivados** (com motivo e confirmação) e podem ser restaurados. O arquivamento é recusado enquanto houver exemplares em uso ou empréstimos em aberto.
 - Erros de banco aparecem para o usuário como mensagem genérica; o detalhe vai para o log do servidor.
 - No Apache, arquivos `.htaccess` bloqueiam o acesso direto a `config/`, `database/`, `src/`, `admin/includes/`, `admin/tests/`, `storage/`, `vendor/` e ao `.env`. Em outros servidores (Nginx), configure o mesmo bloqueio.
 
@@ -212,6 +216,7 @@ Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pert
 php admin/tests/importacao-teste.php   # leitura de planilhas e validações (sem banco)
 php admin/tests/cdd-teste.php          # regras da CDD; com banco e livros cadastrados, testa também o MySQL
 php admin/tests/isbn-lote-teste.php    # ISBNs inválidos em lote; cria e apaga um banco temporário (não usa o DB_NAME do .env)
+php admin/tests/painel-teste.php       # livros, contas, permissões, CSRF, XSS e SQL; banco temporário com 3.000 livros fictícios
 ```
 
 ## Situação das funcionalidades
@@ -221,18 +226,20 @@ php admin/tests/isbn-lote-teste.php    # ISBNs inválidos em lote; cria e apaga 
 - Site público com menu expansível, responsivo, lendo o catálogo do MySQL (ou exemplos identificados, sem banco).
 - Disponibilidade no catálogo calculada pelos exemplares físicos.
 - Login, permissões, CSRF e logout do painel.
-- Dashboard com números reais do MySQL (ou demonstrativos, sem banco).
-- Listagem e detalhes de livros e exemplares a partir do MySQL.
+- Dashboard com números reais do MySQL (títulos × exemplares, empréstimos ativos e atrasados, CDD pendente, pendências de importação, inventários em andamento).
+- Gerenciamento de livros: listagem com pesquisa (com ou sem acentos), filtros, ordenação e paginação no servidor; cadastro, edição, arquivamento e restauração gravados no banco; consulta dos dados originais da importação.
+- Gerenciamento de administradores (cadastro, edição, ativação, redefinição de senha) e página "Meu perfil" (troca da própria senha).
 - Classificação CDD (pesquisa nas fontes, revisão, aprovação, histórico, relatórios).
 - Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
 
 **Pendentes**
 
-- Cadastro e edição de livros, exemplares e categorias ainda são **simulados** (validam, mas não gravam no banco).
+- Cadastro de exemplares e de categorias ainda é **simulado** (valida, mas não grava no banco): os exemplares nascem no inventário físico.
 - Inventário físico (estrutura do banco pronta: `inventarios`), etiquetas com código BDP.
 - Empréstimos, devoluções e atrasos (estrutura pronta: `alunos`, `emprestimos`).
-- Cadastro de alunos, relatórios gerais, página de atividades, configurações e perfil.
+- Cadastro de alunos, relatórios gerais, página de atividades e configurações.
 - Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.
 - Pesquisas das fontes CDD nunca foram testadas com internet neste ambiente de desenvolvimento.
 
 O relatório da Etapa 3.5 (problemas encontrados e correções) está em [`docs/relatorio-etapa-3.5.md`](docs/relatorio-etapa-3.5.md).
+O relatório da finalização do painel administrativo está em [`docs/relatorio-etapa-1-painel.md`](docs/relatorio-etapa-1-painel.md).

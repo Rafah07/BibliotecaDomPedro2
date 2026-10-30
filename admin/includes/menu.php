@@ -21,6 +21,7 @@ const ADMIN_MENU = [
         // Páginas internas do acervo: não aparecem no menu, mas usam admin_url().
         'cadastrar-livro' => ['label' => 'Cadastrar livro', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-livro.php', 'pronta' => true, 'oculto' => true],
         'editar-livro' => ['label' => 'Editar livro', 'icon' => 'pencil', 'arquivo' => 'editar-livro.php', 'pronta' => true, 'oculto' => true],
+        'arquivar-livro' => ['label' => 'Arquivar livro', 'icon' => 'archive', 'arquivo' => 'arquivar-livro.php', 'pronta' => true, 'oculto' => true],
         'detalhes-livro' => ['label' => 'Detalhes do livro', 'icon' => 'book-open', 'arquivo' => 'detalhes-livro.php', 'pronta' => true, 'oculto' => true],
         'detalhes-exemplar' => ['label' => 'Detalhes do exemplar', 'icon' => 'book-copy', 'arquivo' => 'detalhes-exemplar.php', 'pronta' => true, 'oculto' => true],
         'inventario' => ['label' => 'Inventário', 'icon' => 'clipboard-check'],
@@ -41,8 +42,11 @@ const ADMIN_MENU = [
         'atividades' => ['label' => 'Atividades', 'icon' => 'history'],
     ],
     'Sistema' => [
+        // 'permissao': o item só aparece para quem tem a permissão (a página confere de novo no servidor).
+        'administradores' => ['label' => 'Administradores', 'icon' => 'users', 'arquivo' => 'administradores.php', 'pronta' => true, 'permissao' => 'usuarios.gerenciar'],
+        'administrador' => ['label' => 'Conta de acesso', 'icon' => 'user-round', 'arquivo' => 'administrador.php', 'pronta' => true, 'oculto' => true],
         'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings'],
-        'perfil' => ['label' => 'Meu perfil', 'icon' => 'user-round', 'oculto' => true],
+        'perfil' => ['label' => 'Meu perfil', 'icon' => 'user-round', 'arquivo' => 'perfil.php', 'pronta' => true, 'oculto' => true],
         'site' => ['label' => 'Voltar ao site', 'icon' => 'house', 'url' => '', 'pronta' => true],
         'sair' => ['label' => 'Sair', 'icon' => 'log-out', 'acao' => 'logout'],
     ],

@@ -19,7 +19,16 @@ $indicadores = $dados['indicadores'];
 $secundarios = $dados['secundarios'];
 $atividades = $dados['atividades'];
 $alertas = $dados['alertas'];
-$acoes = demo_acoes_rapidas(); // atalhos fixos do menu, não são dados
+$recentes = $dados['emprestimos_recentes'];
+// Atalhos para as páginas que já funcionam, conforme o perfil de quem entrou.
+$acoes = array_values(array_filter([
+    auth_pode('livros.editar') ? ['titulo' => 'Cadastrar livro', 'descricao' => 'Adicionar uma nova obra ao acervo.', 'icone' => 'book-plus', 'href' => 'cadastrar-livro'] : null,
+    ['titulo' => 'Consultar acervo', 'descricao' => 'Pesquisar livros por título, autor ou ISBN.', 'icone' => 'library-big', 'href' => 'acervo'],
+    ['titulo' => 'Classificação CDD', 'descricao' => 'Pesquisar, sugerir e aprovar classificações.', 'icone' => 'list-tree', 'href' => 'classificacao'],
+    auth_pode('importacao.ver') ? ['titulo' => 'Importações', 'descricao' => 'Revisar planilhas e pendências da importação.', 'icone' => 'file-spreadsheet', 'href' => 'historico-importacoes'] : null,
+    auth_pode('usuarios.gerenciar') ? ['titulo' => 'Administradores', 'descricao' => 'Gerenciar as contas de acesso ao painel.', 'icone' => 'users', 'href' => 'administradores'] : null,
+    ['titulo' => 'Meu perfil', 'descricao' => 'Ver seus dados e trocar a senha.', 'icone' => 'user-round', 'href' => 'perfil'],
+]));
 $inventario = $dados['inventario'];
 
 function numero_br(float $valor, int $casas = 0): string
@@ -34,6 +43,8 @@ $tiposAtividade = [
     'inventario' => ['label' => 'Inventário', 'icone' => 'clipboard-check', 'tom' => 'amber'],
     'importacao' => ['label' => 'Importação', 'icone' => 'file-spreadsheet', 'tom' => 'teal'],
     'cdd' => ['label' => 'Classificação CDD', 'icone' => 'list-tree', 'tom' => 'indigo'],
+    'livro' => ['label' => 'Acervo', 'icone' => 'library-big', 'tom' => 'blue'],
+    'usuario' => ['label' => 'Contas de acesso', 'icone' => 'users', 'tom' => 'indigo'],
 ];
 $situacoes = [
     'concluido' => ['label' => 'Concluído', 'tom' => 'green'],
@@ -66,7 +77,9 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
     </div>
     <div class="adm-welcome__aside">
         <span class="adm-date"><?= icon('calendar') ?> <time data-today datetime="<?= $hoje->format('Y-m-d') ?>"><?= htmlspecialchars($dataExtenso) ?></time></span>
-        <a class="adm-button adm-button--primary" href="<?= htmlspecialchars(admin_url('emprestimos')) ?>"><?= icon('plus') ?> Novo empréstimo</a>
+        <?php if (auth_pode('livros.editar')): ?>
+            <a class="adm-button adm-button--primary" href="<?= e(admin_url('cadastrar-livro')) ?>"><?= icon('plus') ?> Cadastrar livro</a>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -156,13 +169,59 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 
 <div class="adm-columns">
     <div class="adm-columns__main">
+        <article class="adm-card adm-panel" aria-labelledby="titulo-emprestimos-recentes">
+            <div class="adm-panel__header">
+                <div>
+                    <h2 id="titulo-emprestimos-recentes">Empréstimos recentes</h2>
+                    <p>Últimos empréstimos registrados<?= $demo ? ' (o modo demonstrativo não tem empréstimos)' : '' ?></p>
+                </div>
+            </div>
+            <div class="adm-table-wrap" tabindex="0" aria-label="Tabela de empréstimos recentes">
+                <table class="adm-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Livro</th>
+                            <th scope="col">Exemplar</th>
+                            <th scope="col">Aluno</th>
+                            <th scope="col">Emprestado em</th>
+                            <th scope="col">Devolução</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!$recentes): ?>
+                            <tr><td colspan="5">
+                                <div class="adm-empty">
+                                    <?= icon('book-open-check') ?>
+                                    <strong>Nenhum empréstimo registrado</strong>
+                                    <span>Os empréstimos aparecerão aqui quando o módulo de circulação começar a ser usado.</span>
+                                </div>
+                            </td></tr>
+                        <?php endif; ?>
+                        <?php foreach ($recentes as $r): ?>
+                            <?php
+                            $atrasado = $r['data_devolucao'] === null && $r['data_prevista'] < date('Y-m-d');
+                            [$rotulo, $tom] = $r['data_devolucao'] !== null ? ['Devolvido em ' . admin_data_hora($r['data_devolucao'], false), 'green']
+                                : ($atrasado ? ['Atrasado desde ' . admin_data_hora($r['data_prevista'], false), 'red'] : ['Previsto para ' . admin_data_hora($r['data_prevista'], false), 'blue']);
+                            ?>
+                            <tr>
+                                <td class="adm-table__strong"><a class="adm-link" href="<?= e(admin_url('detalhes-livro') . '?id=' . (int)$r['livro_id']) ?>"><?= e($r['titulo']) ?></a></td>
+                                <td class="adm-mono"><?= e($r['codigo_individual']) ?></td>
+                                <td><?= e($r['aluno']) ?><?= $r['turma'] ? ' <small class="adm-table__muted">' . e($r['turma']) . '</small>' : '' ?></td>
+                                <td class="adm-table__muted"><?= admin_data_hora($r['data_emprestimo']) ?></td>
+                                <td><span class="adm-status adm-tone--<?= $tom ?>"><?= e($rotulo) ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
         <article class="adm-card adm-panel">
             <div class="adm-panel__header">
                 <div>
                     <h2>Atividades recentes</h2>
                     <p>Últimas movimentações realizadas na biblioteca</p>
                 </div>
-                <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars(admin_url('atividades')) ?>">Ver todas as atividades <?= icon('arrow-right') ?></a>
             </div>
             <div class="adm-table-wrap" tabindex="0" aria-label="Tabela de atividades recentes (role horizontalmente em telas pequenas)">
                 <table class="adm-table">

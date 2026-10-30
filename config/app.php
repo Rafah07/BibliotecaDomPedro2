@@ -53,6 +53,12 @@ function app_ambiente(): string
     return env('APP_ENV', 'development') === 'production' ? 'production' : 'development';
 }
 
+// Em produção, erros vão só para o log do servidor (nunca para a tela, onde poderiam expor caminhos ou SQL).
+if (app_ambiente() === 'production') {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+}
+
 // Carregamento das classes: Composer quando instalado; senão, um carregador simples para src/.
 (function () {
     if (is_file(APP_RAIZ . '/vendor/autoload.php')) {

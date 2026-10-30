@@ -83,20 +83,6 @@ function importacao_leitor(): ExcelImportService
     return $l ??= new ExcelImportService();
 }
 
-/** Registra uma ação administrativa (quem, o quê, quando, de onde). Falhas no registro não interrompem a operação. */
-function registrar_acao(string $acao, ?string $entidade = null, ?int $entidadeId = null, array $detalhes = []): void
-{
-    try {
-        $usuario = auth_usuario();
-        db_query(
-            'INSERT INTO acoes_administrativas (usuario_id, acao, entidade, entidade_id, detalhes, ip) VALUES (?, ?, ?, ?, ?, ?)',
-            [$usuario['id'] ?? null, $acao, $entidade, $entidadeId, $detalhes ? json_encode($detalhes, JSON_UNESCAPED_UNICODE) : null, substr((string)($_SERVER['REMOTE_ADDR'] ?? 'cli'), 0, 45)]
-        );
-    } catch (Throwable $e) {
-        error_log('[biblioteca] Falha ao registrar ação ' . $acao . ': ' . $e->getMessage());
-    }
-}
-
 /**
  * Preparação comum dos endpoints da API: banco real, usuário com permissão e, em POST, token CSRF.
  * As operações reais de importação só existem com MySQL e login (nunca no modo demonstrativo).

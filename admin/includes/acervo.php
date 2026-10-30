@@ -271,9 +271,32 @@ function acervo_proximo_codigo(): string
     return sprintf('BDP-%06d', $maior + 1);
 }
 
-/** Dados mínimos usados pelo JavaScript (pesquisa de duplicados, autores, códigos). */
+/**
+ * Dados mínimos usados pelo JavaScript (pesquisa de duplicados, autores, códigos).
+ * Com o banco configurado, o acervo NÃO é enviado ao navegador: a pesquisa e a checagem
+ * de duplicidades são feitas no servidor. Só vão os nomes de autores (para sugerir no formulário).
+ */
 function acervo_dados_js(): array
 {
+    if (acervo_usa_mysql()) {
+        return [
+            'livros' => [],
+            'autores' => db_query('SELECT nome FROM autores ORDER BY nome')->fetchAll(PDO::FETCH_COLUMN),
+            'categorias' => [],
+            'localizacoes' => [],
+            'situacoes' => ACERVO_SITUACOES,
+            'conservacao' => ACERVO_CONSERVACAO,
+            'codigos' => [],
+            'proximoCodigo' => '',
+            'persistir' => true,
+            'urls' => [
+                'detalhesLivro' => admin_url('detalhes-livro'),
+                'detalhesExemplar' => admin_url('detalhes-exemplar'),
+                'livros' => admin_url('acervo'),
+                'cadastrarLivro' => admin_url('cadastrar-livro'),
+            ],
+        ];
+    }
     return [
         'livros' => array_values(array_map(fn ($l) => [
             'id' => $l['id'],
