@@ -30,6 +30,7 @@ $acoes = array_values(array_filter([
     auth_pode('emprestimos.ver') ? ['titulo' => 'Histórico de empréstimos', 'descricao' => 'Ativos, devolvidos e histórico completo.', 'icone' => 'history', 'href' => 'emprestimos'] : null,
     auth_pode('livros.editar') ? ['titulo' => 'Cadastrar livro', 'descricao' => 'Adicionar uma nova obra ao acervo.', 'icone' => 'book-plus', 'href' => 'cadastrar-livro'] : null,
     ['titulo' => 'Consultar acervo', 'descricao' => 'Pesquisar livros por título, autor ou ISBN.', 'icone' => 'library-big', 'href' => 'acervo'],
+    auth_pode('relatorios.ver') && !$demo ? ['titulo' => 'Relatórios', 'descricao' => 'Estatísticas, gráficos e exportação em PDF, CSV e XLSX.', 'icone' => 'chart-column', 'href' => 'relatorios'] : null,
     ['titulo' => 'Classificação CDD', 'descricao' => 'Pesquisar, sugerir e aprovar classificações.', 'icone' => 'list-tree', 'href' => 'classificacao'],
     auth_pode('importacao.ver') ? ['titulo' => 'Importações', 'descricao' => 'Revisar planilhas e pendências da importação.', 'icone' => 'file-spreadsheet', 'href' => 'historico-importacoes'] : null,
     auth_pode('usuarios.gerenciar') ? ['titulo' => 'Administradores', 'descricao' => 'Gerenciar as contas de acesso ao painel.', 'icone' => 'users', 'href' => 'administradores'] : null,

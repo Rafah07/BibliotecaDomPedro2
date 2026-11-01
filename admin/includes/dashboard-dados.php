@@ -46,10 +46,11 @@ const DASHBOARD_ACOES = [
     'inventario.corrigir' => 'Conferência corrigida',
     'inventario.manter_ausentes' => 'Não localizados mantidos sem alteração',
     'inventario.exportar' => 'Relatório de inventário exportado',
+    'relatorio.exportar' => 'Relatório exportado',
 ];
 
 const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta', 'emprestimo' => 'empréstimo',
-    'exemplar' => 'exemplar', 'localizacao' => 'localização', 'inventario' => 'inventário', 'etiqueta_modelo' => 'modelo de etiqueta'];
+    'exemplar' => 'exemplar', 'localizacao' => 'localização', 'inventario' => 'inventário', 'etiqueta_modelo' => 'modelo de etiqueta', 'relatorio' => 'relatório'];
 
 const DASHBOARD_CORES = ['#143477', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
 
@@ -102,29 +103,24 @@ function dashboard_dados_mysql(): array
     $um = fn (string $sql): int => (int)db_query($sql)->fetchColumn();
 
     $titulos = $um('SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL');
-    // Exemplares de livros arquivados não entram nas contas do acervo ativo.
-    $ex = db_query("SELECT COUNT(*) AS total,
-                           COALESCE(SUM(e.situacao = 'disponivel'), 0) AS disponiveis,
-                           COALESCE(SUM(e.situacao = 'emprestado'), 0) AS emprestados,
-                           COALESCE(SUM(e.situacao = 'manutencao'), 0) AS manutencao,
-                           COALESCE(SUM(e.situacao = 'aguardando'), 0) AS aguardando
-                    FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL
-                    WHERE e.situacao NOT IN ('baixado', 'extraviado')")->fetch();
-    $ex = array_map('intval', $ex);
+    // Números comuns ao dashboard e à central de relatórios: as mesmas consultas (RelatorioRepository),
+    // para que os dois mostrem sempre o mesmo valor no mesmo momento.
+    $relatorios = new Biblioteca\Repositories\RelatorioRepository(db());
+    // Exemplares de livros arquivados não entram nas contas do acervo ativo; baixados e extraviados também não.
+    $fisico = $relatorios->resumoExemplares();
+    $ex = ['total' => $fisico['no_acervo'], 'disponiveis' => $fisico['disponivel'], 'emprestados' => $fisico['emprestado'],
+           'manutencao' => $fisico['manutencao'], 'aguardando' => $fisico['aguardando']];
     $pct = fn (int $n): string => $ex['total'] > 0 ? round($n / $ex['total'] * 100) . '% dos exemplares' : 'Nenhum exemplar registrado';
     $hoje = dashboard_hoje();
-    $circ = db_query('SELECT COALESCE(SUM(data_devolucao IS NULL), 0) AS ativos,
-                             COALESCE(SUM(data_devolucao IS NULL AND data_prevista < ?), 0) AS atrasados,
-                             COALESCE(SUM(data_devolucao IS NOT NULL), 0) AS devolvidos
-                      FROM emprestimos', [$hoje])->fetch();
+    $circ = $relatorios->resumoCirculacao($hoje);
+    $circ['devolvidos'] = $circ['concluidos'];
     [$ativos, $atrasados, $devolvidos] = [(int)$circ['ativos'], (int)$circ['atrasados'], (int)$circ['devolvidos']];
     $semConferencia = $um("SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND status_validacao <> 'validado'");
     $aguardandoCdd = dashboard_aguardando_cdd();
     $pendImportacao = dashboard_pendencias_importacao();
     $inventarios = $um("SELECT COUNT(*) FROM inventarios WHERE status IN ('em_andamento', 'pausado')");
     // Acervo físico (exemplares de livros ativos, sem baixados e extraviados).
-    $semLocal = $um("SELECT COUNT(*) FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL
-                     WHERE e.localizacao_id IS NULL AND e.situacao NOT IN ('baixado', 'extraviado')");
+    $semLocal = $fisico['sem_localizacao'];
     $livrosSemExemplar = $um("SELECT COUNT(*) FROM livros l WHERE l.arquivado_em IS NULL
                               AND NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = l.id AND e.situacao NOT IN ('baixado', 'extraviado'))");
     $divergenciasPendentes = $um("SELECT COUNT(*) FROM inventario_itens i JOIN inventarios v ON v.id = i.inventario_id
@@ -141,13 +137,15 @@ function dashboard_dados_mysql(): array
 
     // Empréstimos dos últimos 12 meses (meses sem empréstimo aparecem com zero).
     $porMes = [];
+    // Início do mês de 11 meses atrás, pelo calendário da escola (não pelo fuso do servidor MySQL).
+    $inicio12 = (new DateTimeImmutable($hoje))->modify('first day of this month')->modify('-11 month')->format('Y-m-d');
     foreach (db_query("SELECT DATE_FORMAT(data_emprestimo, '%Y-%m') AS mes, COUNT(*) AS total FROM emprestimos
-                       WHERE data_emprestimo >= DATE_FORMAT(CURDATE() - INTERVAL 11 MONTH, '%Y-%m-01') GROUP BY mes")->fetchAll() as $r) {
+                       WHERE data_emprestimo >= ? GROUP BY mes", [$inicio12])->fetchAll() as $r) {
         $porMes[$r['mes']] = (int)$r['total'];
     }
     $nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     $meses = [];
-    $inicio = new DateTimeImmutable('first day of this month');
+    $inicio = (new DateTimeImmutable($hoje))->modify('first day of this month');
     for ($i = 11; $i >= 0; $i--) {
         $d = $inicio->modify("-$i month");
         $meses[] = ['mes' => $nomes[(int)$d->format('n') - 1] . '/' . $d->format('y'), 'total' => $porMes[$d->format('Y-m')] ?? 0];

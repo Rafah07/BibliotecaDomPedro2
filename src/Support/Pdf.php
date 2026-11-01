@@ -46,6 +46,23 @@ final class Pdf
         return count($this->paginas);
     }
 
+    /**
+     * Volta a escrever numa página já criada (1 = primeira). Usado pelos relatórios para
+     * imprimir "Página X de Y" no rodapé depois que todas as páginas existem.
+     */
+    public function irParaPagina(int $numero): void
+    {
+        if ($numero >= 1 && $numero <= count($this->paginas)) {
+            $this->atual = $numero - 1;
+        }
+    }
+
+    /** Retângulo preenchido em cores RGB (0 a 1), para os gráficos dos relatórios. */
+    public function retanguloCor(float $x, float $y, float $largura, float $altura, float $r, float $g, float $b): void
+    {
+        $this->escrever(sprintf('%.3F %.3F %.3F rg %.3F %.3F %.3F %.3F re f', $r, $g, $b, $this->pt($x), $this->ptY($y + $altura), $this->pt($largura), $this->pt($altura)));
+    }
+
     /** Retângulo preenchido (preto, ou cinza de 0 = preto a 1 = branco). */
     public function retangulo(float $x, float $y, float $largura, float $altura, float $cinza = 0.0): void
     {

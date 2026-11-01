@@ -3,7 +3,7 @@
 Sistema da biblioteca escolar Dom Pedro II, em PHP tradicional e MySQL.
 
 - **Site público** (sem login): página inicial, catálogo com busca e filtros, página de cada livro com a disponibilidade física, categorias, autores, Sobre a biblioteca e Regras e funcionamento. Os alunos usam apenas esta área. Veja [`docs/site-publico.md`](docs/site-publico.md).
-- **Painel administrativo** (`/admin/`, com login): dashboard, acervo (livros, exemplares, categorias), classificação CDD e importação das planilhas Excel antigas.
+- **Painel administrativo** (`/admin/`, com login): dashboard, acervo (livros, exemplares, categorias), classificação CDD, importação das planilhas Excel antigas, circulação, inventário e relatórios com exportação em PDF, CSV e XLSX (veja [`docs/relatorios.md`](docs/relatorios.md)).
 
 ## Tecnologias e requisitos
 
@@ -248,6 +248,7 @@ php admin/tests/alunos-importacao-teste.php  # importação de alunos; banco tem
 php admin/tests/emprestimos-teste.php  # empréstimos, devoluções, renovações, atrasos, concorrência e permissões; banco temporário, só dados fictícios
 php admin/tests/inventario-teste.php   # exemplares, códigos BDP, localizações, inventário, etiquetas, relatórios e permissões; banco temporário, só dados fictícios
 php admin/tests/site-publico-teste.php # site público: busca, filtros, paginação, disponibilidade, privacidade, SQL/XSS, .htaccess e responsividade; banco temporário
+php admin/tests/relatorios-teste.php   # relatórios: contas, períodos, gráficos, PDF/CSV/XLSX, permissões, privacidade e integridade; banco temporário, só dados fictícios
 ```
 
 ## Situação das funcionalidades
@@ -264,6 +265,7 @@ php admin/tests/site-publico-teste.php # site público: busca, filtros, paginaç
 - Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
 - Importação local de alunos (`.xlsx`/`.csv`) com mapeamento de colunas, prévia, prevenção de duplicidades pela matrícula e atualização separada com confirmação. O arquivo não é guardado no servidor. Veja [`docs/importacao-alunos.md`](docs/importacao-alunos.md).
 - Acervo físico: cadastro manual de exemplares (código BDP gerado na confirmação), localizações (setor, estante, prateleira), inventário digital com leitor de código de barras, decisões sobre divergências, relatórios CSV/PDF e etiquetas em PDF no tamanho real. Veja [`docs/inventario-exemplares-etiquetas.md`](docs/inventario-exemplares-etiquetas.md).
+- Relatórios administrativos (menu **Relatórios**): acervo, exemplares físicos, empréstimos e devoluções, atrasos, alunos, inventários, classificação CDD e atividades administrativas, com filtros de período, gráficos com tabela de dados e exportação em PDF (A4), CSV e XLSX. Veja [`docs/relatorios.md`](docs/relatorios.md).
 - Circulação: empréstimos (só de exemplares físicos disponíveis, para alunos cadastrados e ativos), devoluções, renovações com regras configuráveis, atrasos, histórico por aluno e por exemplar, e indicadores no dashboard. Veja [`docs/emprestimos.md`](docs/emprestimos.md).
 
 **Pendentes**
@@ -271,7 +273,7 @@ php admin/tests/site-publico-teste.php # site público: busca, filtros, paginaç
 - Cadastro de categorias ainda é **simulado** (valida, mas não grava no banco).
 - QR Code nas etiquetas (hoje só código de barras Code 128) e distribuição física por CDD (a ser definida com a bibliotecária).
 - Reservas de livros (a renovação já tem o ponto de verificação preparado) e avisos de atraso por e-mail (exigem autorização da escola).
-- Tela de consulta/edição de alunos, relatórios gerais, página de atividades e configurações.
+- Tela de consulta/edição de alunos e configurações.
 - Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.
 - Pesquisas das fontes CDD nunca foram testadas com internet neste ambiente de desenvolvimento.
 
