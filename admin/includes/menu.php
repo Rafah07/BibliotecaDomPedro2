@@ -55,8 +55,9 @@ const ADMIN_MENU = [
         'etiqueta-modelos' => ['label' => 'Modelos de etiqueta', 'icon' => 'ruler', 'arquivo' => 'etiqueta-modelos.php', 'pronta' => true, 'oculto' => true],
         'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap'],
         'importar-alunos' => ['label' => 'Importar Alunos', 'icon' => 'users', 'arquivo' => 'importar-alunos.php', 'pronta' => true, 'permissao' => 'alunos.importar'],
-        'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column'],
-        'atividades' => ['label' => 'Atividades', 'icon' => 'history'],
+        // Central de relatórios (Etapa 5). "Atividades" abre a seção de atividades da mesma página.
+        'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column', 'arquivo' => 'relatorios.php', 'pronta' => true, 'permissao' => 'relatorios.ver'],
+        'atividades' => ['label' => 'Atividades', 'icon' => 'history', 'arquivo' => 'relatorios.php?secao=atividades', 'pronta' => true, 'permissao' => 'relatorios.atividades'],
     ],
     'Sistema' => [
         // 'permissao': o item só aparece para quem tem a permissão (a página confere de novo no servidor).
