@@ -61,10 +61,10 @@ function etiquetas_servico(): EtiquetaService
     return $s ??= new EtiquetaService(db());
 }
 
-/** Nome impresso nas etiquetas (ETIQUETA_BIBLIOTECA no .env). */
+/** Nome impresso nas etiquetas (Sistema → Configurações ou ETIQUETA_BIBLIOTECA no .env). */
 function etiquetas_biblioteca(): string
 {
-    $nome = trim((string)env('ETIQUETA_BIBLIOTECA', ''));
+    $nome = trim((string)config_valor('ETIQUETA_BIBLIOTECA', ''));
     return $nome !== '' ? mb_substr($nome, 0, 60) : 'Biblioteca Dom Pedro II';
 }
 

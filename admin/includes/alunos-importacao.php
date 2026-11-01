@@ -33,7 +33,7 @@ final class AlunosImportacaoConflito extends RuntimeException
 
 function alunos_importacao_servico(): AlunoImportService
 {
-    return new AlunoImportService(env('ALUNOS_EMAIL_DOMINIO'));
+    return new AlunoImportService(config_valor('ALUNOS_EMAIL_DOMINIO'));
 }
 
 function alunos_repo(): AlunoRepository

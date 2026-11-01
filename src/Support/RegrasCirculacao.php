@@ -6,7 +6,9 @@ use DateTimeImmutable;
 use DateTimeZone;
 
 /**
- * Regras de empréstimo configuráveis (variáveis EMPRESTIMO_* e APP_TIMEZONE do .env).
+ * Regras de empréstimo configuráveis: Sistema → Configurações no painel (Etapa 6) ou,
+ * quando nada foi salvo lá, as variáveis EMPRESTIMO_* do .env. APP_TIMEZONE fica só no .env.
+ * Quem chama passa o leitor das configurações: config_valor() (painel, depois .env).
  *
  * A escola ainda não aprovou um regulamento de circulação. Por isso os valores padrão
  * abaixo são PROVISÓRIOS, só para o sistema funcionar, e a tela mostra que são provisórios
@@ -16,6 +18,8 @@ use DateTimeZone;
  *   EMPRESTIMO_MAX_RENOVACOES      limite de renovações (vazio: sem limite da escola; o banco aceita até 10)
  *   EMPRESTIMO_RENOVAR_ATRASADO    permite renovar empréstimo atrasado (padrão: true)
  *   EMPRESTIMO_PRAZO_MAXIMO_DIAS   maior prazo aceito ao escolher uma data manualmente (padrão: 365)
+ *   EMPRESTIMO_LIMITE_ALUNO        máximo de empréstimos em aberto por aluno (vazio: sem limite)
+ *   EMPRESTIMO_BLOQUEAR_ATRASO     impede novo empréstimo para aluno com livro atrasado (padrão: false)
  *   APP_TIMEZONE                   fuso horário da escola (padrão: America/Sao_Paulo)
  */
 final class RegrasCirculacao
@@ -32,10 +36,14 @@ final class RegrasCirculacao
         public readonly string $fuso = 'America/Sao_Paulo',
         /** true quando o prazo veio do valor provisório (nada definido no .env). */
         public readonly bool $prazoProvisorio = true,
+        /** Máximo de empréstimos em aberto por aluno (null: sem limite). */
+        public readonly ?int $limiteAluno = null,
+        /** Impede novo empréstimo para quem tem livro atrasado. */
+        public readonly bool $bloquearComAtraso = false,
     ) {
     }
 
-    /** @param callable(string): ?string $env leitor das variáveis (env() de config/app.php) */
+    /** @param callable(string): ?string $env leitor das configurações (config_valor() ou env()) */
     public static function doAmbiente(callable $env): self
     {
         $inteiro = function (string $chave, int $min, int $max) use ($env): ?int {
@@ -49,6 +57,7 @@ final class RegrasCirculacao
         $maximo = $inteiro('EMPRESTIMO_PRAZO_MAXIMO_DIAS', 1, 730) ?? 365;
         $max = $inteiro('EMPRESTIMO_MAX_RENOVACOES', 0, self::RENOVACOES_LIMITE_TECNICO);
         $atrasado = $env('EMPRESTIMO_RENOVAR_ATRASADO');
+        $bloquear = $env('EMPRESTIMO_BLOQUEAR_ATRASO');
         $fuso = (string)($env('APP_TIMEZONE') ?? 'America/Sao_Paulo');
         if (!in_array($fuso, DateTimeZone::listIdentifiers(), true)) {
             $fuso = 'America/Sao_Paulo';
@@ -61,6 +70,8 @@ final class RegrasCirculacao
             prazoMaximoDias: $maximo,
             fuso: $fuso,
             prazoProvisorio: $prazo === null,
+            limiteAluno: $inteiro('EMPRESTIMO_LIMITE_ALUNO', 1, 20),
+            bloquearComAtraso: $bloquear !== null && filter_var($bloquear, FILTER_VALIDATE_BOOL),
         );
     }
 

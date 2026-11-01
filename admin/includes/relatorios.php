@@ -60,7 +60,7 @@ function relatorios_servico(): RelatorioService
 function relatorios_regras(): RegrasCirculacao
 {
     static $r = null;
-    return $r ??= RegrasCirculacao::doAmbiente('env');
+    return $r ??= RegrasCirculacao::doAmbiente('config_valor');
 }
 
 /** Pode ver nome, matrícula e turma de alunos nos relatórios (os mesmos perfis que já veem a circulação). */

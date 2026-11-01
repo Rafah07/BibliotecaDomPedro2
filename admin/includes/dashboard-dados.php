@@ -47,17 +47,22 @@ const DASHBOARD_ACOES = [
     'inventario.manter_ausentes' => 'Não localizados mantidos sem alteração',
     'inventario.exportar' => 'Relatório de inventário exportado',
     'relatorio.exportar' => 'Relatório exportado',
+    'site.editar' => 'Textos do site público editados',
+    'configuracao.editar' => 'Configurações do sistema alteradas',
+    'sistema.backup' => 'Cópia de segurança do banco gerada',
+    'sistema.limpeza' => 'Limpeza de manutenção executada',
 ];
 
 const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta', 'emprestimo' => 'empréstimo',
-    'exemplar' => 'exemplar', 'localizacao' => 'localização', 'inventario' => 'inventário', 'etiqueta_modelo' => 'modelo de etiqueta', 'relatorio' => 'relatório'];
+    'exemplar' => 'exemplar', 'localizacao' => 'localização', 'inventario' => 'inventário', 'etiqueta_modelo' => 'modelo de etiqueta', 'relatorio' => 'relatório',
+    'configuracao' => 'configuração', 'sistema' => 'sistema', 'site' => 'site público'];
 
 const DASHBOARD_CORES = ['#143477', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
 
 /** Data de hoje na escola (APP_TIMEZONE): o atraso não depende do fuso do servidor MySQL. */
 function dashboard_hoje(): string
 {
-    return Biblioteca\Support\RegrasCirculacao::doAmbiente('env')->hoje();
+    return Biblioteca\Support\RegrasCirculacao::doAmbiente('config_valor')->hoje();
 }
 
 function dashboard_dados(): array

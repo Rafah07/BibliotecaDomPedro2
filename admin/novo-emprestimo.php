@@ -59,7 +59,13 @@ try {
     exit;
 }
 
-$aptoAluno = $aluno && (int)$aluno['ativo'] === 1;
+// Regras da escola sobre o aluno (limite de livros, atraso): avisadas já na escolha do aluno.
+try {
+    $impedimentoAluno = $aluno && (int)$aluno['ativo'] === 1 ? $servico->impedimentoAluno((int)$aluno['id']) : null;
+} catch (PDOException $e) {
+    $impedimentoAluno = null; // a regra é conferida de novo, dentro da transação, ao confirmar
+}
+$aptoAluno = $aluno && (int)$aluno['ativo'] === 1 && $impedimentoAluno === null;
 $aptoExemplar = $exemplar && $exemplar['situacao'] === 'disponivel' && $exemplar['arquivado_em'] === null && !$exemplar['emprestimo_aberto'];
 $passo = !$aluno ? 1 : (!$exemplar ? 2 : 3);
 $estado = ['aluno' => $aluno['id'] ?? null, 'exemplar' => $exemplar['id'] ?? null];
@@ -102,7 +108,8 @@ admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulaçã
             <div>
                 <strong><?= e($aluno['nome']) ?></strong>
                 <small><?= e(emprestimos_aluno_id($aluno)) ?><?= $aluno['turma'] ? ' · Turma ' . e($aluno['turma']) : '' ?></small>
-                <?php if (!$aptoAluno): ?><span class="adm-status adm-tone--red">Cadastro inativo: não pode receber empréstimos</span><?php endif; ?>
+                <?php if (!(int)$aluno['ativo']): ?><span class="adm-status adm-tone--red">Cadastro inativo: não pode receber empréstimos</span><?php endif; ?>
+                <?php if ($impedimentoAluno): ?><span class="adm-status adm-tone--red"><?= e($impedimentoAluno) ?></span><?php endif; ?>
             </div>
             <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['exemplar' => $estado['exemplar']])) ?>"><?= icon('undo-2') ?> Trocar aluno</a>
         </div>
@@ -274,7 +281,7 @@ admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulaçã
             <button type="submit" class="adm-button adm-button--primary adm-button--block"><?= icon('book-open-check') ?> Confirmar empréstimo</button>
         </form>
     <?php elseif ($passo === 3): ?>
-        <?= admin_aviso('erro', 'Não é possível emprestar com a seleção atual.', !$aptoAluno ? 'O cadastro do aluno está inativo.' : 'O exemplar escolhido não está disponível. Escolha outro exemplar.') ?>
+        <?= admin_aviso('erro', 'Não é possível emprestar com a seleção atual.', !$aptoAluno ? ($impedimentoAluno ?? 'O cadastro do aluno está inativo.') : 'O exemplar escolhido não está disponível. Escolha outro exemplar.') ?>
     <?php else: ?>
         <p class="adm-table__muted">O resumo aparece depois de escolher o aluno e o exemplar.</p>
     <?php endif; ?>

@@ -1,6 +1,6 @@
 <?php
 /**
- * Renovar um empréstimo em aberto, conforme as regras configuradas (EMPRESTIMO_* no .env).
+ * Renovar um empréstimo em aberto, conforme as regras configuradas (Sistema → Configurações ou EMPRESTIMO_* no .env).
  * Outra data além da padrão só para quem tem a permissão emprestimos.prazo.
  */
 require_once __DIR__ . '/includes/layout.php';

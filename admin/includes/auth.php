@@ -38,11 +38,16 @@ require_once __DIR__ . '/db.php';
  *   relatorios.exportar_pessoais  exportar relatórios com nome, matrícula e turma de alunos
  *   relatorios.atividades  consultar o registro de ações administrativas (as ações de contas
  *                     de acesso só aparecem para quem tem usuarios.gerenciar)
+ *   configuracoes.ver ver Sistema → Configurações (regras em uso e de onde vêm)
+ *   configuracoes.editar  alterar identificação, regras de empréstimo e cadastro de alunos
+ *   sistema.manutencao  segurança do painel, site em manutenção, configurações técnicas (.env),
+ *                     diagnóstico, cópia de segurança do banco e limpezas de manutenção
  * Ver exemplares, localizações e inventários é permitido a todos os perfis (painel.ver).
+ * A descrição de cada permissão para a tela Perfis e permissões está em AUTH_PERMISSOES_DESCRICOES.
  */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades'],
-    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades'],
+    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar', 'sistema.manutencao'],
+    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar'],
     'auxiliar' => ['painel.ver', 'livros.editar', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'exemplares.gerenciar', 'inventario.conferir', 'etiquetas.gerar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos'],
     'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver', 'relatorios.ver', 'relatorios.exportar'],
 ];
@@ -54,16 +59,82 @@ const AUTH_PERFIS = [
     'consulta' => 'Somente consulta',
 ];
 
+/**
+ * Descrição de cada permissão, agrupada por módulo, para a tela Sistema → Perfis e permissões.
+ * Toda permissão usada em AUTH_PERMISSOES precisa estar aqui (o teste configuracoes-teste.php confere).
+ */
+const AUTH_PERMISSOES_DESCRICOES = [
+    'Painel e acervo' => [
+        'painel.ver' => 'Entrar no painel e consultar acervo, exemplares, localizações e inventários',
+        'livros.editar' => 'Cadastrar e editar livros',
+        'livros.arquivar' => 'Arquivar e restaurar livros',
+    ],
+    'Classificação CDD' => [
+        'cdd.ver' => 'Ver classificações e a fila de aprovação',
+        'cdd.sugerir' => 'Pesquisar e sugerir a CDD de um livro',
+        'cdd.lote' => 'Pesquisar a CDD em lote',
+        'cdd.aprovar' => 'Aprovar ou rejeitar classificações',
+        'cdd.exportar' => 'Exportar relatórios da CDD',
+    ],
+    'Importação do acervo' => [
+        'importacao.ver' => 'Ver importações de planilhas e o histórico',
+        'importacao.revisar' => 'Revisar as linhas de uma importação',
+        'importacao.executar' => 'Confirmar importações (grava no acervo)',
+    ],
+    'Exemplares, inventário e etiquetas' => [
+        'exemplares.gerenciar' => 'Cadastrar exemplares, editar conservação, transferir e mudar a situação',
+        'exemplares.baixar' => 'Dar baixa e registrar extravio de exemplares',
+        'localizacoes.gerenciar' => 'Cadastrar, editar, desativar e reativar localizações',
+        'inventario.conferir' => 'Registrar conferências no inventário',
+        'inventario.gerenciar' => 'Criar, concluir e cancelar inventários e decidir divergências',
+        'etiquetas.gerar' => 'Gerar o PDF das etiquetas',
+        'etiquetas.configurar' => 'Editar os modelos (tamanhos e margens) das etiquetas',
+    ],
+    'Alunos e circulação' => [
+        'alunos.importar' => 'Importar e atualizar o cadastro de alunos',
+        'emprestimos.ver' => 'Ver empréstimos, atrasos e históricos (dados pessoais dos alunos)',
+        'emprestimos.registrar' => 'Registrar empréstimos, devoluções e renovações no prazo padrão',
+        'emprestimos.prazo' => 'Escolher outra data de devolução e informar a data real de uma devolução',
+    ],
+    'Relatórios' => [
+        'relatorios.ver' => 'Abrir a central de relatórios (números sem nomes de alunos)',
+        'relatorios.exportar' => 'Exportar relatórios sem dados pessoais',
+        'relatorios.alunos' => 'Ver números de alunos por turma e turno',
+        'relatorios.exportar_pessoais' => 'Exportar relatórios com nome, matrícula e turma de alunos',
+        'relatorios.atividades' => 'Consultar o registro de ações administrativas',
+    ],
+    'Sistema' => [
+        'site.editar' => 'Editar os textos institucionais do site público',
+        'configuracoes.ver' => 'Ver as configurações gerais e as regras em uso',
+        'configuracoes.editar' => 'Alterar identificação, regras de empréstimo e cadastro de alunos',
+        'usuarios.gerenciar' => 'Cadastrar, editar, ativar e desativar contas do painel',
+        'sistema.manutencao' => 'Segurança do painel, site em manutenção, diagnóstico e cópia de segurança',
+    ],
+];
+
 /** Contas do modo demonstrativo (sem banco). Senha de ambas: demo */
 const AUTH_CONTAS_DEMO = [
     'bibliotecaria@demo' => ['id' => 1, 'nome' => 'Ana Souza', 'perfil' => 'bibliotecaria', 'cargo' => 'Bibliotecária'],
     'auxiliar@demo' => ['id' => 2, 'nome' => 'Carlos Lima', 'perfil' => 'auxiliar', 'cargo' => 'Auxiliar de biblioteca'],
 ];
 
+/** Padrão de tentativas de senha (LOGIN_MAX_TENTATIVAS em Sistema → Configurações). */
 const AUTH_MAX_TENTATIVAS = 5;
 
-/** Sessão encerrada depois deste tempo sem uso (computadores compartilhados da escola). */
+/** Padrão: sessão encerrada depois deste tempo sem uso (PAINEL_INATIVIDADE_MINUTOS em Sistema → Configurações). */
 const AUTH_INATIVIDADE_MINUTOS = 120;
+
+/** Minutos sem uso até a sessão ser encerrada (computadores compartilhados da escola). */
+function auth_inatividade_minutos(): int
+{
+    return config_inteiro('PAINEL_INATIVIDADE_MINUTOS', AUTH_INATIVIDADE_MINUTOS, 10, 480);
+}
+
+/** Tentativas de senha erradas (por e-mail ou IP) antes do bloqueio temporário. */
+function auth_max_tentativas(): int
+{
+    return config_inteiro('LOGIN_MAX_TENTATIVAS', AUTH_MAX_TENTATIVAS, 3, 20);
+}
 
 /** Tamanho mínimo das senhas (o mesmo de database/criar-admin.php). */
 const AUTH_SENHA_MINIMA = 10;
@@ -110,7 +181,7 @@ function auth_usuario(): ?array
         return $usuario = null;
     }
     // Sessão parada há muito tempo: exige novo login.
-    if (isset($sessao['visto']) && time() - (int)$sessao['visto'] > AUTH_INATIVIDADE_MINUTOS * 60) {
+    if (isset($sessao['visto']) && time() - (int)$sessao['visto'] > auth_inatividade_minutos() * 60) {
         unset($_SESSION['auth']);
         return $usuario = null;
     }
@@ -206,7 +277,7 @@ function auth_login(string $email, string $senha): ?string
         'SELECT COUNT(*) FROM login_tentativas WHERE sucesso = 0 AND (email = ? OR ip = ?) AND criado_em > NOW() - INTERVAL ' . AUTH_JANELA_MINUTOS . ' MINUTE',
         [$email, $ip]
     )->fetchColumn();
-    if ($falhas >= AUTH_MAX_TENTATIVAS) {
+    if ($falhas >= auth_max_tentativas()) {
         return 'Muitas tentativas sem sucesso. Aguarde ' . AUTH_JANELA_MINUTOS . ' minutos e tente novamente.';
     }
 
