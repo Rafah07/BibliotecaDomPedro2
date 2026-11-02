@@ -36,7 +36,7 @@ function page_start(string $titulo, string $ativo, string $descricao = ''): void
     site_cabecalhos();
     $currentPage = $ativo;
     $searchValue = $ativo === 'catalogo' && isset($_GET['q']) && is_string($_GET['q']) ? mb_substr($_GET['q'], 0, 120) : '';
-    $classeMain = $ativo === 'inicio' ? 'main-content' : 'main-content page-content';
+    $classeMain = $ativo === 'inicio' ? 'main-content home-content' : 'main-content page-content';
     $descricao = $descricao !== '' ? $descricao : 'Catálogo on-line e informações da Biblioteca Dom Pedro II.';
     ?>
 <!DOCTYPE html>
@@ -44,7 +44,7 @@ function page_start(string $titulo, string $ativo, string $descricao = ''): void
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#173676">
+    <meta name="theme-color" content="#123D73">
     <meta name="description" content="<?= e($descricao) ?>">
     <title><?= $titulo !== '' ? e($titulo) . ' | ' : '' ?>Biblioteca Dom Pedro II</title>
     <link rel="icon" href="<?= e(asset('img/emblema-pequeno.png')) ?>">
@@ -56,14 +56,20 @@ function page_start(string $titulo, string $ativo, string $descricao = ''): void
     <div class="sidebar-backdrop" hidden></div>
     <?php include __DIR__ . '/sidebar.php'; ?>
     <div class="<?= $classeMain ?>">
-        <header class="topbar">
+        <header class="topbar<?= $ativo === 'inicio' ? ' topbar--home' : '' ?>">
+            <button class="mobile-menu-button" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-lateral">
+                <?= icon('menu') ?><span class="mobile-menu-text" aria-hidden="true">Menu</span>
+            </button>
+            <a class="topbar-brand" href="<?= e(url()) ?>"><strong>Biblioteca</strong> <span>Dom Pedro II</span></a>
+            <?php if ($ativo !== 'inicio'): ?>
             <form class="search-bar" action="<?= e(url('biblioteca_php/catalogo.php')) ?>" method="get" role="search">
                 <?= icon('search') ?>
                 <label class="visually-hidden" for="busca-topo">Pesquisar no catálogo</label>
-                <input id="busca-topo" type="search" name="q" value="<?= e($searchValue) ?>" placeholder="Pesquisar livros, autores ou assuntos..." maxlength="120" autocomplete="off">
-                <button class="search-submit" type="submit">Buscar</button>
+                <input id="busca-topo" type="search" name="q" value="<?= e($searchValue) ?>" placeholder="Pesquisar livros, autores ou assuntos" maxlength="120" autocomplete="off">
+                <button class="search-submit" type="submit"><span class="search-submit-text">Buscar</span><span class="visually-hidden"> no catálogo</span></button>
             </form>
-            <a class="sidebar-logo" href="<?= e(url()) ?>" aria-label="Biblioteca Dom Pedro II — página inicial"><img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="Emblema da escola" width="110" height="73"></a>
+            <?php endif; ?>
+            <a class="sidebar-logo" href="<?= e(url()) ?>" aria-label="Biblioteca Dom Pedro II — página inicial"><img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="Emblema da escola" width="90" height="60"></a>
         </header>
         <main id="conteudo" tabindex="-1">
     <?php
@@ -77,23 +83,31 @@ function page_end(): void
     ?>
         </main>
         <footer class="site-footer">
-            <div class="footer-brand">
-                <img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="" width="72" height="48" loading="lazy">
-                <div>
-                    <strong>Biblioteca Dom Pedro II</strong>
-                    <?php if ($escola !== ''): ?><span><?= e($escola) ?></span><?php endif; ?>
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <span class="footer-emblem"><img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="" width="72" height="48" loading="lazy"></span>
+                    <div>
+                        <strong>Biblioteca Dom Pedro II</strong>
+                        <?php if ($escola !== ''): ?><span><?= e($escola) ?></span><?php endif; ?>
+                    </div>
                 </div>
+                <nav class="footer-links" aria-label="Links úteis">
+                    <h2 class="footer-title">Navegação</h2>
+                    <a href="<?= e(url()) ?>">Início</a>
+                    <a href="<?= e(url('biblioteca_php/catalogo.php')) ?>">Catálogo</a>
+                    <a href="<?= e(url('biblioteca_php/sobre.php')) ?>">Sobre a biblioteca</a>
+                    <a href="<?= e(url('biblioteca_php/regras.php')) ?>">Regras e funcionamento</a>
+                </nav>
+                <?php if ($site->preenchido('email') || $site->preenchido('telefone') || $site->preenchido('endereco')): ?>
+                <div class="footer-info">
+                    <h2 class="footer-title">Contato</h2>
+                    <?php if ($site->preenchido('email')): ?><p><?= icon('mail') ?> <a href="mailto:<?= e($site->valor('email')) ?>"><?= e($site->valor('email')) ?></a></p><?php endif; ?>
+                    <?php if ($site->preenchido('telefone')): ?><p><?= icon('phone') ?> <span><?= e($site->valor('telefone')) ?></span></p><?php endif; ?>
+                    <?php if ($site->preenchido('endereco')): ?><p><?= icon('map-pin') ?> <span><?= e($site->valor('endereco')) ?></span></p><?php endif; ?>
+                </div>
+                <?php endif; ?>
             </div>
-            <nav class="footer-links" aria-label="Links úteis">
-                <a href="<?= e(url()) ?>">Início</a>
-                <a href="<?= e(url('biblioteca_php/catalogo.php')) ?>">Catálogo</a>
-                <a href="<?= e(url('biblioteca_php/sobre.php')) ?>">Sobre a biblioteca</a>
-                <a href="<?= e(url('biblioteca_php/regras.php')) ?>">Regras e funcionamento</a>
-            </nav>
-            <div class="footer-info">
-                <?php if ($site->preenchido('email')): ?><p><?= icon('mail') ?> <a href="mailto:<?= e($site->valor('email')) ?>"><?= e($site->valor('email')) ?></a></p><?php endif; ?>
-                <?php if ($site->preenchido('telefone')): ?><p><?= icon('phone') ?> <?= e($site->valor('telefone')) ?></p><?php endif; ?>
-                <?php if ($site->preenchido('endereco')): ?><p><?= icon('map-pin') ?> <?= e($site->valor('endereco')) ?></p><?php endif; ?>
+            <div class="footer-bottom">
                 <?php if ($creditos !== ''): ?><p class="footer-credits"><?= e($creditos) ?></p><?php endif; ?>
                 <p class="footer-staff"><a href="<?= e(url('admin/login.php')) ?>" rel="nofollow"><?= icon('lock') ?> Acesso da equipe</a></p>
             </div>
@@ -111,7 +125,7 @@ function page_heading(string $eyebrow, string $title, string $subtitle, string $
     ?>
     <section class="page-heading">
         <div class="page-heading-icon"><?= icon($icon) ?></div>
-        <div>
+        <div class="page-heading-copy">
             <p class="page-eyebrow"><?= e($eyebrow) ?></p>
             <h1><?= e($title) ?></h1>
             <?php if ($subtitle !== ''): ?><p class="page-subtitle"><?= e($subtitle) ?></p><?php endif; ?>
@@ -126,22 +140,35 @@ function livro_url(int $id): string
     return url('biblioteca_php/livro.php?id=' . $id);
 }
 
-/** Capa do livro: a imagem cadastrada ou uma capa padrão desenhada com o título (nunca uma imagem aleatória). */
+/**
+ * Capa do livro: a imagem cadastrada ou uma capa padrão neutra com o título (nunca uma imagem aleatória).
+ * A capa padrão mantém a classe cover-N só por compatibilidade; o visual é o mesmo para todos.
+ */
 function book_cover(array $livro, string $extra = ''): string
 {
     $classe = trim('book-cover ' . $extra);
     if (!empty($livro['capa'])) {
         return '<div class="' . e($classe) . ' has-image"><img src="' . e(url($livro['capa'])) . '" alt="Capa de ' . e($livro['titulo']) . '" loading="lazy" decoding="async"></div>';
     }
-    return '<div class="' . e($classe . ' ' . $livro['classe']) . '" aria-hidden="true"><span class="cover-title">' . e($livro['titulo']) . '</span>'
+    return '<div class="' . e($classe . ' book-cover--placeholder ' . $livro['classe']) . '" aria-hidden="true">'
+        . '<span class="cover-mark">' . icon('book-open') . '</span>'
+        . '<span class="cover-title">' . e($livro['titulo']) . '</span>'
         . ($livro['autor'] !== '' ? '<span class="cover-author">' . e($livro['autor']) . '</span>' : '') . '</div>';
 }
 
-/** Selo de disponibilidade do livro. */
+/**
+ * Selo de disponibilidade: ícone + texto (não depende só da cor). O cálculo vem de
+ * CatalogoService::disponibilidade() e continua usando só os exemplares físicos.
+ */
 function availability_badge(array $disponibilidade): string
 {
-    $icone = ['ok' => 'circle-check', 'busy' => 'hourglass', 'muted' => 'info'][$disponibilidade['tom']] ?? 'info';
-    return '<span class="availability availability--' . e($disponibilidade['tom']) . '">' . icon($icone) . ' ' . e($disponibilidade['rotulo']) . '</span>';
+    $estado = $disponibilidade['estado'] ?? '';
+    [$icone, $texto] = match ($estado) {
+        'disponivel' => ['circle-check', $disponibilidade['rotulo']],
+        'indisponivel' => ['hourglass', 'Nenhum exemplar disponível'],
+        default => ['info', 'Disponibilidade ainda não conferida'],
+    };
+    return '<span class="availability availability--' . e($disponibilidade['tom']) . '">' . icon($icone) . ' <span>' . e($texto) . '</span></span>';
 }
 
 /** Cartão de livro usado na página inicial, no catálogo e nos relacionados. */
@@ -154,11 +181,13 @@ function book_card(array $livro): string
         <a class="book-card-link" href="<?= e(livro_url($livro['id'])) ?>" tabindex="-1" aria-hidden="true"><?= book_cover($livro) ?></a>
         <div class="book-card-body">
             <?php if ($livro['categoria'] !== ''): ?><span class="book-tag"><?= e($livro['categoria']) ?></span><?php endif; ?>
-            <h3><a href="<?= e(livro_url($livro['id'])) ?>"><?= e($livro['titulo']) ?></a></h3>
-            <p class="book-author"><?= $livro['autor'] !== '' ? e($livro['autor']) : 'Autor não informado' ?></p>
+            <h3 class="book-title"><a href="<?= e(livro_url($livro['id'])) ?>" title="<?= e($livro['titulo']) ?>"><?= e($livro['titulo']) ?></a></h3>
+            <p class="book-author" title="<?= e($livro['autor']) ?>"><?= $livro['autor'] !== '' ? e($livro['autor']) : 'Autor não informado' ?></p>
             <?php if ($meta): ?><p class="book-meta"><?= e(implode(' · ', $meta)) ?></p><?php endif; ?>
-            <?= availability_badge($livro['disponibilidade']) ?>
-            <a class="details-link" href="<?= e(livro_url($livro['id'])) ?>">Ver detalhes<span class="visually-hidden"> de <?= e($livro['titulo']) ?></span> <?= icon('arrow-right') ?></a>
+            <div class="book-card-footer">
+                <?= availability_badge($livro['disponibilidade']) ?>
+                <a class="details-link" href="<?= e(livro_url($livro['id'])) ?>">Ver detalhes<span class="visually-hidden"> de <?= e($livro['titulo']) ?></span> <?= icon('arrow-right') ?></a>
+            </div>
         </div>
     </article>
     <?php
@@ -190,7 +219,7 @@ function site_manutencao_pagina(string $mensagem): never
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
-    <meta name="theme-color" content="#173676">
+    <meta name="theme-color" content="#123D73">
     <title>Em manutenção | Biblioteca Dom Pedro II</title>
     <link rel="icon" href="<?= e(asset('img/emblema-pequeno.png')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/style.css')) ?>">

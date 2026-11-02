@@ -14,7 +14,7 @@ if (!$livro) {
     page_start('Livro não encontrado', 'catalogo');
     ?>
     <?= catalogo_aviso() ?>
-    <section class="panel empty-state spaced-panel">
+    <section class="panel empty-state spaced-panel not-found">
         <?= icon('book-x') ?>
         <h1 class="empty-title">Livro não encontrado</h1>
         <p>O livro procurado não existe no catálogo ou não está mais disponível para consulta.</p>
@@ -29,10 +29,10 @@ $relacionados = $catalogo->relacionados($livro);
 $ex = $livro['exemplares'];
 $disp = $livro['disponibilidade'];
 $campos = array_filter([
+    'ISBN' => $livro['isbn'],
     'Editora' => $livro['editora'],
     'Ano de publicação' => $livro['ano'] !== null ? (string)$livro['ano'] : '',
     'Edição' => $livro['edicao'],
-    'ISBN' => $livro['isbn'],
     'Idioma' => $livro['idioma'],
     'Número de páginas' => $livro['paginas'] !== null ? (string)$livro['paginas'] : '',
 ], static fn ($v) => $v !== '');
@@ -57,7 +57,7 @@ page_start($livro['titulo'], 'catalogo', mb_substr($livro['titulo'] . ($livro['a
         <?php endif; ?>
         <h1><?= e($livro['titulo']) ?></h1>
         <?php if ($livro['subtitulo'] !== ''): ?><p class="book-subtitle"><?= e($livro['subtitulo']) ?></p><?php endif; ?>
-        <p class="book-detail-authors">
+        <p class="book-detail-authors"><span class="visually-hidden">Autoria: </span>
             <?php if ($livro['autores']): ?>
                 <?php foreach ($livro['autores'] as $i => $a): ?><?= $i ? ', ' : '' ?><a href="<?= e(url('biblioteca_php/catalogo.php?autor=' . (int)$a['id'])) ?>"><?= e($a['nome']) ?></a><?php endforeach; ?>
             <?php else: ?>
@@ -66,7 +66,10 @@ page_start($livro['titulo'], 'catalogo', mb_substr($livro['titulo'] . ($livro['a
         </p>
 
         <section class="availability-box availability-box--<?= e($disp['tom']) ?>" aria-labelledby="titulo-disponibilidade">
-            <h2 id="titulo-disponibilidade"><?= icon($disp['tom'] === 'ok' ? 'circle-check' : ($disp['tom'] === 'busy' ? 'hourglass' : 'info')) ?> Disponibilidade</h2>
+            <div class="availability-head">
+                <h2 id="titulo-disponibilidade" class="availability-title">Disponibilidade física</h2>
+                <?= availability_badge($disp) ?>
+            </div>
             <?php if ($disp['estado'] === 'sem_exemplar'): ?>
                 <p><strong>Livro cadastrado no catálogo, mas os exemplares físicos ainda não foram identificados.</strong></p>
                 <p>A biblioteca ainda está conferindo o acervo. Pergunte à equipe se o livro pode ser encontrado na estante.</p>
@@ -86,19 +89,13 @@ page_start($livro['titulo'], 'catalogo', mb_substr($livro['titulo'] . ($livro['a
             <?php endif; ?>
         </section>
 
-        <?php if ($livro['sinopse'] !== ''): ?>
-            <section class="book-section" aria-labelledby="titulo-sinopse">
-                <h2 id="titulo-sinopse">Sinopse</h2>
-                <div class="rich-text"><?= site_texto_html($livro['sinopse']) ?></div>
-            </section>
-        <?php endif; ?>
-
         <section class="book-section" aria-labelledby="titulo-ficha">
             <h2 id="titulo-ficha">Informações bibliográficas</h2>
             <dl class="book-facts">
                 <?php foreach ($campos as $rotulo => $valor): ?>
                     <div><dt><?= e($rotulo) ?></dt><dd><?= e($valor) ?></dd></div>
                 <?php endforeach; ?>
+                <?php if ($livro['categorias']): ?><div><dt><?= count($livro['categorias']) === 1 ? 'Categoria' : 'Categorias' ?></dt><dd><?= e(implode(', ', array_column($livro['categorias'], 'nome'))) ?></dd></div><?php endif; ?>
                 <?php if ($livro['assunto'] !== ''): ?><div><dt>Assunto</dt><dd><?= e($livro['assunto']) ?></dd></div><?php endif; ?>
                 <?php if ($livro['cdd']): ?>
                     <div><dt>Classificação (CDD)</dt><dd><span class="mono"><?= e($livro['cdd']['cdd_aprovada']) ?></span><?= !empty($livro['cdd']['descricao']) ? ' — ' . e($livro['cdd']['descricao']) : '' ?></dd></div>
@@ -112,13 +109,19 @@ page_start($livro['titulo'], 'catalogo', mb_substr($livro['titulo'] . ($livro['a
             <?php if (count($campos) < 3): ?><p class="muted-text">Algumas informações deste livro ainda não foram cadastradas pela biblioteca.</p><?php endif; ?>
         </section>
 
-        <a class="inline-link" href="<?= e(url('biblioteca_php/catalogo.php')) ?>"><?= icon('arrow-left') ?> Voltar ao catálogo</a>
     </div>
 </article>
 
+<?php if ($livro['sinopse'] !== ''): ?>
+    <section class="panel book-synopsis spaced-panel" aria-labelledby="titulo-sinopse">
+        <div class="section-topline"><div><p class="page-eyebrow">Sobre o livro</p><h2 id="titulo-sinopse">Sinopse</h2></div></div>
+        <div class="rich-text"><?= site_texto_html($livro['sinopse']) ?></div>
+    </section>
+<?php endif; ?>
+
 <?php foreach (['autor' => 'Mais livros do mesmo autor', 'categoria' => 'Da mesma categoria'] as $tipo => $tituloSecao): ?>
     <?php if ($relacionados[$tipo]): ?>
-        <section class="panel spaced-panel" aria-labelledby="titulo-rel-<?= $tipo ?>">
+        <section class="home-section related-section" aria-labelledby="titulo-rel-<?= $tipo ?>">
             <div class="section-topline"><div><p class="page-eyebrow">Você também pode gostar</p><h2 id="titulo-rel-<?= $tipo ?>"><?= e($tituloSecao) ?></h2></div></div>
             <div class="books-grid catalog-books">
                 <?php foreach ($relacionados[$tipo] as $r): ?><?= book_card($r) ?><?php endforeach; ?>
@@ -126,4 +129,6 @@ page_start($livro['titulo'], 'catalogo', mb_substr($livro['titulo'] . ($livro['a
         </section>
     <?php endif; ?>
 <?php endforeach; ?>
+
+<p class="back-link"><a class="btn btn-secondary" href="<?= e(url('biblioteca_php/catalogo.php')) ?>"><?= icon('arrow-left') ?> Voltar ao catálogo</a></p>
 <?php page_end(); ?>
