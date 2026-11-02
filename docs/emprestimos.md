@@ -29,7 +29,9 @@ Perfis: **administrador** e **bibliotecária** têm tudo, inclusive `emprestimos
 - Atraso = empréstimo em aberto com `data_prevista` anterior a hoje, calculado na consulta com a data da escola (`APP_TIMEZONE`). Não há multas nem avisos por e-mail.
 - Registros de ação e movimentações guardam só ids, código do exemplar e título do livro, nunca nome, matrícula ou e-mail do aluno. Erros técnicos vão para o log só com o tipo do erro.
 
-## Configuração (`.env`)
+## Configuração (Sistema → Configurações ou `.env`)
+
+Desde a Etapa 6, estas regras podem ser alteradas no painel, em **Sistema → Configurações** (administrador e bibliotecária). O valor salvo no painel vale mais que o `.env`; um campo vazio volta a usar o `.env` ou o padrão. Veja [`configuracoes.md`](configuracoes.md).
 
 A escola ainda não aprovou um regulamento. Enquanto as variáveis estiverem vazias, valem os padrões **provisórios**, e as telas avisam que o prazo é provisório.
 
@@ -40,7 +42,9 @@ A escola ainda não aprovou um regulamento. Enquanto as variáveis estiverem vaz
 | `EMPRESTIMO_MAX_RENOVACOES` | sem limite (o banco aceita até 10) | Limite de renovações por empréstimo |
 | `EMPRESTIMO_RENOVAR_ATRASADO` | `true` | `false` impede renovar empréstimo atrasado |
 | `EMPRESTIMO_PRAZO_MAXIMO_DIAS` | 365 | Maior prazo aceito ao escolher uma data manualmente |
-| `APP_TIMEZONE` | `America/Sao_Paulo` | Fuso da escola (datas, prazos, atrasos e conexões MySQL) |
+| `EMPRESTIMO_LIMITE_ALUNO` | sem limite | Máximo de empréstimos em aberto por aluno (conferido dentro da transação) |
+| `EMPRESTIMO_BLOQUEAR_ATRASO` | `false` | `true` impede novo empréstimo para aluno com livro atrasado |
+| `APP_TIMEZONE` | `America/Sao_Paulo` | Fuso da escola (datas, prazos, atrasos e conexões MySQL). Só no `.env`. |
 
 ## Banco de dados
 

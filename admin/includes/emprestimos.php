@@ -39,7 +39,7 @@ const EMPRESTIMOS_MOVIMENTOS = [
 function emprestimos_regras(): RegrasCirculacao
 {
     static $r = null;
-    return $r ??= RegrasCirculacao::doAmbiente('env');
+    return $r ??= RegrasCirculacao::doAmbiente('config_valor');
 }
 
 function emprestimos_repo(): EmprestimoRepository
@@ -150,10 +150,16 @@ function emprestimos_situacao_exemplar(string $situacao): string
 function emprestimos_regras_texto(): string
 {
     $r = emprestimos_regras();
-    $t = 'Prazo padrão: ' . $r->prazoDias . ' dia(s)' . ($r->prazoProvisorio ? ' (valor provisório: a escola ainda não definiu; ajuste EMPRESTIMO_PRAZO_DIAS no .env)' : '') . '. ';
+    $t = 'Prazo padrão: ' . $r->prazoDias . ' dia(s)' . ($r->prazoProvisorio ? ' (valor provisório: a escola ainda não definiu; ajuste em Sistema → Configurações)' : '') . '. ';
     $t .= 'Renovação: +' . $r->renovacaoDias . ' dia(s), ';
     $t .= $r->maxRenovacoes === null ? 'sem limite definido pela escola (limite técnico de ' . RegrasCirculacao::RENOVACOES_LIMITE_TECNICO . ')' : 'até ' . $r->maxRenovacoes . ' renovação(ões)';
     $t .= $r->renovarAtrasado ? '.' : '; empréstimos atrasados não podem ser renovados.';
+    if ($r->limiteAluno !== null) {
+        $t .= ' Até ' . $r->limiteAluno . ' livro(s) por aluno ao mesmo tempo.';
+    }
+    if ($r->bloquearComAtraso) {
+        $t .= ' Aluno com livro atrasado não pode fazer novo empréstimo.';
+    }
     return $t;
 }
 

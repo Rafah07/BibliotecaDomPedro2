@@ -170,3 +170,45 @@ function initial(string $nome): string
 {
     return mb_strtoupper(mb_substr(trim($nome), 0, 1));
 }
+
+/**
+ * Site em manutenção (Sistema → Configurações, só o administrador liga): os visitantes veem só a
+ * mensagem, com o código HTTP 503 (buscadores entendem que é temporário). O painel não é afetado.
+ */
+function site_manutencao_pagina(string $mensagem): never
+{
+    if (!headers_sent()) {
+        http_response_code(503);
+        header('Retry-After: 1800');
+        header('Cache-Control: no-store');
+    }
+    site_cabecalhos();
+    ?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#173676">
+    <title>Em manutenção | Biblioteca Dom Pedro II</title>
+    <link rel="icon" href="<?= e(asset('img/emblema-pequeno.png')) ?>">
+    <link rel="stylesheet" href="<?= e(asset('css/style.css')) ?>">
+</head>
+<body>
+<main class="maintenance-page" id="conteudo">
+    <img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="Emblema da escola" width="110" height="73">
+    <h1>Biblioteca Dom Pedro II</h1>
+    <p class="maintenance-title"><?= icon('wrench') ?> Site em manutenção</p>
+    <div class="maintenance-text"><?= site_texto_html($mensagem) ?></div>
+    <p class="maintenance-staff"><a href="<?= e(url('admin/login.php')) ?>" rel="nofollow"><?= icon('lock') ?> Acesso da equipe</a></p>
+</main>
+</body>
+</html>
+    <?php
+    exit;
+}
+
+if (PHP_SAPI !== 'cli' && config_bool('SITE_MANUTENCAO', false)) {
+    site_manutencao_pagina(trim((string)config_valor('SITE_MANUTENCAO_MENSAGEM', '')) ?: Biblioteca\Support\ConfiguracaoSistema::MENSAGEM_MANUTENCAO_PADRAO);
+}

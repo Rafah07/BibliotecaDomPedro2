@@ -48,7 +48,7 @@ final class SiteConteudo
             'ajuda' => 'Ex.: quantos livros cada aluno pode levar, se aprovado pela escola.'],
         'devolucao_info' => ['grupo' => 'Regras e funcionamento', 'rotulo' => 'Informações adicionais sobre devoluções', 'tipo' => 'texto', 'max' => 1500, 'ajuda' => ''],
         'mostrar_prazo' => ['grupo' => 'Regras e funcionamento', 'rotulo' => 'Mostrar o prazo de empréstimo no site', 'tipo' => 'opcao', 'max' => 1,
-            'ajuda' => 'Marque somente quando o prazo configurado no sistema (EMPRESTIMO_PRAZO_DIAS no .env) tiver sido aprovado pela escola.'],
+            'ajuda' => 'Marque somente quando o prazo configurado em Sistema → Configurações tiver sido aprovado pela escola.'],
         'creditos' => ['grupo' => 'Rodapé', 'rotulo' => 'Créditos do projeto', 'tipo' => 'linha', 'max' => 255,
             'ajuda' => 'Ex.: quem desenvolveu o site. Vazio: nenhum crédito é exibido.'],
     ];
@@ -88,7 +88,7 @@ final class SiteConteudo
         return trim($this->valores[$chave] ?? '') !== '';
     }
 
-    /** Prazo de empréstimo em dias, só quando configurado no .env E liberado para o site. */
+    /** Prazo de empréstimo em dias, só quando definido (Sistema → Configurações ou .env) E liberado para o site. */
     public function prazoEmprestimo(): ?int
     {
         if (!$this->regras || $this->regras->prazoProvisorio || ($this->valores['mostrar_prazo'] ?? '') !== '1') {

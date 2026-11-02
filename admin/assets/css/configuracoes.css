@@ -1,0 +1,69 @@
+/* Configurações gerais, perfis e permissões, manutenção (Etapa 6). Usa os tokens de admin.css. */
+
+.adm-config-resumo,
+.adm-config-grupo { margin-bottom: 18px; }
+.adm-config-resumo .adm-form-section__header { margin-bottom: 6px; }
+
+.adm-config-campos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 22px;
+}
+.adm-config-campo .adm-textarea { min-height: 84px; }
+.adm-config-uso { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: var(--adm-text); }
+.adm-config-uso .adm-status { font-size: 11px; }
+.adm-config-bloqueado { display: flex; align-items: center; gap: 6px; margin: -6px 0 14px; font-size: 13px; color: var(--adm-muted); }
+.adm-config-bloqueado .icon { width: 15px; height: 15px; }
+.adm-config-campo select:disabled,
+.adm-config-campo input:disabled,
+.adm-config-campo textarea:disabled { background: var(--adm-bg); color: var(--adm-muted); cursor: not-allowed; }
+.adm-config-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 24px; }
+
+/* Perfis */
+.adm-config-perfis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.adm-config-perfil { padding: 16px 18px; }
+.adm-config-perfil h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; }
+.adm-config-perfil p { margin-top: 4px; font-size: 13px; color: var(--adm-muted); }
+.adm-config-perfil.is-atual { border-color: var(--adm-blue-bright); box-shadow: 0 0 0 2px rgba(46, 115, 255, .14); }
+
+/* Matriz de permissões */
+.adm-config-matriz { min-width: 720px; }
+.adm-config-matriz th[scope="row"] { font-weight: 500; text-align: left; }
+.adm-config-matriz th[scope="row"] code { display: block; margin-top: 2px; font-size: 11.5px; color: var(--adm-muted); font-weight: 400; }
+.adm-config-matriz__perfil,
+.adm-config-matriz__celula { text-align: center; width: 13%; }
+.adm-config-matriz .is-atual { background: rgba(46, 115, 255, .06); }
+.adm-config-matriz__grupo th { background: var(--adm-bg); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--adm-navy); text-align: left; }
+.adm-config-sim { display: inline-flex; color: var(--adm-green); }
+.adm-config-sim .icon { width: 18px; height: 18px; }
+.adm-config-nao { color: #cbd5e1; }
+
+/* Manutenção */
+.adm-config-diagnostico { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
+.adm-config-diagnostico li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); }
+.adm-config-diagnostico li.is-erro { border-color: #fecaca; background: #fffafa; }
+.adm-config-diagnostico li.is-aviso { border-color: #fde68a; background: #fffdf5; }
+.adm-config-diagnostico strong { display: block; font-size: 13.5px; }
+.adm-config-diagnostico span:not(.adm-icon-box):not(.adm-visually-hidden) { display: block; font-size: 12.5px; color: var(--adm-muted); overflow-wrap: anywhere; }
+.adm-config-totais { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.adm-config-totais div { padding: 12px 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); }
+.adm-config-totais dt { font-size: 12.5px; color: var(--adm-muted); }
+.adm-config-totais dd { margin: 4px 0 0; font-size: 20px; font-weight: 700; color: var(--adm-navy); }
+.adm-config-duas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.adm-config-duas form { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.adm-config-detalhes { margin-top: 14px; font-size: 13px; }
+.adm-config-detalhes summary { cursor: pointer; font-weight: 600; color: var(--adm-blue-accent); }
+.adm-config-detalhes ol { margin: 8px 0; padding-left: 20px; display: grid; gap: 4px; }
+.adm-config-detalhes code { overflow-wrap: anywhere; font-size: 12px; }
+
+@media (max-width: 1100px) {
+    .adm-config-perfis,
+    .adm-config-totais { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+    .adm-config-campos,
+    .adm-config-diagnostico,
+    .adm-config-duas { grid-template-columns: 1fr; }
+    .adm-config-perfis,
+    .adm-config-totais { grid-template-columns: 1fr 1fr; gap: 10px; }
+}

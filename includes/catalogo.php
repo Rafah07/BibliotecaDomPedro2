@@ -41,7 +41,7 @@ function site_conteudo(): SiteConteudo
     static $conteudo = null;
     if ($conteudo === null) {
         $pdo = site_pdo();
-        $conteudo = new SiteConteudo($pdo ? new SiteConfiguracaoRepository($pdo) : null, RegrasCirculacao::doAmbiente('env'));
+        $conteudo = new SiteConteudo($pdo ? new SiteConfiguracaoRepository($pdo) : null, RegrasCirculacao::doAmbiente('config_valor'));
     }
     return $conteudo;
 }

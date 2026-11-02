@@ -92,12 +92,17 @@ final class EmprestimoService
             throw new CirculacaoException($problema);
         }
         return $this->transacao(function () use ($alunoId, $exemplarId, $prevista, $responsavelId, $observacao) {
-            $aluno = $this->linha('SELECT id, ativo FROM alunos WHERE id = ? LOCK IN SHARE MODE', [$alunoId]);
+            // FOR UPDATE: dois empréstimos simultâneos para o mesmo aluno passam um de cada vez,
+            // então o limite por aluno (Sistema → Configurações) não é ultrapassado.
+            $aluno = $this->linha('SELECT id, ativo FROM alunos WHERE id = ? FOR UPDATE', [$alunoId]);
             if (!$aluno) {
                 throw new CirculacaoException('Aluno não encontrado. Os empréstimos só podem ser feitos para alunos cadastrados (página Importar Alunos).');
             }
             if (!(int)$aluno['ativo']) {
                 throw new CirculacaoException('O cadastro deste aluno está inativo. Empréstimos só podem ser feitos para alunos ativos.');
+            }
+            if ($problema = $this->impedimentoAluno($alunoId)) {
+                throw new CirculacaoException($problema);
             }
 
             // Bloqueia o exemplar até o fim da transação: um segundo pedido simultâneo espera aqui
@@ -137,6 +142,28 @@ final class EmprestimoService
             $this->acao($responsavelId, 'emprestimo.registrar', $id, ['codigo' => $ex['codigo_individual'], 'titulo' => $ex['titulo'], 'data_prevista' => $prevista]);
             return ['id' => $id, 'codigo' => $ex['codigo_individual'], 'titulo' => $ex['titulo'], 'data_prevista' => $prevista];
         });
+    }
+
+    /**
+     * Regras da escola sobre o aluno (Sistema → Configurações): limite de livros ao mesmo tempo
+     * e bloqueio de quem tem livro atrasado. Devolve a mensagem do impedimento ou null.
+     */
+    public function impedimentoAluno(int $alunoId): ?string
+    {
+        if ($this->regras->limiteAluno === null && !$this->regras->bloquearComAtraso) {
+            return null;
+        }
+        $abertos = $this->linha('SELECT COUNT(*) AS total, COALESCE(SUM(data_prevista < ?), 0) AS atrasados
+                                 FROM emprestimos WHERE aluno_id = ? AND data_devolucao IS NULL', [$this->regras->hoje(), $alunoId]);
+        $total = (int)($abertos['total'] ?? 0);
+        $atrasados = (int)($abertos['atrasados'] ?? 0);
+        if ($this->regras->bloquearComAtraso && $atrasados > 0) {
+            return 'Este aluno tem ' . $atrasados . ' livro(s) com a devolução atrasada. Pela regra da biblioteca, um novo empréstimo só pode ser feito depois da devolução.';
+        }
+        if ($this->regras->limiteAluno !== null && $total >= $this->regras->limiteAluno) {
+            return 'Este aluno já está com ' . $total . ' livro(s) emprestado(s), e o limite da biblioteca é de ' . $this->regras->limiteAluno . ' por aluno.';
+        }
+        return null;
     }
 
     /**

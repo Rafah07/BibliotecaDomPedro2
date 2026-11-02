@@ -47,7 +47,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 }
 
-$regras = RegrasCirculacao::doAmbiente('env');
+$regras = RegrasCirculacao::doAmbiente('config_valor');
 $grupos = [];
 foreach (SiteConteudo::CAMPOS as $chave => $campo) {
     $grupos[$campo['grupo']][$chave] = $campo;

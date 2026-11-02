@@ -110,3 +110,5 @@ function db_query(string $sql, array $params = []): PDOStatement
     $stmt->execute($params);
     return $stmt;
 }
+
+require_once __DIR__ . '/configuracoes.php';

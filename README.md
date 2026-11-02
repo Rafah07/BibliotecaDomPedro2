@@ -3,7 +3,7 @@
 Sistema da biblioteca escolar Dom Pedro II, em PHP tradicional e MySQL.
 
 - **Site público** (sem login): página inicial, catálogo com busca e filtros, página de cada livro com a disponibilidade física, categorias, autores, Sobre a biblioteca e Regras e funcionamento. Os alunos usam apenas esta área. Veja [`docs/site-publico.md`](docs/site-publico.md).
-- **Painel administrativo** (`/admin/`, com login): dashboard, acervo (livros, exemplares, categorias), classificação CDD, importação das planilhas Excel antigas, circulação, inventário e relatórios com exportação em PDF, CSV e XLSX (veja [`docs/relatorios.md`](docs/relatorios.md)).
+- **Painel administrativo** (`/admin/`, com login): dashboard, acervo (livros, exemplares, categorias), classificação CDD, importação das planilhas Excel antigas, circulação, inventário, relatórios com exportação em PDF, CSV e XLSX (veja [`docs/relatorios.md`](docs/relatorios.md)) e configurações gerais, perfis e manutenção (veja [`docs/configuracoes.md`](docs/configuracoes.md)).
 
 ## Tecnologias e requisitos
 
@@ -67,7 +67,10 @@ cp .env.example .env
 | `STORAGE_IMPORTACOES` | Pasta privada das planilhas enviadas (padrão `storage/importacoes`). |
 | `APP_TIMEZONE` | Fuso da escola, usado nas datas dos empréstimos e no cálculo de atrasos (padrão `America/Sao_Paulo`). |
 | `ETIQUETA_BIBLIOTECA` | Nome impresso nas etiquetas dos exemplares (vazio: Biblioteca Dom Pedro II). Veja [`docs/inventario-exemplares-etiquetas.md`](docs/inventario-exemplares-etiquetas.md). |
-| `EMPRESTIMO_PRAZO_DIAS`, `EMPRESTIMO_RENOVACAO_DIAS`, `EMPRESTIMO_MAX_RENOVACOES`, `EMPRESTIMO_RENOVAR_ATRASADO`, `EMPRESTIMO_PRAZO_MAXIMO_DIAS` | Regras de empréstimo. Vazias, valem os padrões **provisórios** (14 dias, sem limite de renovações, renovação de atrasados permitida). Veja [`docs/emprestimos.md`](docs/emprestimos.md). |
+| `EMPRESTIMO_PRAZO_DIAS`, `EMPRESTIMO_RENOVACAO_DIAS`, `EMPRESTIMO_MAX_RENOVACOES`, `EMPRESTIMO_RENOVAR_ATRASADO`, `EMPRESTIMO_PRAZO_MAXIMO_DIAS`, `EMPRESTIMO_LIMITE_ALUNO`, `EMPRESTIMO_BLOQUEAR_ATRASO` | Regras de empréstimo. Vazias, valem os padrões **provisórios** (14 dias, sem limite de renovações, renovação de atrasados permitida, sem limite de livros por aluno). Veja [`docs/emprestimos.md`](docs/emprestimos.md). |
+| `ALUNOS_EMAIL_DOMINIO`, `PAINEL_INATIVIDADE_MINUTOS`, `LOGIN_MAX_TENTATIVAS`, `SITE_MANUTENCAO`, `SITE_MANUTENCAO_MENSAGEM` | Domínio do e-mail dos alunos, segurança do painel e site em manutenção. |
+
+As variáveis da identificação, das regras de empréstimo, dos alunos, da segurança e da manutenção também podem ser alteradas no painel em **Sistema → Configurações**: o valor salvo lá vale mais que o `.env`, e um campo vazio volta a usar o `.env`. Banco, ambiente, fuso, pastas e fontes CDD ficam só no `.env`. Veja [`docs/configuracoes.md`](docs/configuracoes.md).
 
 O `.env` está no `.gitignore` e **nunca** deve ser enviado ao GitHub. Variáveis definidas no próprio servidor têm prioridade sobre o arquivo.
 
@@ -222,16 +225,18 @@ BibliotecaDomPedro2/
 | Histórico de atividades | `acoes_administrativas` | 030 |
 | Classificações CDD | `classificacoes_cdd`, `classificacoes_cdd_historico`, `cdd_*` | 040 |
 | Inventários | `inventarios`, `inventario_conferencias` | 001 + 050 |
+| Textos do site público | `site_configuracoes` | 080 |
+| Configurações gerais | `configuracoes_sistema`, `configuracoes_historico` (imutável) | 090 |
 
 Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pertence a um livro; o código BDP é único; o ISBN identifica a edição, não o exemplar; a quantidade antiga das planilhas fica em `registros_legados` e **nunca** vira exemplar disponível; a CDD fica em `classificacoes_cdd` com histórico que não pode ser alterado; um exemplar só pode ter um empréstimo em aberto; empréstimos, renovações e registros legados não podem ser apagados; um empréstimo devolvido não pode ser alterado, e o aluno, o exemplar e a data de retirada de um empréstimo nunca mudam.
 
 ## Segurança do painel
 
 - Todas as páginas de `admin/` exigem login; as APIs respondem 401/403 sem sessão ou sem permissão.
-- Senhas com `password_hash`/`password_verify`, sessão com cookie `HttpOnly` e `SameSite=Lax`, ID regenerado no login, bloqueio após 5 tentativas em 15 minutos.
+- Senhas com `password_hash`/`password_verify`, sessão com cookie `HttpOnly` e `SameSite=Lax`, ID regenerado no login, bloqueio após 5 tentativas em 15 minutos (número ajustável em Sistema → Configurações).
 - Formulários e APIs que alteram dados exigem token CSRF; o logout é feito por POST.
 - Permissões por perfil em `admin/includes/auth.php` (`AUTH_PERMISSOES`), conferidas no servidor em cada página e ação (esconder botões é só conveniência). Só o perfil `administrador` gerencia contas; o último administrador ativo não pode ser desativado nem rebaixado.
-- Sessão encerrada após 2 horas sem uso; redefinir a senha de alguém encerra as sessões abertas com a senha antiga.
+- Sessão encerrada após 2 horas sem uso (ajustável em Sistema → Configurações); redefinir a senha de alguém encerra as sessões abertas com a senha antiga.
 - Cadastros, edições, arquivamentos e mudanças de contas ficam em `acoes_administrativas` (quem, quando, o quê). Senhas nunca são registradas.
 - Livros não são excluídos: são **arquivados** (com motivo e confirmação) e podem ser restaurados. O arquivamento é recusado enquanto houver exemplares em uso ou empréstimos em aberto.
 - Erros de banco aparecem para o usuário como mensagem genérica; o detalhe vai para o log do servidor.
@@ -249,6 +254,7 @@ php admin/tests/emprestimos-teste.php  # empréstimos, devoluções, renovaçõe
 php admin/tests/inventario-teste.php   # exemplares, códigos BDP, localizações, inventário, etiquetas, relatórios e permissões; banco temporário, só dados fictícios
 php admin/tests/site-publico-teste.php # site público: busca, filtros, paginação, disponibilidade, privacidade, SQL/XSS, .htaccess e responsividade; banco temporário
 php admin/tests/relatorios-teste.php   # relatórios: contas, períodos, gráficos, PDF/CSV/XLSX, permissões, privacidade e integridade; banco temporário, só dados fictícios
+php admin/tests/configuracoes-teste.php # configurações (painel → .env → padrão), regras novas, permissões, manutenção, cópia de segurança restaurada; banco temporário
 ```
 
 ## Situação das funcionalidades
@@ -266,6 +272,7 @@ php admin/tests/relatorios-teste.php   # relatórios: contas, períodos, gráfic
 - Importação local de alunos (`.xlsx`/`.csv`) com mapeamento de colunas, prévia, prevenção de duplicidades pela matrícula e atualização separada com confirmação. O arquivo não é guardado no servidor. Veja [`docs/importacao-alunos.md`](docs/importacao-alunos.md).
 - Acervo físico: cadastro manual de exemplares (código BDP gerado na confirmação), localizações (setor, estante, prateleira), inventário digital com leitor de código de barras, decisões sobre divergências, relatórios CSV/PDF e etiquetas em PDF no tamanho real. Veja [`docs/inventario-exemplares-etiquetas.md`](docs/inventario-exemplares-etiquetas.md).
 - Relatórios administrativos (menu **Relatórios**): acervo, exemplares físicos, empréstimos e devoluções, atrasos, alunos, inventários, classificação CDD e atividades administrativas, com filtros de período, gráficos com tabela de dados e exportação em PDF (A4), CSV e XLSX. Veja [`docs/relatorios.md`](docs/relatorios.md).
+- Configurações gerais (Sistema → Configurações): identificação, regras de empréstimo (incluindo limite de livros por aluno e bloqueio por atraso, desligados por padrão), domínio do e-mail dos alunos, segurança do painel e site em manutenção, com histórico imutável; página Perfis e permissões; página Manutenção com diagnóstico, cópia de segurança `.sql` e limpeza de tentativas de login. Veja [`docs/configuracoes.md`](docs/configuracoes.md).
 - Circulação: empréstimos (só de exemplares físicos disponíveis, para alunos cadastrados e ativos), devoluções, renovações com regras configuráveis, atrasos, histórico por aluno e por exemplar, e indicadores no dashboard. Veja [`docs/emprestimos.md`](docs/emprestimos.md).
 
 **Pendentes**

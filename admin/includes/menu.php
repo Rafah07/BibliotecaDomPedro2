@@ -65,7 +65,10 @@ const ADMIN_MENU = [
         'administrador' => ['label' => 'Conta de acesso', 'icon' => 'user-round', 'arquivo' => 'administrador.php', 'pronta' => true, 'oculto' => true],
         'site-publico' => ['label' => 'Site público', 'icon' => 'globe', 'arquivo' => 'site-publico.php', 'pronta' => true, 'permissao' => 'site.editar'],
         'capa-livro' => ['label' => 'Capa do livro', 'icon' => 'image', 'arquivo' => 'capa-livro.php', 'pronta' => true, 'oculto' => true],
-        'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings'],
+        // Configurações gerais, perfis e manutenção (Etapa 6).
+        'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings', 'arquivo' => 'configuracoes.php', 'pronta' => true, 'permissao' => 'configuracoes.ver'],
+        'permissoes' => ['label' => 'Perfis e permissões', 'icon' => 'shield-check', 'arquivo' => 'permissoes.php', 'pronta' => true, 'pai' => 'configuracoes'],
+        'manutencao' => ['label' => 'Manutenção', 'icon' => 'wrench', 'arquivo' => 'manutencao.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
         'perfil' => ['label' => 'Meu perfil', 'icon' => 'user-round', 'arquivo' => 'perfil.php', 'pronta' => true, 'oculto' => true],
         'site' => ['label' => 'Voltar ao site', 'icon' => 'house', 'url' => '', 'pronta' => true],
         'sair' => ['label' => 'Sair', 'icon' => 'log-out', 'acao' => 'logout'],
