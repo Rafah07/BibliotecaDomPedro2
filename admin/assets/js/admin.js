@@ -37,11 +37,15 @@
     window.admToast = showToast;
 
     // ---------- Menu lateral ----------
+    // Computador: começa recolhido (só ícones). A escolha explícita de expandir/recolher
+    // fica salva neste navegador; sem preferência salva, o menu continua recolhido.
     function setExpanded(expanded, save = true) {
         root.classList.toggle('adm-sidebar-expanded', expanded);
         if (toggle) {
+            const label = expanded ? 'Recolher menu' : 'Expandir menu';
             toggle.setAttribute('aria-expanded', String(expanded));
-            toggle.setAttribute('aria-label', expanded ? 'Recolher menu' : 'Expandir menu');
+            toggle.setAttribute('aria-label', label);
+            toggle.dataset.tooltip = label;
         }
         if (save) {
             try { localStorage.setItem(STORAGE_KEY, expanded ? 'expanded' : 'collapsed'); } catch (e) { /* armazenamento indisponível */ }
@@ -49,25 +53,65 @@
         hideTooltip();
     }
 
-    function setMobileOpen(open) {
+    // Celular e tablet: painel lateral sobreposto, com foco preso dentro dele enquanto aberto.
+    const main = document.querySelector('.adm-main');
+    let lastOpener = null;
+    function focusables() {
+        return Array.from(sidebar?.querySelectorAll('a[href], button:not([disabled])') || [])
+            .filter((el) => el.offsetParent !== null);
+    }
+    function setMobileOpen(open, restoreFocus = true) {
+        const wasOpen = body.classList.contains('adm-mobile-open');
         body.classList.toggle('adm-mobile-open', open);
         if (backdrop) backdrop.hidden = !open;
-        document.querySelectorAll('[data-mobile-open]').forEach((btn) => btn.setAttribute('aria-expanded', String(open)));
+        if (main) {
+            if (open) main.setAttribute('inert', '');
+            else main.removeAttribute('inert');
+        }
+        document.querySelectorAll('[data-mobile-open]').forEach((btn) => {
+            btn.setAttribute('aria-expanded', String(open));
+            btn.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+        });
         if (open) {
-            sidebar?.querySelector('.adm-nav__link.is-active, .adm-nav__link')?.focus({ preventScroll: true });
+            lastOpener = document.activeElement;
+            // Espera o painel ficar visível para poder receber o foco.
+            requestAnimationFrame(() => (sidebar?.querySelector('.adm-nav__link.is-active') || sidebar?.querySelector('.adm-sidebar__close'))?.focus({ preventScroll: true }));
+        } else if (wasOpen && restoreFocus) {
+            (lastOpener && document.contains(lastOpener) ? lastOpener : document.querySelector('[data-mobile-open]'))?.focus({ preventScroll: true });
         }
     }
 
     toggle?.addEventListener('click', () => setExpanded(!root.classList.contains('adm-sidebar-expanded')));
     if (toggle) setExpanded(root.classList.contains('adm-sidebar-expanded'), false);
 
-    document.querySelectorAll('[data-mobile-open]').forEach((btn) => btn.addEventListener('click', () => setMobileOpen(true)));
+    document.querySelectorAll('[data-mobile-open]').forEach((btn) => btn.addEventListener('click', () => setMobileOpen(!body.classList.contains('adm-mobile-open'))));
     document.querySelectorAll('[data-mobile-close]').forEach((el) => el.addEventListener('click', () => setMobileOpen(false)));
-    mobileQuery.addEventListener('change', () => setMobileOpen(false));
+    mobileQuery.addEventListener('change', () => setMobileOpen(false, false));
+
+    // No celular, escolher uma página fecha o painel (a navegação continua normalmente).
+    sidebar?.querySelectorAll('a.adm-nav__link').forEach((link) => link.addEventListener('click', () => {
+        if (mobileQuery.matches) setMobileOpen(false, false);
+    }));
+
+    // Tab e Shift+Tab circulam só pelos itens do painel enquanto ele está aberto.
+    sidebar?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Tab' || !body.classList.contains('adm-mobile-open')) return;
+        const items = focusables();
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
 
     // ---------- Tooltips do menu recolhido ----------
     function showTooltip(target) {
-        if (!tooltip || mobileQuery.matches || root.classList.contains('adm-sidebar-expanded')) return;
+        if (!tooltip || mobileQuery.matches || (root.classList.contains('adm-sidebar-expanded') && !target.hasAttribute('data-sidebar-toggle'))) return;
         const rect = target.getBoundingClientRect();
         tooltip.textContent = target.dataset.tooltip;
         tooltip.style.left = rect.right + 12 + 'px';
@@ -112,10 +156,7 @@
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closeDropdowns();
-            if (body.classList.contains('adm-mobile-open')) {
-                setMobileOpen(false);
-                document.querySelector('[data-mobile-open]')?.focus();
-            }
+            if (body.classList.contains('adm-mobile-open')) setMobileOpen(false);
         }
         // Atalho "/" para focar a pesquisa, como em outras plataformas administrativas.
         const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');

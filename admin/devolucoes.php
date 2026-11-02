@@ -36,7 +36,7 @@ try {
     exit;
 }
 
-admin_page_start('devolucoes', 'Devoluções', 'Devoluções', 'Circulação do acervo', ['assets/css/acervo.css?v=20261102', 'assets/css/emprestimos.css?v=20261030']);
+admin_page_start('devolucoes', 'Devoluções', 'Devoluções', 'Circulação do acervo', ['assets/css/acervo.css?v=20261102e9', 'assets/css/emprestimos.css?v=20261102e9']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Empréstimos', admin_url('emprestimos')], ['Devoluções']]) ?>

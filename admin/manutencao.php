@@ -158,7 +158,7 @@ admin_page_start('manutencao', 'Manutenção', 'Manutenção', 'Diagnóstico e c
         <form method="post" action="<?= e($base) ?>" data-confirm="Apagar as tentativas de login com mais de <?= $dias ?> dias?">
             <?= csrf_campo() ?>
             <input type="hidden" name="acao" value="limpar_tentativas">
-            <button class="adm-button adm-button--ghost" type="submit"<?= $antigas ? '' : ' disabled' ?>><?= icon('archive') ?> Apagar tentativas antigas</button>
+            <button class="adm-button adm-button--ghost adm-button--danger-text" type="submit"<?= $antigas ? '' : ' disabled' ?>><?= icon('archive') ?> Apagar tentativas antigas</button>
         </form>
     </section>
 </div>

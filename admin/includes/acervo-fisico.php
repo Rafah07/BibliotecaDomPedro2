@@ -20,7 +20,7 @@ use Biblioteca\Services\ExemplarService;
 use Biblioteca\Services\InventarioService;
 use Biblioteca\Services\LocalizacaoService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261102', 'assets/css/emprestimos.css?v=20261030', 'assets/css/inventario.css?v=20261102b'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261102e9', 'assets/css/emprestimos.css?v=20261102e9', 'assets/css/inventario.css?v=20261102b'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261102'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];

@@ -107,7 +107,7 @@ function detalhes_decisao(array $item): string
     return '<span class="adm-status adm-status--soft adm-tone--' . ($bloqueada ? 'red' : $a['tom']) . '">' . htmlspecialchars($a['label']) . ($bloqueada ? ' (corrija o erro)' : '') . '</span>';
 }
 
-admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261102', 'assets/css/importacao.css?v=20261030']);
+admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261102e9', 'assets/css/importacao.css?v=20261102e9']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Importação', admin_url('importar')], ['Histórico', admin_url('historico-importacoes')], ['Importação nº ' . $id]]) ?>

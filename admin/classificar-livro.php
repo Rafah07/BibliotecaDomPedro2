@@ -7,8 +7,8 @@ $id = (int)($_GET['id'] ?? 0);
 $item = cdd_item($id);
 
 admin_page_start('classificacao', $item ? 'Classificar: ' . $item['titulo'] : 'Livro não encontrado', 'Acervo', 'Reclassificação bibliográfica pela CDD', [
-    'assets/css/acervo.css?v=20261102',
-    'assets/css/classificacao.css?v=20261027',
+    'assets/css/acervo.css?v=20261102e9',
+    'assets/css/classificacao.css?v=20261102e9',
 ]);
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Classificação CDD', admin_url('classificacao')], ['Revisão individual']]);
 

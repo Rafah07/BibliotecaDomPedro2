@@ -24,7 +24,7 @@
 .adm-config-perfil { padding: 16px 18px; }
 .adm-config-perfil h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; }
 .adm-config-perfil p { margin-top: 4px; font-size: 13px; color: var(--adm-muted); }
-.adm-config-perfil.is-atual { border-color: var(--adm-blue-bright); box-shadow: 0 0 0 2px rgba(46, 115, 255, .14); }
+.adm-config-perfil.is-atual { border-color: var(--adm-blue-bright); box-shadow: 0 0 0 2px rgba(47, 107, 216, .14); }
 
 /* Matriz de permissões */
 .adm-config-matriz { min-width: 720px; }
@@ -32,7 +32,7 @@
 .adm-config-matriz th[scope="row"] code { display: block; margin-top: 2px; font-size: 11.5px; color: var(--adm-muted); font-weight: 400; }
 .adm-config-matriz__perfil,
 .adm-config-matriz__celula { text-align: center; width: 13%; }
-.adm-config-matriz .is-atual { background: rgba(46, 115, 255, .06); }
+.adm-config-matriz .is-atual { background: rgba(47, 107, 216, .06); }
 .adm-config-matriz__grupo th { background: var(--adm-bg); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--adm-navy); text-align: left; }
 .adm-config-sim { display: inline-flex; color: var(--adm-green); }
 .adm-config-sim .icon { width: 18px; height: 18px; }

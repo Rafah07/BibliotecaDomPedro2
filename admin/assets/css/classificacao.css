@@ -251,6 +251,7 @@ button.adm-quick__item { font: inherit; text-align: left; cursor: pointer; color
 .adm-login { display: grid; place-items: center; padding: 24px 16px; }
 .adm-login__box { width: min(420px, 100%); display: grid; gap: 16px; }
 .adm-login__brand { display: flex; align-items: center; gap: 12px; justify-content: center; }
+.adm-login__brand .adm-brand__logo { background: var(--adm-navy); border-color: var(--adm-navy); }
 .adm-login__brand strong { display: block; font-size: 16px; color: var(--adm-navy); }
 .adm-login__brand small { color: var(--adm-muted); }
 .adm-login h1 { margin: 0 0 4px; font-size: 20px; }
