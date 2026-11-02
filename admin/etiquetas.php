@@ -8,6 +8,8 @@
  *   - ?origem=filtro e os filtros da lista de exemplares (todos os filtrados, até o limite).
  * Livros sem exemplar físico não aparecem: sem exemplar não há código.
  * Gerar o PDF (POST com CSRF) registra a data da etiqueta em cada exemplar.
+ * As etiquetas têm só texto escrito (sem código de barras ou QR Code). Na lombada, exemplar sem
+ * CDD aprovada recebe uma etiqueta provisória só com o código BDP (opção "deixar de fora" desmarcada).
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/acervo-fisico.php';
@@ -68,13 +70,16 @@ foreach ($modelos as $m) {
         $modelo = $m;
     }
 }
-// Sem escolha: a primeira folha A4 patrimonial (várias etiquetas por folha); depois, o primeiro modelo ativo.
-$modelo ??= array_values(array_filter($modelos, fn ($m) => $m['tipo'] === 'patrimonial' && (int)$m['colunas'] * (int)$m['linhas'] > 1))[0] ?? $modelos[0] ?? null;
+// Sem escolha: a folha A4 patrimonial de 50 × 20 mm (modelo simples); depois, qualquer folha
+// patrimonial com várias etiquetas; por fim, o primeiro modelo ativo.
+$folhas = array_values(array_filter($modelos, fn ($m) => $m['tipo'] === 'patrimonial' && (int)$m['colunas'] * (int)$m['linhas'] > 1));
+$modelo ??= array_values(array_filter($folhas, fn ($m) => (float)$m['etiqueta_largura'] === 50.0 && (float)$m['etiqueta_altura'] === 20.0))[0] ?? $folhas[0] ?? $modelos[0] ?? null;
 $porFolha = $modelo ? (int)$modelo['colunas'] * (int)$modelo['linhas'] : 1;
 $pular = max(0, min((int)admin_param($origem, 'pular'), $porFolha - 1));
 $guias = admin_param($origem, 'guias') === '1';
-$semCddPadrao = $modelo && $modelo['tipo'] === 'lombada' && (int)$modelo['mostrar_cdd'] ? '1' : '0';
-$pularSemCdd = admin_param($origem, 'sem_cdd', $metodo === 'GET' && !isset($_GET['modelo']) ? $semCddPadrao : '0') === '1';
+// Lombada: por padrão, quem não tem CDD aprovada recebe a etiqueta provisória (só o código BDP).
+$ehLombada = $modelo && $modelo['tipo'] === 'lombada';
+$pularSemCdd = $ehLombada && admin_param($origem, 'sem_cdd', '0') === '1';
 $ignorados = 0;
 if ($pularSemCdd) {
     $antes = count($exemplares);
@@ -82,6 +87,7 @@ if ($pularSemCdd) {
     $ignorados = $antes - count($exemplares);
 }
 $baixadosOuInexistentes = count($ids) - count($exemplares) - $ignorados;
+$provisorias = $ehLombada ? count(array_filter($exemplares, fn ($ex) => EtiquetaService::lombadaProvisoria($modelo, $ex))) : 0;
 
 if ($metodo === 'POST' && admin_param($_POST, 'acao') === 'pdf') {
     admin_exigir_csrf();
@@ -117,7 +123,7 @@ admin_page_start('etiquetas', 'Etiquetas', 'Etiquetas', 'Impressão das etiqueta
 <section class="adm-page-head">
     <div>
         <h1>Etiquetas</h1>
-        <p>Etiqueta com o código do exemplar e código de barras. A CDD só aparece quando aprovada, e a localização só quando confirmada. Nenhum dado pessoal é impresso.</p>
+        <p>Etiquetas só com texto escrito: o código do exemplar (ex.: BDP-000001) em destaque, para ser lido e digitado no sistema. Sem código de barras e sem QR Code. A CDD só aparece quando aprovada, e a localização só quando confirmada. Nenhum dado pessoal é impresso.</p>
     </div>
     <div class="adm-page-head__actions">
         <?php if (auth_pode('etiquetas.configurar')): ?><a class="adm-button adm-button--ghost" href="<?= e(admin_url('etiqueta-modelos')) ?>"><?= icon('ruler') ?> Modelos e medidas</a><?php endif; ?>
@@ -141,7 +147,8 @@ admin_page_start('etiquetas', 'Etiquetas', 'Etiquetas', 'Impressão das etiqueta
 <?php else: ?>
     <?php if ($limitado): ?><?= admin_aviso('aviso', 'Muitos exemplares filtrados.', 'Só os primeiros 500 entram nesta geração. Refine os filtros para gerar o restante em outro lote.') ?><?php endif; ?>
     <?php if ($baixadosOuInexistentes > 0): ?><?= admin_aviso('aviso', $baixadosOuInexistentes . ' exemplar(es) ficaram fora.', 'Exemplares baixados ou inexistentes não recebem etiqueta.') ?><?php endif; ?>
-    <?php if ($ignorados > 0): ?><?= admin_aviso('aviso', $ignorados . ' exemplar(es) sem CDD aprovada ficaram fora.', 'A etiqueta de lombada depende da CDD aprovada. Desmarque a opção abaixo para imprimir mesmo assim (sem CDD).') ?><?php endif; ?>
+    <?php if ($ignorados > 0): ?><?= admin_aviso('aviso', $ignorados . ' exemplar(es) sem CDD aprovada ficaram fora.', 'Desmarque a opção "Deixar de fora exemplares sem CDD aprovada" para imprimir a etiqueta de lombada provisória (só com o código BDP).') ?><?php endif; ?>
+    <?php if ($provisorias > 0): ?><?= admin_aviso('info', $provisorias . ' etiqueta(s) de lombada provisória(s).', 'Estes exemplares ainda não têm CDD aprovada: a etiqueta sai só com o código BDP. Nenhuma classificação é inventada; depois da aprovação no módulo CDD, imprima a lombada definitiva.') ?><?php endif; ?>
 
     <div class="adm-etiquetas">
         <form method="get" action="<?= e($base) ?>" class="adm-card adm-panel adm-form-section adm-etiquetas__opcoes" aria-labelledby="titulo-opcoes">
@@ -155,16 +162,18 @@ admin_page_start('etiquetas', 'Etiquetas', 'Etiquetas', 'Impressão das etiqueta
             <label class="adm-field"><span class="adm-field__label">Pular posições na primeira folha</span>
                 <input class="adm-input" type="number" name="pular" min="0" max="<?= $porFolha - 1 ?>" value="<?= $pular ?>" inputmode="numeric">
                 <span class="adm-field__hint">Para reaproveitar uma folha já usada em parte (contando da esquerda para a direita, de cima para baixo).</span></label>
-            <label class="adm-check-confirm"><input type="checkbox" name="guias" value="1"<?= $guias ? ' checked' : '' ?>> <span>Desenhar o contorno das etiquetas (para teste em papel comum)</span></label>
-            <input type="hidden" name="sem_cdd" value="0">
-            <label class="adm-check-confirm"><input type="checkbox" name="sem_cdd" value="1"<?= $pularSemCdd ? ' checked' : '' ?>> <span>Deixar de fora exemplares sem CDD aprovada</span></label>
+            <label class="adm-check-confirm"><input type="checkbox" name="guias" value="1"<?= $guias ? ' checked' : '' ?>> <span>Desenhar o contorno das etiquetas (linhas de recorte e teste em papel comum)</span></label>
+            <?php if ($ehLombada): ?>
+                <input type="hidden" name="sem_cdd" value="0">
+                <label class="adm-check-confirm"><input type="checkbox" name="sem_cdd" value="1"<?= $pularSemCdd ? ' checked' : '' ?>> <span>Deixar de fora exemplares sem CDD aprovada <small class="adm-table__muted">(desmarcado: eles recebem a lombada provisória, só com o código BDP)</small></span></label>
+            <?php endif; ?>
             <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('refresh-cw') ?> Atualizar pré-visualização</button>
         </form>
 
         <section class="adm-card adm-panel adm-etiquetas__resumo" aria-labelledby="titulo-gerar">
             <h2 id="titulo-gerar" class="adm-panel__title">Gerar</h2>
             <p><strong><?= fisico_numero(count($exemplares)) ?></strong> etiqueta(s) em <strong><?= count($paginas) ?></strong> folha(s). Cada exemplar aparece uma vez.</p>
-            <?php foreach (EtiquetaService::avisos($modelo) as $aviso): ?><?= admin_aviso('aviso', 'Atenção ao código de barras', $aviso) ?><?php endforeach; ?>
+            <?php foreach (EtiquetaService::avisos($modelo) as $aviso): ?><?= admin_aviso('aviso', 'Letra pequena', $aviso) ?><?php endforeach; ?>
             <?php if ($exemplares): ?>
                 <form method="post" action="<?= e($base) ?>" target="_blank">
                     <?= csrf_campo() ?>

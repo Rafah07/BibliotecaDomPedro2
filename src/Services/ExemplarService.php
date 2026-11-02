@@ -2,6 +2,7 @@
 
 namespace Biblioteca\Services;
 
+use Biblioteca\Support\CodigoBdp;
 use Biblioteca\Support\ConsultasPdo;
 use PDO;
 
@@ -77,7 +78,7 @@ final class ExemplarService
 
             $criados = [];
             for ($i = 1; $i <= $quantidade; $i++) {
-                $codigo = sprintf('BDP-%06d', $ultimo + $i);
+                $codigo = CodigoBdp::formatar($ultimo + $i);
                 $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, situacao, observacoes, cadastrado_por, inventario_id)
                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$livroId, $codigo, $localId, $estado, $situacao, $obs, $responsavelId, $inventarioId]);
                 $id = (int)$this->pdo->lastInsertId();

@@ -75,32 +75,39 @@ Inventários concluídos ou cancelados ficam bloqueados.
 ## Como realizar a conferência
 
 1. Na página do inventário, clique em **Conferir exemplares**.
-2. Leia o código de barras da etiqueta ou digite o código (ex.: `BDP-000123`, `bdp-123` ou `BDP 123` funcionam).
-3. Confira:
+2. No campo **Digite o código do exemplar**, informe o código BDP escrito na etiqueta e pressione **Enter** (ou clique em **Pesquisar exemplar**). Veja abaixo como o código é aceito.
+3. O sistema localiza o exemplar e mostra o título, o autor, a localização e a situação. Confira se é o livro que está em mãos.
+4. Confira:
    - o estado encontrado;
    - a localização encontrada;
    - a observação (opcional).
-4. Clique em **Confirmar conferência**.
-5. Se o texto lido não for um código, o sistema pesquisa livros por título, autor ou ISBN. Cada resultado mostra:
+5. Clique em **Confirmar conferência**. A conferência fica registrada.
+6. Se o texto digitado não for um código, o sistema pesquisa livros por título, autor ou ISBN. Cada resultado mostra:
    - os exemplares já cadastrados;
    - a quantidade da planilha e a localização antiga (só como referência).
-6. Livro em mãos sem código: use **Cadastrar exemplar**, marque a confirmação, e o exemplar novo já fica conferido.
+7. Livro em mãos sem código: use **Cadastrar exemplar**, marque a confirmação, e o exemplar novo já fica conferido e recebe o próximo código BDP.
 
 Algumas regras da conferência:
 
-- **Código desconhecido** não cria nada.
-- **Leitura repetida**: o sistema avisa, mostra a conferência anterior (data, responsável, local, estado) e não grava de novo. Quem gerencia o inventário pode **corrigir** a conferência, informando o motivo.
-- **Localização em conferência** (coluna da direita): escolha a estante que está sendo conferida e ela vem preenchida em cada leitura.
-- **Modo rápido**: cada código lido é conferido na hora, com o estado já cadastrado e a localização em conferência.
+- **Código inexistente** não cria nada: aparece "Código BDP-… não encontrado".
+- **Código incompleto** (ex.: `BDP-12`): o sistema pede o código completo e não escolhe nenhum exemplar.
+- **Código já conferido**: o sistema avisa, mostra a conferência anterior (data, responsável, local, estado) e não grava de novo. Quem gerencia o inventário pode **corrigir** a conferência, informando o motivo.
+- **Localização em conferência** (coluna da direita): escolha a estante que está sendo conferida e ela vem preenchida em cada conferência.
+- **Modo rápido**: cada código digitado é conferido na hora, com o estado já cadastrado e a localização em conferência.
 - Exemplar sem localização: a localização encontrada passa a ser a confirmada.
 
-## Como usar um leitor de código de barras
+## Como digitar o código do exemplar
 
-- Leitores USB comuns funcionam como teclado: "digitam" o código e apertam Enter. Não é preciso instalar nada.
-- Deixe o cursor no campo **Leia o código de barras** (ele já abre selecionado). Depois de cada leitura, o campo volta a ficar pronto.
-- Atalhos na conferência: **F2** ou **/** voltam ao campo de leitura, e **Esc** limpa o campo.
-- O leitor também funciona no campo de pesquisa da lista de **Exemplares**.
-- Se o leitor colocar letras trocadas, confira se o teclado do computador está em português (ABNT2) e o leitor no mesmo idioma.
+A biblioteca identifica os exemplares **somente pelo código escrito** na etiqueta, como `BDP-000123`. Não há código de barras, QR Code, RFID ou NFC, e não é preciso leitor, celular ou câmera.
+
+- Cada exemplar físico tem um código único e permanente, gerado no cadastro do exemplar. O código nunca muda e nunca é reaproveitado, nem depois da baixa.
+- Letras maiúsculas ou minúsculas tanto faz: `bdp-000123` = `BDP-000123`.
+- Espaços antes e depois são ignorados (inclusive de texto colado).
+- O hífen pode faltar ou virar espaço: `BDP000123` e `BDP 000123` também funcionam.
+- Os **6 números são obrigatórios**. `BDP-123` não é completado com zeros: um dígito esquecido poderia apontar para outro exemplar que existe. O sistema mostra "Código incompleto" e não seleciona nada.
+- Não existe correspondência aproximada: ou o código é exatamente o de um exemplar, ou aparece a mensagem de código não encontrado.
+- Atalhos na conferência: **Enter** pesquisa, **F2** ou **/** voltam ao campo do código, e **Esc** limpa o campo.
+- O mesmo código funciona na lista de **Exemplares**, em **Empréstimos → Novo empréstimo** e em **Devoluções**.
 
 ## Como tratar divergências
 
@@ -138,20 +145,49 @@ Os relatórios não têm dados de alunos.
 2. Em **Etiquetas**:
    - escolha o modelo;
    - informe quantas posições pular na primeira folha (para reaproveitar folha usada);
-   - marque, se quiser, o contorno para teste.
+   - marque, se quiser, o contorno (linhas finas de recorte, úteis também no teste em papel comum);
+   - em modelos de lombada, escolha se exemplares sem CDD aprovada recebem a etiqueta provisória (padrão) ou ficam de fora.
 3. Confira a **pré-visualização em tamanho real** e clique em **Gerar PDF em tamanho real**.
 4. Na impressão, escolha **Tamanho real / 100%** e desligue "Ajustar à página". Faça um teste em papel comum antes de usar a folha de etiquetas.
 
-O que aparece na etiqueta:
+Tipos de impressão disponíveis:
 
-- nome da biblioteca;
-- código do exemplar;
-- código de barras Code 128;
-- título curto;
-- CDD, **só se aprovada** (nunca a CDD antiga da planilha);
-- localização, **só se confirmada**.
+1. **Etiqueta individual**: modelo "Patrimonial individual — 50 × 20 mm" (uma página do tamanho da etiqueta, para impressora de etiquetas ou para recortar).
+2. **Várias etiquetas por folha A4**: por exemplo "Patrimonial A4 — 3 × 12 (50 × 20 mm, com espaço para recorte)". As folhas são completadas na ordem e a quebra de página é automática.
+3. **Etiquetas patrimoniais** (modelos do tipo patrimonial).
+4. **Etiquetas de lombada** (modelos do tipo lombada).
 
-Nenhum dado de aluno, senha ou token é impresso. Livros sem exemplar físico não geram etiqueta. Cada exemplar aparece uma vez por geração, e exemplares baixados ficam de fora.
+### Etiqueta patrimonial (modelo simples)
+
+```
+┌──────────────────────────────┐
+│   BIBLIOTECA DOM PEDRO II    │
+│         BDP-000001           │   ← maior texto, em negrito, centralizado
+└──────────────────────────────┘
+```
+
+- Somente texto: fundo branco, letras pretas (Helvetica), sem imagens.
+- **Sem código de barras e sem QR Code.** O código é lido pela bibliotecária e digitado no sistema.
+- O código é sempre o elemento de maior destaque e nunca é cortado: se faltar espaço, a letra diminui só o necessário e, se ainda assim não couber, as informações opcionais saem primeiro.
+- Margem interna para o recorte não comer as letras.
+- Opcionais (desligados nos modelos de 50 × 20 mm): título curto, CDD **só se aprovada** e localização **só se confirmada**, em letra pequena abaixo do código.
+
+### Etiqueta de lombada
+
+```
+┌────────────┐     ┌────────────┐
+│   869.3    │     │            │
+│ LIT-E02-P03│     │ BDP-000004 │   ← provisória: sem CDD aprovada
+│ BDP-000002 │     │            │
+└────────────┘     └────────────┘
+```
+
+- **CDD aprovada** em destaque (nunca a CDD antiga da planilha, que não é validada).
+- Localização confirmada (opcional) e o **código BDP** do exemplar.
+- **Sem CDD aprovada**: sai a etiqueta de identificação **provisória**, só com o código BDP. Depois da aprovação no módulo CDD, imprima a lombada definitiva.
+- **Código de autor (Cutter)**: não é impresso. O sistema ainda não tem um código de autor validado; o "Cód. Autor" das planilhas antigas é só referência histórica e não vai para a etiqueta. Nada é inventado.
+
+Nenhum dado de aluno, senha ou token é impresso. Livros sem exemplar físico não geram etiqueta (sem exemplar não há código). Cada exemplar aparece uma vez por geração, mesmo se for escolhido duas vezes, e exemplares baixados ficam de fora.
 
 ## Como configurar tamanhos e margens das etiquetas
 
@@ -163,17 +199,22 @@ Nenhum dado de aluno, senha ou token é impresso. Livros sem exemplar físico n�
    - espaço entre colunas e entre linhas;
    - número de colunas e linhas.
 3. Escolha o tipo:
-   - **patrimonial**: código e barras em destaque;
-   - **lombada**: CDD em destaque, para etiquetas estreitas.
-4. Marque o que aparece na etiqueta.
-5. O sistema recusa medidas que não cabem na página e avisa se as barras ficarem finas demais para leitura.
+   - **patrimonial**: nome da biblioteca e código BDP em destaque;
+   - **lombada**: CDD aprovada e código BDP, para etiquetas estreitas.
+4. Marque o que aparece na etiqueta (o código BDP sempre aparece).
+5. O sistema recusa medidas que não cabem na página e avisa se o código ficar com letra pequena demais para ler e digitar sem erro.
 
 Modelos que já vêm cadastrados (confira as medidas na embalagem da sua folha):
 
+- **Patrimonial A4 — 3 × 12 (50 × 20 mm, com espaço para recorte)** — sugerido (migração 100; é o modelo escolhido por padrão);
+- **Patrimonial individual — 50 × 20 mm** (migração 100);
+- **Lombada individual — 30 × 20 mm** (migração 100);
 - Patrimonial A4 — 3 × 11 (63,5 × 25,4 mm);
 - Patrimonial A4 — 2 × 7 (99,1 × 38,1 mm);
 - Lombada A4 — 5 × 13 (38,1 × 21,2 mm);
 - Individual — 50 × 25 mm (impressora de etiquetas).
+
+A coluna antiga `codigo_barras` da tabela `etiqueta_modelos` continua no banco (para não recriar a tabela), mas é ignorada: nenhuma etiqueta desenha barras.
 
 O nome impresso vem de `ETIQUETA_BIBLIOTECA` no `.env`. Se ficar vazio, sai "Biblioteca Dom Pedro II".
 
@@ -222,4 +263,7 @@ Teste automático (usa um banco temporário com dados fictícios e o apaga no fi
 
 ```bash
 php admin/tests/inventario-teste.php
+php admin/tests/codigos-etiquetas-teste.php   # códigos escritos e etiquetas só com texto
 ```
+
+A migração `100_etiquetas_codigo_escrito.sql` (opcional, mas recomendada) não mexe em exemplares, códigos, empréstimos ou CDDs: só zera a antiga opção de código de barras dos modelos e acrescenta os modelos de 50 × 20 mm e 30 × 20 mm.

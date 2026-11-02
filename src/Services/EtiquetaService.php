@@ -2,7 +2,6 @@
 
 namespace Biblioteca\Services;
 
-use Biblioteca\Support\Code128;
 use Biblioteca\Support\ConsultasPdo;
 use Biblioteca\Support\Pdf;
 use PDO;
@@ -13,11 +12,15 @@ use PDOException;
  * e geração do PDF em tamanho real.
  *
  * Regras:
+ *   * As etiquetas têm SOMENTE texto escrito. O código do exemplar (ex.: BDP-000001) é o
+ *     elemento de maior destaque e é digitado no sistema; não há código de barras, QR Code
+ *     ou qualquer outro código visual.
  *   * Só exemplares cadastrados recebem etiqueta (livro sem exemplar físico não tem código).
  *   * Cada exemplar aparece uma única vez por geração, na ordem escolhida.
- *   * O código de barras (Code 128) representa só o código do exemplar, ex.: BDP-000001.
  *   * A CDD impressa é sempre a APROVADA no módulo de classificação. Sem CDD aprovada, a
- *     etiqueta patrimonial sai sem CDD (nada é inventado) e a de lombada pode ser pulada.
+ *     etiqueta patrimonial sai sem CDD (nada é inventado) e a de lombada sai provisória,
+ *     só com o código BDP. Código de autor (Cutter) não é impresso: o sistema ainda não tem
+ *     um código de autor validado (o da planilha antiga é só referência).
  *   * A localização impressa é a confirmada do exemplar (nunca a localização antiga da planilha).
  *   * Nenhum dado de aluno, senha ou token entra nas etiquetas.
  *   * O mesmo cálculo de posições serve para a pré-visualização (HTML) e para o PDF.
@@ -27,7 +30,7 @@ final class EtiquetaService
     use ConsultasPdo;
 
     private const MM_POR_PONTO = 25.4 / 72;
-    public const MODULO_MINIMO = 0.19; // mm: abaixo disso, impressoras comuns podem borrar as barras
+    public const CODIGO_LEGIVEL = 8.0; // pt: abaixo disso o código fica difícil de ler e digitar
 
     public function __construct(private PDO $pdo)
     {
@@ -117,7 +120,6 @@ final class EtiquetaService
             'espaco_vertical' => $num('espaco_vertical', 'Espaço entre linhas', 0, 100),
             'colunas' => $int('colunas', 'Colunas', 1, 20),
             'linhas' => $int('linhas', 'Linhas', 1, 40),
-            'codigo_barras' => !empty($dados['codigo_barras']) ? 1 : 0,
             'mostrar_biblioteca' => !empty($dados['mostrar_biblioteca']) ? 1 : 0,
             'mostrar_titulo' => !empty($dados['mostrar_titulo']) ? 1 : 0,
             'mostrar_cdd' => !empty($dados['mostrar_cdd']) ? 1 : 0,
@@ -166,105 +168,108 @@ final class EtiquetaService
 
     /**
      * Elementos de uma etiqueta, com posições em mm relativas ao canto superior esquerdo dela.
-     * Tipos: texto (x, y = linha de base, tamanho em pt, fonte, alinhamento) e barras (x, y, largura, altura, modulo).
+     * Só há elementos de TEXTO (x, y = linha de base, tamanho em pt, fonte, alinhamento e papel):
+     * nenhuma etiqueta desenha código de barras, QR Code ou outro código visual.
+     *
+     * Patrimonial (modelo simples):      Lombada:
+     *     BIBLIOTECA DOM PEDRO II            869.3        ← CDD aprovada (se houver)
+     *        BDP-000001  ← maior texto       LIT-E03      ← localização confirmada (opcional)
+     *     (título/CDD/local, opcionais)      BDP-000001
+     * Lombada sem CDD aprovada = etiqueta provisória só com o código BDP.
+     * Papéis: biblioteca, codigo, titulo, detalhe, cdd, local.
      */
     public static function elementos(array $modelo, array $ex, string $biblioteca): array
     {
         $w = (float)$modelo['etiqueta_largura'];
         $h = (float)$modelo['etiqueta_altura'];
-        $p = max(1.2, min(2.5, min($w, $h) * 0.08));
+        $p = self::margemInterna($w, $h);
         $interna = $w - 2 * $p;
+        $util = $h - 2 * $p;
         $codigo = (string)$ex['codigo_individual'];
-        $cdd = $modelo['mostrar_cdd'] ? ($ex['cdd_aprovada'] ?? null) : null;
-        $local = $modelo['mostrar_local'] ? self::localCurto($ex) : null;
-        $alt = fn (float $pt) => $pt * self::MM_POR_PONTO;
+        $cdd = !empty($modelo['mostrar_cdd']) ? self::cddAprovada($ex) : null;
+        $local = !empty($modelo['mostrar_local']) ? self::localCurto($ex) : null;
+        $local = $local !== null && $local !== '' ? $local : null;
         $limitar = fn (float $v, float $min, float $max) => max($min, min($max, $v));
-        $el = [];
 
-        if ($modelo['tipo'] === 'lombada') {
+        // Cada linha: [texto, tamanho, fonte, papel]. O código é sempre a maior.
+        if (($modelo['tipo'] ?? '') === 'lombada') {
             $linhas = [];
-            if ($modelo['mostrar_biblioteca']) {
-                $linhas[] = ['BDP', $limitar($h * 0.2, 4, 6), 'normal'];
-            }
             if ($cdd !== null) {
-                $linhas[] = [$cdd, $limitar($h * 0.5, 7, 16), 'negrito'];
+                $linhas[] = [$cdd, $limitar($h * 0.6, 7, 18), 'negrito', 'cdd'];
+                if ($local !== null) {
+                    $linhas[] = [$local, $limitar($h * 0.3, 5, 9), 'normal', 'local'];
+                }
+                $linhas[] = [$codigo, $limitar($h * 0.42, 6, 11), 'negrito', 'codigo'];
+            } else {
+                // Provisória: só o código BDP, grande e centralizado.
+                $linhas[] = [$codigo, $limitar($h * 0.75, 6, 24), 'negrito', 'codigo'];
             }
-            if ($local !== null && $local !== '') {
-                $linhas[] = [$local, $limitar($h * 0.26, 5, 9), 'normal'];
+        } else {
+            $linhas = [];
+            if (!empty($modelo['mostrar_biblioteca'])) {
+                $linhas[] = [mb_strtoupper($biblioteca), $limitar($h * 0.36, 5, 9), 'negrito', 'biblioteca'];
             }
-            $linhas[] = [$codigo, $limitar($h * 0.28, 5, 9), 'negrito'];
-            $alturaBarras = $modelo['codigo_barras'] ? $limitar($h * 0.3, 3, 12) : 0;
-            $total = array_sum(array_map(fn ($l) => $alt($l[1]) * 1.15, $linhas)) + ($alturaBarras ? $alturaBarras + 0.8 : 0);
-            $y = max($p * 0.5, ($h - $total) / 2);
-            foreach ($linhas as [$texto, $tam, $fonte]) {
-                $tam = self::encolher($texto, $interna, $tam, $fonte);
-                $el[] = ['tipo' => 'texto', 'x' => $w / 2, 'y' => $y + $alt($tam) * 0.85, 'texto' => Pdf::caber($texto, $interna, $tam, $fonte), 'tamanho' => $tam, 'fonte' => $fonte, 'alinhamento' => 'centro'];
-                $y += $alt($tam) * 1.15;
+            $linhas[] = [$codigo, $limitar($h * 0.85, 8, 28), 'negrito', 'codigo'];
+            $titulo = !empty($modelo['mostrar_titulo']) ? trim((string)($ex['titulo'] ?? '')) : '';
+            if ($titulo !== '') {
+                $linhas[] = [$titulo, $limitar($h * 0.22, 4.5, 7.5), 'normal', 'titulo'];
             }
-            if ($alturaBarras) {
-                $el[] = self::barras($codigo, $p, $y + 0.4, $interna, $alturaBarras);
+            $detalhe = implode(' · ', array_filter([$cdd !== null ? 'CDD ' . $cdd : null, $local]));
+            if ($detalhe !== '') {
+                $linhas[] = [$detalhe, $limitar($h * 0.22, 4.5, 7.5), 'negrito', 'detalhe'];
             }
-            return $el;
         }
 
-        // Patrimonial: biblioteca e CDD no alto, barras no meio, código e título embaixo.
-        $tamTopo = $limitar($h * 0.22, 4.5, 8);
-        $tamCodigo = $limitar($h * 0.34, 6, 12);
-        $tamRodape = $limitar($h * 0.2, 4.5, 7.5);
-        $topo = $p;
-        if ($modelo['mostrar_biblioteca'] || $cdd !== null) {
-            $baseTopo = $p + $alt($tamTopo) * 0.85;
-            $larguraCdd = 0;
-            if ($cdd !== null) {
-                $textoCdd = 'CDD ' . $cdd;
-                $larguraCdd = Pdf::medir($textoCdd, $tamTopo, 'negrito');
-                $el[] = ['tipo' => 'texto', 'x' => $w - $p, 'y' => $baseTopo, 'texto' => $textoCdd, 'tamanho' => $tamTopo, 'fonte' => 'negrito', 'alinhamento' => 'direita'];
+        // Ajusta à largura (encolhe só o necessário) e à altura (primeiro diminui o código até
+        // 8 pt; se ainda não couber, as linhas opcionais saem de baixo para cima).
+        $linhas = array_map(fn ($l) => [$l[0], self::encolher($l[0], $interna, $l[1], $l[2], $l[3] === 'codigo' ? 6 : 4.5), $l[2], $l[3]], $linhas);
+        $altura = fn (array $ls) => array_sum(array_map(fn ($l) => self::alturaLinha($l[1]), $ls));
+        while ($altura($linhas) > $util) {
+            $i = array_search('codigo', array_column($linhas, 3), true);
+            if ($linhas[$i][1] > 8) {
+                $linhas[$i][1] -= 0.5;
+                continue;
             }
-            if ($modelo['mostrar_biblioteca']) {
-                $el[] = ['tipo' => 'texto', 'x' => $p, 'y' => $baseTopo, 'texto' => Pdf::caber(mb_strtoupper($biblioteca), $interna - $larguraCdd - ($larguraCdd ? 1.5 : 0), $tamTopo, 'negrito'), 'tamanho' => $tamTopo, 'fonte' => 'negrito', 'alinhamento' => 'esquerda'];
+            $opcional = null;
+            foreach ($linhas as $j => $l) {
+                if (in_array($l[3], ['titulo', 'detalhe', 'local'], true)) {
+                    $opcional = $j;
+                }
             }
-            $topo = $p + $alt($tamTopo) * 1.25;
+            if ($opcional === null) {
+                break;
+            }
+            array_splice($linhas, $opcional, 1);
         }
-        $titulo = $modelo['mostrar_titulo'] ? trim((string)$ex['titulo']) : '';
-        $temRodape = $titulo !== '' || ($local !== null && $local !== '');
-        $base = $h - $p;
-        if ($temRodape) {
-            $larguraLocal = 0;
-            if ($local !== null && $local !== '') {
-                $larguraLocal = Pdf::medir($local, $tamRodape, 'negrito');
-                $el[] = ['tipo' => 'texto', 'x' => $w - $p, 'y' => $base - $alt($tamRodape) * 0.15, 'texto' => $local, 'tamanho' => $tamRodape, 'fonte' => 'negrito', 'alinhamento' => 'direita'];
-            }
-            if ($titulo !== '') {
-                $el[] = ['tipo' => 'texto', 'x' => $p, 'y' => $base - $alt($tamRodape) * 0.15, 'texto' => Pdf::caber($titulo, $interna - $larguraLocal - ($larguraLocal ? 1.5 : 0), $tamRodape), 'tamanho' => $tamRodape, 'fonte' => 'normal', 'alinhamento' => 'esquerda'];
-            }
-            $base -= $alt($tamRodape) * 1.2;
-        }
-        $el[] = ['tipo' => 'texto', 'x' => $w / 2, 'y' => $base - $alt($tamCodigo) * 0.15, 'texto' => $codigo, 'tamanho' => self::encolher($codigo, $interna, $tamCodigo, 'negrito'), 'fonte' => 'negrito', 'alinhamento' => 'centro'];
-        $base -= $alt($tamCodigo) * 1.05;
-        if ($modelo['codigo_barras']) {
-            $alturaBarras = $base - $topo - 0.4;
-            if ($alturaBarras >= 3) {
-                $el[] = self::barras($codigo, $p, $topo + 0.2, $interna, min($alturaBarras, 18));
-            }
+
+        $el = [];
+        $y = $p + max(0, ($util - $altura($linhas)) / 2);
+        foreach ($linhas as [$texto, $tam, $fonte, $papel]) {
+            $el[] = ['tipo' => 'texto', 'papel' => $papel, 'x' => $w / 2, 'y' => $y + $tam * self::MM_POR_PONTO * 0.95,
+                'texto' => $papel === 'codigo' ? $texto : Pdf::caber($texto, $interna, $tam, $fonte), 'tamanho' => $tam, 'fonte' => $fonte, 'alinhamento' => 'centro'];
+            $y += self::alturaLinha($tam);
         }
         return $el;
     }
 
-    /** Avisos sobre o modelo (barras finas demais, etiqueta pequena). */
-    public static function avisos(array $modelo): array
+    /** A etiqueta de lombada deste exemplar sai provisória (sem CDD aprovada, só com o código BDP)? */
+    public static function lombadaProvisoria(array $modelo, array $ex): bool
     {
-        $avisos = [];
-        if ($modelo['codigo_barras']) {
-            $w = (float)$modelo['etiqueta_largura'] - 2 * max(1.2, min(2.5, min((float)$modelo['etiqueta_largura'], (float)$modelo['etiqueta_altura']) * 0.08));
-            $modulo = $w / (Code128::largura('BDP-000000') + 2 * Code128::ZONA_SILENCIO);
-            if ($modulo < self::MODULO_MINIMO) {
-                $avisos[] = 'A etiqueta é estreita para o código de barras (barras de ' . self::mm($modulo) . ' mm). Faça um teste de leitura antes de imprimir em lote.';
-            }
-        }
-        return $avisos;
+        return ($modelo['tipo'] ?? '') === 'lombada' && (empty($modelo['mostrar_cdd']) || self::cddAprovada($ex) === null);
     }
 
-    /** Monta o PDF com todas as páginas. $guias desenha o contorno das etiquetas (para teste em papel comum). */
+    /** Avisos sobre o modelo: código pequeno demais para ler com facilidade. */
+    public static function avisos(array $modelo): array
+    {
+        $codigo = array_values(array_filter(self::elementos($modelo, ['codigo_individual' => 'BDP-000000', 'titulo' => 'Título de exemplo'], 'Biblioteca'), fn ($e) => $e['papel'] === 'codigo'));
+        $tam = $codigo[0]['tamanho'] ?? 0;
+        if ($tam < self::CODIGO_LEGIVEL) {
+            return ['O código BDP sai com ' . self::mm($tam) . ' pt nesta etiqueta. Para ler e digitar sem erro, prefira etiquetas maiores (a partir de 30 × 15 mm) ou desmarque as informações extras.'];
+        }
+        return [];
+    }
+
+    /** Monta o PDF com todas as páginas. $guias desenha o contorno das etiquetas (linhas de recorte). */
     public static function pdf(array $modelo, array $exemplares, int $pular, string $biblioteca, bool $guias = false): string
     {
         $pdf = new Pdf('Etiquetas — ' . $biblioteca);
@@ -275,13 +280,7 @@ final class EtiquetaService
                     $pdf->contorno($slot['x'], $slot['y'], (float)$modelo['etiqueta_largura'], (float)$modelo['etiqueta_altura'], 0.1, 0.75);
                 }
                 foreach (self::elementos($modelo, $slot['exemplar'], $biblioteca) as $e) {
-                    if ($e['tipo'] === 'barras') {
-                        foreach (Code128::barras($e['codigo']) as [$bx, $bl]) {
-                            $pdf->retangulo($slot['x'] + $e['x'] + ($bx + Code128::ZONA_SILENCIO) * $e['modulo'], $slot['y'] + $e['y'], $bl * $e['modulo'], $e['altura']);
-                        }
-                    } else {
-                        $pdf->texto($slot['x'] + $e['x'], $slot['y'] + $e['y'], $e['texto'], $e['tamanho'], $e['fonte'], $e['alinhamento']);
-                    }
+                    $pdf->texto($slot['x'] + $e['x'], $slot['y'] + $e['y'], $e['texto'], $e['tamanho'], $e['fonte'], $e['alinhamento']);
                 }
             }
         }
@@ -290,7 +289,7 @@ final class EtiquetaService
 
     /**
      * Uma etiqueta em SVG, com as mesmas posições do PDF (unidade = mm), para a pré-visualização.
-     * Os textos vêm escapados; o SVG não carrega nada externo.
+     * Fundo branco e texto preto. Os textos vêm escapados; o SVG não carrega nada externo.
      */
     public static function svg(array $modelo, array $ex, string $biblioteca): string
     {
@@ -298,21 +297,13 @@ final class EtiquetaService
         $h = (float)$modelo['etiqueta_altura'];
         $esc = fn (string $t) => htmlspecialchars($t, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $ancora = ['esquerda' => 'start', 'centro' => 'middle', 'direita' => 'end'];
-        $corpo = '';
+        $corpo = '<rect width="' . $w . '" height="' . $h . '" fill="#fff"/>';
         foreach (self::elementos($modelo, $ex, $biblioteca) as $e) {
-            if ($e['tipo'] === 'barras') {
-                $corpo .= '<g fill="#000">';
-                foreach (Code128::barras($e['codigo']) as [$bx, $bl]) {
-                    $corpo .= '<rect x="' . round($e['x'] + ($bx + Code128::ZONA_SILENCIO) * $e['modulo'], 4) . '" y="' . round($e['y'], 3) . '" width="' . round($bl * $e['modulo'], 4) . '" height="' . round($e['altura'], 3) . '"/>';
-                }
-                $corpo .= '</g>';
-            } else {
-                $corpo .= '<text x="' . round($e['x'], 3) . '" y="' . round($e['y'], 3) . '" font-size="' . round($e['tamanho'] * self::MM_POR_PONTO, 3) . '" text-anchor="' . $ancora[$e['alinhamento']] . '"'
-                    . ($e['fonte'] === 'negrito' ? ' font-weight="700"' : '') . '>' . $esc($e['texto']) . '</text>';
-            }
+            $corpo .= '<text x="' . round($e['x'], 3) . '" y="' . round($e['y'], 3) . '" font-size="' . round($e['tamanho'] * self::MM_POR_PONTO, 3) . '" text-anchor="' . $ancora[$e['alinhamento']] . '"'
+                . ($e['fonte'] === 'negrito' ? ' font-weight="700"' : '') . '>' . $esc($e['texto']) . '</text>';
         }
         return '<svg xmlns="http://www.w3.org/2000/svg" class="adm-etiqueta__svg" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . 'mm" height="' . $h . 'mm" role="img" aria-label="' . $esc('Etiqueta ' . $ex['codigo_individual']) . '"'
-            . ' font-family="Helvetica, Arial, sans-serif" shape-rendering="crispEdges">' . $corpo . '</svg>';
+            . ' font-family="Helvetica, Arial, sans-serif" fill="#000">' . $corpo . '</svg>';
     }
 
     /** Código curto da localização para a etiqueta: código cadastrado ou "Estante · Prateleira". */
@@ -328,17 +319,29 @@ final class EtiquetaService
         return $partes ? implode(' · ', $partes) : (string)$ex['setor'];
     }
 
-    private static function barras(string $codigo, float $x, float $y, float $largura, float $altura): array
+    /** CDD aprovada do exemplar (a CDD antiga da planilha nunca entra). */
+    private static function cddAprovada(array $ex): ?string
     {
-        $modulos = Code128::largura($codigo) + 2 * Code128::ZONA_SILENCIO;
-        $modulo = min(0.5, $largura / $modulos);
-        return ['tipo' => 'barras', 'codigo' => $codigo, 'x' => $x + ($largura - $modulos * $modulo) / 2, 'y' => $y, 'largura' => $modulos * $modulo, 'altura' => $altura, 'modulo' => $modulo];
+        $cdd = trim((string)($ex['cdd_aprovada'] ?? ''));
+        return $cdd !== '' ? $cdd : null;
     }
 
-    /** Diminui a fonte (até 4,5 pt) para o texto caber. */
-    private static function encolher(string $texto, float $largura, float $tamanho, string $fonte): float
+    /** Margem interna (mm) entre a borda da etiqueta e o texto, para o recorte não comer letras. */
+    private static function margemInterna(float $w, float $h): float
     {
-        while ($tamanho > 4.5 && Pdf::medir($texto, $tamanho, $fonte) > $largura) {
+        return max(1.2, min(2.5, min($w, $h) * 0.08));
+    }
+
+    /** Altura ocupada por uma linha de texto (mm), com o espaço entre linhas. */
+    private static function alturaLinha(float $tamanhoPt): float
+    {
+        return $tamanhoPt * self::MM_POR_PONTO * 1.2;
+    }
+
+    /** Diminui a fonte (até $minimo pt) para o texto caber na largura. */
+    private static function encolher(string $texto, float $largura, float $tamanho, string $fonte, float $minimo = 4.5): float
+    {
+        while ($tamanho > $minimo && Pdf::medir($texto, $tamanho, $fonte) > $largura) {
             $tamanho -= 0.5;
         }
         return $tamanho;

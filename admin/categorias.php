@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/acervo.php';
 $categorias = acervo_categorias();
 $emUso = count(array_filter($categorias, fn ($c) => $c['total_titulos'] > 0));
 
-admin_page_start('categorias', 'Categorias', 'Categorias', 'Organização literária do acervo', ['assets/css/acervo.css?v=20261027']);
+admin_page_start('categorias', 'Categorias', 'Categorias', 'Organização literária do acervo', ['assets/css/acervo.css?v=20261102']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Categorias']]) ?>

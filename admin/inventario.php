@@ -32,7 +32,7 @@ admin_page_start('inventario', 'Inventário', 'Inventário', 'Conferência digit
 <section class="adm-page-head">
     <div>
         <h1>Inventário digital</h1>
-        <p>Confira os exemplares físicos com o leitor de código de barras ou digitando o código. Ausências e divergências nunca alteram o cadastro sozinhas: cada uma pede uma decisão.</p>
+        <p>Confira os exemplares físicos digitando o código BDP escrito na etiqueta (ex.: BDP-000001). Ausências e divergências nunca alteram o cadastro sozinhas: cada uma pede uma decisão.</p>
     </div>
     <div class="adm-page-head__actions">
         <?php if ($podeGerenciar): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-editar')) ?>"><?= icon('plus') ?> Novo inventário</a><?php endif; ?>
@@ -50,7 +50,7 @@ admin_page_start('inventario', 'Inventário', 'Inventário', 'Conferência digit
             </div>
             <div class="adm-page-head__actions">
                 <?php if ($ativo['status'] === 'em_andamento' && auth_pode('inventario.conferir')): ?>
-                    <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-conferencia') . '?id=' . (int)$ativo['id']) ?>"><?= icon('scan-barcode') ?> Continuar a conferência</a>
+                    <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-conferencia') . '?id=' . (int)$ativo['id']) ?>"><?= icon('clipboard-check') ?> Continuar a conferência</a>
                 <?php endif; ?>
                 <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-detalhes') . '?id=' . (int)$ativo['id']) ?>"><?= icon('eye') ?> Ver detalhes</a>
             </div>

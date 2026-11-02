@@ -89,11 +89,14 @@ admin_page_start('exemplares', 'Exemplares', 'Exemplares', 'Unidades físicas do
         <?php endif; ?>
     </div>
 
+    <?php if ($filtros['q'] !== '' && Biblioteca\Support\CodigoBdp::pareceCodigo($filtros['q']) && !Biblioteca\Support\CodigoBdp::normalizar($filtros['q'])): ?>
+        <?= admin_aviso('aviso', 'Código incompleto.', Biblioteca\Support\CodigoBdp::mensagemInvalido($filtros['q'])) ?>
+    <?php endif; ?>
     <form class="adm-toolbar adm-toolbar--search" method="get" action="<?= e($base) ?>" data-loading-form>
         <label class="adm-field-search adm-toolbar__q">
             <?= icon('search') ?>
             <span class="adm-visually-hidden">Pesquisar exemplares</span>
-            <input type="search" name="q" placeholder="Código BDP, título, autor ou ISBN..." value="<?= e($filtros['q']) ?>" autocomplete="off" data-scanner>
+            <input type="search" name="q" placeholder="Código BDP, título, autor ou ISBN..." value="<?= e($filtros['q']) ?>" autocomplete="off" data-campo-codigo>
         </label>
         <div class="adm-filters adm-filters--4">
             <label class="adm-filter"><span>Situação</span>
@@ -203,7 +206,7 @@ admin_page_start('exemplares', 'Exemplares', 'Exemplares', 'Unidades físicas do
                                 <?= icon('book-copy') ?>
                                 <?php if ($temFiltro): ?>
                                     <strong>Nenhum exemplar encontrado</strong>
-                                    <span>Revise a pesquisa ou os filtros. Para ler um código, digite ou use o leitor de código de barras no campo de pesquisa.</span>
+                                    <span>Revise a pesquisa ou os filtros. Para encontrar um exemplar, digite o código BDP completo, como está na etiqueta (ex.: BDP-000001).</span>
                                 <?php else: ?>
                                     <strong>Nenhum exemplar físico cadastrado ainda</strong>
                                     <span>Os exemplares são cadastrados na página de cada livro ou durante a conferência do inventário, com o livro em mãos.</span>

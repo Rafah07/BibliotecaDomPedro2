@@ -66,7 +66,7 @@ $linkExport = fn (string $f) => admin_url('relatorio-cdd') . '?' . http_build_qu
 $v = fn ($valor) => htmlspecialchars((string)$valor);
 
 admin_page_start('classificacao', 'Relatórios CDD', 'Acervo', 'Reclassificação bibliográfica pela CDD', [
-    'assets/css/acervo.css?v=20261027',
+    'assets/css/acervo.css?v=20261102',
     'assets/css/classificacao.css?v=20261027',
 ]);
 ?>

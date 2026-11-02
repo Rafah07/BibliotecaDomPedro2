@@ -53,7 +53,7 @@ $demo = auth_demo_disponivel();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261029')) ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261027')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261102')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261027')) ?>">
 </head>
 <body class="adm-body adm-login">

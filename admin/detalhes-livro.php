@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/livros.php';
 
 $livro = acervo_livro((int)($_GET['id'] ?? 0));
 
-admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261030', 'assets/css/classificacao.css?v=20261027', 'assets/css/inventario.css?v=20261030']);
+admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261102', 'assets/css/classificacao.css?v=20261027', 'assets/css/inventario.css?v=20261102']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Detalhes']]);
 
@@ -125,7 +125,7 @@ $meta = [
             </dl>
             <p>A quantidade da planilha serve apenas como referência e não gera exemplares disponíveis. Os exemplares são criados durante a conferência física.</p>
         </div>
-        <a class="adm-button adm-button--primary" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('scan-barcode') ?> Conferir no inventário</a>
+        <a class="adm-button adm-button--primary" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('clipboard-check') ?> Conferir no inventário</a>
     </section>
 <?php endif; ?>
 
@@ -267,7 +267,7 @@ $meta = [
                         <?= icon('clipboard-check') ?>
                         <strong>Ainda não conferido</strong>
                         <span>Nenhuma conferência física foi registrada para este título.</span>
-                        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('scan-barcode') ?> Conferir no inventário</a>
+                        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('clipboard-check') ?> Conferir no inventário</a>
                     </div>
                 <?php else: ?>
                     <ul class="adm-checks">

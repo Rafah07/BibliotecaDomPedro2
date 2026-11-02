@@ -2,14 +2,15 @@
 /**
  * Conferência do inventário em andamento.
  *
- * - O campo de leitura aceita o leitor USB de código de barras (que "digita" o código e
- *   aperta Enter) ou a digitação do código BDP. Texto que não é código pesquisa livros
- *   por título, autor ou ISBN.
+ * - A identificação é pela DIGITAÇÃO do código BDP escrito na etiqueta (ex.: BDP-000001),
+ *   seguida de Enter. Maiúsculas/minúsculas e espaços nas pontas não importam; o código
+ *   precisa estar completo (busca exata, nunca aproximada). Texto que não é código pesquisa
+ *   livros por título, autor ou ISBN.
  * - Código conferido de novo: aviso com os dados anteriores; nada é gravado de novo.
  *   A correção é uma ação separada (inventario.gerenciar), com motivo.
  * - Código desconhecido não cria nada. Exemplar novo só com o botão "Cadastrar exemplar"
  *   e a confirmação de que o livro está em mãos.
- * - "Modo rápido" confere na leitura, com o estado já cadastrado e a localização em conferência.
+ * - "Modo rápido" confere ao digitar o código, com o estado já cadastrado e a localização em conferência.
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/acervo-fisico.php';
@@ -17,6 +18,7 @@ require_once __DIR__ . '/includes/acervo-fisico.php';
 use Biblioteca\Repositories\EmprestimoRepository;
 use Biblioteca\Services\AcervoException;
 use Biblioteca\Services\ConferenciaDuplicadaException;
+use Biblioteca\Support\CodigoBdp;
 
 $usuario = fisico_iniciar('inventario.conferir');
 $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
@@ -45,7 +47,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             case 'local':
                 $local = (int)admin_param($_POST, 'local_conferencia') ?: null;
                 $_SESSION['inventario_conferencia'][$id] = ['local' => $local, 'rapido' => admin_param($_POST, 'rapido') === '1'];
-                admin_flash('sucesso', 'Preferências da conferência salvas.', $local ? 'A localização escolhida vem preenchida em cada leitura.' : 'Nenhuma localização em conferência.');
+                admin_flash('sucesso', 'Preferências da conferência salvas.', $local ? 'A localização escolhida vem preenchida em cada conferência.' : 'Nenhuma localização em conferência.');
                 admin_redirecionar($base);
             case 'ler':
                 $texto = trim(mb_substr(admin_param($_POST, 'leitura'), 0, 100));
@@ -53,6 +55,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     admin_redirecionar($base);
                 }
                 if (!EmprestimoRepository::codigoExemplar($texto)) {
+                    if (CodigoBdp::pareceCodigo($texto)) {
+                        throw new AcervoException(CodigoBdp::mensagemInvalido($texto));
+                    }
                     admin_redirecionar($base . '&q=' . rawurlencode($texto));
                 }
                 $ex = exemplares_repo()->porCodigo($texto);
@@ -61,7 +66,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     admin_flash(...conferencia_mensagem($item));
                     admin_redirecionar($base);
                 }
-                admin_redirecionar($base . '&codigo=' . rawurlencode($texto));
+                admin_redirecionar($base . '&codigo=' . rawurlencode(EmprestimoRepository::codigoExemplar($texto)));
             case 'conferir':
                 $item = inventario_servico()->conferir($id, (int)admin_param($_POST, 'exemplar_id'), [
                     'estado_conservacao' => admin_param($_POST, 'estado_conservacao'),
@@ -90,13 +95,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $dados['localizacao_id'] = fisico_resolver_local($fx, $usuario['id']);
                 $criados = inventario_servico()->cadastrarExemplar($id, (int)admin_param($_POST, 'livro_id'), $dados, $usuario['id'], (int)$fx['quantidade']);
                 admin_flash('sucesso', count($criados) === 1 ? 'Exemplar cadastrado e conferido: ' . $criados[0]['codigo'] . '.' : count($criados) . ' exemplares cadastrados e conferidos: ' . implode(', ', array_column($criados, 'codigo')) . '.',
-                    'Identifique o livro com o código (etiqueta). As etiquetas podem ser impressas depois em Etiquetas.');
+                    'Escreva ou cole a etiqueta com este código no livro. As etiquetas podem ser impressas depois em Etiquetas.');
                 admin_redirecionar($base . '&criados=' . implode(',', array_column($criados, 'id')));
             default:
                 throw new AcervoException('Ação desconhecida.');
         }
     } catch (ConferenciaDuplicadaException $e) {
-        admin_flash('aviso', 'Leitura repetida: nada foi gravado de novo.', $e->getMessage());
+        admin_flash('aviso', 'Código já conferido: nada foi gravado de novo.', $e->getMessage());
         admin_redirecionar($base . '&codigo=' . rawurlencode((string)($e->item['codigo_individual'] ?? '')));
     } catch (AcervoException $e) {
         $erro = $e->getMessage();
@@ -169,14 +174,15 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
             <form method="post" action="<?= e($base) ?>" class="adm-leitura__form" autocomplete="off">
                 <?= csrf_campo() ?>
                 <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="ler">
-                <label for="leitura" id="titulo-leitura" class="adm-leitura__label"><?= icon('scan-barcode') ?> Leia o código de barras ou digite o código BDP</label>
+                <label for="leitura" id="titulo-leitura" class="adm-leitura__label"><?= icon('keyboard') ?> Digite o código do exemplar</label>
                 <div class="adm-leitura__linha">
-                    <input class="adm-input adm-leitura__campo" type="text" id="leitura" name="leitura" maxlength="100" placeholder="BDP-000001, título, autor ou ISBN" autofocus data-scanner aria-describedby="leitura-dica">
-                    <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> Ler</button>
+                    <input class="adm-input adm-leitura__campo" type="text" id="leitura" name="leitura" maxlength="100" placeholder="BDP-000001 (ou título, autor, ISBN)" autofocus data-campo-codigo autocapitalize="characters" spellcheck="false" aria-describedby="leitura-dica">
+                    <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> Pesquisar exemplar</button>
                 </div>
                 <p class="adm-field__hint" id="leitura-dica">
-                    <?= $sessao['rapido'] ? '<strong>Modo rápido ligado:</strong> cada código lido é conferido na hora, com o estado já cadastrado e a localização em conferência.' : 'Depois da leitura, confira o estado e a localização e confirme.' ?>
-                    O campo volta a ficar pronto para a próxima leitura.
+                    Informe o código BDP escrito na etiqueta e pressione Enter. Letras maiúsculas ou minúsculas funcionam.
+                    <?= $sessao['rapido'] ? '<strong>Modo rápido ligado:</strong> cada código digitado é conferido na hora, com o estado já cadastrado e a localização em conferência.' : 'Depois, confira o livro encontrado, o estado e a localização e confirme a identificação.' ?>
+                    Sem etiqueta? Pesquise pelo título, autor ou ISBN.
                 </p>
             </form>
         </section>
@@ -184,11 +190,15 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
         <?php if ($codigoLido !== ''): ?>
             <section class="adm-card adm-panel" aria-labelledby="titulo-lido">
                 <?php if (!$exemplar): ?>
-                    <?= admin_aviso('erro', 'Código ' . (EmprestimoRepository::codigoExemplar($codigoLido) ?? $codigoLido) . ' não encontrado.', 'Nenhum exemplar tem este código. Nada foi criado. Se o livro está em mãos e não tem código, pesquise pelo título e use "Cadastrar exemplar".') ?>
+                    <?php if (!EmprestimoRepository::codigoExemplar($codigoLido)): ?>
+                        <?= admin_aviso('erro', 'Código incompleto.', CodigoBdp::mensagemInvalido($codigoLido)) ?>
+                    <?php else: ?>
+                        <?= admin_aviso('erro', 'Código ' . EmprestimoRepository::codigoExemplar($codigoLido) . ' não encontrado.', 'Nenhum exemplar tem este código. Confira se ele foi digitado exatamente como está na etiqueta. Nada foi criado. Se o livro está em mãos e não tem código, pesquise pelo título e use "Cadastrar exemplar".') ?>
+                    <?php endif; ?>
                 <?php elseif ($itemAnterior && $itemAnterior['conferido_em'] !== null): ?>
                     <div class="adm-panel__header"><div><h2 id="titulo-lido"><span class="adm-code"><?= e($exemplar['codigo_individual']) ?></span> já conferido neste inventário</h2>
                         <p><?= e($exemplar['titulo']) ?></p></div></div>
-                    <?= admin_aviso('aviso', 'Leitura repetida: nada foi gravado de novo.', 'Conferido em ' . admin_data_hora($itemAnterior['conferido_em']) . ($itemAnterior['conferido_por_nome'] ? ' por ' . $itemAnterior['conferido_por_nome'] : '') . '.') ?>
+                    <?= admin_aviso('aviso', 'Código já conferido: nada foi gravado de novo.', 'Conferido em ' . admin_data_hora($itemAnterior['conferido_em']) . ($itemAnterior['conferido_por_nome'] ? ' por ' . $itemAnterior['conferido_por_nome'] : '') . '.') ?>
                     <dl class="adm-meta adm-meta--boxed adm-meta--grid">
                         <div><dt>Localização encontrada</dt><dd><?= e(fisico_local($itemAnterior, 'encontrada_')) ?></dd></div>
                         <div><dt>Estado encontrado</dt><dd><?= e(ACERVO_CONSERVACAO[$itemAnterior['estado_encontrado']] ?? '—') ?></dd></div>
@@ -298,8 +308,8 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
             <form method="post" action="<?= e($base) ?>">
                 <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="local">
                 <label class="adm-field"><span class="adm-field__sublabel">Estante ou prateleira que está sendo conferida</span>
-                    <?= fisico_select_local('local_conferencia', $localSessao, 'Nenhuma (escolher em cada leitura)', 'local-conferencia', $locais) ?></label>
-                <label class="adm-check-confirm"><input type="checkbox" name="rapido" value="1"<?= $sessao['rapido'] ? ' checked' : '' ?>> <span>Modo rápido: conferir na leitura, sem abrir o formulário</span></label>
+                    <?= fisico_select_local('local_conferencia', $localSessao, 'Nenhuma (escolher em cada conferência)', 'local-conferencia', $locais) ?></label>
+                <label class="adm-check-confirm"><input type="checkbox" name="rapido" value="1"<?= $sessao['rapido'] ? ' checked' : '' ?>> <span>Modo rápido: conferir assim que o código for digitado, sem abrir o formulário</span></label>
                 <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('save') ?> Aplicar</button>
             </form>
             <?php if (!$locais): ?><p class="adm-field__hint">Nenhuma localização cadastrada. <a class="adm-link" href="<?= e(admin_url('localizacoes')) ?>">Cadastrar localizações</a></p><?php endif; ?>

@@ -1,7 +1,7 @@
 <?php
 /**
  * Testes do acervo físico: exemplares, códigos BDP, localizações, inventário digital,
- * etiquetas (PDF e código de barras), relatórios, permissões e proteções.
+ * etiquetas (PDF só com texto, sem código de barras), relatórios, permissões e proteções.
  *
  * Uso: php admin/tests/inventario-teste.php
  *
@@ -10,8 +10,6 @@
  * FICTÍCIOS só nesse banco e o apaga no final.
  * O usuário precisa poder criar bancos (no XAMPP, o root pode). Para outro usuário, defina
  * TESTE_DB_USER e TESTE_DB_PASSWORD.
- * Se pdftoppm e zbarimg estiverem instalados (Linux), os códigos de barras do PDF também são
- * lidos de verdade; sem eles, a estrutura do código de barras é conferida pelo próprio teste.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -29,7 +27,6 @@ use Biblioteca\Services\EtiquetaService;
 use Biblioteca\Services\ExemplarService;
 use Biblioteca\Services\InventarioService;
 use Biblioteca\Services\LocalizacaoService;
-use Biblioteca\Support\Code128;
 use Biblioteca\Support\RegrasCirculacao;
 
 require __DIR__ . '/../../config/app.php';
@@ -206,8 +203,9 @@ confere('código inserido direto no banco avança a sequência (sem reaproveitar
 $exServ->baixar((int)$depois[0]['id'], $bibId, 'teste de baixa');
 $aposBaixa = $exServ->cadastrar($livro['planilha'], ['estado_conservacao' => 'bom', 'situacao' => 'disponivel'], $bibId);
 confere('código de exemplar baixado não é reutilizado', $aposBaixa[0]['codigo'] === 'BDP-000052');
-confere('normalização de leitura: "bdp-1", "BDP 000001" e "bdp000001" encontram o mesmo exemplar',
-    ($exRepo->porCodigo('bdp-1')['id'] ?? 0) === $dom[0] && ($exRepo->porCodigo('BDP 000001')['id'] ?? 0) === $dom[0] && ($exRepo->porCodigo('bdp000001')['id'] ?? 0) === $dom[0]);
+confere('código digitado: "bdp-000001", " BDP 000001 " e "bdp000001" encontram o mesmo exemplar',
+    ($exRepo->porCodigo('bdp-000001')['id'] ?? 0) === $dom[0] && ($exRepo->porCodigo(' BDP 000001 ')['id'] ?? 0) === $dom[0] && ($exRepo->porCodigo('bdp000001')['id'] ?? 0) === $dom[0]);
+confere('código incompleto ("bdp-1") não é completado com zeros: nada é selecionado', $exRepo->porCodigo('bdp-1') === null && $exRepo->porCodigo('BDP-00001') === null);
 
 // ---------------------------------------------------------------
 echo "\n3. Cadastros simultâneos (processos paralelos)\n";
@@ -358,12 +356,12 @@ confere('exemplar "aguardando liberação" não empresta', recusa(fn () => $circ
 // ---------------------------------------------------------------
 echo "\n14 e 15. Etiquetas individuais e em lote\n";
 $modelos = (new EtiquetaService($pdo))->modelos();
-confere('4 modelos padrão cadastrados (patrimonial, lombada, individual)', count($modelos) === 4);
+confere('7 modelos padrão cadastrados (4 da migração 070 + 3 de 50 × 20 / 30 × 20 mm da 100)', count($modelos) === 7);
 $patrimonial = array_values(array_filter($modelos, fn ($m) => $m['tipo'] === 'patrimonial' && (int)$m['colunas'] === 3 && (int)$m['linhas'] === 11))[0];
 $lombada = $modelos[array_search('lombada', array_column($modelos, 'tipo'), true)];
 $individual = null;
 foreach ($modelos as $m) {
-    if ((int)$m['colunas'] === 1 && (int)$m['linhas'] === 1) {
+    if ($m['tipo'] === 'patrimonial' && (int)$m['colunas'] === 1 && (int)$m['linhas'] === 1) {
         $individual = $m;
     }
 }
@@ -393,92 +391,21 @@ $exServ->marcarEtiquetas(array_column($lote, 'id'), $bibId, $patrimonial['nome']
 confere('data da etiqueta registrada nos exemplares do lote', $num('SELECT COUNT(*) FROM exemplares WHERE etiqueta_gerada_em IS NOT NULL') === 5);
 
 // ---------------------------------------------------------------
-echo "\n16. Legibilidade dos códigos de barras\n";
-/** Decodificador Code 128 independente (larguras -> valores), só para conferir o desenho. */
-function decodificar_code128(array $barras): ?string
-{
-    // Reconstrói as larguras alternadas (barra/espaço) a partir das posições das barras.
-    $larguras = [];
-    $fim = 0;
-    foreach ($barras as $i => [$x, $l]) {
-        if ($i > 0) {
-            $larguras[] = $x - $fim;
-        }
-        $larguras[] = $l;
-        $fim = $x + $l;
-    }
-    $padroes = Code128Padroes::lista();
-    $valores = [];
-    for ($i = 0; $i + 6 <= count($larguras); $i += 6) {
-        $p = implode('', array_slice($larguras, $i, 6));
-        $v = array_search($p, $padroes, true);
-        if ($v === false) {
-            break;
-        }
-        $valores[] = $v;
-    }
-    if (count($valores) < 3 || !in_array($valores[0], [103, 104, 105], true)) {
-        return null;
-    }
-    $soma = $valores[0];
-    for ($k = 1; $k < count($valores) - 1; $k++) {
-        $soma += $valores[$k] * $k;
-    }
-    if ($soma % 103 !== end($valores)) {
-        return null;
-    }
-    $texto = '';
-    $set = $valores[0] === 105 ? 'C' : 'B';
-    foreach (array_slice($valores, 1, -1) as $v) {
-        // 99 = "mudar para C" só no conjunto B; no conjunto C é o par de dígitos "99".
-        if ($set === 'B' && $v === 99) { $set = 'C'; continue; }
-        if ($v === 100) { $set = 'B'; continue; }
-        $texto .= $set === 'C' ? sprintf('%02d', $v) : chr($v + 32);
-    }
-    return $texto;
-}
-/** Padrões oficiais do Code 128 (ISO/IEC 15417), digitados separadamente da classe testada. */
-final class Code128Padroes
-{
-    public static function lista(): array
-    {
-        return explode(' ', '212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232');
-    }
-}
-$amostra = ['BDP-000001', 'BDP-000052', 'BDP-123456', 'BDP-999999'];
-$decodificados = array_map(fn ($c) => decodificar_code128(Code128::barras($c)), $amostra);
-confere('barras decodificadas por um leitor independente (com dígito verificador)', $decodificados === $amostra, json_encode($decodificados));
+echo "\n16. Etiquetas só com texto (sem código de barras)\n";
+$soTexto = true;
 foreach ($modelos as $m) {
-    $barras = array_values(array_filter(EtiquetaService::elementos($m, $exDom[0], 'Biblioteca'), fn ($e) => $e['tipo'] === 'barras'));
-    if (!(int)$m['codigo_barras']) {
-        confere("modelo \"{$m['nome']}\" sem código de barras (configurado assim)", !$barras);
-        continue;
+    foreach ([$exDom[0], $exPlan[0]] as $exM) {
+        $els = EtiquetaService::elementos($m, $exM, 'Biblioteca Dom Pedro II');
+        $tipos = array_unique(array_column($els, 'tipo'));
+        $cod = array_values(array_filter($els, fn ($e) => $e['papel'] === 'codigo'));
+        $maior = max(array_column($els, 'tamanho'));
+        // Patrimonial e lombada provisória: o código é o maior texto. Lombada com CDD aprovada: a CDD vem primeiro.
+        $destaqueOk = $m['tipo'] === 'lombada' && $els[0]['papel'] === 'cdd' ? $els[0]['texto'] === $exM['cdd_aprovada'] : $cod && $cod[0]['tamanho'] >= $maior;
+        $soTexto = $soTexto && $tipos === ['texto'] && count($cod) === 1 && $cod[0]['texto'] === $exM['codigo_individual'] && $destaqueOk && $cod[0]['tamanho'] >= EtiquetaService::CODIGO_LEGIVEL;
     }
-    confere("modelo \"{$m['nome']}\": barras de pelo menos " . str_replace('.', ',', (string)EtiquetaService::MODULO_MINIMO) . ' mm, com zona de silêncio e dentro da etiqueta',
-        $barras && $barras[0]['modulo'] >= EtiquetaService::MODULO_MINIMO && $barras[0]['x'] >= 0 && $barras[0]['x'] + $barras[0]['largura'] <= (float)$m['etiqueta_largura'] + 0.01
-        && $barras[0]['y'] + $barras[0]['altura'] <= (float)$m['etiqueta_altura']);
 }
-$temZbar = trim((string)shell_exec('command -v zbarimg 2>/dev/null')) !== '' && trim((string)shell_exec('command -v pdftoppm 2>/dev/null')) !== '';
-if ($temZbar) {
-    $arqPdf = tempnam(sys_get_temp_dir(), 'bdpetq') . '.pdf';
-    $temporarios[] = $arqPdf;
-    file_put_contents($arqPdf, $pdfLote);
-    $png = substr($arqPdf, 0, -4);
-    exec('pdftoppm -r 300 -png ' . escapeshellarg($arqPdf) . ' ' . escapeshellarg($png));
-    foreach (glob($png . '*.png') ?: [] as $f) {
-        $temporarios[] = $f;
-    }
-    $lidos = [];
-    foreach (glob($png . '*.png') ?: [] as $f) {
-        exec('zbarimg -q --raw ' . escapeshellarg($f) . ' 2>/dev/null', $lidos);
-    }
-    sort($lidos);
-    $codigosLote = array_column($lote, 'codigo_individual');
-    sort($codigosLote);
-    confere('PDF impresso a 300 dpi: zbarimg lê todos os códigos do lote', $lidos === $codigosLote, implode(',', $lidos));
-} else {
-    echo "  (pdftoppm/zbarimg não instalados: a leitura do PDF por um leitor real foi pulada; a estrutura das barras foi conferida acima)\n";
-}
+confere('todos os modelos: só texto, código BDP uma vez, legível e em destaque (CDD na lombada)', $soTexto);
+confere('nenhum modelo gera aviso de letra pequena', !array_filter($modelos, fn ($m) => EtiquetaService::avisos($m)));
 
 // ---------------------------------------------------------------
 echo "\n17. Relatórios e conclusão do inventário\n";
@@ -583,8 +510,10 @@ confere('filtro "livros sem exemplar físico"', $s === 200 && !str_contains($htm
 confere('filtro "livros com exemplar físico"', $s === 200 && str_contains($html, 'Dom Casmurro de Teste'));
 [$s, $html] = $bib->ir('exemplares.php?localizacao=sem');
 confere('filtro de exemplares sem localização', $s === 200 && !str_contains($html, '>BDP-000001<'));
+[$s, $html] = $bib->ir('exemplares.php?q=' . rawurlencode('  bdp-000001 '));
+confere('pesquisa por código digitado em minúsculas e com espaços', $s === 200 && str_contains($html, 'BDP-000001') && str_contains($html, '1 exemplar encontrado'));
 [$s, $html] = $bib->ir('exemplares.php?q=bdp-1');
-confere('pesquisa por código digitado de qualquer jeito (bdp-1)', $s === 200 && str_contains($html, 'BDP-000001') && str_contains($html, '1 exemplar encontrado'));
+confere('pesquisa por código incompleto avisa e não escolhe outro exemplar', $s === 200 && str_contains($html, 'Código incompleto') && str_contains($html, '0 exemplares encontrados'));
 [$s, $html] = $bib->ir('index.php');
 confere('dashboard com indicadores do acervo físico', $s === 200 && str_contains($html, 'Sem localização confirmada') && str_contains($html, 'Livros sem exemplar físico') && str_contains($html, 'Inventários em andamento'));
 [$s, $html] = $bib->ir('exemplares.php?q=' . rawurlencode("' OR 1=1 -- "));
@@ -602,7 +531,9 @@ $tk = $bib->csrf('inventario-conferencia.php?id=' . $inv3);
 [$s] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['id' => $inv3, 'acao' => 'conferir', 'exemplar_id' => $dom[0], 'estado_conservacao' => 'bom']);
 confere('conferência sem token CSRF é recusada (419)', $s === 419 && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND conferido_em IS NOT NULL', [$inv3]) === 0);
 [$s, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'ler', 'leitura' => 'bdp-000001']);
-confere('leitura do código leva ao formulário de conferência', $s === 303 && str_contains($loc, 'codigo=bdp-000001'));
+confere('código digitado leva ao formulário de conferência', $s === 303 && str_contains($loc, 'codigo=BDP-000001'));
+[$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'ler', 'leitura' => 'bdp-1']);
+confere('código incompleto na conferência: mensagem clara, nada gravado', $s === 200 && str_contains($html, 'incompleto') && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND conferido_em IS NOT NULL', [$inv3]) === 0);
 [$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3 . '&codigo=bdp-000001');
 confere('formulário mostra o exemplar lido', $s === 200 && str_contains($html, 'Confirmar conferência') && str_contains($html, 'Dom Casmurro de Teste'));
 [$s] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'conferir', 'exemplar_id' => $dom[0], 'estado_conservacao' => 'regular', 'localizacao_id' => $locA]);
