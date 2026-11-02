@@ -38,13 +38,13 @@ $paginasVisiveis = static function (int $atual, int $total): array {
 
 $titulo = $f['q'] !== '' ? 'Resultados para "' . $f['q'] . '"' : 'Catálogo';
 page_start($titulo, 'catalogo', 'Pesquise os livros da Biblioteca Dom Pedro II por título, autor, ISBN ou assunto.');
-page_heading('Explore a biblioteca', 'Catálogo de livros', 'Pesquise por título, autor, ISBN, assunto ou categoria. A busca funciona com ou sem acentos.', 'library-big');
+page_heading('Explore o acervo', 'Catálogo', 'Pesquise por título, autor, ISBN, assunto ou categoria. A busca funciona com ou sem acentos.', 'library-big');
 ?>
 <?= catalogo_aviso() ?>
 <section class="panel catalog-toolbar" aria-label="Pesquisa e filtros">
     <form action="<?= e(url('biblioteca_php/catalogo.php')) ?>" method="get" class="catalog-form" data-loading-form>
         <div class="catalog-search-row">
-            <label class="field field-grow" for="q"><span>Pesquisar</span>
+            <label class="field field-grow field-search" for="q"><span>Pesquisar no acervo</span>
                 <div class="field-control with-icon"><?= icon('search') ?><input id="q" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="Ex.: pequeno principe, Machado de Assis, 9788535902778" maxlength="120"></div>
             </label>
             <label class="field" for="campo"><span>Pesquisar em</span>
@@ -56,7 +56,7 @@ page_heading('Explore a biblioteca', 'Catálogo de livros', 'Pesquise por títul
             </label>
             <button class="action-button" type="submit"><?= icon('search') ?> Pesquisar</button>
         </div>
-        <details class="catalog-more"<?= $filtrando && ($f['categoria'] || $f['ano_de'] !== null || $f['ano_ate'] !== null || $f['disponibilidade'] !== '') ? ' open' : '' ?>>
+        <details class="catalog-more" data-open-desktop<?= $filtrando && ($f['categoria'] || $f['ano_de'] !== null || $f['ano_ate'] !== null || $f['disponibilidade'] !== '') ? ' open' : '' ?>>
             <summary><?= icon('sliders-horizontal') ?> Filtros e ordenação</summary>
             <div class="catalog-filter-grid">
                 <label class="field" for="categoria"><span>Categoria</span>
@@ -120,9 +120,9 @@ page_heading('Explore a biblioteca', 'Catálogo de livros', 'Pesquise por títul
     </div>
     <?php if (!$livros): ?>
         <?php if ($filtrando && $catalogo->disponivel()): ?>
-            <div class="empty-state"><?= icon('search') ?><h3>Nenhum livro encontrado</h3>
+            <div class="empty-state"><span class="empty-icon"><?= icon('search') ?></span><h3>Nenhum livro encontrado</h3>
                 <p>Confira a grafia, use menos palavras ou pesquise em "Todos os campos".<?= $f['disponibilidade'] !== '' ? ' Lembre-se de que o filtro de disponibilidade mostra só livros com exemplares físicos já identificados.' : '' ?></p>
-                <a href="<?= e(url('biblioteca_php/catalogo.php')) ?>" class="ghost-button"><?= icon('filter-x') ?> Limpar filtros</a></div>
+                <a href="<?= e(url('biblioteca_php/catalogo.php')) ?>" class="btn btn-primary"><?= icon('filter-x') ?> Limpar filtros</a></div>
         <?php elseif ($catalogo->disponivel()): ?>
             <div class="empty-state"><?= icon('inbox') ?><h3>Nenhum livro nesta página</h3><a class="inline-link" href="<?= e($link()) ?>">Voltar ao início do catálogo</a></div>
         <?php else: ?>
@@ -135,7 +135,9 @@ page_heading('Explore a biblioteca', 'Catálogo de livros', 'Pesquise por títul
         <?php if ($resultado['paginas'] > 1): ?>
             <nav class="pagination" aria-label="Páginas do catálogo">
                 <?php if ($resultado['pagina'] > 1): ?>
-                    <a class="page-link" href="<?= e($link(['pagina' => $resultado['pagina'] - 1])) ?>" rel="prev"><?= icon('chevron-left') ?> Anterior</a>
+                    <a class="page-link page-step" href="<?= e($link(['pagina' => $resultado['pagina'] - 1])) ?>" rel="prev"><?= icon('chevron-left') ?> <span>Anterior</span></a>
+                <?php else: ?>
+                    <span class="page-link page-step is-disabled" aria-disabled="true"><?= icon('chevron-left') ?> <span>Anterior</span></span>
                 <?php endif; ?>
                 <?php $anterior = 0; foreach ($paginasVisiveis($resultado['pagina'], $resultado['paginas']) as $p): ?>
                     <?php if ($p - $anterior > 1): ?><span class="page-gap" aria-hidden="true">…</span><?php endif; ?>
@@ -146,7 +148,9 @@ page_heading('Explore a biblioteca', 'Catálogo de livros', 'Pesquise por títul
                     <?php endif; ?>
                 <?php $anterior = $p; endforeach; ?>
                 <?php if ($resultado['pagina'] < $resultado['paginas']): ?>
-                    <a class="page-link" href="<?= e($link(['pagina' => $resultado['pagina'] + 1])) ?>" rel="next">Próxima <?= icon('chevron-right') ?></a>
+                    <a class="page-link page-step" href="<?= e($link(['pagina' => $resultado['pagina'] + 1])) ?>" rel="next"><span>Próxima</span> <?= icon('chevron-right') ?></a>
+                <?php else: ?>
+                    <span class="page-link page-step is-disabled" aria-disabled="true"><span>Próxima</span> <?= icon('chevron-right') ?></span>
                 <?php endif; ?>
             </nav>
         <?php endif; ?>
