@@ -13,6 +13,12 @@ function login_destino(string $voltar): string
     return admin_url('dashboard');
 }
 
+// A tela de login não pode ser embutida em outro site (clickjacking) nem guardada em cache.
+header('X-Frame-Options: DENY');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: same-origin');
+header('Cache-Control: no-store, private');
+
 $voltar = is_string($_POST['voltar'] ?? $_GET['voltar'] ?? null) ? ($_POST['voltar'] ?? $_GET['voltar']) : '';
 $erro = null;
 $email = '';
@@ -49,10 +55,7 @@ $demo = auth_demo_disponivel();
     <meta name="theme-color" content="#143477">
     <meta name="robots" content="noindex">
     <title>Entrar | Painel — Biblioteca Dom Pedro II</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261029')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261102b')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261102')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261027')) ?>">
 </head>

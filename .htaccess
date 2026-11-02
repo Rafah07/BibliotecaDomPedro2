@@ -14,3 +14,9 @@ RedirectMatch 404 /(vendor|\.git|backups?|storage|database|config|src|docs|inclu
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "same-origin"
 </IfModule>
+
+# Publicação com HTTPS: tire o "#" das 3 linhas abaixo SOMENTE no servidor que já tem certificado
+# instalado (nunca no XAMPP local sem HTTPS, ou o painel deixa de abrir). Veja docs/publicacao.md.
+# RewriteEngine On
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
