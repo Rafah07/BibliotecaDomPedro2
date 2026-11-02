@@ -47,6 +47,19 @@ function env_bool(string $chave, bool $padrao): bool
     return $valor === null ? $padrao : filter_var($valor, FILTER_VALIDATE_BOOL);
 }
 
+/**
+ * O site está sendo acessado por HTTPS? Detecta a conexão direta (Apache/IIS com certificado) e
+ * aceita APP_HTTPS=true quando um proxy ou painel da hospedagem termina o HTTPS antes do PHP.
+ * Cabeçalhos como X-Forwarded-Proto não são usados: qualquer visitante poderia enviá-los.
+ */
+function app_https(): bool
+{
+    if (env_bool('APP_HTTPS', false)) {
+        return true;
+    }
+    return (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') || (string)($_SERVER['SERVER_PORT'] ?? '') === '443';
+}
+
 /** "development" (padrão) ou "production". */
 function app_ambiente(): string
 {
@@ -59,7 +72,27 @@ date_default_timezone_set(in_array(env('APP_TIMEZONE', ''), DateTimeZone::listId
 // Em produção, erros vão só para o log do servidor (nunca para a tela, onde poderiam expor caminhos ou SQL).
 if (app_ambiente() === 'production') {
     ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
     ini_set('log_errors', '1');
+    if (PHP_SAPI !== 'cli') {
+        // Erro inesperado: o detalhe vai para o log; o visitante vê só uma página genérica (sem caminhos nem SQL).
+        set_exception_handler(function (Throwable $e): void {
+            error_log('[biblioteca] Erro não tratado: ' . get_class($e) . ' em ' . basename($e->getFile()) . ':' . $e->getLine() . ' — ' . $e->getMessage());
+            if (!headers_sent()) {
+                http_response_code(500);
+                header('Content-Type: text/html; charset=UTF-8');
+                header('Cache-Control: no-store');
+            }
+            echo '<!DOCTYPE html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+                . '<title>Erro | Biblioteca Dom Pedro II</title><body style="font-family:system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">'
+                . '<h1>Não foi possível abrir esta página</h1><p>Ocorreu um erro inesperado. Tente novamente em alguns instantes. '
+                . 'Se o problema continuar, avise a equipe da biblioteca.</p></body></html>';
+        });
+        // HTTPS em produção: o navegador passa a usar sempre HTTPS neste domínio (HSTS).
+        if (app_https() && !headers_sent()) {
+            header('Strict-Transport-Security: max-age=31536000');
+        }
+    }
 }
 
 // Carregamento das classes: Composer quando instalado; senão, um carregador simples para src/.

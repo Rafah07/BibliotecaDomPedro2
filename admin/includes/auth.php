@@ -155,16 +155,20 @@ function auth_sessao(): void
         $_SESSION ??= [];
         return;
     }
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? '') === '443');
     session_name('BDPADMIN');
     session_set_cookie_params([
         'lifetime' => 0,
+        // Caminho "/" de propósito: no Windows o Apache aceita /bibliotecadompedro2 e /BibliotecaDomPedro2,
+        // mas o navegador compara o caminho do cookie diferenciando maiúsculas (o login entraria em laço).
         'path' => '/',
-        'secure' => $https,
+        // Em HTTPS (ou com APP_HTTPS=true atrás de um proxy), o cookie nunca trafega sem criptografia.
+        'secure' => app_https(),
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
     ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_trans_sid', '0');
     session_start();
 }
 
@@ -268,6 +272,7 @@ function auth_login(string $email, string $senha): ?string
             return $generica;
         }
         session_regenerate_id(true);
+        unset($_SESSION['csrf']);
         $_SESSION['auth'] = $conta + ['modo' => 'demo', 'email' => $email];
         return null;
     }
@@ -294,7 +299,9 @@ function auth_login(string $email, string $senha): ?string
     }
     db_query('UPDATE administradores SET ultimo_acesso = NOW() WHERE id = ?', [$linha['id']]);
     $hashAtual = (string)db_query('SELECT senha_hash FROM administradores WHERE id = ?', [$linha['id']])->fetchColumn();
+    // Novo identificador de sessão e novo token CSRF depois do login (contra fixação de sessão).
     session_regenerate_id(true);
+    unset($_SESSION['csrf']);
     $_SESSION['auth'] = ['id' => (int)$linha['id'], 'modo' => 'mysql', 'senha' => auth_marca_senha($hashAtual), 'visto' => time()];
     return null;
 }

@@ -729,7 +729,7 @@ html:not(.adm-sidebar-expanded) .adm-nav__title::after {
 
 .adm-chart { position: relative; }
 .adm-chart--bars { height: 280px; }
-.adm-chart canvas { display: block; }
+.adm-chart canvas { display: block; max-width: 100%; }
 .adm-chart.is-loading canvas,
 .adm-chart.is-failed canvas { visibility: hidden; }
 
@@ -808,6 +808,9 @@ html:not(.adm-sidebar-expanded) .adm-nav__title::after {
 
 /* ---------- Tabela ---------- */
 .adm-table-wrap {
+    /* position: relative prende aqui os textos ocultos (leitores de tela) das células;
+       sem isso eles "escapam" da rolagem e a página inteira rola para o lado no celular. */
+    position: relative;
     overflow-x: auto;
     margin: 0 -20px -20px;
     border-top: 1px solid var(--adm-border);

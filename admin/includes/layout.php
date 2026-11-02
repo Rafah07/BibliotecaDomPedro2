@@ -30,10 +30,7 @@ function admin_page_start(string $paginaAtual, string $tituloPagina, string $tit
     <meta name="theme-color" content="#143477">
     <meta name="robots" content="noindex">
     <title><?= htmlspecialchars($tituloPagina) ?> | Painel — Biblioteca Dom Pedro II</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261030')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261102b')) ?>">
     <?php foreach ($estilos as $estilo): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset($estilo)) ?>">
     <?php endforeach; ?>

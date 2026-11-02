@@ -9,11 +9,11 @@ Sistema da biblioteca escolar Dom Pedro II, em PHP tradicional e MySQL.
 
 | Item | Versão |
 | --- | --- |
-| PHP | 8.2 ou superior, com as extensões `pdo_mysql`, `mbstring`, `zip` e `curl` |
-| MySQL | 8.0 ou superior (charset `utf8mb4`) |
+| PHP | 8.2 ou superior, com as extensões `pdo_mysql`, `mbstring`, `zip` e `curl` (`gd` recomendada para as capas; `intl` **não** é necessária) |
+| MySQL / MariaDB | MySQL 8.0+ ou MariaDB 10.4+ (charset `utf8mb4`; o XAMPP traz MariaDB) |
 | Composer | 2.x (instala o PhpSpreadsheet, usado para ler `.xlsx`) |
 
-Não há framework nem etapa de build: o CSS e o JavaScript são arquivos simples. O painel usa o Chart.js por CDN (sem internet, os gráficos mostram um aviso e o resto funciona).
+Não há framework nem etapa de build: o CSS e o JavaScript são arquivos simples. O painel usa o Chart.js 4.4.1 guardado no próprio projeto (`admin/assets/lib/chartjs/`, licença MIT): nenhuma página carrega scripts ou fontes de servidores externos, e o sistema funciona sem internet (só a pesquisa de CDD em fontes públicas precisa dela).
 
 ## Instalação
 
@@ -241,13 +241,14 @@ Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pert
 - Cadastros, edições, arquivamentos e mudanças de contas ficam em `acoes_administrativas` (quem, quando, o quê). Senhas nunca são registradas.
 - Livros não são excluídos: são **arquivados** (com motivo e confirmação) e podem ser restaurados. O arquivamento é recusado enquanto houver exemplares em uso ou empréstimos em aberto.
 - Erros de banco aparecem para o usuário como mensagem genérica; o detalhe vai para o log do servidor.
-- No Apache, arquivos `.htaccess` bloqueiam o acesso direto a `config/`, `database/`, `src/`, `admin/includes/`, `admin/tests/`, `storage/`, `vendor/` e ao `.env`. Em outros servidores (Nginx), configure o mesmo bloqueio.
+- No Apache, arquivos `.htaccess` bloqueiam o acesso direto a `config/`, `database/`, `src/`, `admin/includes/`, `admin/tests/`, `storage/`, `vendor/` e ao `.env`. Em outros servidores (Nginx, IIS), configure o mesmo bloqueio: veja [`docs/publicacao.md`](docs/publicacao.md).
+- Em produção (`APP_ENV=production`), erros inesperados mostram uma página genérica e vão só para o log; com HTTPS, o cookie da sessão é `Secure` e o cabeçalho HSTS é enviado (use `APP_HTTPS=true` se o HTTPS terminar num proxy).
 
 ## Testes
 
 ```bash
 php admin/tests/importacao-teste.php   # leitura de planilhas e validações (sem banco)
-php admin/tests/cdd-teste.php          # regras da CDD; com banco e livros cadastrados, testa também o MySQL
+php admin/tests/cdd-teste.php          # regras da CDD; com o servidor MySQL do .env, testa também o fluxo num banco temporário (não usa o DB_NAME)
 php admin/tests/isbn-lote-teste.php    # ISBNs inválidos em lote; cria e apaga um banco temporário (não usa o DB_NAME do .env)
 php admin/tests/painel-teste.php       # livros, contas, permissões, CSRF, XSS e SQL; banco temporário com 3.000 livros fictícios
 php admin/tests/alunos-importacao-teste.php  # importação de alunos; banco temporário e planilhas só com alunos fictícios
@@ -257,7 +258,22 @@ php admin/tests/site-publico-teste.php # site público: busca, filtros, paginaç
 php admin/tests/relatorios-teste.php   # relatórios: contas, períodos, gráficos, PDF/CSV/XLSX, permissões, privacidade e integridade; banco temporário, só dados fictícios
 php admin/tests/configuracoes-teste.php # configurações (painel → .env → padrão), regras novas, permissões, manutenção, cópia de segurança restaurada; banco temporário
 php admin/tests/codigos-etiquetas-teste.php # códigos BDP digitados (empréstimo, devolução, inventário), etiquetas só com texto, lombada provisória, PDFs sem código de barras; banco temporário
+php admin/tests/fluxo-integracao-teste.php   # fluxo completo pelas páginas: livro → exemplar/BDP → localização → etiqueta → aluno → empréstimo → devolução → inventário → relatórios → históricos
+php admin/tests/auditoria-seguranca-teste.php # acesso direto a todas as páginas por perfil, formulários forçados, sessão, login, parâmetros maliciosos, privacidade
+                                               # (com TESTE_URL_APACHE=http://localhost/BibliotecaDomPedro2/ confere também os arquivos protegidos no Apache)
+php admin/tests/backup-restauracao-teste.php # cópia de segurança restaurada em outro banco temporário e comparada (estrutura, dados, gatilhos, regras)
+php admin/tests/desempenho-teste.php         # tempos das páginas com 10.000 livros fictícios (--livros=N, --manter)
 ```
+
+Todos os testes com banco criam e apagam bancos temporários `bdp_teste_*`: o banco do `.env` nunca é usado. Veja [`docs/testes.md`](docs/testes.md) (comandos no XAMPP, resultados e limitações).
+
+## Publicação, manual e auditoria
+
+- [`docs/publicacao.md`](docs/publicacao.md): requisitos de hospedagem e checklist de produção (HTTPS, permissões, Nginx/IIS, migrações, logs, atualização).
+- [`docs/backup-recuperacao.md`](docs/backup-recuperacao.md): cópia de segurança e recuperação no XAMPP.
+- [`docs/seguranca-lgpd.md`](docs/seguranca-lgpd.md): medidas técnicas de proteção de dados e decisões que cabem à escola.
+- [`docs/manual-bibliotecaria.md`](docs/manual-bibliotecaria.md): manual de uso do painel.
+- [`docs/relatorio-etapa-7-auditoria.md`](docs/relatorio-etapa-7-auditoria.md): relatório da auditoria final.
 
 ## Situação das funcionalidades
 

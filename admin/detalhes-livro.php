@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/livros.php';
 
 $livro = acervo_livro((int)($_GET['id'] ?? 0));
 
-admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261102', 'assets/css/classificacao.css?v=20261027', 'assets/css/inventario.css?v=20261102']);
+admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261102', 'assets/css/classificacao.css?v=20261027', 'assets/css/inventario.css?v=20261102b']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Detalhes']]);
 

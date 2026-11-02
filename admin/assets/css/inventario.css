@@ -35,7 +35,7 @@
 .adm-acao { border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-white); }
 .adm-acao > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; list-style: none; }
 .adm-acao > summary:not(.adm-button) { padding: 12px 14px; }
-.adm-acao > summary.adm-button { display: inline-flex; }
+.adm-acao > summary.adm-button { display: inline-flex; white-space: normal; max-width: 100%; text-align: left; }
 .adm-acao > summary::-webkit-details-marker { display: none; }
 .adm-acao > summary .icon { width: 17px; height: 17px; }
 .adm-acao[open] > summary:not(.adm-button) { border-bottom: 1px solid var(--adm-border); }

@@ -12,6 +12,7 @@ use PDO;
  *   C:\xampp\mysql\bin\mysql.exe -u root -p banco_vazio < copia.sql
  *
  * - Só leitura: nada no banco é alterado (só variáveis da própria sessão, restauradas no fim).
+ * - Todas as tabelas saem do mesmo instante (transação com fotografia consistente do InnoDB).
  * - Não apaga tabelas no destino (sem DROP TABLE): restaure sempre em um banco VAZIO.
  * - Contém dados pessoais de alunos e os hashes de senha das contas: guarde em local protegido.
  * - Os dados saem em blocos (consulta sem buffer), então funciona com acervos grandes sem
@@ -38,6 +39,14 @@ final class BackupService
         $fusoAnterior = (string)$this->pdo->query('SELECT @@session.time_zone')->fetchColumn();
         $this->pdo->exec("SET time_zone = '+00:00'"); // colunas TIMESTAMP saem em UTC, como no mysqldump
         $versao = (string)$this->pdo->query('SELECT VERSION()')->fetchColumn();
+        // Fotografia única do banco (como mysqldump --single-transaction): um empréstimo registrado
+        // durante a cópia não aparece "pela metade" (ex.: o empréstimo sem a mudança do exemplar).
+        // Só leitura; nada é gravado nesta transação.
+        $snapshot = !$this->pdo->inTransaction();
+        if ($snapshot) {
+            $this->pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+            $this->pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
+        }
 
         $w = fn (string $texto) => fwrite($saida, $texto);
         $w("-- Cópia de segurança — Biblioteca Dom Pedro II\n");
@@ -102,6 +111,9 @@ final class BackupService
 
             $w("SET FOREIGN_KEY_CHECKS = 1;\nSET UNIQUE_CHECKS = 1;\n-- Fim da cópia de segurança.\n");
         } finally {
+            if ($snapshot && $this->pdo->inTransaction()) {
+                $this->pdo->commit();
+            }
             $this->pdo->exec('SET time_zone = ' . $this->pdo->quote($fusoAnterior));
         }
         return $resumo;

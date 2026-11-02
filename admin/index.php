@@ -371,6 +371,6 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 <script type="application/json" id="dashboard-data"><?= json_encode($dadosGraficos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php
 admin_page_end([
-    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+    'assets/lib/chartjs/chart-4.4.1.umd.min.js',
     'assets/js/dashboard.js?v=20261029',
 ]);

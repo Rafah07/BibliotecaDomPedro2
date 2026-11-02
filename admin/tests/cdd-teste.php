@@ -3,14 +3,42 @@
  * Testes do módulo de classificação CDD (sem rede).
  *
  * Uso: php admin/tests/cdd-teste.php
- * Com o banco configurado no .env (DB_*), também testa o fluxo completo no MySQL, dentro de uma
- * transação desfeita no final (o banco não é alterado).
+ * Com o servidor MySQL configurado no .env (DB_HOST, DB_USER...), também testa o fluxo completo no
+ * MySQL. Esse fluxo roda SOMENTE em um banco temporário "bdp_teste_cdd_XXXX", criado com as
+ * migrações e um livro fictício e apagado no final: o banco do .env (DB_NAME) nunca é usado.
+ * Para outro usuário do MySQL, defina TESTE_DB_USER e TESTE_DB_PASSWORD.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
 }
 $_SERVER['SCRIPT_NAME'] = '/admin/tests/cdd-teste.php';
+
+// Banco temporário ANTES de qualquer conexão: db() passa a apontar só para ele.
+require_once __DIR__ . '/../../config/app.php';
+$bancoTemporario = null;
+$usuarioTeste = getenv('TESTE_DB_USER') ?: env('DB_USER');
+if ($usuarioTeste) {
+    $senhaTeste = getenv('TESTE_DB_USER') ? (string)getenv('TESTE_DB_PASSWORD') : (string)env('DB_PASSWORD', '');
+    $hostTeste = env('DB_HOST', '127.0.0.1');
+    $portaTeste = (int)env('DB_PORT', '3306');
+    $raizTeste = new PDO("mysql:host=$hostTeste;port=$portaTeste;charset=utf8mb4", $usuarioTeste, $senhaTeste, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $bancoTemporario = 'bdp_teste_cdd_' . bin2hex(random_bytes(4));
+    $raizTeste->exec("CREATE DATABASE `$bancoTemporario` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    register_shutdown_function(function () use ($raizTeste, $bancoTemporario) {
+        $raizTeste->exec("DROP DATABASE IF EXISTS `$bancoTemporario`");
+        echo "Banco temporário $bancoTemporario apagado.\n";
+    });
+    foreach (['DB_HOST' => $hostTeste, 'DB_PORT' => (string)$portaTeste, 'DB_NAME' => $bancoTemporario, 'DB_USER' => $usuarioTeste, 'DB_PASSWORD' => $senhaTeste] as $k => $v) {
+        putenv("$k=$v");
+    }
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../../database/migrar.php') . ' 2>&1', $saidaMigracao, $codigoMigracao);
+    if ($codigoMigracao !== 0) {
+        fwrite(STDERR, "As migrações falharam:\n" . implode("\n", $saidaMigracao) . "\n");
+        exit(1);
+    }
+    echo "Banco temporário: $bancoTemporario (o banco do .env não é usado)\n";
+}
 require __DIR__ . '/../includes/menu.php';
 require __DIR__ . '/../includes/icones.php';
 require __DIR__ . '/../includes/cdd.php';
@@ -120,10 +148,18 @@ confere('Rejeitar nova proposta mantém a CDD aprovada anterior', $rj2['status']
 confere('Auxiliar não pode aprovar', lanca(fn () => cdd_executar('aprovar', 1, ['cdd' => '869.3', 'fonte_nome' => 'x'], $aux)) !== null);
 confere('Link de fonte precisa ser http(s)', lanca(fn () => cdd_dados_limpos(['fonte_url' => 'javascript:alert(1)'])) !== null);
 
-if (db_modo() === 'mysql') {
-    echo "Fluxo no MySQL (transação desfeita no final)\n";
+if ($bancoTemporario !== null && db_modo() === 'mysql') {
+    echo "Fluxo no MySQL (banco temporário)\n";
     $pdo = db();
-    $livroId = (int)$pdo->query('SELECT id FROM livros ORDER BY id LIMIT 1')->fetchColumn();
+    if ($pdo->query('SELECT DATABASE()')->fetchColumn() !== $bancoTemporario) {
+        fwrite(STDERR, "Conexão inesperada: o fluxo da CDD só roda no banco temporário.\n");
+        exit(1);
+    }
+    $pdo->exec("INSERT INTO livros (titulo, origem_cadastro) VALUES ('Livro Fictício da CDD', 'manual')");
+    $livroId = (int)$pdo->lastInsertId();
+    $st = $pdo->prepare('CALL gerar_exemplares(?, 2, NULL, ?, ?)');
+    $st->execute([$livroId, 'bom', 'disponivel']);
+    $st->closeCursor();
     $pdo->beginTransaction();
     try {
         $pdo->exec("INSERT IGNORE INTO administradores (id, nome, email, senha_hash, perfil) VALUES (900001, 'Teste Bib', 'teste-bib@local', 'x', 'bibliotecaria'), (900002, 'Teste Aux', 'teste-aux@local', 'x', 'auxiliar')");
