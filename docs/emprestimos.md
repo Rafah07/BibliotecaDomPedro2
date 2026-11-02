@@ -7,16 +7,35 @@ Módulo de circulação do painel administrativo (menu **Circulação**). Funcio
 | Página | Para que serve | Permissão |
 | --- | --- | --- |
 | `emprestimos.php` | Abas Ativos, Atrasados, Devolvidos e Histórico completo; pesquisa por aluno, matrícula, e-mail, título ou código do exemplar; período de retirada; paginação no servidor | `emprestimos.ver` |
-| `novo-emprestimo.php` | Registrar empréstimo em 3 passos: aluno → exemplar → resumo e confirmação | `emprestimos.registrar` |
+| `novo-emprestimo.php` | Registrar empréstimo em 3 passos: aluno → código BDP digitado (ou pesquisa por título, autor, ISBN) → conferência do livro e confirmação | `emprestimos.registrar` |
 | `emprestimo.php?id=` | Dados do empréstimo, renovações e movimentações | `emprestimos.ver` |
 | `devolver-emprestimo.php?id=` | Confirmação e registro da devolução | `emprestimos.registrar` |
 | `renovar-emprestimo.php?id=` | Renovação | `emprestimos.registrar` |
-| `devolucoes.php` | Ler/digitar o código do exemplar e ir direto para a confirmação da devolução; últimas devoluções | `emprestimos.ver` |
+| `devolucoes.php` | Digitar o código BDP do exemplar e ir direto para a confirmação da devolução do empréstimo ativo; últimas devoluções | `emprestimos.ver` |
 | `atrasos.php` | Empréstimos atrasados com os dias de atraso | `emprestimos.ver` |
 | `historico-aluno.php?id=` | Ativos, anteriores, devoluções, atrasos e renovações do aluno (também de alunos inativos) | `emprestimos.ver` |
 | `historico-exemplar.php?id=` ou `?codigo=` | Situação atual, empréstimos e movimentações do exemplar | `emprestimos.ver` |
 
 Perfis: **administrador** e **bibliotecária** têm tudo, inclusive `emprestimos.prazo` (escolher outra data de devolução e informar a data real de uma devolução registrada depois). **Auxiliar** registra empréstimos, devoluções e renovações só com o prazo padrão. **Consulta** não vê a circulação, porque ela tem dados pessoais dos alunos; no dashboard, esse perfil vê só os totais, sem nomes.
+
+## Como registrar pelo código escrito
+
+A identificação do exemplar é feita **digitando o código BDP escrito na etiqueta** (ex.: `BDP-000123`). Não é preciso leitor de código de barras, celular ou câmera.
+
+**Empréstimo**
+
+1. Em **Novo empréstimo**, pesquise e selecione o aluno (de preferência pela matrícula).
+2. No passo 2, digite o código BDP do exemplar e pressione **Enter** (ou **Pesquisar exemplar**). Sem a etiqueta em mãos, pesquise por título, autor ou ISBN.
+3. Se o exemplar estiver disponível, o sistema vai direto ao passo 3: confira o título, o autor e o código do livro encontrado.
+4. Marque a confirmação e clique em confirmar o empréstimo.
+
+**Devolução**
+
+1. Em **Devoluções**, digite o código BDP do exemplar devolvido e pressione **Enter**.
+2. O sistema localiza o empréstimo ativo desse exemplar e abre a confirmação.
+3. Confira os dados e confirme a devolução.
+
+Como o código é aceito: maiúsculas ou minúsculas tanto faz, espaços antes e depois são ignorados, e o hífen pode faltar (`bdp000123`). Os 6 números são obrigatórios: `BDP-123` mostra "Código incompleto" e não seleciona nenhum exemplar, porque um dígito esquecido poderia apontar para outro livro. Código que não existe mostra uma mensagem clara. Não há correspondência aproximada. As validações de disponibilidade, permissões e integridade continuam as mesmas.
 
 ## Regras
 

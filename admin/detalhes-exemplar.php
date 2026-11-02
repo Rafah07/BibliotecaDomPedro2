@@ -2,14 +2,13 @@
 /**
  * Detalhes de um exemplar físico: dados, localização confirmada (e a antiga da planilha, só como
  * referência), histórico, conferências de inventário e ações (conservação, transferência,
- * situação, extravio e baixa). Aceita ?id= ou ?codigo= (ex.: BDP-000001, lido pelo leitor).
+ * situação, extravio e baixa). Aceita ?id= ou ?codigo= (ex.: BDP-000001, digitado pela bibliotecária).
  * Sem banco configurado, mostra a versão demonstrativa (includes/demo/detalhes-exemplar.php).
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/acervo-fisico.php';
 
 use Biblioteca\Services\AcervoException;
-use Biblioteca\Support\Code128;
 
 if (!acervo_usa_mysql()) {
     require __DIR__ . '/includes/demo/detalhes-exemplar.php';
@@ -201,8 +200,8 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
 
     <aside class="adm-columns__side">
         <section class="adm-card adm-panel" aria-labelledby="titulo-codigo">
-            <div class="adm-panel__header"><div><h2 id="titulo-codigo">Código de barras</h2><p>Code 128 com o código do exemplar. Lido por leitores USB comuns.</p></div></div>
-            <figure class="adm-barcode adm-barcode--real"><?= Code128::svg($ex['codigo_individual']) ?><figcaption class="adm-mono"><?= e($ex['codigo_individual']) ?></figcaption></figure>
+            <div class="adm-panel__header"><div><h2 id="titulo-codigo">Código do exemplar</h2><p>É o código escrito na etiqueta. Para encontrar este exemplar, digite-o em Empréstimos, Devoluções ou Inventário.</p></div></div>
+            <p class="adm-codigo-escrito"><?= e($ex['codigo_individual']) ?></p>
         </section>
 
         <?php if ($podeGerenciar && !$baixado): ?>

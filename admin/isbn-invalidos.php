@@ -137,7 +137,7 @@ $fmt = fn (int $n) => number_format($n, 0, ',', '.');
 $livroUrl = fn (int $livroId) => admin_url('detalhes-livro') . '?id=' . $livroId;
 $revisarUrl = fn (array $item) => $urlDetalhes . '&filtro=isbn_invalido&abrir=' . (int)$item['id'] . '#revisao';
 
-admin_page_start('importar', 'ISBNs inválidos · Importação nº ' . $id, 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261027', 'assets/css/importacao.css?v=20261030']);
+admin_page_start('importar', 'ISBNs inválidos · Importação nº ' . $id, 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261102', 'assets/css/importacao.css?v=20261030']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Importação', admin_url('importar')], ['Histórico', admin_url('historico-importacoes')], ['Importação nº ' . $id, $urlDetalhes], ['ISBNs inválidos']]) ?>

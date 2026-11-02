@@ -1,13 +1,16 @@
 <?php
 /**
- * Devoluções: a bibliotecária digita (ou lê com o leitor de código de barras) o código do
- * exemplar devolvido e vai direto para a confirmação. Também pesquisa os empréstimos em aberto
- * por aluno ou título e mostra as últimas devoluções.
+ * Devoluções: a bibliotecária digita o código BDP escrito na etiqueta do exemplar devolvido
+ * (ex.: BDP-000001) e pressiona Enter. O sistema localiza o empréstimo ativo e abre a
+ * confirmação. A busca do código é exata (maiúsculas/minúsculas e espaços nas pontas não
+ * importam). Também pesquisa os empréstimos em aberto por aluno ou título e mostra as últimas
+ * devoluções.
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/emprestimos.php';
 
 use Biblioteca\Repositories\EmprestimoRepository;
+use Biblioteca\Support\CodigoBdp;
 
 emprestimos_iniciar();
 $hoje = emprestimos_hoje();
@@ -16,12 +19,14 @@ $base = admin_url('devolucoes');
 $aviso = null;
 try {
     $codigo = EmprestimoRepository::codigoExemplar($q);
-    if ($codigo && auth_pode('emprestimos.registrar')) {
+    if (!$codigo && CodigoBdp::pareceCodigo($q)) {
+        $aviso = CodigoBdp::mensagemInvalido($q);
+    } elseif ($codigo && auth_pode('emprestimos.registrar')) {
         $ex = emprestimos_repo()->exemplarPorCodigo($codigo);
         if ($ex && $ex['emprestimo_aberto']) {
             admin_redirecionar(admin_url('devolver-emprestimo') . '?id=' . (int)$ex['emprestimo_aberto']);
         }
-        $aviso = $ex ? 'O exemplar ' . $ex['codigo_individual'] . ' não tem empréstimo em aberto (situação: ' . mb_strtolower(emprestimos_situacao_exemplar($ex['situacao'])) . ').' : 'Nenhum exemplar com o código ' . $codigo . '.';
+        $aviso = $ex ? 'O exemplar ' . $ex['codigo_individual'] . ' não tem empréstimo em aberto (situação: ' . mb_strtolower(emprestimos_situacao_exemplar($ex['situacao'])) . ').' : 'O código ' . $codigo . ' não existe. Confira se ele foi digitado exatamente como está na etiqueta.';
     }
     $abertos = $q !== '' && !$aviso ? emprestimos_repo()->listar(['situacao' => 'ativos', 'q' => $q], $hoje, 1, 50) : null;
     $recentes = emprestimos_repo()->listar(['situacao' => 'devolvidos', 'ordem' => 'devolucao', 'dir' => 'desc'], $hoje, 1, 10);
@@ -31,7 +36,7 @@ try {
     exit;
 }
 
-admin_page_start('devolucoes', 'Devoluções', 'Devoluções', 'Circulação do acervo', ['assets/css/acervo.css?v=20261030', 'assets/css/emprestimos.css?v=20261030']);
+admin_page_start('devolucoes', 'Devoluções', 'Devoluções', 'Circulação do acervo', ['assets/css/acervo.css?v=20261102', 'assets/css/emprestimos.css?v=20261030']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Empréstimos', admin_url('emprestimos')], ['Devoluções']]) ?>
@@ -39,7 +44,7 @@ admin_page_start('devolucoes', 'Devoluções', 'Devoluções', 'Circulação do 
 <section class="adm-page-head">
     <div>
         <h1>Registrar devolução</h1>
-        <p>Digite ou leia o código do exemplar (BDP-000123). Também é possível pesquisar pelo aluno ou pelo título.</p>
+        <p>Digite o código BDP escrito na etiqueta do livro (ex.: BDP-000123) e pressione Enter: o sistema localiza o empréstimo ativo e abre a confirmação. Também é possível pesquisar pelo aluno ou pelo título.</p>
     </div>
 </section>
 
@@ -48,11 +53,11 @@ admin_page_start('devolucoes', 'Devoluções', 'Devoluções', 'Circulação do 
 <section class="adm-card adm-panel">
     <form class="adm-toolbar adm-toolbar--search" method="get" action="<?= e($base) ?>">
         <label class="adm-field-search adm-toolbar__q">
-            <?= icon('scan-barcode') ?>
-            <span class="adm-visually-hidden">Código do exemplar, aluno ou título</span>
-            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Código do exemplar, aluno, matrícula ou título..." autocomplete="off" autofocus>
+            <?= icon('keyboard') ?>
+            <span class="adm-visually-hidden">Código BDP do exemplar, aluno ou título</span>
+            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Informe o código BDP (ex.: BDP-000123), aluno, matrícula ou título..." autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus>
         </label>
-        <button type="submit" class="adm-button adm-button--primary adm-button--sm"><?= icon('search') ?> <span>Buscar</span></button>
+        <button type="submit" class="adm-button adm-button--primary adm-button--sm"><?= icon('search') ?> <span>Pesquisar exemplar</span></button>
     </form>
     <?php if ($aviso): ?><?= admin_aviso('aviso', 'Nada para devolver com este código.', $aviso) ?><?php endif; ?>
     <?php if ($abertos !== null): ?>

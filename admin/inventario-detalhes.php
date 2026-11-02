@@ -122,7 +122,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
     </div>
     <div class="adm-page-head__actions">
         <?php if ($inv['status'] === 'em_andamento' && auth_pode('inventario.conferir')): ?>
-            <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-conferencia') . '?id=' . $id) ?>"><?= icon('scan-barcode') ?> Conferir exemplares</a>
+            <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-conferencia') . '?id=' . $id) ?>"><?= icon('clipboard-check') ?> Conferir exemplares</a>
         <?php endif; ?>
         <?php if ($inv['status'] !== 'aberto'): ?>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-relatorio') . '?id=' . $id) ?>"><?= icon('file-chart-column') ?> Relatório</a>
@@ -219,7 +219,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
     <form class="adm-toolbar adm-toolbar--search" method="get" action="<?= e(admin_url('inventario-detalhes')) ?>">
         <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="filtro" value="<?= e($filtro) ?>">
         <label class="adm-field-search adm-toolbar__q"><?= icon('search') ?><span class="adm-visually-hidden">Pesquisar nesta categoria</span>
-            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Código BDP, título ou autor..." autocomplete="off" data-scanner></label>
+            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Código BDP, título ou autor..." autocomplete="off" data-campo-codigo></label>
         <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('search') ?> Pesquisar</button>
     </form>
 

@@ -22,7 +22,7 @@ use PDOException;
  *   * Ao começar, a lista de exemplares previstos é congelada em inventario_itens
  *     (exemplares não baixados nem extraviados, do setor escolhido ou do acervo inteiro).
  *   * Cada exemplar é conferido uma única vez por inventário (índice único). Uma segunda
- *     leitura do mesmo código não cria nada: avisa e mostra a conferência anterior.
+ *     digitação do mesmo código não cria nada: avisa e mostra a conferência anterior.
  *     Correções são registradas à parte, com motivo, por quem pode gerenciar o inventário.
  *   * Divergências (local, estado, situação) e ausências nunca são resolvidas sozinhas:
  *     exigem uma decisão explícita, e o inventário só é concluído depois de todas decididas.
@@ -247,7 +247,7 @@ final class InventarioService
                 return $this->repo->item((int)$item['id']);
             });
         } catch (PDOException $e) {
-            // Duas leituras ao mesmo tempo: o índice único segura a segunda.
+            // Dois registros do mesmo código ao mesmo tempo: o índice único segura a segunda.
             if ($e->getCode() === '23000') {
                 $item = $this->repo->itemPorExemplar($inventarioId, $exemplarId);
                 if ($item) {

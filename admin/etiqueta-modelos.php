@@ -2,6 +2,8 @@
 /**
  * Modelos de etiqueta: medidas da página e da etiqueta, margens e espaços em milímetros,
  * e o que cada etiqueta mostra. Modelos não são excluídos: são desativados.
+ * As etiquetas têm só texto escrito (sem código de barras ou QR Code): o código BDP é sempre
+ * impresso e é o maior texto da etiqueta.
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/acervo-fisico.php';
@@ -14,10 +16,16 @@ $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0) ?: null;
 $editando = $id !== null || admin_param($_GET, 'novo') === '1' || admin_param($_POST, 'acao') === 'salvar';
 $erro = null;
 $campos = ['nome', 'tipo', 'pagina_largura', 'pagina_altura', 'etiqueta_largura', 'etiqueta_altura', 'margem_superior', 'margem_esquerda', 'espaco_horizontal', 'espaco_vertical', 'colunas', 'linhas'];
-$opcoes = ['codigo_barras' => 'Código de barras', 'mostrar_biblioteca' => 'Nome da biblioteca', 'mostrar_titulo' => 'Título abreviado', 'mostrar_cdd' => 'CDD aprovada', 'mostrar_local' => 'Localização confirmada'];
-$dados = ['nome' => '', 'tipo' => 'patrimonial', 'pagina_largura' => '210', 'pagina_altura' => '297', 'etiqueta_largura' => '63.5', 'etiqueta_altura' => '25.4',
-    'margem_superior' => '10', 'margem_esquerda' => '7', 'espaco_horizontal' => '2.5', 'espaco_vertical' => '0', 'colunas' => '3', 'linhas' => '11',
-    'codigo_barras' => 1, 'mostrar_biblioteca' => 1, 'mostrar_titulo' => 1, 'mostrar_cdd' => 1, 'mostrar_local' => 1];
+$opcoes = [
+    'mostrar_biblioteca' => ['Nome da biblioteca', 'Só na patrimonial. Ex.: BIBLIOTECA DOM PEDRO II acima do código.'],
+    'mostrar_titulo' => ['Título abreviado', 'Só na patrimonial, em letra pequena abaixo do código.'],
+    'mostrar_cdd' => ['CDD aprovada', 'Na lombada, é a informação principal. Sem CDD aprovada, a lombada sai provisória, só com o código BDP.'],
+    'mostrar_local' => ['Localização confirmada', 'Código curto da estante/prateleira confirmada no cadastro do exemplar.'],
+];
+// Padrão sugerido: etiqueta patrimonial simples de 50 × 20 mm, 3 × 12 numa folha A4, com espaço para recorte.
+$dados = ['nome' => '', 'tipo' => 'patrimonial', 'pagina_largura' => '210', 'pagina_altura' => '297', 'etiqueta_largura' => '50', 'etiqueta_altura' => '20',
+    'margem_superior' => '12', 'margem_esquerda' => '20', 'espaco_horizontal' => '10', 'espaco_vertical' => '3', 'colunas' => '3', 'linhas' => '12',
+    'mostrar_biblioteca' => 1, 'mostrar_titulo' => 0, 'mostrar_cdd' => 0, 'mostrar_local' => 0];
 
 try {
     if ($id) {
@@ -86,9 +94,9 @@ admin_page_start('etiquetas', 'Modelos de etiqueta', 'Etiquetas', 'Impressão da
         <?php if ($id): ?><input type="hidden" name="id" value="<?= (int)$id ?>"><?php endif; ?>
         <h2 class="adm-panel__title"><?= $id ? 'Editar modelo' : 'Novo modelo' ?></h2>
         <div class="adm-form-grid adm-form-grid--4">
-            <label class="adm-field adm-field--full"><span class="adm-field__label">Nome *</span><input class="adm-input" name="nome" maxlength="100" required value="<?= e((string)$dados['nome']) ?>" placeholder="Patrimonial A4 — 3 × 10"></label>
+            <label class="adm-field adm-field--full"><span class="adm-field__label">Nome *</span><input class="adm-input" name="nome" maxlength="100" required value="<?= e((string)$dados['nome']) ?>" placeholder="Patrimonial A4 — 3 × 12 (50 × 20 mm)"></label>
             <label class="adm-field"><span class="adm-field__label">Tipo</span>
-                <select class="adm-select" name="tipo"><option value="patrimonial"<?= $dados['tipo'] === 'patrimonial' ? ' selected' : '' ?>>Patrimonial (código e barras)</option><option value="lombada"<?= $dados['tipo'] === 'lombada' ? ' selected' : '' ?>>Lombada (CDD em destaque)</option></select></label>
+                <select class="adm-select" name="tipo"><option value="patrimonial"<?= $dados['tipo'] === 'patrimonial' ? ' selected' : '' ?>>Patrimonial (nome da biblioteca e código BDP)</option><option value="lombada"<?= $dados['tipo'] === 'lombada' ? ' selected' : '' ?>>Lombada (CDD aprovada e código BDP)</option></select></label>
             <?php
             $numeros = [
                 'pagina_largura' => 'Largura da página', 'pagina_altura' => 'Altura da página', 'etiqueta_largura' => 'Largura da etiqueta', 'etiqueta_altura' => 'Altura da etiqueta',
@@ -102,9 +110,9 @@ admin_page_start('etiquetas', 'Modelos de etiqueta', 'Etiquetas', 'Impressão da
         </div>
         <fieldset class="adm-fieldset">
             <legend>O que aparece na etiqueta</legend>
-            <p class="adm-field__hint">O código do exemplar sempre aparece. Dados de alunos, senhas e tokens nunca entram na etiqueta.</p>
-            <?php foreach ($opcoes as $c => $rotulo): ?>
-                <label class="adm-check-confirm"><input type="checkbox" name="<?= $c ?>" value="1"<?= (int)$dados[$c] ? ' checked' : '' ?>> <span><?= e($rotulo) ?></span></label>
+            <p class="adm-field__hint">O código do exemplar (ex.: BDP-000001) sempre aparece, centralizado e com a maior letra. A etiqueta tem só texto: fundo branco, letras pretas, sem código de barras nem QR Code. Dados de alunos, senhas e tokens nunca entram na etiqueta.</p>
+            <?php foreach ($opcoes as $c => [$rotulo, $dica]): ?>
+                <label class="adm-check-confirm"><input type="checkbox" name="<?= $c ?>" value="1"<?= (int)$dados[$c] ? ' checked' : '' ?>> <span><?= e($rotulo) ?> <small class="adm-table__muted">— <?= e($dica) ?></small></span></label>
             <?php endforeach; ?>
         </fieldset>
         <button class="adm-button adm-button--primary" type="submit"><?= icon('save') ?> Salvar modelo</button>

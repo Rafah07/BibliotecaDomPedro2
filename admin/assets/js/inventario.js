@@ -1,5 +1,5 @@
 /*
- * Acervo físico: seleção de exemplares para etiquetas, campo do leitor de código de barras,
+ * Acervo físico: seleção de exemplares para etiquetas, campo de digitação do código BDP,
  * confirmação de extravio e zoom da pré-visualização das etiquetas.
  * Tudo funciona sem JavaScript; aqui só ficam atalhos de uso.
  */
@@ -26,20 +26,24 @@
         atualizar();
     });
 
-    // ---------- Campo do leitor de código de barras ----------
-    // O leitor USB funciona como teclado: digita o código e envia Enter. O campo fica
-    // selecionado para que a próxima leitura substitua a anterior.
-    document.querySelectorAll('[data-scanner]').forEach((campo) => {
+    // ---------- Campo de digitação do código BDP ----------
+    // A bibliotecária digita o código escrito na etiqueta (ex.: BDP-000001) e pressiona Enter.
+    // O campo fica selecionado para que o próximo código substitua o anterior; Esc limpa.
+    // Os espaços nas pontas são retirados antes de enviar (o servidor também confere tudo).
+    document.querySelectorAll('[data-campo-codigo]').forEach((campo) => {
         campo.addEventListener('focus', () => campo.select());
         campo.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') { campo.value = ''; }
         });
+        if (campo.form) {
+            campo.form.addEventListener('submit', () => { campo.value = campo.value.trim(); });
+        }
     });
     const leitura = document.getElementById('leitura');
     if (leitura && !document.querySelector('[autofocus]:not(#leitura)')) {
         leitura.focus();
     }
-    // Atalho: "/" ou F2 voltam ao campo de leitura na conferência.
+    // Atalho: "/" ou F2 voltam ao campo do código na conferência.
     if (leitura) {
         document.addEventListener('keydown', (e) => {
             const alvo = e.target;

@@ -692,9 +692,9 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
 .adm-action--danger:hover { background: var(--adm-red-50); border-color: #fecaca; }
 .adm-action[data-blocked] { opacity: .7; }
 
-.adm-barcode { margin: 0; padding: 16px; border: 1px dashed #c9d6ee; border-radius: var(--adm-radius); background: #fff; text-align: center; }
-.adm-barcode svg { display: block; width: 100%; height: 64px; fill: #1f2937; opacity: .85; }
-.adm-barcode figcaption { margin-top: 8px; font-weight: 600; letter-spacing: .12em; }
+/* Código escrito do exemplar (o mesmo da etiqueta): grande, fácil de ler e de copiar. */
+.adm-codigo-escrito { margin: 0; padding: 16px 12px; border: 1px dashed #c9d6ee; border-radius: var(--adm-radius); background: #fff; color: #0f172a;
+    text-align: center; font: 700 clamp(1.5rem, 5vw, 2rem)/1.2 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .06em; user-select: all; overflow-wrap: anywhere; }
 
 /* ---------- Modais ---------- */
 .adm-modal {

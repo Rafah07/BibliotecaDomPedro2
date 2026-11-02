@@ -2,12 +2,17 @@
 /**
  * Registrar empréstimo em três passos, sem JavaScript obrigatório:
  *   1. pesquisar e escolher o aluno (matrícula, nome ou e-mail);
- *   2. pesquisar e escolher um exemplar DISPONÍVEL (título, autor, ISBN ou código);
+ *   2. digitar o código BDP escrito na etiqueta (ex.: BDP-000001) ou pesquisar por título,
+ *      autor ou ISBN e escolher um exemplar DISPONÍVEL. Código completo e disponível vai
+ *      direto para a conferência do livro encontrado; a busca do código é exata;
  *   3. conferir o resumo, o prazo e confirmar.
  * O aluno nunca é escolhido automaticamente, mesmo com um único resultado: nomes podem se repetir.
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/emprestimos.php';
+
+use Biblioteca\Repositories\EmprestimoRepository;
+use Biblioteca\Support\CodigoBdp;
 
 $usuario = emprestimos_iniciar('emprestimos.registrar');
 $repo = emprestimos_repo();
@@ -52,7 +57,18 @@ try {
     }
 
     $alunos = !$aluno && $qa !== '' ? $repo->pesquisarAlunos($qa) : null;
-    $exemplares = $aluno && !$exemplar && $qe !== '' ? $repo->pesquisarExemplares($qe) : null;
+    $codigoDigitado = $aluno && !$exemplar && $qe !== '' ? EmprestimoRepository::codigoExemplar($qe) : null;
+    $codigoInvalido = $aluno && !$exemplar && $qe !== '' && !$codigoDigitado && CodigoBdp::pareceCodigo($qe);
+    $codigoInexistente = null;
+    if ($codigoDigitado) {
+        // Código completo: identifica o exemplar exato. Disponível → vai para a conferência (passo 3).
+        $encontrado = $repo->exemplarPorCodigo($codigoDigitado);
+        if ($encontrado && $encontrado['situacao'] === 'disponivel' && $encontrado['arquivado_em'] === null && !$encontrado['emprestimo_aberto']) {
+            admin_redirecionar(admin_url_filtros($base, ['aluno' => $aluno['id'], 'exemplar' => $encontrado['id']]));
+        }
+        $codigoInexistente = $encontrado ? null : $codigoDigitado;
+    }
+    $exemplares = $aluno && !$exemplar && $qe !== '' && !$codigoInvalido && !$codigoInexistente ? $repo->pesquisarExemplares($qe) : null;
 } catch (PDOException $e) {
     http_response_code(500);
     admin_pagina_erro('Não foi possível registrar o empréstimo', emprestimos_erro_tecnico($e, 'novo empréstimo'));
@@ -70,7 +86,7 @@ $aptoExemplar = $exemplar && $exemplar['situacao'] === 'disponivel' && $exemplar
 $passo = !$aluno ? 1 : (!$exemplar ? 2 : 3);
 $estado = ['aluno' => $aluno['id'] ?? null, 'exemplar' => $exemplar['id'] ?? null];
 
-admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261030', 'assets/css/emprestimos.css?v=20261030']);
+admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261102', 'assets/css/emprestimos.css?v=20261030']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Empréstimos', admin_url('emprestimos')], ['Novo empréstimo']]) ?>
@@ -162,7 +178,7 @@ admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulaçã
         <span class="adm-step">2</span>
         <div>
             <h2 id="titulo-exemplar">Livro e exemplar</h2>
-            <p>Pesquise por título, autor, ISBN ou código do exemplar (BDP-000123). Só aparecem para escolha os exemplares físicos disponíveis.</p>
+            <p>Digite o código BDP escrito na etiqueta (ex.: BDP-000123) e pressione Enter para conferir o livro encontrado. Sem a etiqueta em mãos, pesquise por título, autor ou ISBN. Só os exemplares físicos disponíveis podem ser emprestados.</p>
         </div>
     </div>
     <?php if ($exemplar): ?>
@@ -182,11 +198,16 @@ admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulaçã
             <input type="hidden" name="aluno" value="<?= (int)$aluno['id'] ?>">
             <label class="adm-field-search adm-toolbar__q">
                 <?= icon('search') ?>
-                <span class="adm-visually-hidden">Pesquisar livro ou exemplar</span>
-                <input type="search" name="qe" value="<?= e($qe) ?>" placeholder="Título, autor, ISBN ou código do exemplar..." autocomplete="off" autofocus>
+                <span class="adm-visually-hidden">Código BDP do exemplar, título, autor ou ISBN</span>
+                <input type="search" name="qe" value="<?= e($qe) ?>" placeholder="Digite o código do exemplar (BDP-000123), título, autor ou ISBN..." autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus>
             </label>
-            <button type="submit" class="adm-button adm-button--primary adm-button--sm"><?= icon('search') ?> <span>Pesquisar</span></button>
+            <button type="submit" class="adm-button adm-button--primary adm-button--sm"><?= icon('search') ?> <span>Pesquisar exemplar</span></button>
         </form>
+        <?php if ($codigoInvalido): ?>
+            <?= admin_aviso('erro', 'Código incompleto.', CodigoBdp::mensagemInvalido($qe)) ?>
+        <?php elseif ($codigoInexistente): ?>
+            <?= admin_aviso('erro', 'O código ' . $codigoInexistente . ' não existe.', 'Nenhum exemplar tem este código. Confira se ele foi digitado exatamente como está na etiqueta, ou pesquise pelo título.') ?>
+        <?php endif; ?>
         <?php if ($exemplares !== null): ?>
             <?php if ($exemplares['disponiveis']): ?>
                 <h3 class="adm-subtitle"><?= icon('circle-check') ?> Exemplares disponíveis</h3>

@@ -73,7 +73,7 @@ final class ExemplarRepository
         $where = ['1 = 1'];
         $params = [];
         $termos = self::termos((string)($f['q'] ?? ''));
-        $codigo = count($termos) === 1 ? EmprestimoRepository::codigoExemplar($termos[0]) : null;
+        $codigo = EmprestimoRepository::codigoExemplar((string)($f['q'] ?? ''));
         if ($codigo) {
             $where[] = 'e.codigo_individual = ?';
             $params[] = $codigo;

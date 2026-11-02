@@ -255,8 +255,10 @@ confere('aluno inativo aparece marcado como inativo', count($r['itens']) === 1 &
 confere('pesquisa com curinga/SQL não quebra', $repo->pesquisarAlunos("' OR 1=1 -- %")['itens'] === []);
 $r = $repo->pesquisarAlunos('Aluno Concorrente', 5);
 confere('limite de resultados avisa que há mais', count($r['itens']) === 5 && $r['mais']);
+$r = $repo->pesquisarExemplares(' bdp-000004 ');
+confere('pesquisa pelo código digitado (minúsculas e espaços → BDP-000004)', count($r['disponiveis']) === 1 && $r['disponiveis'][0]['codigo_individual'] === 'BDP-000004');
 $r = $repo->pesquisarExemplares('bdp-4');
-confere('pesquisa pelo código do exemplar (bdp-4 → BDP-000004)', count($r['disponiveis']) === 1 && $r['disponiveis'][0]['codigo_individual'] === 'BDP-000004');
+confere('código incompleto (bdp-4) não seleciona nenhum exemplar', $r['disponiveis'] === [] && $r['indisponiveis'] === []);
 $r = $repo->pesquisarExemplares('978-85-359-0277-8');
 confere('pesquisa por ISBN com hífens', count($r['disponiveis']) === 3);
 $r = $repo->pesquisarExemplares('Machado');
@@ -481,8 +483,8 @@ confere('bibliotecária pode escolher a data prevista', db_query('SELECT data_pr
 confere('formulário reenviado para exemplar já emprestado: mensagem clara', $s === 200 && str_contains($html, 'já está emprestado'));
 [$s, $html] = $bib->ir('novo-emprestimo.php', ['csrf' => $tk, 'aluno' => $aluno['inativo'], 'exemplar' => $exDom[5], 'confirmar' => '1']);
 confere('formulário com aluno inativo: recusado', $s === 200 && str_contains($html, 'inativo') && $situacao($exDom[5]) === 'disponivel');
-[$s, , $loc] = $bib->ir('devolucoes.php?q=bdp-4');
-confere('devoluções: código lido vai direto para a confirmação', $s === 303 && str_contains($loc, 'devolver-emprestimo.php?id=' . $novo));
+[$s, , $loc] = $bib->ir('devolucoes.php?q=' . rawurlencode(' bdp-000004 '));
+confere('devoluções: código digitado vai direto para a confirmação', $s === 303 && str_contains($loc, 'devolver-emprestimo.php?id=' . $novo));
 [$s, $html] = $bib->ir('devolver-emprestimo.php?id=' . $novo);
 confere('confirmação mostra os dados do empréstimo', $s === 200 && str_contains($html, 'João Fictício da Silva') && str_contains($html, 'BDP-000004') && str_contains($html, 'Registrar devolução'));
 [$s, , $loc] = $bib->ir('renovar-emprestimo.php?id=' . $novo, ['csrf' => $tk, 'id' => $novo, 'confirmar' => '1']);

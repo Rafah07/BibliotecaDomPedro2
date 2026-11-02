@@ -10,7 +10,7 @@ $resultado = administradores_repo()->listar($filtros, max(1, (int)admin_param($_
 $resumo = administradores_repo()->resumo();
 $temFiltro = $filtros['q'] !== '' || $filtros['perfil'] !== '' || $filtros['status'] !== '';
 
-admin_page_start('administradores', 'Administradores', 'Administradores', 'Contas de acesso ao painel', ['assets/css/acervo.css?v=20261030']);
+admin_page_start('administradores', 'Administradores', 'Administradores', 'Contas de acesso ao painel', ['assets/css/acervo.css?v=20261102']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Administradores']]) ?>

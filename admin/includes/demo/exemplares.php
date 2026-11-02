@@ -19,7 +19,7 @@ $kpis = [
     ['titulo' => 'Extraviados ou baixados', 'valor' => ($resumo['extraviado'] ?? 0) + ($resumo['baixado'] ?? 0), 'icone' => 'package-x', 'tom' => 'red', 'filtro' => 'situacao', 'valorFiltro' => 'extraviado|baixado'],
 ];
 
-admin_page_start('exemplares', 'Exemplares', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261027']);
+admin_page_start('exemplares', 'Exemplares', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261102']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Exemplares']]) ?>
@@ -30,7 +30,7 @@ admin_page_start('exemplares', 'Exemplares', 'Exemplares', 'Unidades físicas do
         <p>Controle as unidades físicas cadastradas na biblioteca.</p>
     </div>
     <div class="adm-page-head__actions">
-        <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars(admin_url('etiquetas')) ?>"><?= icon('scan-barcode') ?> Etiquetas</a>
+        <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars(admin_url('etiquetas')) ?>"><?= icon('tag') ?> Etiquetas</a>
         <button type="button" class="adm-button adm-button--primary" data-add-exemplares=""><?= icon('plus') ?> Cadastrar exemplar</button>
     </div>
 </section>

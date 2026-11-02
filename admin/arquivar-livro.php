@@ -76,7 +76,7 @@ $itens = [
     ['Conferências de inventário', $v['conferencias'], 'preservadas'],
 ];
 
-admin_page_start('acervo', $arquivado ? 'Restaurar livro' : 'Arquivar livro', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261030']);
+admin_page_start('acervo', $arquivado ? 'Restaurar livro' : 'Arquivar livro', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261102']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], [$arquivado ? 'Restaurar livro' : 'Arquivar livro']]) ?>

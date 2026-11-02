@@ -6,7 +6,7 @@ require_once __DIR__ . '/../acervo.php';
 $codigo = is_string($_GET['codigo'] ?? null) ? $_GET['codigo'] : '';
 $ex = acervo_exemplar_por_codigo($codigo);
 
-admin_page_start('exemplares', $ex ? $ex['codigo_individual'] : 'Exemplar não encontrado', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261027']);
+admin_page_start('exemplares', $ex ? $ex['codigo_individual'] : 'Exemplar não encontrado', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261102']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Exemplares', admin_url('exemplares')], ['Detalhes']]);
 
@@ -31,16 +31,6 @@ $bloqueado = $ex['situacao'] === 'emprestado';
 $encerrado = in_array($ex['situacao'], ['baixado', 'extraviado'], true);
 $setores = array_values(array_unique(array_column(acervo_fonte('localizacoes'), 'setor')));
 
-// Prévia ilustrativa de código de barras (não é um padrão legível por leitores).
-$barras = '';
-$x = 0;
-foreach (str_split(md5($ex['codigo_individual']) . md5(strrev($ex['codigo_individual']))) as $i => $hex) {
-    $largura = 1 + hexdec($hex) % 3;
-    if ($i % 2 === 0) {
-        $barras .= '<rect x="' . $x . '" y="0" width="' . $largura . '" height="56"/>';
-    }
-    $x += $largura + 1;
-}
 ?>
 
 <section class="adm-page-head">
@@ -134,19 +124,15 @@ foreach (str_split(md5($ex['codigo_individual']) . md5(strrev($ex['codigo_indivi
             </div>
         </section>
 
-        <section class="adm-card adm-panel" aria-labelledby="titulo-codigo-barras">
+        <section class="adm-card adm-panel" aria-labelledby="titulo-codigo">
             <div class="adm-panel__header">
                 <div>
-                    <h2 id="titulo-codigo-barras">Código de barras</h2>
-                    <p>Espaço reservado para a etiqueta.</p>
+                    <h2 id="titulo-codigo">Código do exemplar</h2>
+                    <p>É o código escrito na etiqueta. Digite-o para encontrar o exemplar.</p>
                 </div>
                 <span class="adm-demo-tag">Prévia</span>
             </div>
-            <figure class="adm-barcode">
-                <svg viewBox="0 0 <?= $x ?> 56" preserveAspectRatio="none" role="img" aria-label="Prévia ilustrativa do código de barras de <?= $ex['codigo_individual'] ?>"><?= $barras ?></svg>
-                <figcaption class="adm-mono"><?= $ex['codigo_individual'] ?></figcaption>
-            </figure>
-            <p class="adm-side-note"><?= icon('info') ?> Ilustração apenas. O código de barras real será gerado no módulo de etiquetas.</p>
+            <p class="adm-codigo-escrito"><?= htmlspecialchars($ex['codigo_individual']) ?></p>
         </section>
     </aside>
 </div>

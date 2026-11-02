@@ -227,6 +227,7 @@ BibliotecaDomPedro2/
 | Inventários | `inventarios`, `inventario_conferencias` | 001 + 050 |
 | Textos do site público | `site_configuracoes` | 080 |
 | Configurações gerais | `configuracoes_sistema`, `configuracoes_historico` (imutável) | 090 |
+| Modelos de etiqueta só com texto (50 × 20 mm), sem código de barras | `etiqueta_modelos` (dados) | 070 + 100 |
 
 Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pertence a um livro; o código BDP é único; o ISBN identifica a edição, não o exemplar; a quantidade antiga das planilhas fica em `registros_legados` e **nunca** vira exemplar disponível; a CDD fica em `classificacoes_cdd` com histórico que não pode ser alterado; um exemplar só pode ter um empréstimo em aberto; empréstimos, renovações e registros legados não podem ser apagados; um empréstimo devolvido não pode ser alterado, e o aluno, o exemplar e a data de retirada de um empréstimo nunca mudam.
 
@@ -255,6 +256,7 @@ php admin/tests/inventario-teste.php   # exemplares, códigos BDP, localizaçõe
 php admin/tests/site-publico-teste.php # site público: busca, filtros, paginação, disponibilidade, privacidade, SQL/XSS, .htaccess e responsividade; banco temporário
 php admin/tests/relatorios-teste.php   # relatórios: contas, períodos, gráficos, PDF/CSV/XLSX, permissões, privacidade e integridade; banco temporário, só dados fictícios
 php admin/tests/configuracoes-teste.php # configurações (painel → .env → padrão), regras novas, permissões, manutenção, cópia de segurança restaurada; banco temporário
+php admin/tests/codigos-etiquetas-teste.php # códigos BDP digitados (empréstimo, devolução, inventário), etiquetas só com texto, lombada provisória, PDFs sem código de barras; banco temporário
 ```
 
 ## Situação das funcionalidades
@@ -270,7 +272,7 @@ php admin/tests/configuracoes-teste.php # configurações (painel → .env → p
 - Classificação CDD (pesquisa nas fontes, revisão, aprovação, histórico, relatórios).
 - Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
 - Importação local de alunos (`.xlsx`/`.csv`) com mapeamento de colunas, prévia, prevenção de duplicidades pela matrícula e atualização separada com confirmação. O arquivo não é guardado no servidor. Veja [`docs/importacao-alunos.md`](docs/importacao-alunos.md).
-- Acervo físico: cadastro manual de exemplares (código BDP gerado na confirmação), localizações (setor, estante, prateleira), inventário digital com leitor de código de barras, decisões sobre divergências, relatórios CSV/PDF e etiquetas em PDF no tamanho real. Veja [`docs/inventario-exemplares-etiquetas.md`](docs/inventario-exemplares-etiquetas.md).
+- Acervo físico: cadastro manual de exemplares (código BDP gerado na confirmação), localizações (setor, estante, prateleira), inventário digital pela digitação do código BDP escrito na etiqueta (sem código de barras, QR Code, RFID ou NFC), decisões sobre divergências, relatórios CSV/PDF e etiquetas em PDF no tamanho real, só com texto (patrimonial "BIBLIOTECA DOM PEDRO II / BDP-000001" e lombada com CDD aprovada ou provisória). Veja [`docs/inventario-exemplares-etiquetas.md`](docs/inventario-exemplares-etiquetas.md).
 - Relatórios administrativos (menu **Relatórios**): acervo, exemplares físicos, empréstimos e devoluções, atrasos, alunos, inventários, classificação CDD e atividades administrativas, com filtros de período, gráficos com tabela de dados e exportação em PDF (A4), CSV e XLSX. Veja [`docs/relatorios.md`](docs/relatorios.md).
 - Configurações gerais (Sistema → Configurações): identificação, regras de empréstimo (incluindo limite de livros por aluno e bloqueio por atraso, desligados por padrão), domínio do e-mail dos alunos, segurança do painel e site em manutenção, com histórico imutável; página Perfis e permissões; página Manutenção com diagnóstico, cópia de segurança `.sql` e limpeza de tentativas de login. Veja [`docs/configuracoes.md`](docs/configuracoes.md).
 - Circulação: empréstimos (só de exemplares físicos disponíveis, para alunos cadastrados e ativos), devoluções, renovações com regras configuráveis, atrasos, histórico por aluno e por exemplar, e indicadores no dashboard. Veja [`docs/emprestimos.md`](docs/emprestimos.md).
@@ -278,7 +280,7 @@ php admin/tests/configuracoes-teste.php # configurações (painel → .env → p
 **Pendentes**
 
 - Cadastro de categorias ainda é **simulado** (valida, mas não grava no banco).
-- QR Code nas etiquetas (hoje só código de barras Code 128) e distribuição física por CDD (a ser definida com a bibliotecária).
+- Distribuição física por CDD (a ser definida com a bibliotecária) e código de autor (Cutter) validado para a lombada.
 - Reservas de livros (a renovação já tem o ponto de verificação preparado) e avisos de atraso por e-mail (exigem autorização da escola).
 - Tela de consulta/edição de alunos e configurações.
 - Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.

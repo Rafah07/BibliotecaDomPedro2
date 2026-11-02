@@ -59,7 +59,6 @@
 .adm-nova-local > summary .icon { width: 16px; height: 16px; }
 .adm-nova-local[open] > .adm-form-grid { margin-top: 12px; }
 
-.adm-barcode--real svg { height: auto; max-width: 360px; aspect-ratio: 4 / 1; margin: 0 auto; opacity: 1; }
 .adm-criados { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .adm-criados .adm-panel__header { flex-basis: 100%; margin-bottom: 0; }
 

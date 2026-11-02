@@ -25,7 +25,7 @@ $recentes = $verEmprestimos ? $dados['emprestimos_recentes'] : [];
 // Atalhos para as páginas que já funcionam, conforme o perfil de quem entrou.
 $acoes = array_values(array_filter([
     auth_pode('emprestimos.registrar') ? ['titulo' => 'Novo empréstimo', 'descricao' => 'Emprestar um exemplar a um aluno cadastrado.', 'icone' => 'book-open-check', 'href' => 'novo-emprestimo'] : null,
-    auth_pode('emprestimos.registrar') ? ['titulo' => 'Registrar devolução', 'descricao' => 'Ler o código do exemplar e confirmar a devolução.', 'icone' => 'rotate-ccw', 'href' => 'devolucoes'] : null,
+    auth_pode('emprestimos.registrar') ? ['titulo' => 'Registrar devolução', 'descricao' => 'Digitar o código BDP do exemplar e confirmar a devolução.', 'icone' => 'rotate-ccw', 'href' => 'devolucoes'] : null,
     auth_pode('emprestimos.ver') ? ['titulo' => 'Consultar atrasos', 'descricao' => 'Empréstimos com o prazo vencido.', 'icone' => 'clock-alert', 'href' => 'atrasos'] : null,
     auth_pode('emprestimos.ver') ? ['titulo' => 'Histórico de empréstimos', 'descricao' => 'Ativos, devolvidos e histórico completo.', 'icone' => 'history', 'href' => 'emprestimos'] : null,
     auth_pode('livros.editar') ? ['titulo' => 'Cadastrar livro', 'descricao' => 'Adicionar uma nova obra ao acervo.', 'icone' => 'book-plus', 'href' => 'cadastrar-livro'] : null,
@@ -363,7 +363,7 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
             </dl>
 
             <p class="adm-inventory__message"><?= icon('info') ?> <?= $dados['demo'] ? 'Continue a conferência física para validar os exemplares existentes na biblioteca.' : (isset($inventario['titulo']) ? 'Inventário em andamento: ' . htmlspecialchars($inventario['titulo']) . '.' : 'Nenhum inventário em andamento. Os números mostram os exemplares que já passaram por alguma conferência.') ?></p>
-            <a class="adm-button adm-button--primary adm-button--block" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('scan-barcode') ?> Continuar inventário</a>
+            <a class="adm-button adm-button--primary adm-button--block" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('clipboard-check') ?> Continuar inventário</a>
         </section>
     </aside>
 </div>

@@ -3,6 +3,7 @@
 namespace Biblioteca\Repositories;
 
 use Biblioteca\Support\Isbn;
+use Biblioteca\Support\CodigoBdp;
 use PDO;
 
 /**
@@ -247,9 +248,9 @@ final class EmprestimoRepository
         }
         $where = ['l.arquivado_em IS NULL'];
         $params = [];
-        $codigo = count($termos) === 1 ? self::codigoExemplar($termos[0]) : null;
+        $codigo = self::codigoExemplar($q);
         if ($codigo) {
-            // Código do exemplar: busca exata (o leitor de código de barras digita o código inteiro).
+            // Código do exemplar digitado: busca exata, nunca aproximada.
             $where[] = 'EXISTS (SELECT 1 FROM exemplares x WHERE x.livro_id = l.id AND x.codigo_individual = ?)';
             $params[] = $codigo;
         } else {
@@ -315,7 +316,10 @@ final class EmprestimoRepository
 
     public function exemplarPorCodigo(string $codigo): ?array
     {
-        $codigo = self::codigoExemplar($codigo) ?? mb_strtoupper(trim($codigo));
+        $codigo = self::codigoExemplar($codigo);
+        if ($codigo === null) {
+            return null;
+        }
         $id = $this->valor('SELECT id FROM exemplares WHERE codigo_individual = ?', [$codigo]);
         return $id ? $this->exemplar((int)$id) : null;
     }
@@ -333,15 +337,12 @@ final class EmprestimoRepository
     // ---------------------------------------------------------------
 
     /**
-     * Normaliza um código de exemplar digitado ("bdp-12", "BDP000012", "BDP 12") para BDP-000012.
-     * Retorna null quando o texto não parece um código.
+     * Normaliza um código de exemplar digitado ("bdp-000012", " BDP000012 ", "BDP 000012") para
+     * BDP-000012. Retorna null quando o texto não é um código completo (ver CodigoBdp).
      */
     public static function codigoExemplar(string $texto): ?string
     {
-        if (preg_match('/^BDP[\s\-]?(\d{1,6})$/i', trim($texto), $m)) {
-            return 'BDP-' . str_pad($m[1], 6, '0', STR_PAD_LEFT);
-        }
-        return null;
+        return CodigoBdp::normalizar($texto);
     }
 
     /** @return list<string> até 6 palavras da pesquisa */
