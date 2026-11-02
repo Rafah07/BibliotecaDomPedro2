@@ -52,12 +52,12 @@ $demo = auth_demo_disponivel();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#143477">
+    <meta name="theme-color" content="#123d73">
     <meta name="robots" content="noindex">
     <title>Entrar | Painel — Biblioteca Dom Pedro II</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261102b')) ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261102')) ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261027')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261102e9')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261102e9')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261102e9')) ?>">
 </head>
 <body class="adm-body adm-login">
 <main class="adm-login__box">

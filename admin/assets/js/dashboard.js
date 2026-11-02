@@ -32,7 +32,7 @@
     Chart.defaults.color = '#64748B';
 
     const tooltipStyle = {
-        backgroundColor: '#172033',
+        backgroundColor: '#0A2749',
         titleColor: '#FFFFFF',
         bodyColor: '#E2E8F0',
         padding: 10,
@@ -59,8 +59,8 @@
             summary.innerHTML = `Total no período: <strong>${formatNumber(total)}</strong> empréstimos${data.demo ? ' · dados demonstrativos' : ''}`;
         }
 
-        const colors = values.map((_, i) => (i === last ? '#2457C5' : '#A9C1F2'));
-        const hoverColors = values.map((_, i) => (i === last ? '#1E4697' : '#2E73FF'));
+        const colors = values.map((_, i) => (i === last ? '#123D73' : '#B7C8E4'));
+        const hoverColors = values.map((_, i) => (i === last ? '#0A2749' : '#7F9CCB'));
 
         if (barChart) {
             barChart.data.labels = labels;

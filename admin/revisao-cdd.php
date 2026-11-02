@@ -14,8 +14,8 @@ $resumo = cdd_resumo();
 $v = fn ($valor) => htmlspecialchars((string)$valor);
 
 admin_page_start('classificacao', 'Fila de aprovação CDD', 'Acervo', 'Reclassificação bibliográfica pela CDD', [
-    'assets/css/acervo.css?v=20261102',
-    'assets/css/classificacao.css?v=20261027',
+    'assets/css/acervo.css?v=20261102e9',
+    'assets/css/classificacao.css?v=20261102e9',
 ]);
 ?>
 

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../acervo.php';
 $codigo = is_string($_GET['codigo'] ?? null) ? $_GET['codigo'] : '';
 $ex = acervo_exemplar_por_codigo($codigo);
 
-admin_page_start('exemplares', $ex ? $ex['codigo_individual'] : 'Exemplar não encontrado', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261102']);
+admin_page_start('exemplares', $ex ? $ex['codigo_individual'] : 'Exemplar não encontrado', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261102e9']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Exemplares', admin_url('exemplares')], ['Detalhes']]);
 

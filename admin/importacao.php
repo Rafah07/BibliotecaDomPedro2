@@ -58,7 +58,7 @@ $dadosJs = [
     'retomar' => $retomar ? ['id' => (int)$retomar['id'], 'status' => $retomar['status']] : null,
 ];
 
-admin_page_start('importar', 'Importação de Planilhas', 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261102', 'assets/css/importacao.css?v=20261030']);
+admin_page_start('importar', 'Importação de Planilhas', 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261102e9', 'assets/css/importacao.css?v=20261102e9']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Importação']]) ?>

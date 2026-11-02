@@ -16,7 +16,7 @@
 }
 .adm-tabs--links a .icon { width: 17px; height: 17px; }
 .adm-tabs--links a:hover { color: var(--adm-text); }
-.adm-tabs--links a[aria-current="page"] { color: var(--adm-blue-accent); }
+.adm-tabs--links a[aria-current="page"] { color: var(--adm-navy); }
 .adm-tabs--links a[aria-current="page"]::after {
     content: "";
     position: absolute;
@@ -25,7 +25,7 @@
     bottom: -1px;
     height: 3px;
     border-radius: 3px 3px 0 0;
-    background: var(--adm-blue-accent);
+    background: var(--adm-navy);
 }
 
 a.adm-stat--action { color: inherit; text-decoration: none; }
@@ -38,6 +38,12 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
 .adm-table--emprestimos .adm-actions-col { position: sticky; right: 0; background: var(--adm-white); box-shadow: -8px 0 12px -10px rgba(23, 32, 51, .25); white-space: nowrap; }
 .adm-table--emprestimos th.adm-actions-col { background: var(--adm-bg); }
 .adm-table--emprestimos .adm-td-wrap { white-space: normal; min-width: 180px; }
+.adm-table--emprestimos th, .adm-table--emprestimos td { padding-left: 14px; padding-right: 14px; }
+.adm-table--emprestimos th:first-child, .adm-table--emprestimos td:first-child { padding-left: 20px; }
+.adm-table--emprestimos th:last-child, .adm-table--emprestimos td:last-child { padding-right: 20px; }
+/* Empréstimo atrasado: marca vermelha discreta no início da linha (a situação continua escrita no selo). */
+.adm-table tr.adm-row--alerta > td:first-child { box-shadow: inset 3px 0 0 var(--adm-red); }
+.adm-table tr.adm-row--alerta td[data-label="Devolução prevista"] { color: var(--adm-red); font-weight: 600; }
 
 /* Etapas do novo empréstimo */
 .adm-passos { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; margin: 0 0 16px; padding: 0; color: var(--adm-muted); font-weight: 600; font-size: 13.5px; }
@@ -98,4 +104,10 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
     .adm-table--emprestimos tbody tr .adm-td-title { grid-column: 1 / -1; }
     /* Ações no fim do card, abaixo dos dados */
     .adm-table--emprestimos .adm-actions-col { position: static; box-shadow: none; background: transparent !important; grid-column: 1 / -1; grid-row: 20; padding-top: 10px !important; text-align: left !important; }
+}
+
+/* Celular (tabela em cards): a marca de atraso fica na borda do card. */
+@media (max-width: 720px) {
+    .adm-table--cards tr.adm-row--alerta { border-left: 3px solid var(--adm-red) !important; }
+    .adm-table--cards tr.adm-row--alerta > td:first-child { box-shadow: none; }
 }

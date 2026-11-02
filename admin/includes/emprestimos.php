@@ -193,7 +193,8 @@ function emprestimos_tabela(array $itens, string $hoje, array $opcoes = [], stri
             </thead>
             <tbody>
                 <?php foreach ($itens as $m): ?>
-                    <tr>
+                    <?php $tomLinha = emprestimos_situacao($m, $hoje)[1]; // atraso: linha marcada também fora da coluna Situação ?>
+                    <tr<?= $tomLinha === 'red' ? ' class="adm-row--alerta"' : '' ?>>
                         <?php if ($comAluno): ?>
                             <td class="adm-td-title">
                                 <a class="adm-book-link" href="<?= e(admin_url('historico-aluno') . '?id=' . (int)$m['aluno_id']) ?>"><?= e($m['aluno_nome']) ?></a>

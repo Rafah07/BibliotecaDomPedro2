@@ -372,5 +372,5 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 <?php
 admin_page_end([
     'assets/lib/chartjs/chart-4.4.1.umd.min.js',
-    'assets/js/dashboard.js?v=20261029',
+    'assets/js/dashboard.js?v=20261102e9',
 ]);

@@ -1,6 +1,8 @@
 <?php
 /** Menu lateral administrativo. Espera $paginaAtual (id do menu) definido pelo layout. */
 $paginaAtual = $paginaAtual ?? 'dashboard';
+// Módulo-pai da página atual (ex.: Acervo quando a página é Classificação CDD), destacado no menu recolhido.
+$paiAtual = admin_menu_item($paginaAtual)['pai'] ?? null;
 ?>
 <aside class="adm-sidebar" id="adm-sidebar" aria-label="Menu administrativo">
     <div class="adm-sidebar__top">
@@ -11,7 +13,7 @@ $paginaAtual = $paginaAtual ?? 'dashboard';
                 <small>Dom Pedro II</small>
             </span>
         </a>
-        <button class="adm-sidebar__toggle" type="button" data-sidebar-toggle aria-controls="adm-sidebar" aria-expanded="false" aria-label="Expandir menu">
+        <button class="adm-sidebar__toggle" type="button" data-sidebar-toggle aria-controls="adm-sidebar" aria-expanded="false" aria-label="Expandir menu" data-tooltip="Expandir menu">
             <?= icon('panel-left-open', 'adm-sidebar__toggle-open') ?>
             <?= icon('panel-left-close', 'adm-sidebar__toggle-close') ?>
         </button>
@@ -27,7 +29,7 @@ $paginaAtual = $paginaAtual ?? 'dashboard';
                 <ul>
                     <?php foreach ($itens as $id => $item): ?>
                         <?php if (!empty($item['oculto']) || (isset($item['permissao']) && !auth_pode($item['permissao']))) continue; ?>
-                        <?php $ativo = $paginaAtual === $id; ?>
+                        <?php $ativo = $paginaAtual === $id; $paiAtivo = !$ativo && $paiAtual === $id; ?>
                         <li<?= isset($item['pai']) ? ' class="adm-nav__sub"' : '' ?>>
                             <?php if (($item['acao'] ?? '') === 'logout'): ?>
                                 <form method="post" action="<?= htmlspecialchars(admin_base() . 'logout.php') ?>">
@@ -39,7 +41,7 @@ $paginaAtual = $paginaAtual ?? 'dashboard';
                                 </form>
                             <?php else: ?>
                                 <a href="<?= htmlspecialchars(admin_url($id)) ?>"
-                                   class="adm-nav__link<?= $ativo ? ' is-active' : '' ?>"
+                                   class="adm-nav__link<?= $ativo ? ' is-active' : ($paiAtivo ? ' is-parent-active' : '') ?>"
                                    data-tooltip="<?= htmlspecialchars($item['label']) ?>"
                                    <?= $ativo ? 'aria-current="page"' : '' ?>>
                                     <?= icon($item['icon'], 'adm-nav__icon') ?>

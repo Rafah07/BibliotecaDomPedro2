@@ -57,7 +57,7 @@ const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' =
     'exemplar' => 'exemplar', 'localizacao' => 'localização', 'inventario' => 'inventário', 'etiqueta_modelo' => 'modelo de etiqueta', 'relatorio' => 'relatório',
     'configuracao' => 'configuração', 'sistema' => 'sistema', 'site' => 'site público'];
 
-const DASHBOARD_CORES = ['#143477', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
+const DASHBOARD_CORES = ['#123D73', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
 
 /** Data de hoje na escola (APP_TIMEZONE): o atraso não depende do fuso do servidor MySQL. */
 function dashboard_hoje(): string
