@@ -1169,3 +1169,36 @@
     .adm-segmented button { flex: 1; }
     .adm-inventory__stats { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- Ajuda contextual (Etapa 10): "Como usar esta página?" ---------- */
+.adm-context-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    min-width: 0;
+}
+.adm-context-bar > .adm-breadcrumb { min-width: 0; flex: 1 1 auto; }
+.adm-context-bar--solo { justify-content: flex-end; margin-bottom: -12px; }
+.adm-help-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 3px 10px 3px 8px;
+    border: 1px solid var(--adm-border);
+    border-radius: 999px;
+    background: var(--adm-white);
+    color: var(--adm-blue-accent);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--adm-duration) var(--adm-ease), border-color var(--adm-duration) var(--adm-ease);
+}
+.adm-help-link .icon { width: 15px; height: 15px; }
+.adm-help-link:hover { background: var(--adm-blue-50); border-color: var(--adm-blue-100); }
+.adm-help-link:focus-visible { outline: none; box-shadow: var(--adm-focus-ring); border-color: var(--adm-blue-bright); }
+@media print { .adm-help-link { display: none !important; } }

@@ -91,7 +91,7 @@ $esperado = [
     'inventario.php' => $todos, 'inventario-detalhes.php?id=' . $inv => $todos, 'inventario-relatorio.php?id=' . $inv => $todos,
     'classificacao.php' => $todos, 'revisao-cdd.php' => $todos, 'historico-cdd.php' => $todos, 'classificar-livro.php?id=' . $livro => $todos,
     'relatorio-cdd.php' => $todos, 'importacao.php' => $todos, 'historico-importacoes.php' => $todos, 'relatorios.php' => $todos,
-    'perfil.php' => $todos, 'permissoes.php' => $todos, 'em-desenvolvimento.php' => $todos,
+    'perfil.php' => $todos, 'permissoes.php' => $todos, 'em-desenvolvimento.php' => $todos, 'ajuda.php' => $todos, 'ajuda.php?t=registrar-emprestimo' => $todos,
     'cadastrar-livro.php' => $equipe, 'editar-livro.php?id=' . $livro => $equipe, 'capa-livro.php?id=' . $livro => $equipe,
     'cadastrar-exemplar.php?livro=' . $livro => $equipe, 'etiquetas.php' => $equipe, 'inventario-conferencia.php?id=' . $inv => $equipe,
     'emprestimos.php' => $equipe, 'emprestimo.php?id=' . $emp => $equipe, 'novo-emprestimo.php' => $equipe, 'devolucoes.php' => $equipe,

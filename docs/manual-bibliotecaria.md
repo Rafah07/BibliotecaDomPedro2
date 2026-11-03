@@ -4,6 +4,8 @@ Guia rápido do painel administrativo. Todos os exemplos usam **dados fictícios
 
 > No computador da biblioteca, o painel abre em `http://localhost/BibliotecaDomPedro2/admin/` (ou no endereço que a escola definir quando o sistema for publicado).
 
+> **Passo a passo completo dentro do painel:** em **Configurações → Tutorial do Sistema** (ou no menu do seu nome → **Tutorial do Sistema**) está a Central de Ajuda, com tutoriais de todos os módulos, pesquisa e o botão **Como usar esta página?** em cada tela. Este manual é o resumo impresso.
+
 **Lembrete importante:** a biblioteca identifica cada livro físico **somente pelo código escrito na etiqueta**, como `BDP-000123`. Não há código de barras nem QR Code. Você lê o código e digita.
 
 ---
@@ -36,7 +38,7 @@ Para encontrar um exemplar pelo código, use **Exemplares** e digite o código (
 2. Preencha o **Título do livro** (obrigatório) e o que souber: autor, subtítulo, ISBN, editora, ano, edição, idioma, categoria, assunto, palavras-chave e sinopse.
    - Exemplo: Título *Histórias do Rio Azul*, autora *Marina Fictícia*, editora *Editora Exemplo*, ano 2020.
 3. O campo **CDD** só é preenchido se você já tiver a classificação conferida. Uma CDD antiga das planilhas **nunca** é aprovada sozinha: ela passa pela **Classificação CDD**.
-4. Clique em **Salvar livro** (ou **Salvar e adicionar exemplares**, para já cadastrar os volumes físicos).
+4. Clique em **Salvar livro** (ou **Salvar e cadastrar outro**, para seguir para o próximo livro). Depois, na ficha do livro, use **Cadastrar exemplar** para registrar os volumes físicos.
 
 Livro errado ou duplicado não é apagado: use **Arquivar** na página do livro (ele sai do site público, mas o histórico fica).
 
@@ -118,7 +120,7 @@ O sistema não deixa emprestar um exemplar que já está emprestado, em manuten�
 
 ## 11. Como registrar devoluções
 
-1. **Empréstimos → Devoluções.**
+1. No menu, grupo **Circulação**, clique em **Devoluções**.
 2. Digite o código BDP do livro devolvido (ex.: `BDP-000121`) e pressione **Enter**.
 3. O sistema encontra o empréstimo em aberto. Confira o aluno e o livro.
 4. Se o livro voltou danificado, marque a opção de enviar para manutenção.

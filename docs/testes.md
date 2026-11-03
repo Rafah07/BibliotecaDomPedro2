@@ -30,6 +30,7 @@ php admin/tests/fluxo-integracao-teste.php
 php admin/tests/auditoria-seguranca-teste.php
 php admin/tests/backup-restauracao-teste.php
 php admin/tests/desempenho-teste.php            # --livros=3000 para uma rodada rápida
+php admin/tests/ajuda-teste.php                 # Central de Ajuda (Etapa 10)
 ```
 
 No **Prompt de Comando do Windows (XAMPP)**, dentro de `C:\xampp\htdocs\BibliotecaDomPedro2`:
