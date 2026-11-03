@@ -6,8 +6,10 @@
  * DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD. Veja .env.example.
  *
  * - Sem configuração, db() devolve null e o sistema usa o modo demonstrativo.
- * - Com configuração mas sem conexão, db() lança DbIndisponivel com uma mensagem
- *   genérica; o detalhe técnico vai só para o log do servidor (error_log).
+ * - Com configuração mas sem conexão (ex.: MySQL do XAMPP desligado), db() lança
+ *   DbIndisponivel com uma mensagem genérica; o detalhe técnico vai só para o log do
+ *   servidor (error_log). Nesse caso db_modo() também devolve 'demo': o painel entra no
+ *   modo demonstrativo (fora de produção) em vez de ficar inacessível.
  * - Erros de SQL viram exceções (PDO::ERRMODE_EXCEPTION) e as consultas usam
  *   parâmetros preparados (db_query).
  */
@@ -58,6 +60,10 @@ function db(): ?PDO
     if ($pdo !== null || !db_configurado()) {
         return $pdo;
     }
+    // Uma falha de conexão vale para a requisição inteira (não tenta conectar de novo a cada chamada).
+    if (isset($GLOBALS['db_falha_conexao'])) {
+        throw new DbIndisponivel($GLOBALS['db_falha_conexao']);
+    }
     $c = app_config();
     $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'], $c['port'], $c['database']);
     try {
@@ -66,19 +72,42 @@ function db(): ?PDO
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_STRINGIFY_FETCHES => false,
+            // Não deixa a página presa se o servidor do banco não responder.
+            PDO::ATTR_TIMEOUT => 5,
         ]);
         $pdo->exec("SET time_zone = '" . date('P') . "'");
     } catch (PDOException $e) {
         error_log('[biblioteca] Falha ao conectar ao MySQL: ' . $e->getMessage());
-        throw new DbIndisponivel('Não foi possível conectar ao banco de dados. Verifique a configuração e tente novamente.');
+        $GLOBALS['db_falha_conexao'] = 'Não foi possível conectar ao banco de dados. Verifique a configuração e tente novamente.';
+        throw new DbIndisponivel($GLOBALS['db_falha_conexao']);
     }
     return $pdo;
 }
 
-/** 'mysql' quando o banco está configurado; 'demo' caso contrário. */
+/**
+ * O banco está configurado, mas não foi possível conectar (MySQL desligado, senha errada,
+ * banco inexistente...)? Tenta conectar uma única vez por requisição.
+ */
+function db_indisponivel(): bool
+{
+    if (!db_configurado()) {
+        return false;
+    }
+    try {
+        db();
+        return false;
+    } catch (DbIndisponivel $e) {
+        return true;
+    }
+}
+
+/**
+ * 'mysql' quando o banco está configurado e conectado; 'demo' quando não há banco
+ * configurado ou quando o MySQL não está interligado (sem conexão).
+ */
 function db_modo(): string
 {
-    return db_configurado() ? 'mysql' : 'demo';
+    return db_configurado() && !db_indisponivel() ? 'mysql' : 'demo';
 }
 
 /**

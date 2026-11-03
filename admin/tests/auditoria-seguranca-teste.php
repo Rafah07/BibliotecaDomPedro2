@@ -301,6 +301,24 @@ foreach (['https://site-malicioso.exemplo/', '//site-malicioso.exemplo/', '/\\si
     confere("depois do login, \"voltar=$voltar\" não sai do painel", $s === 302 && str_starts_with($local, '/admin/'), $local);
 }
 
+// Conta demonstrativa (Bibliotecaria@demo / demo123): só sem MySQL interligado e fora de produção.
+$nDemo = new TesteNavegador($base);
+confere('com o MySQL conectado, Bibliotecaria@demo / demo123 não entra', $nDemo->entrar('Bibliotecaria@demo', 'demo123') === 302 && !str_contains($nDemo->ir('admin/login.php')[1], 'Modo demonstrativo'));
+// MySQL "desligado": mesmo .env, mas numa porta onde nada responde.
+$semMysql = ['DB_PORT' => '1', 'PHP_INI_SCAN_DIR' => ''] + $env;
+$baseSem = teste_servidor(['APP_ENV' => 'development'] + $semMysql);
+$nDemo = new TesteNavegador($baseSem);
+[, $htmlLogin] = $nDemo->ir('admin/login.php');
+confere('sem conexão com o MySQL, a tela de login mostra o acesso demonstrativo', str_contains($htmlLogin, 'sem conexão com o MySQL') && str_contains($htmlLogin, 'Bibliotecaria@demo') && str_contains($htmlLogin, 'demo123'));
+confere('sem conexão com o MySQL, Bibliotecaria@demo / demo123 entra no painel', $nDemo->entrar('Bibliotecaria@demo', 'demo123') === 200);
+[$s, $html] = $nDemo->ir('admin/livros.php');
+confere('sem conexão com o MySQL, o painel abre com dados fictícios e sem erro técnico', $s === 200 && teste_sem_erro_tecnico($html));
+$nDemo = new TesteNavegador($baseSem);
+confere('sem conexão com o MySQL, senha errada continua recusada', $nDemo->entrar('Bibliotecaria@demo', 'demo') === 302);
+$baseProd = teste_servidor(['APP_ENV' => 'production'] + $semMysql);
+$nDemo = new TesteNavegador($baseProd);
+confere('em produção, sem MySQL, a conta demonstrativa fica desligada', $nDemo->entrar('Bibliotecaria@demo', 'demo123') === 302 && !str_contains($nDemo->ir('admin/login.php')[1], 'demo123'));
+
 // ---------------------------------------------------------------
 echo "\n5. Parâmetros estranhos: sem erro técnico, sem SQL injection, sem XSS\n";
 $sujos = ['id[]=1&q[]=x&pagina[]=2', "id=1'%20OR%20'1'='1&q=%27%3B%20DROP%20TABLE%20livros%3B--&ordem=titulo%3BDROP", 'id=-1&pagina=-5&por_pagina=100000&q=%3Cscript%3Ealert(1)%3C%2Fscript%3E',

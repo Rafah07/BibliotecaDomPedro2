@@ -60,7 +60,7 @@ cp .env.example .env
 
 | Variável | Para que serve |
 | --- | --- |
-| `APP_ENV` | `development` (padrão) ou `production`. Em produção, as contas demonstrativas ficam desligadas. |
+| `APP_ENV` | `development` (padrão) ou `production`. Em produção, as contas demonstrativas (`Bibliotecaria@demo` / `demo123`) ficam desligadas. |
 | `APP_BASE_PATH` | Caminho do site no navegador. Deixe vazio para descobrir sozinho; use `/BibliotecaDomPedro2` se a detecção falhar em uma subpasta. |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Conexão com o MySQL. |
 | `CDD_CONTATO`, `CDD_FONTE_*` | Fontes consultadas pela classificação CDD. |
@@ -149,11 +149,18 @@ No XAMPP/Laragon, com o Apache ligado: <http://localhost/BibliotecaDomPedro2/> e
 
 ### Sem banco (modo demonstrativo)
 
-Sem `.env` (ou sem `DB_NAME`/`DB_USER`), o sistema roda em modo demonstrativo:
+Quando o site não está com o MySQL interligado, ele continua acessível em modo demonstrativo. Isso vale em dois casos:
 
+- sem `.env` (ou sem `DB_NAME`/`DB_USER`);
+- com `.env` preenchido, mas sem conexão com o MySQL (por exemplo, o MySQL do XAMPP desligado ou a senha errada).
+
+Nesse modo:
+
+- **Acesso do administrador:** entre em `/admin/` com o e-mail **`Bibliotecaria@demo`** e a senha **`demo123`**. Também existe `auxiliar@demo` (mesma senha), com permissões de auxiliar. A tela de login mostra esse aviso.
+- As contas demonstrativas funcionam **apenas** quando `APP_ENV` não é `production`, e **nunca** quando o MySQL está conectado (aí só valem as contas cadastradas no banco).
+- O painel mostra dados fictícios; a importação de planilhas e todas as gravações reais ficam bloqueadas.
 - O site público não mostra livros (nem fictícios): exibe o aviso de que o catálogo ainda não está disponível.
-- O painel aceita as contas `bibliotecaria@demo` e `auxiliar@demo` (senha `demo`), **apenas** quando `APP_ENV` não é `production`.
-- A importação de planilhas e todas as gravações reais ficam bloqueadas.
+- Assim que o MySQL volta a responder, a sessão demonstrativa é encerrada e é preciso entrar com uma conta real.
 
 ## Estrutura
 
