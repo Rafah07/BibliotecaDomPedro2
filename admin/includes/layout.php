@@ -5,6 +5,7 @@ require_once __DIR__ . '/menu.php';
 require_once __DIR__ . '/dashboard-dados.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/componentes.php';
+require_once __DIR__ . '/ajuda.php';
 
 // Todas as páginas do painel exigem login. Quem não entrou é levado ao login.php
 // antes de qualquer dado ser carregado.
@@ -30,7 +31,7 @@ function admin_page_start(string $paginaAtual, string $tituloPagina, string $tit
     <meta name="theme-color" content="#123d73">
     <meta name="robots" content="noindex">
     <title><?= htmlspecialchars($tituloPagina) ?> | Painel — Biblioteca Dom Pedro II</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261102e9')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261103e10')) ?>">
     <?php foreach ($estilos as $estilo): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset($estilo)) ?>">
     <?php endforeach; ?>

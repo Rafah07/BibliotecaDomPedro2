@@ -497,7 +497,10 @@ function acervo_breadcrumb(array $itens): string
             $html .= '<li><a href="' . htmlspecialchars($destino) . '">' . htmlspecialchars($rotulo) . '</a></li>';
         }
     }
-    return $html . '</ol></nav>';
+    $html .= '</ol></nav>';
+    // Botão "Como usar esta página?" (Central de Ajuda), alinhado à direita da trilha.
+    $ajuda = function_exists('ajuda_link_contextual') ? ajuda_link_contextual() : '';
+    return $ajuda !== '' ? '<div class="adm-context-bar">' . $html . $ajuda . '</div>' : $html;
 }
 
 /** Texto em minúsculas e sem acentos, usado na pesquisa da tabela. */

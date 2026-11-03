@@ -69,6 +69,9 @@ const ADMIN_MENU = [
         'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings', 'arquivo' => 'configuracoes.php', 'pronta' => true, 'permissao' => 'configuracoes.ver'],
         'permissoes' => ['label' => 'Perfis e permissões', 'icon' => 'shield-check', 'arquivo' => 'permissoes.php', 'pronta' => true, 'pai' => 'configuracoes'],
         'manutencao' => ['label' => 'Manutenção', 'icon' => 'wrench', 'arquivo' => 'manutencao.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
+        // Central de Ajuda (Etapa 10): agrupada em Configurações, mas aberta a todos os perfis (painel.ver),
+        // inclusive a quem não pode ver as configurações. Também fica no menu do perfil (header.php).
+        'ajuda' => ['label' => 'Tutorial do Sistema', 'icon' => 'circle-help', 'arquivo' => 'ajuda.php', 'pronta' => true, 'pai' => 'configuracoes'],
         'perfil' => ['label' => 'Meu perfil', 'icon' => 'user-round', 'arquivo' => 'perfil.php', 'pronta' => true, 'oculto' => true],
         'site' => ['label' => 'Voltar ao site', 'icon' => 'house', 'url' => '', 'pronta' => true],
         'sair' => ['label' => 'Sair', 'icon' => 'log-out', 'acao' => 'logout'],

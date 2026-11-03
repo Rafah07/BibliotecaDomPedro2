@@ -75,6 +75,7 @@ admin_page_start('configuracoes', 'Configurações', 'Configurações', 'Regras 
     </div>
     <div class="adm-page-head__actions">
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('permissoes')) ?>"><?= icon('shield-check') ?> Perfis e permissões</a>
+        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('ajuda')) ?>"><?= icon('circle-help') ?> Tutorial do Sistema</a>
         <?php if (auth_pode('sistema.manutencao')): ?>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('manutencao')) ?>"><?= icon('wrench') ?> Manutenção</a>
         <?php endif; ?>

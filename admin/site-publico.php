@@ -56,6 +56,7 @@ foreach (SiteConteudo::CAMPOS as $chave => $campo) {
 admin_page_start('site-publico', 'Site público', 'Site público', 'Textos institucionais exibidos aos alunos e visitantes', FISICO_CSS);
 ?>
 
+<?php if ($ajudaLink = ajuda_link_contextual()): ?><div class="adm-context-bar adm-context-bar--solo"><?= $ajudaLink ?></div><?php endif; ?>
 <section class="adm-page-head">
     <div>
         <h1>Textos do site público</h1>

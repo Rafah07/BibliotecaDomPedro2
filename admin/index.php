@@ -77,6 +77,7 @@ $dadosGraficos = [
 admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão geral da Biblioteca Dom Pedro II');
 ?>
 
+<?php if ($ajudaLink = ajuda_link_contextual()): ?><div class="adm-context-bar adm-context-bar--solo"><?= $ajudaLink ?></div><?php endif; ?>
 <section class="adm-welcome">
     <div>
         <h1>Visão geral da biblioteca</h1>

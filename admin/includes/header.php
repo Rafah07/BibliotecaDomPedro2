@@ -59,6 +59,7 @@ $alertasHeader = dashboard_alertas();
                     <small><?= htmlspecialchars(AUTH_PERFIS[$usuario['perfil']] ?? '') . (db_modo() === 'demo' ? ' · conta demonstrativa' : '') ?></small>
                 </div>
                 <a class="adm-dropdown__item" role="menuitem" href="<?= htmlspecialchars(admin_url('perfil')) ?>"><?= icon('user-round') ?> Meu perfil</a>
+                <a class="adm-dropdown__item" role="menuitem" href="<?= htmlspecialchars(admin_url('ajuda')) ?>"><?= icon('circle-help') ?> Tutorial do Sistema</a>
                 <?php if (auth_pode('usuarios.gerenciar')): ?>
                     <a class="adm-dropdown__item" role="menuitem" href="<?= e(admin_url('administradores')) ?>"><?= icon('users') ?> Administradores</a>
                 <?php endif; ?>
