@@ -18,6 +18,8 @@ Guia rápido do painel administrativo. Todos os exemplos usam **dados fictícios
 
 Se você ficar muito tempo sem usar o painel (padrão: 2 horas), ele pede o login de novo.
 
+**Sem o MySQL interligado** (por exemplo, com o MySQL do XAMPP desligado), o painel abre em **modo demonstrativo**, com dados fictícios. Para acessar mesmo assim, use o e-mail **Bibliotecaria@demo** e a senha **demo123**. Nada do que for feito nesse modo é gravado. Esse acesso não funciona no servidor da escola em produção nem quando o banco está conectado.
+
 ## 2. Como pesquisar livros
 
 1. Clique em **Acervo** no menu.

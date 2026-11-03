@@ -3,9 +3,12 @@
  * Autenticação, permissões e proteção CSRF do painel.
  *
  * Com MySQL configurado, os usuários vêm da tabela "administradores" (senha com password_hash).
- * No modo demonstrativo, existem duas contas fictícias (ver AUTH_CONTAS_DEMO), só para testar telas.
+ * Sem o MySQL interligado (sem .env ou com o MySQL desligado/sem conexão), o painel entra no
+ * modo demonstrativo, com duas contas fictícias (ver AUTH_CONTAS_DEMO, senha AUTH_SENHA_DEMO),
+ * para que o sistema possa ser acessado e apresentado do mesmo jeito.
  * As contas demonstrativas só funcionam fora de produção (APP_ENV diferente de "production"):
- * em produção, sem banco configurado, ninguém consegue entrar no painel.
+ * em produção, sem banco, ninguém consegue entrar no painel. Com o MySQL conectado, elas
+ * nunca valem (só as contas da tabela "administradores").
  */
 require_once __DIR__ . '/db.php';
 
@@ -112,7 +115,10 @@ const AUTH_PERMISSOES_DESCRICOES = [
     ],
 ];
 
-/** Contas do modo demonstrativo (sem banco). Senha de ambas: demo */
+/** Senha das contas do modo demonstrativo (sem MySQL). */
+const AUTH_SENHA_DEMO = 'demo123';
+
+/** Contas do modo demonstrativo (sem MySQL). O e-mail não diferencia maiúsculas: Bibliotecaria@demo também entra. */
 const AUTH_CONTAS_DEMO = [
     'bibliotecaria@demo' => ['id' => 1, 'nome' => 'Ana Souza', 'perfil' => 'bibliotecaria', 'cargo' => 'Bibliotecária'],
     'auxiliar@demo' => ['id' => 2, 'nome' => 'Carlos Lima', 'perfil' => 'auxiliar', 'cargo' => 'Auxiliar de biblioteca'],
@@ -139,7 +145,7 @@ function auth_max_tentativas(): int
 /** Tamanho mínimo das senhas (o mesmo de database/criar-admin.php). */
 const AUTH_SENHA_MINIMA = 10;
 
-/** Contas demonstrativas só valem sem banco e fora de produção. */
+/** Contas demonstrativas só valem sem MySQL (não configurado ou sem conexão) e fora de produção. */
 function auth_demo_disponivel(): bool
 {
     return db_modo() === 'demo' && app_ambiente() !== 'production';
@@ -265,10 +271,12 @@ function auth_login(string $email, string $senha): ?string
 
     if (db_modo() === 'demo') {
         if (!auth_demo_disponivel()) {
-            return 'O banco de dados ainda não foi configurado. Fale com o responsável técnico.';
+            return db_configurado()
+                ? 'Não foi possível conectar ao banco de dados. Verifique se o MySQL está ligado e tente novamente.'
+                : 'O banco de dados ainda não foi configurado. Fale com o responsável técnico.';
         }
         $conta = AUTH_CONTAS_DEMO[$email] ?? null;
-        if (!$conta || !hash_equals('demo', $senha)) {
+        if (!$conta || !hash_equals(AUTH_SENHA_DEMO, $senha)) {
             return $generica;
         }
         session_regenerate_id(true);
