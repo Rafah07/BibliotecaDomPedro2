@@ -63,8 +63,8 @@ return [
         'passos' => [
             ['titulo' => 'Pesquise pela matrícula', 'texto' => 'Digite só os números da matrícula. Nome com erro de digitação ou apelido não encontra o aluno.'],
             ['titulo' => 'Tente parte do nome', 'texto' => 'Digite só o sobrenome ou só o primeiro nome. A pesquisa ignora acentos.'],
-            ['titulo' => 'Veja se o aluno está inativo', 'texto' => 'Se aparecer **Cadastro inativo**, o aluno não pode receber empréstimos. Isso vem da importação da secretaria.'],
-            ['titulo' => 'Se o aluno não existe', 'texto' => 'Os alunos só entram pela página **Importar Alunos**, com a planilha da secretaria. Quem tem essa permissão importa o aluno novo; depois o empréstimo pode ser feito.', 'atencao' => 'Não existe cadastro manual de aluno avulso, e não se deve registrar o empréstimo no nome de outro aluno.'],
+            ['titulo' => 'Veja se o aluno está inativo', 'texto' => 'Se aparecer **Cadastro inativo**, o aluno não pode receber empréstimos. Se ele voltou à escola, a bibliotecária reativa o cadastro na página do aluno ([[tutorial:inativar-aluno|como reativar]]).'],
+            ['titulo' => 'Se o aluno não existe', 'texto' => 'Os alunos entram pela página **Importar Alunos**, com a planilha da secretaria, ou um a um pelo botão **Cadastrar aluno** (bibliotecária e administrador). Depois o empréstimo pode ser feito.', 'atencao' => 'Use a matrícula da secretaria no cadastro individual, e não registre o empréstimo no nome de outro aluno.'],
         ],
         'exemplo' => 'Um aluno transferido nesta semana não aparece. A bibliotecária pede a planilha atualizada à secretaria, importa com "Somente incluir alunos novos" e então registra o empréstimo.',
         'resultado' => ['O aluno aparece na pesquisa e pode ser selecionado.'],
@@ -72,7 +72,7 @@ return [
             ['O aluno aparece duas vezes.', 'Pode haver cadastros duplicados vindos de planilhas diferentes.', 'Use o que tem a matrícula correta e avise quem importa os alunos.'],
         ],
         'cuidados' => ['Os dados dos alunos são pessoais. Não mostre a tela com a lista de alunos para outras pessoas.'],
-        'relacionados' => ['registrar-emprestimo', 'importar-alunos', 'faq-aluno-nao-aparece', 'pesquisar-alunos'],
+        'relacionados' => ['registrar-emprestimo', 'cadastrar-aluno', 'importar-alunos', 'faq-aluno-nao-aparece'],
         'confere' => ['novo-emprestimo.php' => ['Nenhum aluno encontrado.', 'Cadastro inativo'], 'importar-alunos.php' => ['Somente incluir alunos novos']],
     ],
     [

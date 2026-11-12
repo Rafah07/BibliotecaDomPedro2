@@ -4,6 +4,9 @@ Página do painel: **Gerenciamento → Importar Alunos** (`admin/importar-alunos
 
 Inclui ou atualiza o cadastro da tabela `alunos` a partir de uma planilha `.xlsx` ou `.csv` escolhida no navegador do computador onde o XAMPP está rodando. Foi feita para importar a planilha real da escola **só no computador da biblioteca**: todo o desenvolvimento e os testes usaram alunos fictícios.
 
+> Para consultar, cadastrar um aluno sem planilha, corrigir ou inativar, use **Gerenciamento → Alunos**
+> (`docs/alunos-categorias.md`). O cadastro individual valida com as mesmas regras desta importação.
+
 ## Quem pode usar
 
 Permissão `alunos.importar`, dada aos perfis **Administrador** e **Bibliotecária**. Auxiliar e Somente consulta não veem o item no menu e recebem 403 na página e na API. É preciso ter o MySQL configurado: no modo demonstrativo a página só mostra um aviso.

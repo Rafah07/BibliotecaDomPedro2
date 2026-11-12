@@ -129,6 +129,50 @@ final class AlunoImportService
         return $resultado;
     }
 
+    /**
+     * Validação de um cadastro individual (Alunos → Cadastrar/Editar), com as MESMAS regras de
+     * limpeza e de formato da importação. A diferença: na planilha, um e-mail ou turno inválido
+     * só vira aviso (o campo fica em branco); aqui a pessoa está digitando, então vira erro para
+     * ela corrigir antes de salvar.
+     * @param array<string, mixed> $bruto nome, matricula, turma, turno, email
+     * @return array{dados: array<string, ?string>, erros: array<string, string>}
+     */
+    public function validarCadastro(array $bruto): array
+    {
+        $entrada = [];
+        foreach (array_keys(self::CAMPOS) as $campo) {
+            $v = $bruto[$campo] ?? null;
+            $entrada[$campo] = is_scalar($v) ? (string)$v : null;
+        }
+        $r = $this->validarLinha(0, $entrada);
+        $erros = [];
+        foreach ($r['erros'] as $mensagem) {
+            $campo = match (true) {
+                str_starts_with($mensagem, 'Nome') => 'nome',
+                str_starts_with($mensagem, 'Matrícula') => 'matricula',
+                str_starts_with($mensagem, 'Turma') => 'turma',
+                default => 'geral',
+            };
+            $erros[$campo] ??= $mensagem;
+        }
+        foreach ($r['avisos'] as $mensagem) {
+            if (str_starts_with($mensagem, 'Turno')) {
+                $erros['turno'] ??= 'Turno não reconhecido. Escolha manhã, tarde, noite ou integral.';
+            } elseif (str_contains($mensagem, 'domínio institucional')) {
+                $erros['email'] ??= str_replace(' O e-mail ficará em branco.', ' Corrija o e-mail.', $mensagem);
+            } elseif (str_starts_with($mensagem, 'E-mail')) {
+                $erros['email'] ??= 'E-mail inválido. Confira o formato (ex.: nome@escola.edu.br).';
+            }
+        }
+        return ['dados' => $r['dados'], 'erros' => $erros];
+    }
+
+    /** Domínio institucional configurado (sem @), ou null quando qualquer domínio é aceito. */
+    public function dominioEmail(): ?string
+    {
+        return $this->dominioEmail;
+    }
+
     /** @param array<string, ?string> $bruto */
     private function validarLinha(int $numero, array $bruto): array
     {

@@ -312,7 +312,8 @@ $contextuais = [
         'emprestimos.php' => 'consultar-emprestimos', 'novo-emprestimo.php' => 'registrar-emprestimo', 'devolucoes.php' => 'registrar-devolucao', 'atrasos.php' => 'emprestimos-atrasados',
         'inventario.php' => 'para-que-serve-inventario', 'etiquetas.php' => 'gerar-etiquetas', 'classificacao.php' => 'painel-cdd', 'relatorios.php' => 'acessar-relatorios',
         'importacao.php' => 'importar-acervo', 'importar-alunos.php' => 'importar-alunos', 'configuracoes.php' => 'abrir-configuracoes', 'permissoes.php' => 'perfis-existentes',
-        'perfil.php' => 'trocar-minha-senha', 'localizacoes.php' => 'localizacoes', 'site-publico.php' => 'textos-site-publico'],
+        'perfil.php' => 'trocar-minha-senha', 'localizacoes.php' => 'localizacoes', 'site-publico.php' => 'textos-site-publico',
+        'alunos.php' => 'pesquisar-alunos', 'aluno-editar.php' => 'cadastrar-aluno', 'categorias.php' => 'gerenciar-categorias', 'categoria.php' => 'cadastrar-categoria'],
     'administrador' => ['administradores.php' => 'consultar-contas', 'manutencao.php' => 'gerar-backup'],
     'consulta' => ['livros.php' => 'consultar-livros', 'index.php' => 'visao-geral-dashboard'],
 ];

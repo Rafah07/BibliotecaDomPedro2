@@ -64,7 +64,7 @@ Números reais do banco: títulos × exemplares, empréstimos ativos e atrasados
 - **Cadastrar, editar e ver detalhes** do livro (dados, exemplares, CDD, histórico e dados originais da planilha).
 - **Arquivar e restaurar** em vez de excluir (com motivo; bloqueado se houver exemplar emprestado).
 - **Capa do livro**: envio de imagem.
-- **Categorias**: a página existe, mas o cadastro ainda é **demonstrativo** (não grava).
+- **Categorias**: cadastro, edição, desativação e reativação reais no banco, sem nomes repetidos (Etapa 11, ver `docs/alunos-categorias.md`).
 
 ### 3.4 Classificação CDD
 
@@ -106,6 +106,7 @@ Números reais do banco: títulos × exemplares, empréstimos ativos e atrasados
 ### 3.9 Alunos
 
 - **Importar Alunos** (`.xlsx`/`.csv`): mapeamento de colunas, prévia, prevenção de duplicidade pela matrícula e atualização separada com confirmação. O arquivo não fica guardado no servidor.
+- **Alunos** (Gerenciamento → Alunos): lista com pesquisa, filtros e paginação; página do aluno com empréstimos ativos, atrasados e devoluções; cadastro individual e correção com as mesmas regras da importação; inativação e reativação (sem exclusão). Detalhes em `docs/alunos-categorias.md`.
 - Alunos não têm login. Histórico de cada aluno pela circulação.
 
 ### 3.10 Circulação (empréstimos)
@@ -150,9 +151,7 @@ Site público e painel modernizados (etapas 8 e 9): azul institucional com detal
 
 ## 5. O que ainda está pendente
 
-- Cadastro de **categorias** é demonstrativo (não grava).
 - **Reservas** de livros e **avisos de atraso por e-mail** (dependem de autorização da escola).
-- **Tela de consulta e edição de alunos** (hoje só pela importação).
 - Organização física por CDD e código de autor (Cutter) para a lombada, a definir com a bibliotecária.
 - Dados oficiais da escola: horário, contatos, nome oficial, regulamento de empréstimo (o prazo de 14 dias é provisório) e créditos.
 - A pesquisa de CDD nas fontes da internet ainda não foi testada com internet.

@@ -46,6 +46,7 @@ admin_page_start('emprestimos', 'Histórico do aluno', 'Empréstimos', 'Circula�
     </div>
     <div class="adm-page-head__actions">
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('emprestimos')) ?>"><?= icon('arrow-left') ?> Empréstimos</a>
+        <?php if (auth_pode('alunos.ver')): ?><a class="adm-button adm-button--ghost" href="<?= e(admin_url('aluno') . '?id=' . $id) ?>"><?= icon('graduation-cap') ?> Cadastro do aluno</a><?php endif; ?>
         <?php if ((int)$aluno['ativo'] && auth_pode('emprestimos.registrar')): ?>
             <a class="adm-button adm-button--primary" href="<?= e(admin_url('novo-emprestimo') . '?aluno=' . $id) ?>"><?= icon('plus') ?> Novo empréstimo para este aluno</a>
         <?php endif; ?>

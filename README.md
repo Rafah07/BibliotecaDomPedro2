@@ -177,7 +177,8 @@ BibliotecaDomPedro2/
 ├── admin/                     painel administrativo (todas as páginas exigem login)
 │   ├── index.php              dashboard
 │   ├── login.php, logout.php
-│   ├── livros.php, exemplares.php, categorias.php, cadastrar/editar/detalhes-*.php
+│   ├── livros.php, exemplares.php, categorias.php, categoria.php, cadastrar/editar/detalhes-*.php
+│   ├── alunos.php, aluno.php, aluno-editar.php (consulta, cadastro e correção de alunos)
 │   ├── classificacao.php, classificar-livro.php, revisao-cdd.php, historico-cdd.php, relatorio-cdd.php
 │   ├── importacao.php, detalhes-importacao.php, historico-importacoes.php
 │   ├── emprestimos.php, novo-emprestimo.php, emprestimo.php, devolver-/renovar-emprestimo.php
@@ -299,13 +300,12 @@ Todos os testes com banco criam e apagam bancos temporários `bdp_teste_*`: o ba
 - Relatórios administrativos (menu **Relatórios**): acervo, exemplares físicos, empréstimos e devoluções, atrasos, alunos, inventários, classificação CDD e atividades administrativas, com filtros de período, gráficos com tabela de dados e exportação em PDF (A4), CSV e XLSX. Veja [`docs/relatorios.md`](docs/relatorios.md).
 - Configurações gerais (Sistema → Configurações): identificação, regras de empréstimo (incluindo limite de livros por aluno e bloqueio por atraso, desligados por padrão), domínio do e-mail dos alunos, segurança do painel e site em manutenção, com histórico imutável; página Perfis e permissões; página Manutenção com diagnóstico, cópia de segurança `.sql` e limpeza de tentativas de login. Veja [`docs/configuracoes.md`](docs/configuracoes.md).
 - Circulação: empréstimos (só de exemplares físicos disponíveis, para alunos cadastrados e ativos), devoluções, renovações com regras configuráveis, atrasos, histórico por aluno e por exemplar, e indicadores no dashboard. Veja [`docs/emprestimos.md`](docs/emprestimos.md).
+- Alunos (Gerenciamento → Alunos): listagem com pesquisa por nome, matrícula ou e-mail (com ou sem acentos), filtros, ordenação e paginação no servidor; detalhes com empréstimos ativos, atrasados e devoluções; cadastro individual e correção com as mesmas regras da importação; inativação e reativação; histórico de alterações. Categorias reais (Acervo → Categorias): cadastro, edição, prevenção de nomes repetidos (sem diferenciar maiúsculas, acentos e pontuação), desativação bloqueada para categorias em uso e consulta das categorias das planilhas antigas. Veja [`docs/alunos-categorias.md`](docs/alunos-categorias.md).
 
 **Pendentes**
 
-- Cadastro de categorias ainda é **simulado** (valida, mas não grava no banco).
 - Distribuição física por CDD (a ser definida com a bibliotecária) e código de autor (Cutter) validado para a lombada.
 - Reservas de livros (a renovação já tem o ponto de verificação preparado) e avisos de atraso por e-mail (exigem autorização da escola).
-- Tela de consulta/edição de alunos e configurações.
 - Formulário de contato (não envia mensagens) e horários/contatos oficiais, que dependem da escola.
 - Pesquisas das fontes CDD nunca foram testadas com internet neste ambiente de desenvolvimento.
 

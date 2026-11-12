@@ -164,7 +164,43 @@ Faça isto **somente** no computador autorizado da biblioteca, com a planilha of
 5. Escolha o que fazer com alunos já cadastrados (o recomendado é deixar como estão) e clique em **Confirmar importação**.
 6. A planilha **não fica guardada** no sistema. Depois de importar, apague a planilha do computador (inclusive da pasta Downloads e da lixeira).
 
-## 16. Como realizar backup
+## 16. Como consultar, cadastrar e corrigir alunos
+
+**Gerenciamento → Alunos** (bibliotecária, administrador e auxiliar; o perfil Somente consulta não vê alunos).
+
+**Consultar**
+
+1. Digite nome, matrícula ou e-mail no campo **Nome, matrícula ou e-mail do aluno...** e clique em **Pesquisar**. Acentos e maiúsculas não importam: `joao` encontra "João".
+2. Use os filtros **Turma**, **Turno**, **Situação** (Ativos, Inativos, Todos) e **Empréstimos** (Com livro emprestado, Com atraso). Clique em **Nome**, **Matrícula** ou **Turma** para ordenar.
+3. Clique no nome do aluno para abrir os **detalhes**: dados cadastrais, empréstimos ativos e atrasados, devoluções anteriores e o **Histórico de alterações do cadastro** (quem mudou o quê e quando).
+
+**Corrigir um cadastro** (bibliotecária e administrador) — sem importar a planilha de novo
+
+1. Na lista, clique em **Editar** (ou, nos detalhes, em **Editar cadastro**).
+2. Corrija o que estiver errado (nome, matrícula, e-mail institucional, turma, turno) e clique em **Salvar correção**.
+   - Exemplo fictício: "Joao Ficticio" → "João Fictício"; turma "6º A" → "7º A".
+3. Ao mudar a **matrícula**, marque **Conferi com a secretaria: a matrícula correta é a nova.** e salve de novo. A matrícula nova não pode ser de outro aluno.
+4. O aluno continua o mesmo: todos os empréstimos, devoluções e renovações continuam ligados a ele.
+
+**Cadastrar um aluno** fora da importação (ex.: aluno transferido que ainda não está na planilha)
+
+1. **Alunos → Cadastrar aluno.** Preencha **Nome** e **Matrícula** (obrigatórios) e, se souber, e-mail, turma e turno.
+2. As regras são as mesmas da importação: matrícula sem espaços e sem repetir; e-mail válido (e do domínio da escola, se definido em Configurações).
+3. Se já houver aluno com o mesmo nome ou e-mail, o sistema mostra a lista e pede confirmação de que é outra pessoa.
+
+**Inativar** (aluno que saiu da escola): nos detalhes do aluno, quadro **Inativar cadastro**. O aluno não faz novos empréstimos; os que estão em aberto continuam e podem ser devolvidos. Nada é apagado. Para desfazer, **Reativar cadastro**. Alunos **não são excluídos**.
+
+## 17. Como gerenciar as categorias dos livros
+
+**Principal → Categorias.** Todos consultam; só bibliotecária e administrador alteram.
+
+1. **Cadastrar categoria**: informe o **Nome da categoria** (até 80 caracteres) e, se quiser, a **Descrição**, e clique em **Salvar categoria**. Ela já aparece no **Cadastrar livro** e no **Editar livro**.
+2. Não é possível repetir um nome: "POESIA", "poesia" e "Poésia" são a mesma categoria (o sistema avisa **Já existe a categoria**).
+3. **Editar**: corrige o nome ou a descrição. A mudança aparece em todos os livros da categoria, nos filtros e no site, sem alterar os livros.
+4. **Desativar**: só para categorias **sem livros ativos** (as que têm livros mostram **Em uso**). Para tirar de uso uma categoria com livros, troque a categoria desses livros em **Editar livro** e depois desative. Para desfazer, filtro **Situação → Desativadas** e **Reativar**. Categorias não são excluídas.
+5. A aba **Categorias das planilhas antigas** mostra os textos de categoria vindos das planilhas importadas, só para consulta (ajuda a decidir quais categorias cadastrar).
+
+## 18. Como realizar backup
 
 Somente o **Administrador** faz a cópia de segurança.
 
@@ -175,7 +211,7 @@ Somente o **Administrador** faz a cópia de segurança.
 
 Restaurar uma cópia é tarefa do responsável técnico, sempre num banco novo. Veja [`backup-recuperacao.md`](backup-recuperacao.md).
 
-## 17. Como sair do sistema com segurança
+## 19. Como sair do sistema com segurança
 
 1. Clique no seu nome (canto superior) e em **Sair**, ou use **Sair** no final do menu.
 2. Feche o navegador se o computador for compartilhado.
@@ -190,3 +226,5 @@ Restaurar uma cópia é tarefa do responsável técnico, sempre num banco novo. 
 - **"Exemplar já emprestado"**: registre a devolução anterior antes de emprestar de novo.
 - **Voltei para a tela de login sozinha**: a sessão terminou por inatividade. Entre de novo; o que não foi salvo precisa ser refeito.
 - **Não aparece um menu**: o seu perfil não tem essa permissão. Fale com o administrador.
+- **"A matrícula ... já pertence a outro aluno"**: a matrícula já está cadastrada. Pesquise em **Alunos** (com **Situação → Todos**): o aluno provavelmente já existe.
+- **"A categoria ... não pode ser desativada"**: ainda há livros ativos nela. Troque a categoria desses livros antes.
