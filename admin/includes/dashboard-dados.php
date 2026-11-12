@@ -31,6 +31,14 @@ const DASHBOARD_ACOES = [
     'exemplar.baixar' => 'Baixa de exemplar',
     'etiqueta.gerar' => 'Etiquetas geradas',
     'etiqueta.modelo' => 'Modelo de etiqueta salvo',
+    'aluno.cadastrar' => 'Aluno cadastrado individualmente',
+    'aluno.editar' => 'Cadastro de aluno corrigido',
+    'aluno.inativar' => 'Cadastro de aluno inativado',
+    'aluno.reativar' => 'Cadastro de aluno reativado',
+    'categoria.cadastrar' => 'Categoria cadastrada',
+    'categoria.editar' => 'Categoria editada',
+    'categoria.desativar' => 'Categoria desativada',
+    'categoria.reativar' => 'Categoria reativada',
     'localizacao.cadastrar' => 'Localização cadastrada',
     'localizacao.editar' => 'Localização editada',
     'localizacao.ativar' => 'Localização reativada',
@@ -55,7 +63,7 @@ const DASHBOARD_ACOES = [
 
 const DASHBOARD_ENTIDADES = ['importacao' => 'importação', 'importacao_item' => 'linha da importação', 'importacao_mapeamento' => 'mapeamento', 'livro' => 'livro', 'administrador' => 'conta', 'emprestimo' => 'empréstimo',
     'exemplar' => 'exemplar', 'localizacao' => 'localização', 'inventario' => 'inventário', 'etiqueta_modelo' => 'modelo de etiqueta', 'relatorio' => 'relatório',
-    'configuracao' => 'configuração', 'sistema' => 'sistema', 'site' => 'site público'];
+    'configuracao' => 'configuração', 'sistema' => 'sistema', 'site' => 'site público', 'aluno' => 'aluno', 'categoria' => 'categoria'];
 
 const DASHBOARD_CORES = ['#123D73', '#2457C5', '#2E73FF', '#7FA6F5', '#0EA5A4', '#CBD5E1'];
 

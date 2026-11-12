@@ -23,8 +23,8 @@ Cada página e cada ação conferem a permissão **no servidor**, inclusive quan
 | Perfil | Pode | Não pode |
 | --- | --- | --- |
 | Administrador | tudo, inclusive contas, manutenção e cópia de segurança | — |
-| Bibliotecária | acervo, CDD (aprovar), exemplares, inventário, etiquetas, empréstimos, importar alunos, relatórios com dados pessoais, site público, configurações gerais | contas de acesso, segurança, manutenção e cópia de segurança |
-| Auxiliar de biblioteca | consultar e registrar empréstimos, conferir inventário, gerar etiquetas, cadastrar exemplares, sugerir CDD, relatórios | aprovar CDD, dar baixa, importar alunos, exportar dados pessoais, configurações |
+| Bibliotecária | acervo, categorias, CDD (aprovar), exemplares, inventário, etiquetas, empréstimos, importar, consultar, cadastrar, corrigir e inativar alunos, relatórios com dados pessoais, site público, configurações gerais | contas de acesso, segurança, manutenção e cópia de segurança |
+| Auxiliar de biblioteca | consultar alunos, consultar e registrar empréstimos, conferir inventário, gerar etiquetas, cadastrar exemplares, sugerir CDD, relatórios | aprovar CDD, dar baixa, importar, cadastrar, corrigir ou inativar alunos, alterar categorias, exportar dados pessoais, configurações |
 | Somente consulta | ver painel, CDD, importações e relatórios sem dados pessoais | qualquer alteração; empréstimos e dados de alunos |
 
 A matriz completa é testada por `php admin/tests/auditoria-seguranca-teste.php`.
@@ -40,7 +40,8 @@ A matriz completa é testada por `php admin/tests/auditoria-seguranca-teste.php`
 ### Minimização e privacidade
 - O **site público** nunca mostra dados de alunos nem quem está com um livro: só "disponível", "emprestado" ou a quantidade de exemplares disponíveis.
 - Relatórios com nomes de alunos exigem permissão própria; exportar dados pessoais (CSV/XLSX/PDF) exige outra (`relatorios.exportar_pessoais`), e cada exportação fica registrada.
-- O registro de ações (`acoes_administrativas`) guarda quem fez o quê e quando, sem copiar o conteúdo das planilhas de alunos.
+- O registro de ações (`acoes_administrativas`) guarda quem fez o quê e quando, sem copiar o conteúdo das planilhas de alunos. Nas correções individuais de alunos ficam só os nomes dos campos alterados (e a matrícula anterior, para rastrear a identidade), nunca os valores novos.
+- A página **Alunos** mostra só nome, matrícula, e-mail institucional, turma, turno e situação; telefone e observações da tabela não são exibidos. Alunos não são excluídos: são inativados.
 - Os históricos de empréstimo, de CDD e dos exemplares não podem ser apagados nem alterados pelo painel (gatilhos no banco).
 - Nenhum dado é enviado a serviços externos. As consultas de CDD em fontes externas enviam apenas dados do **livro** (ISBN, título), nunca de alunos.
 - O sistema funciona sem internet no computador da biblioteca (fontes e gráficos são locais).

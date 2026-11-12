@@ -61,7 +61,7 @@ return [
         'passos' => [
             ['titulo' => 'Pesquise pela matrícula', 'texto' => 'No Novo empréstimo, digite a matrícula. Se pesquisar pelo nome, tente só o sobrenome.'],
             ['titulo' => 'Veja se está inativo', 'texto' => 'Alunos com **Cadastro inativo** aparecem, mas não podem receber empréstimos.'],
-            ['titulo' => 'Importe, se não existir', 'texto' => 'Peça a quem importa alunos para incluí-lo pela página **Importar Alunos**.'],
+            ['titulo' => 'Cadastre, se não existir', 'texto' => 'Peça à bibliotecária para incluí-lo pela página **Importar Alunos** ou, se for um aluno só, pelo botão **Cadastrar aluno** da página Alunos.'],
         ],
         'exemplo' => 'O aluno chegou transferido ontem e ainda não está na planilha importada. A bibliotecária pede a planilha atualizada à secretaria.',
         'resultado' => ['O aluno aparece na pesquisa.'],
@@ -241,7 +241,7 @@ return [
         'passos' => [
             ['titulo' => 'Veja o seu perfil', 'texto' => 'Clique no seu nome e em **Meu perfil**, ou abra **Perfis e permissões**.'],
             ['titulo' => '"Acesso não permitido"', 'texto' => 'Aparece quando o seu perfil não pode abrir aquela página.'],
-            ['titulo' => '"Em breve"', 'texto' => 'Itens do menu com **Em breve** ainda não estão prontos (por exemplo, Alunos).'],
+            ['titulo' => '"Em breve"', 'texto' => 'Itens do menu com **Em breve** ainda não estão prontos. Hoje todos os itens do menu estão prontos.'],
             ['titulo' => 'Menu recolhido', 'texto' => 'Com o menu recolhido, os subitens (como Localizações, Classificação CDD e Manutenção) não aparecem. Expanda o menu.'],
             ['titulo' => 'Peça o acesso', 'texto' => 'Se a sua função exige a permissão, um administrador pode mudar o perfil da sua conta.'],
         ],

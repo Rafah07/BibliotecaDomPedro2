@@ -144,7 +144,8 @@ admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulaçã
                 <div class="adm-notice adm-notice--amber" role="status">
                     <?= icon('triangle-alert') ?>
                     <div><strong>Nenhum aluno encontrado.</strong>
-                        <p>Confira a matrícula ou o nome. O empréstimo só pode ser feito para alunos cadastrados; o cadastro é feito pela importação de alunos<?= auth_pode('alunos.importar') ? ' (Gerenciamento → Importar Alunos)' : ', com a bibliotecária responsável' ?>.</p></div>
+                        <p>Confira a matrícula ou o nome. O empréstimo só pode ser feito para alunos cadastrados; o cadastro é feito pela importação de alunos<?= auth_pode('alunos.editar') ? ' (Gerenciamento → Importar Alunos) ou, para um aluno só, em Gerenciamento → Alunos → Cadastrar aluno' : (auth_pode('alunos.importar') ? ' (Gerenciamento → Importar Alunos)' : ', com a bibliotecária responsável') ?>.</p>
+                        <?php if (auth_pode('alunos.editar')): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('aluno-editar')) ?>"><?= icon('user-plus') ?> Cadastrar aluno</a><?php endif; ?></div>
                 </div>
             <?php else: ?>
                 <?php if (count($alunos['itens']) > 1): ?>

@@ -21,6 +21,7 @@ const ADMIN_MENU = [
         'localizacoes' => ['label' => 'Localizações', 'icon' => 'map-pin', 'arquivo' => 'localizacoes.php', 'pronta' => true, 'pai' => 'exemplares'],
         'localizacao' => ['label' => 'Localização', 'icon' => 'map-pin', 'arquivo' => 'localizacao.php', 'pronta' => true, 'oculto' => true],
         'categorias' => ['label' => 'Categorias', 'icon' => 'tags', 'arquivo' => 'categorias.php', 'pronta' => true],
+        'categoria' => ['label' => 'Categoria', 'icon' => 'tags', 'arquivo' => 'categoria.php', 'pronta' => true, 'oculto' => true],
         // Páginas internas do acervo: não aparecem no menu, mas usam admin_url().
         'cadastrar-livro' => ['label' => 'Cadastrar livro', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-livro.php', 'pronta' => true, 'oculto' => true],
         'editar-livro' => ['label' => 'Editar livro', 'icon' => 'pencil', 'arquivo' => 'editar-livro.php', 'pronta' => true, 'oculto' => true],
@@ -53,7 +54,10 @@ const ADMIN_MENU = [
         'isbn-invalidos' => ['label' => 'ISBNs inválidos', 'icon' => 'barcode', 'arquivo' => 'isbn-invalidos.php', 'pronta' => true, 'oculto' => true],
         'etiquetas' => ['label' => 'Etiquetas', 'icon' => 'tag', 'arquivo' => 'etiquetas.php', 'pronta' => true],
         'etiqueta-modelos' => ['label' => 'Modelos de etiqueta', 'icon' => 'ruler', 'arquivo' => 'etiqueta-modelos.php', 'pronta' => true, 'oculto' => true],
-        'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap'],
+        // Alunos (Etapa 11): consulta, cadastro individual e correção. Dados pessoais: só com alunos.ver.
+        'alunos' => ['label' => 'Alunos', 'icon' => 'graduation-cap', 'arquivo' => 'alunos.php', 'pronta' => true, 'permissao' => 'alunos.ver'],
+        'aluno' => ['label' => 'Detalhes do aluno', 'icon' => 'graduation-cap', 'arquivo' => 'aluno.php', 'pronta' => true, 'oculto' => true],
+        'aluno-editar' => ['label' => 'Cadastro do aluno', 'icon' => 'user-plus', 'arquivo' => 'aluno-editar.php', 'pronta' => true, 'oculto' => true],
         'importar-alunos' => ['label' => 'Importar Alunos', 'icon' => 'users', 'arquivo' => 'importar-alunos.php', 'pronta' => true, 'permissao' => 'alunos.importar'],
         // Central de relatórios (Etapa 5). "Atividades" abre a seção de atividades da mesma página.
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column', 'arquivo' => 'relatorios.php', 'pronta' => true, 'permissao' => 'relatorios.ver'],

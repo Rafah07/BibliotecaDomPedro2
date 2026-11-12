@@ -69,13 +69,14 @@ final class RelatorioService
 
     public const MODULOS_ATIVIDADE = [
         'livro' => 'Acervo (livros)', 'exemplar' => 'Exemplares', 'localizacao' => 'Localizações', 'emprestimo' => 'Empréstimos e renovações',
-        'devolucao' => 'Devoluções', 'inventario' => 'Inventários', 'etiqueta' => 'Etiquetas', 'importacao' => 'Importações', 'aluno' => 'Alunos',
+        'devolucao' => 'Devoluções', 'inventario' => 'Inventários', 'etiqueta' => 'Etiquetas', 'importacao' => 'Importações', 'aluno' => 'Alunos', 'categoria' => 'Categorias',
         'relatorio' => 'Exportações de relatórios', 'site' => 'Site público', 'usuario' => 'Contas de acesso',
     ];
 
     /** Chaves de detalhes que podem aparecer no resumo das atividades (nada de e-mail, IP ou valores internos). */
     private const DETALHES_PERMITIDOS = ['titulo' => '', 'codigo' => 'código', 'formato' => 'formato', 'filtro' => 'filtro', 'relatorio' => 'relatório',
-        'linhas' => 'linhas', 'quantidade' => 'quantidade', 'previstos' => 'previstos', 'itens' => 'itens', 'decisao' => 'decisão', 'nome' => 'nome', 'setor' => 'setor', 'motivo' => 'motivo'];
+        'linhas' => 'linhas', 'quantidade' => 'quantidade', 'previstos' => 'previstos', 'itens' => 'itens', 'decisao' => 'decisão', 'nome' => 'nome', 'setor' => 'setor', 'motivo' => 'motivo',
+        'campos' => 'campos alterados', 'nome_anterior' => 'nome anterior'];
 
     /** Linhas máximas: PDF (legibilidade) e planilhas (memória/tempo). */
     public const LIMITE_PDF = 2000;

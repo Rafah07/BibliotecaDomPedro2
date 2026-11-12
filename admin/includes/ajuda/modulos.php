@@ -51,7 +51,7 @@ return [
     'alunos' => [
         'nome' => 'Alunos',
         'icone' => 'graduation-cap',
-        'descricao' => 'Encontrar alunos, consultar o histórico, atualizar cadastros e proteger os dados pessoais.',
+        'descricao' => 'Consultar, cadastrar, corrigir e inativar alunos, ver o histórico e proteger os dados pessoais.',
         'arquivo' => '07-alunos.php',
         'palavras' => ['aluno', 'estudante', 'matricula', 'email', 'privacidade', 'lgpd'],
     ],

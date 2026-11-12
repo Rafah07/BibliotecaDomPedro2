@@ -97,6 +97,8 @@ $esperado = [
     'emprestimos.php' => $equipe, 'emprestimo.php?id=' . $emp => $equipe, 'novo-emprestimo.php' => $equipe, 'devolucoes.php' => $equipe,
     'devolver-emprestimo.php?id=' . $emp => $equipe, 'renovar-emprestimo.php?id=' . $emp => $equipe, 'atrasos.php' => $equipe,
     'historico-aluno.php?id=' . $aluno => $equipe, 'historico-exemplar.php?id=' . $ex[0] => $equipe,
+    'alunos.php' => $equipe, 'aluno.php?id=' . $aluno => $equipe,                     // Etapa 11: dados pessoais, não para "consulta"
+    'aluno-editar.php' => $gestao, 'aluno-editar.php?id=' . $aluno => $gestao, 'categoria.php' => $gestao,
     'arquivar-livro.php?id=' . $livro => $gestao, 'etiqueta-modelos.php' => $gestao, 'inventario-editar.php?id=' . $inv => $gestao,
     'localizacao.php?id=' . $loc => $gestao, 'importar-alunos.php' => $gestao, 'configuracoes.php' => $gestao, 'site-publico.php' => $gestao,
     'administradores.php' => $soAdmin, 'administrador.php?id=' . $contas['auxiliar'] => $soAdmin, 'manutencao.php' => $soAdmin,

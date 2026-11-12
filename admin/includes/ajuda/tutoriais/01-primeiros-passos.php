@@ -139,7 +139,7 @@ return [
                 '**Circulação**: Empréstimos, Devoluções e Atrasos (só para perfis que podem ver empréstimos).',
                 '**Gerenciamento**: Importar Excel, Etiquetas, Alunos, Importar Alunos, Relatórios e Atividades.',
                 '**Sistema**: Administradores, Site público, Configurações (com os submenus Perfis e permissões, Manutenção e Tutorial do Sistema), Voltar ao site e Sair.',
-            ], 'dica' => 'Itens que o seu perfil não pode usar não aparecem. O item **Alunos** mostra a etiqueta "Em breve": essa página ainda não existe (veja [[tutorial:pesquisar-alunos|como pesquisar alunos]]).'],
+            ], 'dica' => 'Itens que o seu perfil não pode usar não aparecem. Por exemplo, **Alunos** (no grupo Gerenciamento) não aparece para o perfil Somente consulta (veja [[tutorial:pesquisar-alunos|como consultar alunos]]).'],
             ['titulo' => 'Expanda o menu para ver os nomes', 'texto' => 'No computador, o menu começa **recolhido**, só com ícones. Clique no botão do topo do menu, ao lado do nome da biblioteca, com a dica **Expandir menu**. O menu passa a mostrar os nomes e os submenus.', 'imagem' => ['arquivo' => 'menu-expandido.png', 'alt' => 'Menu lateral azul expandido com os grupos Principal, Circulação, Gerenciamento e Sistema', 'legenda' => 'Menu lateral expandido.']],
             ['titulo' => 'Recolha o menu para ganhar espaço', 'texto' => 'Clique no mesmo botão, agora com a dica **Recolher menu**. Com o menu recolhido, pare o mouse sobre um ícone para ver o nome da página.'],
             ['titulo' => 'Saiba que a sua escolha fica guardada', 'texto' => 'O navegador lembra se você deixou o menu expandido ou recolhido. Em outro computador ou navegador, a escolha precisa ser feita de novo.'],

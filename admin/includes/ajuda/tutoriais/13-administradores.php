@@ -13,9 +13,9 @@ return [
         'passos' => [
             ['titulo' => 'Conheça os perfis', 'lista' => [
                 '**Administrador**: acesso total, inclusive contas de acesso, segurança, manutenção e cópia de segurança.',
-                '**Bibliotecária**: gerencia livros, exemplares, empréstimos, inventários, aprova CDD e executa importações, inclusive a de alunos. Não gerencia contas nem a manutenção técnica.',
-                '**Auxiliar de biblioteca**: cadastra e edita livros, gerencia exemplares, registra empréstimos e devoluções, confere inventário, gera etiquetas, sugere CDD e revisa importações. Não arquiva livros nem aprova CDD.',
-                '**Somente consulta**: vê o acervo, a classificação, as importações e os relatórios sem dados pessoais, sem alterar nada.',
+                '**Bibliotecária**: gerencia livros, categorias, exemplares, empréstimos, inventários, aprova CDD, executa importações, inclusive a de alunos, e cadastra, corrige e inativa alunos. Não gerencia contas nem a manutenção técnica.',
+                '**Auxiliar de biblioteca**: cadastra e edita livros, gerencia exemplares, registra empréstimos e devoluções, consulta alunos, confere inventário, gera etiquetas, sugere CDD e revisa importações. Não arquiva livros, não aprova CDD, não altera categorias nem cadastros de alunos.',
+                '**Somente consulta**: vê o acervo, as categorias, a classificação, as importações e os relatórios sem dados pessoais, sem alterar nada.',
             ]],
             ['titulo' => 'Veja a tabela completa', 'texto' => 'Em **Configurações**, abra **Perfis e permissões** (também no menu, abaixo de Configurações). A tabela **Permissões por perfil** mostra cada permissão e quais perfis a têm. O seu perfil aparece marcado.'],
             ['titulo' => 'Entenda por que são fixas', 'texto' => 'As permissões são fixas no sistema, para que nenhum ajuste por engano exponha dados pessoais dos alunos. Para dar mais ou menos acesso a uma pessoa, um administrador muda o perfil da conta dela.'],
@@ -26,7 +26,7 @@ return [
             ['Uma função não aparece para mim.', 'O seu perfil não tem a permissão.', 'Veja [[tutorial:permissoes-funcoes-indisponiveis|funções indisponíveis]] e fale com um administrador.'],
         ],
         'cuidados' => ['Use o perfil com o mínimo de acesso necessário para a função.', 'Ler esta ajuda não dá nenhuma permissão nova.'],
-        'relacionados' => ['consultar-contas', 'cadastrar-conta', 'permissoes-funcoes-indisponiveis'],
+        'relacionados' => ['consultar-contas', 'permissoes-alunos', 'permissoes-funcoes-indisponiveis'],
         'confere' => ['permissoes.php' => ['Perfis e permissões', 'Permissões por perfil', 'As permissões são fixas no sistema'], 'administrador.php' => ['Use o perfil com o mínimo de acesso necessário para a função.'], 'includes/auth.php' => ['Auxiliar de biblioteca', 'Somente consulta']],
     ],
     [
@@ -106,27 +106,5 @@ return [
         'cuidados' => ['Não anote a senha em papel perto do computador.', 'Para mudar nome, e-mail ou perfil, fale com um administrador.'],
         'relacionados' => ['acessar-e-entrar', 'faq-esqueci-senha', 'seguranca-painel'],
         'confere' => ['perfil.php' => ['Meu perfil', 'Trocar minha senha', 'Senha atual', 'Nova senha', 'Confirmação da nova senha', 'Trocar senha'], 'includes/header.php' => ['Meu perfil']],
-    ],
-    [
-        'id' => 'categorias',
-        'titulo' => 'Página Categorias (demonstrativa)',
-        'resumo' => 'A página Categorias ainda mostra dados demonstrativos: cadastros e edições ali são simulados.',
-        'palavras' => ['categorias', 'gêneros', 'cadastrar categoria', 'dados demonstrativos', 'simulado'],
-        'paginas' => ['categorias.php'],
-        'objetivo' => 'Saber o que a página Categorias faz hoje.',
-        'quando' => ['Antes de tentar criar ou editar uma categoria.'],
-        'requisitos' => ['Nenhum.'],
-        'passos' => [
-            ['titulo' => 'Abra Categorias', 'texto' => 'No grupo **Principal**, clique em **Categorias**.'],
-            ['titulo' => 'Leia o aviso', 'texto' => 'A página mostra **Dados demonstrativos** e avisa que cadastros, edições e arquivamentos são simulados: nada é gravado.', 'atencao' => 'Não use esta página para organizar o acervo real. A categoria de cada livro é escolhida no cadastro do livro, entre as categorias existentes.'],
-        ],
-        'exemplo' => 'A bibliotecária clica em Cadastrar categoria para testar: a categoria some quando a página é recarregada, porque é uma simulação.',
-        'resultado' => ['Você sabe que esta página ainda não grava dados.'],
-        'problemas' => [
-            ['Criei uma categoria e ela sumiu.', 'A página é demonstrativa.', 'Peça ao responsável técnico, se uma categoria nova for necessária.'],
-        ],
-        'cuidados' => ['Esta limitação está registrada no relatório da Central de Ajuda.'],
-        'relacionados' => ['cadastrar-livro', 'filtros-acervo'],
-        'confere' => ['categorias.php' => ['Categorias do Acervo', 'Cadastrar categoria']],
     ],
 ];

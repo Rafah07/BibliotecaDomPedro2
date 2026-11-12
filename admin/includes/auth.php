@@ -20,6 +20,10 @@ require_once __DIR__ . '/db.php';
  *   livros.arquivar   arquivar e restaurar livros
  *   usuarios.gerenciar  cadastrar, editar, ativar/desativar contas do painel
  *   alunos.importar   importar e atualizar o cadastro de alunos a partir de planilhas
+ *   alunos.ver        consultar a lista e os detalhes dos alunos (nome, matrícula, e-mail, turma)
+ *   alunos.editar     cadastrar um aluno e corrigir o cadastro (inclusive a matrícula)
+ *   alunos.inativar   inativar e reativar o cadastro de um aluno (o histórico é preservado)
+ *   categorias.gerenciar  cadastrar, editar, desativar e reativar categorias de livros
  *   emprestimos.ver   ver empréstimos, atrasos e históricos (contém dados pessoais dos alunos)
  *   emprestimos.registrar  registrar empréstimos, devoluções e renovações no prazo padrão
  *   emprestimos.prazo escolher outra data de devolução (no empréstimo e na renovação) e
@@ -49,9 +53,9 @@ require_once __DIR__ . '/db.php';
  * A descrição de cada permissão para a tela Perfis e permissões está em AUTH_PERMISSOES_DESCRICOES.
  */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar', 'sistema.manutencao'],
-    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar'],
-    'auxiliar' => ['painel.ver', 'livros.editar', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'exemplares.gerenciar', 'inventario.conferir', 'etiquetas.gerar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos'],
+    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar', 'sistema.manutencao'],
+    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar'],
+    'auxiliar' => ['painel.ver', 'livros.editar', 'alunos.ver', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'exemplares.gerenciar', 'inventario.conferir', 'etiquetas.gerar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos'],
     'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver', 'relatorios.ver', 'relatorios.exportar'],
 ];
 
@@ -71,6 +75,7 @@ const AUTH_PERMISSOES_DESCRICOES = [
         'painel.ver' => 'Entrar no painel e consultar acervo, exemplares, localizações e inventários',
         'livros.editar' => 'Cadastrar e editar livros',
         'livros.arquivar' => 'Arquivar e restaurar livros',
+        'categorias.gerenciar' => 'Cadastrar, editar, desativar e reativar categorias de livros',
     ],
     'Classificação CDD' => [
         'cdd.ver' => 'Ver classificações e a fila de aprovação',
@@ -95,6 +100,9 @@ const AUTH_PERMISSOES_DESCRICOES = [
     ],
     'Alunos e circulação' => [
         'alunos.importar' => 'Importar e atualizar o cadastro de alunos',
+        'alunos.ver' => 'Consultar a lista e os detalhes dos alunos (dados pessoais)',
+        'alunos.editar' => 'Cadastrar um aluno e corrigir o cadastro (nome, matrícula, turma, turno, e-mail)',
+        'alunos.inativar' => 'Inativar e reativar o cadastro de um aluno',
         'emprestimos.ver' => 'Ver empréstimos, atrasos e históricos (dados pessoais dos alunos)',
         'emprestimos.registrar' => 'Registrar empréstimos, devoluções e renovações no prazo padrão',
         'emprestimos.prazo' => 'Escolher outra data de devolução e informar a data real de uma devolução',
