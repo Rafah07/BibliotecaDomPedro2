@@ -6,7 +6,7 @@ A pasta `admin/tests/` é bloqueada no navegador (`.htaccess`) e os scripts recu
 
 ## Requisitos
 
-- PHP 8.2+ e as dependências do Composer instaladas.
+- PHP 8.2+. As dependências do Composer são opcionais: sem elas, os testes de planilha usam arquivos `.xlsx` fictícios montados pelo próprio teste.
 - `.env` com `DB_HOST`, `DB_PORT`, `DB_USER` e `DB_PASSWORD` de um usuário que possa **criar e apagar bancos** (no XAMPP, `root` ou um usuário de testes). Se preferir não usar o usuário do `.env`, defina `TESTE_DB_USER` e `TESTE_DB_PASSWORD` só para os testes.
 - O cliente `mysql` (para os testes de restauração). No XAMPP: `C:\xampp\mysql\bin\mysql.exe`; se não estiver no PATH, indique em `MYSQL_CLIENTE`.
 
@@ -17,6 +17,7 @@ No Linux ou no terminal do VS Code (Git Bash):
 ```bash
 php admin/tests/painel-teste.php
 php admin/tests/importacao-teste.php
+php admin/tests/leitor-xlsx-teste.php
 php admin/tests/isbn-lote-teste.php
 php admin/tests/alunos-importacao-teste.php
 php admin/tests/emprestimos-teste.php
@@ -65,6 +66,7 @@ Ambiente: Linux, PHP 8.3.6, MariaDB 10.11.14, Apache 2.4.58.
 | --- | --- |
 | painel | 89/89 |
 | importacao | 43/43 |
+| leitor-xlsx (2026-11-13) | 66/66 |
 | isbn-lote | 54/54 |
 | alunos-importacao | 75/75 |
 | emprestimos | 109/109 |

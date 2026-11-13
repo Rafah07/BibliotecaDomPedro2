@@ -166,17 +166,16 @@ try {
 confere('extensão não permitida é recusada', $recusado);
 
 if (ExcelImportService::xlsxDisponivel()) {
-    $planilha = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-    $planilha->getActiveSheet()->setTitle('Instruções')->setCellValue('A1', 'Planilha antiga');
-    $aba = $planilha->createSheet()->setTitle('Acervo 2019');
-    $aba->fromArray([['Título', 'Sobrenome/Prenome do Autor', 'ISBN', 'CDD'], ['Memórias Póstumas de Brás Cubas', 'ASSIS, Machado de', '', '']], null, 'A1');
-    $aba->setCellValueExplicit('C3', '9788594452603', 's');
-    $aba->setCellValue('A3', 'Dom Casmurro');
-    $aba->setCellValue('C2', 9788535911237);
-    $aba->setCellValueExplicit('D2', '0869.3', 's');
-    $aba->setCellValue('E1', 'Localização na (Estante)');
-    $aba->setCellValue('E2', '="L945v"&"1A"');
-    (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($planilha))->save("$tmp/acervo.xlsx");
+    // Planilha fictícia montada pelo próprio teste (não precisa do PhpSpreadsheet).
+    require_once __DIR__ . '/apoio/xlsx-ficticio.php';
+    xlsx_ficticio("$tmp/acervo.xlsx", [
+        'Instruções' => [1 => ['A' => 'Planilha antiga']],
+        'Acervo 2019' => [
+            1 => ['A' => 'Título', 'B' => 'Sobrenome/Prenome do Autor', 'C' => 'ISBN', 'D' => 'CDD', 'E' => 'Localização na (Estante)'],
+            2 => ['A' => 'Memórias Póstumas de Brás Cubas', 'B' => 'ASSIS, Machado de', 'C' => 9788535911237, 'D' => '0869.3', 'E' => ['formula' => '"L945v"&"1A"', 'resultado' => 'L945v1A']],
+            3 => ['A' => 'Dom Casmurro', 'C' => '9788594452603'],
+        ],
+    ]);
     $tipo = $leitor->validarArquivo("$tmp/acervo.xlsx", 'acervo.xlsx');
     $abas = array_column($leitor->abas("$tmp/acervo.xlsx", $tipo), 'nome');
     confere('XLSX: várias abas listadas', $abas === ['Instruções', 'Acervo 2019'], json_encode($abas, JSON_UNESCAPED_UNICODE));
@@ -188,7 +187,7 @@ if (ExcelImportService::xlsxDisponivel()) {
     confere('XLSX: CDD com zero à esquerda preservada', ($primeira['CDD'] ?? '') === '0869.3');
     confere('XLSX: fórmula vira o resultado salvo, não o texto da fórmula', ($primeira['Localização na (Estante)'] ?? '') === 'L945v1A', (string)($primeira['Localização na (Estante)'] ?? ''));
 } else {
-    echo "  (XLSX não testado: rode composer install)\n";
+    echo "  (XLSX não testado: este PHP não tem as extensões xmlreader e zip/zlib)\n";
 }
 
 echo "\n" . ($falhas ? "$falhas de $total testes falharam.\n" : "Todos os $total testes passaram.\n");

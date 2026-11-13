@@ -39,7 +39,7 @@ Alunos **não** recebem conta, login nem senha. A importação não mexe na tabe
 
 - **O arquivo não é guardado.** O navegador mantém o arquivo escolhido em memória e o reenvia ao servidor local em cada etapa. O PHP lê direto do arquivo temporário do upload, que ele mesmo apaga ao fim da requisição. Nada vai para `storage/` (diferente da importação do acervo) e nada é salvo no navegador (`localStorage`).
 - **Só as colunas mapeadas são analisadas.** O conteúdo das colunas ignoradas é descartado logo após a leitura e não aparece na prévia nem no relatório.
-- **Nenhum serviço externo** é chamado: não há API, IA, telemetria nem biblioteca de planilha por CDN. A leitura usa o PhpSpreadsheet instalado pelo Composer. (Desde a Etapa 7, o painel também não carrega mais fontes do Google nem o Chart.js de CDN: o Chart.js fica em `admin/assets/lib/chartjs/` e as fontes são as do próprio computador.)
+- **Nenhum serviço externo** é chamado: não há API, IA, telemetria nem biblioteca de planilha por CDN. A leitura do `.xlsx` é feita pelo próprio sistema (`src/Support/LeitorXlsx.php`), sem bibliotecas externas e sem `composer install`. (Desde a Etapa 7, o painel também não carrega mais fontes do Google nem o Chart.js de CDN: o Chart.js fica em `admin/assets/lib/chartjs/` e as fontes são as do próprio computador.)
 - **Nada de dados de alunos em logs, URLs ou mensagens de erro.** Todas as ações usam POST. O registro em `acoes_administrativas` (`alunos.importar`) guarda só contagens (linhas, incluídos, atualizados, não importados, erros). Erros inesperados registram no log do servidor só o tipo e o local do erro, nunca a mensagem (mensagens do MySQL podem conter valores das linhas), e o usuário vê uma mensagem genérica.
 - **O relatório de linhas não importadas** é gerado no navegador (download local), traz só linha, matrícula e motivo, e protege as células contra fórmulas ao abrir no Excel.
 - **Validações:** extensão e tipo real do arquivo (`finfo`), `.xlsx` sem macros nem objetos incorporados, proteção contra “zip bomb”, limite de 5 MB e 5.000 linhas, até 60 colunas, mapeamento conferido no servidor contra as colunas reais.
@@ -61,7 +61,7 @@ Não há migração nova: a tabela `alunos` (migração `010`) já tinha `matric
 
 ## Importando a planilha real (no computador da biblioteca)
 
-1. Atualize o projeto pelo VS Code (`git pull`) e rode `composer install` se o PhpSpreadsheet ainda não estiver instalado (ele é necessário para `.xlsx`; sem ele, salve a planilha como CSV).
+1. Atualize o projeto pelo VS Code (`git pull`). Não precisa de `composer install`: o `.xlsx` é lido pelo próprio sistema.
 2. Faça um backup do banco antes da primeira importação (phpMyAdmin → Exportar).
 3. Se a matrícula tiver zeros à esquerda, confira no Excel se a coluna está como **Texto**. Se estiver como número, o Excel já removeu os zeros no próprio arquivo.
 4. Entre no painel com uma conta de Administrador ou Bibliotecária e abra **Importar Alunos**.

@@ -147,7 +147,7 @@
                 return;
             }
             if (ext === 'xlsx' && !cfg.xlsx) {
-                erroEnvio.textContent = 'A leitura de .xlsx ainda não está instalada no servidor. Salve a planilha como CSV e envie novamente.';
+                erroEnvio.textContent = 'Este PHP não consegue ler .xlsx (faltam as extensões xmlreader e zip/zlib). Salve a planilha como CSV e envie novamente.';
                 return;
             }
             if (arquivo.size > cfg.limite) {

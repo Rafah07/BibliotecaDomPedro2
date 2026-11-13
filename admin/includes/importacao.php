@@ -4,9 +4,8 @@
  * área privada de arquivos, rótulos e registro de ações.
  *
  * As classes ficam em src/ (namespace Biblioteca\) e são carregadas por config/app.php:
- * com o Composer instalado (composer install, necessário para ler .xlsx com o
- * PhpSpreadsheet), pelo autoload de vendor/; sem ele, por um carregador simples,
- * e os arquivos .csv continuam funcionando.
+ * com o Composer instalado, pelo autoload de vendor/; sem ele, por um carregador simples.
+ * A leitura de .xlsx e .csv não depende do Composer (src/Support/LeitorXlsx.php).
  */
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/menu.php';

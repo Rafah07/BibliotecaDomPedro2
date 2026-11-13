@@ -265,13 +265,17 @@ printf("        (%.2f s)\n", $tempo);
 // ---------------------------------------------------------------
 echo "\nPlanilha .xlsx com várias abas\n";
 if (\Biblioteca\Services\ExcelImportService::xlsxDisponivel()) {
-    $xlsx = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-    $aba1 = $xlsx->getActiveSheet()->setTitle('Empréstimos');
-    $aba1->fromArray([['Aluno', 'Livro'], ['Fictício', 'Livro Fictício']]);
-    $aba2 = $xlsx->createSheet()->setTitle('Alunos 2026');
-    $aba2->fromArray([['Cadastro fictício de alunos'], ['Matrícula', 'Nome completo', 'Responsável', 'Turno'], [2026000100, 'Joana Fictícia', 'Responsável Fictício', 'N'], ['0042', 'Leo Fictício', '', 'integral']]);
-    $aba2->setCellValueExplicit('A4', '0042', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-    (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($xlsx))->save("$pasta/alunos.xlsx");
+    // Planilha fictícia montada pelo próprio teste (não precisa do PhpSpreadsheet).
+    require_once __DIR__ . '/apoio/xlsx-ficticio.php';
+    xlsx_ficticio("$pasta/alunos.xlsx", [
+        'Empréstimos' => [1 => ['A' => 'Aluno', 'B' => 'Livro'], 2 => ['A' => 'Fictício', 'B' => 'Livro Fictício']],
+        'Alunos 2026' => [
+            1 => ['A' => 'Cadastro fictício de alunos'],
+            2 => ['A' => 'Matrícula', 'B' => 'Nome completo', 'C' => 'Responsável', 'D' => 'Turno'],
+            3 => ['A' => 2026000100, 'B' => 'Joana Fictícia', 'C' => 'Responsável Fictício', 'D' => 'N'],
+            4 => ['A' => '0042', 'B' => 'Leo Fictício', 'D' => 'integral'],
+        ],
+    ]);
     $arqX = ['caminho' => "$pasta/alunos.xlsx", 'tipo' => 'xlsx', 'hash' => hash_file('sha256', "$pasta/alunos.xlsx")];
     $colunas = alunos_importacao_colunas($arqX, 'Alunos 2026', 2);
     confere('lista as abas e lê o cabeçalho da linha escolhida', count($colunas['abas']) === 2 && array_column($colunas['colunas'], 'campo', 'cabecalho') === ['Matrícula' => 'matricula', 'Nome completo' => 'nome', 'Responsável' => 'ignorar', 'Turno' => 'turno']);
@@ -281,7 +285,7 @@ if (\Biblioteca\Services\ExcelImportService::xlsxDisponivel()) {
     confere('turno "N" vira noite', $dx['2026000100']['turno'] === 'noite' && $dx['0042']['turno'] === 'integral');
     confere('aba inexistente é recusada', excecao(fn () => alunos_importacao_analisar($arqX, ['aba' => 'Outra', 'linha_cabecalho' => 1, 'mapeamento' => ['A' => 'matricula', 'B' => 'nome'], 'modo' => 'novos', 'importar_duplicidades' => false])) instanceof RuntimeException);
 } else {
-    echo "  (PhpSpreadsheet não instalado: rode composer install para testar .xlsx)\n";
+    echo "  (XLSX não testado: este PHP não tem as extensões xmlreader e zip/zlib)\n";
 }
 
 $depois = $contagem();

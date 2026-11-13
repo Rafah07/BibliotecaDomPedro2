@@ -108,7 +108,7 @@
             return;
         }
         if (ext === 'xlsx' && !cfg.xlsx) {
-            erro(1, 'A leitura de .xlsx não está instalada. Salve a planilha como CSV ou rode "composer install".');
+            erro(1, 'Este PHP não consegue ler .xlsx (faltam as extensões xmlreader e zip/zlib). Salve a planilha como CSV.');
             return;
         }
         if (f.size > cfg.limite) {

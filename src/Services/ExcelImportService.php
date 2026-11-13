@@ -2,14 +2,12 @@
 
 namespace Biblioteca\Services;
 
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
-use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use Biblioteca\Support\LeitorXlsx;
 use RuntimeException;
-use ZipArchive;
 
 /**
- * Leitura das planilhas enviadas (.xlsx com PhpSpreadsheet e .csv nativo).
+ * Leitura das planilhas enviadas (.xlsx e .csv), sem bibliotecas externas.
+ * O .xlsx é lido pelo {@see LeitorXlsx} (funciona no XAMPP sem "composer install").
  *
  * Os valores são devolvidos como texto, exatamente como estão nas células
  * (números inteiros grandes, como ISBN, não viram notação científica).
@@ -21,9 +19,13 @@ final class ExcelImportService
     private const DESCOMPACTADO_MAXIMO = 250 * 1024 * 1024; // proteção contra "zip bomb"
     private const MAX_COLUNAS = 60;
 
+    /** Última planilha .xlsx aberta (as etapas da importação leem o mesmo arquivo várias vezes). */
+    private ?LeitorXlsx $leitor = null;
+    private string $chaveLeitor = '';
+
     public static function xlsxDisponivel(): bool
     {
-        return class_exists(Xlsx::class);
+        return LeitorXlsx::disponivel();
     }
 
     /**
@@ -50,34 +52,28 @@ final class ExcelImportService
                 throw new RuntimeException('O arquivo não parece ser uma planilha do Excel (.xlsx) válida.');
             }
             if (!self::xlsxDisponivel()) {
-                throw new RuntimeException('A leitura de .xlsx precisa da biblioteca PhpSpreadsheet (rode "composer install"). Enquanto isso, salve a planilha como CSV.');
+                throw new RuntimeException('Este PHP não consegue ler .xlsx (faltam as extensões xmlreader e zip/zlib). Enquanto isso, salve a planilha como CSV.');
             }
-            $zip = new ZipArchive();
-            if ($zip->open($caminho, ZipArchive::RDONLY) !== true) {
-                throw new RuntimeException('O arquivo .xlsx está corrompido ou não pôde ser aberto.');
-            }
+            $leitor = new LeitorXlsx($caminho);
             $total = 0;
             $temWorkbook = false;
-            for ($i = 0; $i < $zip->numFiles; $i++) {
-                $info = $zip->statIndex($i);
-                $total += $info['size'];
-                $nome = $info['name'];
+            foreach ($leitor->entradas() as $nome => $tamanhoDescompactado) {
+                $total += $tamanhoDescompactado;
                 if ($nome === 'xl/workbook.xml') {
                     $temWorkbook = true;
                 }
                 // Macros e objetos incorporados não são aceitos.
                 if (preg_match('#(vbaProject\.bin|/embeddings/|\.\.)#i', $nome)) {
-                    $zip->close();
                     throw new RuntimeException('A planilha contém macros ou arquivos incorporados. Salve uma cópia simples (.xlsx sem macros) e envie novamente.');
                 }
             }
-            $zip->close();
             if (!$temWorkbook) {
                 throw new RuntimeException('O arquivo não parece ser uma planilha do Excel (.xlsx) válida.');
             }
             if ($total > self::DESCOMPACTADO_MAXIMO) {
                 throw new RuntimeException('A planilha é grande demais para ser processada. Divida-a em partes menores.');
             }
+            $leitor->nomesDasAbas(); // confere se a planilha abre de verdade
             return 'xlsx';
         }
 
@@ -107,16 +103,7 @@ final class ExcelImportService
             }
             return [['nome' => 'CSV', 'linhas' => $linhas, 'colunas' => min($colunas, self::MAX_COLUNAS)]];
         }
-        $reader = $this->leitorXlsx();
-        $abas = [];
-        foreach ($reader->listWorksheetInfo($caminho) as $info) {
-            $abas[] = [
-                'nome' => (string)$info['worksheetName'],
-                'linhas' => (int)$info['totalRows'],
-                'colunas' => min((int)$info['totalColumns'], self::MAX_COLUNAS),
-            ];
-        }
-        return $abas;
+        return array_map(fn ($a) => ['colunas' => min($a['colunas'], self::MAX_COLUNAS)] + $a, $this->leitorXlsx($caminho)->abas());
     }
 
     /**
@@ -176,31 +163,18 @@ final class ExcelImportService
                 $resultado[$numero] = $linha;
             }
         } else {
-            $reader = $this->leitorXlsx();
-            if ($aba !== null) {
-                $reader->setLoadSheetsOnly([$aba]);
+            $celulas = $this->leitorXlsx($caminho)->linhas($aba, $inicio, $fim, self::MAX_COLUNAS);
+            $ultimaColuna = 0;
+            foreach ($celulas as $valores) {
+                $ultimaColuna = max($ultimaColuna, max(array_keys($valores)));
             }
-            $reader->setReadFilter(new FiltroDeLinhas($inicio, $fim, self::MAX_COLUNAS));
-            $planilha = $reader->load($caminho);
-            $folha = $aba !== null ? $planilha->getSheetByName($aba) : $planilha->getActiveSheet();
-            if ($folha === null) {
-                throw new RuntimeException('A aba selecionada não foi encontrada na planilha.');
-            }
-            $ultimaColuna = min(Coordinate::columnIndexFromString($folha->getHighestDataColumn()), self::MAX_COLUNAS);
-            $ultimaLinha = min($folha->getHighestDataRow(), $fim);
-            for ($numero = $inicio; $numero <= $ultimaLinha; $numero++) {
+            foreach ($celulas as $numero => $valores) {
                 $linha = [];
                 for ($c = 1; $c <= $ultimaColuna; $c++) {
-                    $letra = Coordinate::stringFromColumnIndex($c);
-                    $celula = $folha->getCell($letra . $numero);
-                    // Fórmulas não são executadas: vale o resultado que o Excel salvou no arquivo.
-                    $valor = $celula->isFormula() ? ($celula->getOldCalculatedValue() ?? $celula->getValue()) : $celula->getValue();
-                    $linha[$letra] = $this->textoDaCelula($valor);
+                    $linha[self::letra($c)] = $valores[$c] ?? '';
                 }
                 $resultado[$numero] = $linha;
             }
-            $planilha->disconnectWorksheets();
-            unset($planilha);
         }
 
         foreach ($resultado as $numero => $linha) {
@@ -225,28 +199,6 @@ final class ExcelImportService
         return $resultado;
     }
 
-    /** Valor de célula como texto, sem perder dígitos de números inteiros grandes. */
-    private function textoDaCelula(mixed $valor): string
-    {
-        if ($valor === null) {
-            return '';
-        }
-        if ($valor instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
-            return $valor->getPlainText();
-        }
-        if (is_bool($valor)) {
-            return $valor ? 'VERDADEIRO' : 'FALSO';
-        }
-        if (is_float($valor)) {
-            if (floor($valor) === $valor && abs($valor) < 1e15) {
-                return sprintf('%.0f', $valor);
-            }
-            return rtrim(rtrim(sprintf('%.10F', $valor), '0'), '.');
-        }
-        // Fórmula sem resultado salvo: guardamos o texto da fórmula como veio.
-        return (string)$valor;
-    }
-
     /** Letra da coluna (1 → A, 27 → AA), sem depender do PhpSpreadsheet. */
     public static function letra(int $indice): string
     {
@@ -259,16 +211,18 @@ final class ExcelImportService
         return $letra;
     }
 
-    private function leitorXlsx(): Xlsx
+    private function leitorXlsx(string $caminho): LeitorXlsx
     {
         if (!self::xlsxDisponivel()) {
-            throw new RuntimeException('A leitura de .xlsx precisa da biblioteca PhpSpreadsheet (rode "composer install").');
+            throw new RuntimeException('Este PHP não consegue ler .xlsx (faltam as extensões xmlreader e zip/zlib). Salve a planilha como CSV.');
         }
-        $reader = new Xlsx();
-        $reader->setReadDataOnly(true);
-        $reader->setReadEmptyCells(false);
-        $reader->setIncludeCharts(false);
-        return $reader;
+        clearstatcache(true, $caminho);
+        $chave = $caminho . '|' . @filesize($caminho) . '|' . @filemtime($caminho);
+        if ($this->leitor === null || $this->chaveLeitor !== $chave) {
+            $this->leitor = new LeitorXlsx($caminho);
+            $this->chaveLeitor = $chave;
+        }
+        return $this->leitor;
     }
 
     // ---------------------------------------------------------------
