@@ -309,12 +309,26 @@ a.adm-kpi { color: inherit; text-decoration: none; }
 .adm-imp-results { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .adm-imp-results li { display: flex; align-items: center; gap: 8px; }
 .adm-imp-results .adm-imp-book { flex: 1; }
-.adm-imp-compare { display: grid !important; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px !important; }
-.adm-imp-compare > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.adm-imp-orig { font-size: 13px; }
-.adm-imp-orig td, .adm-imp-orig th { white-space: normal; overflow-wrap: anywhere; }
-.adm-imp-norm { margin-top: 0; font-size: 13px; }
-.adm-imp-norm dd { overflow-wrap: anywhere; }
+.adm-imp-modal .adm-modal__body { overflow-x: hidden; overscroll-behavior: contain; }
+.adm-imp-modal .adm-modal__body > * { min-width: 0; }
+/* Original x normalizado: duas colunas do mesmo tamanho; cada uma é uma lista, sem tabela larga. */
+.adm-imp-compare { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px !important; align-items: start; }
+.adm-imp-compare > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px 16px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius); background: var(--adm-white); }
+.adm-imp-orig, .adm-imp-norm { margin: 0; display: flex; flex-direction: column; font-size: 13px; }
+.adm-imp-orig div, .adm-imp-norm div { display: grid; grid-template-columns: minmax(0, 11fr) minmax(0, 10fr); gap: 4px 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--adm-border); }
+.adm-imp-orig div:first-child, .adm-imp-norm div:first-child { border-top: 0; padding-top: 0; }
+.adm-imp-orig div:last-child, .adm-imp-norm div:last-child { padding-bottom: 0; }
+.adm-imp-orig dt, .adm-imp-norm dt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; color: var(--adm-muted); font-weight: 500; overflow-wrap: anywhere; }
+.adm-imp-orig__coluna { color: var(--adm-text); font-weight: 600; }
+.adm-imp-orig__campo { flex-basis: 100%; color: var(--adm-muted); font-size: 12px; }
+.adm-imp-orig__campo::before { content: "→ "; }
+.adm-imp-orig dd, .adm-imp-norm dd { margin: 0; min-width: 0; font-weight: 600; text-align: left; overflow-wrap: anywhere; }
+.adm-imp-norm .adm-pill { font-size: 11px; }
+/* Botões do formulário de correção: dentro do modal, sem a barra fixa (e as margens) das páginas. */
+.adm-imp-modal .adm-imp-form-actions { position: static; margin: 4px 0 0; padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
+.adm-imp-modal .adm-form-actions--split { justify-content: space-between; }
+.adm-imp-modal .adm-imp-search { flex-wrap: wrap; }
+.adm-imp-modal .adm-imp-search .adm-input { min-width: 0; flex: 1 1 220px; }
 .adm-imp-loading { color: var(--adm-muted); }
 
 /* ---------- Responsivo ---------- */
@@ -323,10 +337,20 @@ a.adm-kpi { color: inherit; text-decoration: none; }
     .adm-imp-resume { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
-    .adm-imp-steps { grid-template-columns: repeat(6, auto); overflow-x: auto; padding-bottom: 4px; }
-    .adm-imp-steps__item:not(.is-current) .adm-imp-steps__label { display: none; }
+    /* Só os números na linha; o nome da etapa atual aparece inteiro logo abaixo (antes ficava "E..."). */
+    .adm-imp-steps { position: relative; grid-template-columns: repeat(5, minmax(0, 1fr)) auto; padding-bottom: 28px; }
+    .adm-imp-steps__label { display: none; }
+    .adm-imp-steps__item.is-current { position: static; }
+    .adm-imp-steps__item.is-current .adm-imp-steps__label { display: block; position: absolute; left: 0; right: 0; bottom: 0; white-space: normal; overflow: visible; font-size: 13.5px; }
     .adm-imp-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-imp-plan, .adm-imp-compare { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 720px) {
+    .adm-imp-modal { width: 100vw; max-width: 100vw; }
+    .adm-imp-modal .adm-modal__body { padding: 16px; }
+    .adm-imp-compare > div { padding: 12px; }
+    .adm-imp-orig div, .adm-imp-norm div { grid-template-columns: 1fr; }
+    .adm-imp-decision__grid .adm-button { flex: 1 1 100%; justify-content: center; }
 }
 @media (max-width: 720px) {
     .adm-kpis--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -437,7 +437,7 @@
             const normalizados = Object.entries(item.normalizados)
                 .map(([k, v]) => `<div><dt>${esc(item.rotulos[k] || k)}${item.corrigidos[k] !== undefined ? ' <span class="adm-pill adm-tone--blue">corrigido</span>' : ''}</dt><dd>${v === null || v === '' ? '<span class="adm-missing">—</span>' : esc(v)}</dd></div>`).join('');
             const originais = item.originais
-                .map((o) => `<tr><th scope="row">${esc(o.coluna)}</th><td>${o.valor === '' ? '<span class="adm-missing">vazio</span>' : esc(o.valor)}</td><td class="adm-table__muted">${esc(o.campo)}</td></tr>`).join('');
+                .map((o) => `<div><dt><span class="adm-imp-orig__coluna">${esc(o.coluna)}</span>${o.campo ? `<span class="adm-imp-orig__campo">${esc(o.campo)}</span>` : ''}</dt><dd>${o.valor === '' ? '<span class="adm-missing">vazio</span>' : esc(o.valor)}</dd></div>`).join('');
 
             let decisao = '';
             if (item.resultado) {
@@ -496,18 +496,18 @@
                 <section class="adm-imp-compare">
                     <div>
                         <h3 class="adm-imp-h3">Dados originais (planilha)</h3>
-                        <div class="adm-table-wrap adm-table-wrap--flush"><table class="adm-table adm-imp-orig"><thead><tr><th>Coluna</th><th>Valor</th><th>Campo</th></tr></thead><tbody>${originais}</tbody></table></div>
+                        <dl class="adm-imp-orig">${originais}</dl>
                     </div>
                     <div>
                         <h3 class="adm-imp-h3">Dados normalizados</h3>
-                        <dl class="adm-meta adm-meta--stack adm-imp-norm">${normalizados}</dl>
+                        <dl class="adm-imp-norm">${normalizados}</dl>
                     </div>
                 </section>
                 <section>
                     <h3 class="adm-imp-h3">Corrigir dados</h3>
                     <p class="adm-field__hint">As correções ficam separadas: o valor original da planilha nunca é apagado. A linha é validada de novo ao salvar.</p>
                     <form class="adm-form-grid" data-form-correcao novalidate>${editaveis}</form>
-                    ${item.editavel ? `<div class="adm-form-actions adm-form-actions--split">
+                    ${item.editavel ? `<div class="adm-form-actions adm-form-actions--split adm-imp-form-actions">
                         ${Object.keys(item.corrigidos).length ? `<button type="button" class="adm-button adm-button--ghost" data-desfazer>${icone('undo-2')} Desfazer correções</button>` : '<span></span>'}
                         <button type="button" class="adm-button adm-button--primary" data-salvar-correcao>${icone('save')} Salvar e validar novamente</button>
                     </div>` : '<p class="adm-field__hint">Esta linha não pode mais ser alterada.</p>'}

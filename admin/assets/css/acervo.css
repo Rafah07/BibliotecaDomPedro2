@@ -536,6 +536,8 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
 }
 .adm-notice > .icon { width: 20px; height: 20px; margin-top: 1px; }
 .adm-notice strong { display: block; font-size: 14px; }
+/* Negrito no meio de um parágrafo do aviso continua na mesma linha (só o título do aviso vira bloco). */
+.adm-notice p strong, .adm-notice li strong { display: inline; font-size: inherit; }
 .adm-notice p { margin-top: 2px !important; color: inherit; opacity: .9; }
 .adm-notice[hidden] { display: none; }
 .adm-notice--compact { margin-top: 14px; padding: 10px 12px; font-size: 13px; }

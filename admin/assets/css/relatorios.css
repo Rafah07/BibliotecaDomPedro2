@@ -8,6 +8,8 @@
     background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); box-shadow: var(--adm-shadow);
     scrollbar-width: thin;
 }
+/* No computador as abas quebram linha (a última ficava escondida a 1366 px); no celular continuam rolando. */
+@media (min-width: 901px) { .rel-nav { flex-wrap: wrap; overflow-x: visible; } }
 .rel-nav a {
     display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; padding: 9px 12px; border-radius: var(--adm-radius-sm);
     color: var(--adm-muted); font-weight: 600; font-size: .875rem; text-decoration: none;

@@ -29,7 +29,7 @@ if ($mysql && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 }
 
-admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao painel', ['assets/css/acervo.css?v=20261102e9']);
+admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao painel', ['assets/css/acervo.css?v=20261113']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Meu perfil']]) ?>

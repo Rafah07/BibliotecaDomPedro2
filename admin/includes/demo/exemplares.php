@@ -19,7 +19,7 @@ $kpis = [
     ['titulo' => 'Extraviados ou baixados', 'valor' => ($resumo['extraviado'] ?? 0) + ($resumo['baixado'] ?? 0), 'icone' => 'package-x', 'tom' => 'red', 'filtro' => 'situacao', 'valorFiltro' => 'extraviado|baixado'],
 ];
 
-admin_page_start('exemplares', 'Exemplares', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261102e9']);
+admin_page_start('exemplares', 'Exemplares', 'Exemplares', 'Unidades físicas do acervo', ['assets/css/acervo.css?v=20261113']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Exemplares']]) ?>
