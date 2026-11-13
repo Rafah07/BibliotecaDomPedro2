@@ -152,7 +152,7 @@ admin_page_start('importar', 'Importação de Planilhas', 'Importação de Plani
             <input type="file" name="arquivo" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" data-arquivo hidden>
             <span class="adm-icon-box adm-icon-box--lg adm-tone--blue"><?= icon('upload') ?></span>
             <strong>Arraste a planilha para cá ou <span class="adm-link">escolha um arquivo</span></strong>
-            <small>Excel (.xlsx) ou CSV (.csv), até 20 MB.<?= ExcelImportService::xlsxDisponivel() ? '' : ' A leitura de .xlsx ainda não está instalada no servidor: envie CSV por enquanto.' ?></small>
+            <small>Excel (.xlsx) ou CSV (.csv), até 20 MB.<?= ExcelImportService::xlsxDisponivel() ? '' : ' Este PHP não consegue ler .xlsx (faltam as extensões xmlreader e zip/zlib): envie CSV por enquanto.' ?></small>
         </label>
         <div class="adm-imp-file" data-arquivo-escolhido hidden>
             <span class="adm-icon-box adm-icon-box--sm adm-tone--green"><?= icon('sheet') ?></span>

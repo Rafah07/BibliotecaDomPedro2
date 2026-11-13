@@ -11,7 +11,7 @@ Sistema da biblioteca escolar Dom Pedro II, em PHP tradicional e MySQL.
 | --- | --- |
 | PHP | 8.2 ou superior, com as extensões `pdo_mysql`, `mbstring`, `zip` e `curl` (`gd` recomendada para as capas; `intl` **não** é necessária) |
 | MySQL / MariaDB | MySQL 8.0+ ou MariaDB 10.4+ (charset `utf8mb4`; o XAMPP traz MariaDB) |
-| Composer | 2.x (instala o PhpSpreadsheet, usado para ler `.xlsx`) |
+| Composer | 2.x, opcional (instala o PhpSpreadsheet, usado só para gerar a planilha-modelo da importação em `.xlsx`) |
 
 Não há framework nem etapa de build: o CSS e o JavaScript são arquivos simples. O painel usa o Chart.js 4.4.1 guardado no próprio projeto (`admin/assets/lib/chartjs/`, licença MIT): nenhuma página carrega scripts ou fontes de servidores externos, e o sistema funciona sem internet (só a pesquisa de CDD em fontes públicas precisa dela).
 
@@ -33,7 +33,7 @@ Instale o [Composer](https://getcomposer.org/download/) e, na pasta do projeto:
 composer install
 ```
 
-Sem o Composer o sistema funciona, mas a importação aceita apenas arquivos `.csv`.
+Sem o Composer o sistema funciona, inclusive a importação de `.xlsx` e `.csv`: a leitura das planilhas é feita pelo próprio sistema (`src/Support/LeitorXlsx.php`), e funciona até com a extensão `zip` desligada no `php.ini` do XAMPP. Sem o Composer, só a planilha-modelo da importação do acervo é baixada em `.csv` em vez de `.xlsx`.
 
 ### 3. Banco de dados
 
