@@ -48,30 +48,28 @@ if ($livroForm && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $simulado = !$erros;
     } elseif (!$erros) {
         try {
+            // ISBN repetido não bloqueia (pode haver mais de um cadastro da mesma obra): só avisa.
             $dup = livros_repo()->duplicidades($dados, $id);
             if ($dup['isbn']) {
-                $erros['isbn'] = 'Este ISBN já está cadastrado no livro "' . $dup['isbn']['titulo'] . '" (nº ' . (int)$dup['isbn']['id'] . ').';
-            } else {
-                $alteracoes = livros_repo()->atualizar($id, $dados, admin_param($_POST, 'versao'));
-                if ($alteracoes) {
-                    $detalhes = [];
-                    foreach ($alteracoes as $campo => [$antes, $depois]) {
-                        $detalhes[$campo] = ['antes' => $antes, 'depois' => $depois];
-                    }
-                    registrar_acao('livro.editar', 'livro', $id, $detalhes);
-                    $nomes = array_map(fn ($c) => LIVROS_CAMPOS[$c] ?? $c, array_keys($alteracoes));
-                    admin_flash('sucesso', 'Alterações salvas.', 'Campos alterados: ' . implode(', ', $nomes) . '.');
-                } else {
-                    admin_flash('aviso', 'Nenhuma alteração', 'Os dados enviados são iguais aos que já estavam cadastrados.');
-                }
-                admin_redirecionar(admin_url('detalhes-livro') . '?id=' . $id);
+                admin_flash('aviso', 'ISBN também usado em outro livro.', 'O livro "' . ($dup['isbn']['titulo'] ?? 'Sem título') . '" (nº ' . (int)$dup['isbn']['id'] . ') tem o mesmo ISBN. Confira se não é um cadastro repetido.');
             }
+            $alteracoes = livros_repo()->atualizar($id, $dados, admin_param($_POST, 'versao'));
+            if ($alteracoes) {
+                $detalhes = [];
+                foreach ($alteracoes as $campo => [$antes, $depois]) {
+                    $detalhes[$campo] = ['antes' => $antes, 'depois' => $depois];
+                }
+                registrar_acao('livro.editar', 'livro', $id, $detalhes);
+                $nomes = array_map(fn ($c) => LIVROS_CAMPOS[$c] ?? $c, array_keys($alteracoes));
+                admin_flash('sucesso', 'Alterações salvas.', 'Campos alterados: ' . implode(', ', $nomes) . '.');
+            } else {
+                admin_flash('aviso', 'Nenhuma alteração', 'Os dados enviados são iguais aos que já estavam cadastrados.');
+            }
+            admin_redirecionar(admin_url('detalhes-livro') . '?id=' . $id);
         } catch (RuntimeException $e) {
             if ($e instanceof PDOException) {
                 error_log('[biblioteca] Erro ao editar livro ' . $id . ': ' . $e->getMessage());
-                $falha = ($e->errorInfo[1] ?? 0) === 1062
-                    ? 'Já existe um livro ativo com este ISBN.'
-                    : 'Não foi possível gravar as alterações. Tente novamente; se o problema continuar, avise o responsável pelo sistema.';
+                $falha = 'Não foi possível gravar as alterações. Tente novamente; se o problema continuar, avise o responsável pelo sistema.';
             } else {
                 $falha = $e->getMessage();
             }

@@ -3,7 +3,11 @@
  * Confirmação da importação (etapas 5 e 6). Gravar no acervo exige a permissão importacao.executar;
  * cancelar uma importação que ainda não gravou nada basta importacao.revisar.
  *
- * POST acao=iniciar   id → bloqueia a importação para gravação e devolve o resumo
+ * POST acao=importar_todos id [confirmar_repeticao=1] → "Importar todos e revisar no inventário":
+ *                      grava TODAS as linhas (menos as marcadas para ignorar) em UMA transação,
+ *                      com os alertas ligados a cada livro; entram como Pendente no inventário em
+ *                      andamento. Planilha repetida exige confirmar_repeticao=1 (aviso, não bloqueio).
+ * POST acao=iniciar   id → bloqueia a importação para gravação e devolve o resumo (fluxo antigo, por lotes)
  * POST acao=lote      id → grava o próximo bloco no acervo (chamado até "concluida")
  * POST acao=cancelar  id → encerra a importação; linhas já gravadas permanecem
  *
@@ -29,6 +33,22 @@ try {
         api_resposta(['ok' => false, 'erro' => 'Somente a bibliotecária ou um administrador pode confirmar a importação.'], 403);
     }
     switch ($acao) {
+        case 'importar_todos':
+            @set_time_limit(0);
+            ignore_user_abort(true); // a transação termina mesmo se a pessoa fechar a página
+            $rep = $repo->repeticoes($id);
+            // A confirmação dada no envio do arquivo repetido vale aqui também.
+            $confirmou = ($_POST['confirmar_repeticao'] ?? '') === '1' || $rep['confirmada_em'] !== null;
+            if ($rep['repetida'] && !$confirmou && $imp['status'] !== 'concluida') {
+                api_resposta(['ok' => false, 'repetida' => true, 'repeticao' => $rep,
+                    'erro' => 'Esta planilha parece já ter sido importada. Confirme para importar de novo: nada será mesclado nem apagado.'], 409);
+            }
+            $r = $repo->importarTodos($id, $usuario['id'], $confirmou);
+            registrar_acao('importacao.importar_todos', 'importacao', $id, $r + ['repeticao_confirmada' => $rep['repetida'] && $confirmou]);
+            api_resposta(['ok' => true, 'concluida' => true, 'resultado' => $r,
+                'inventario_url' => $r['inventario_id'] ? admin_url('inventario-detalhes') . '?id=' . (int)$r['inventario_id'] . '&filtro=sem_codigo' : null,
+                'inventario_ativo' => $r['inventario_id'] !== null]);
+
         case 'iniciar':
             $resumo = $repo->resumoConfirmacao($id);
             $repo->iniciarConfirmacao($id);

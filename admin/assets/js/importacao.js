@@ -178,11 +178,12 @@
         });
         $('[data-arquivo-limpar]', app).addEventListener('click', () => { input.value = ''; escolher(null); });
 
-        botaoEnviar.addEventListener('click', async () => {
+        async function enviarArquivo(confirmarRepeticao) {
             if (!arquivoEscolhido) return;
             const fd = new FormData();
             fd.append('acao', 'enviar');
             fd.append('arquivo', arquivoEscolhido);
+            if (confirmarRepeticao) fd.append('confirmar_repeticao', '1');
             carregando(botaoEnviar, true, 'Lendo planilha…');
             erroEnvio.textContent = '';
             try {
@@ -192,11 +193,18 @@
                 mostrarMapeamento(r);
                 toast('Arquivo recebido', `${importacao.nome} foi guardado com segurança.`, 'success');
             } catch (e) {
-                erroEnvio.innerHTML = esc(e.message) + (e.dados?.url ? ` <a class="adm-link" href="${esc(e.dados.url)}">Abrir importação existente</a>` : '');
+                // Arquivo repetido: só um aviso. A pessoa pode abrir a importação anterior ou enviar de novo.
+                erroEnvio.innerHTML = esc(e.message)
+                    + (e.dados?.url ? ` <a class="adm-link" href="${esc(e.dados.url)}">Abrir importação existente</a>` : '')
+                    + (e.dados?.repetido ? ' <button type="button" class="adm-button adm-button--ghost adm-button--sm" data-enviar-repetido>Enviar de novo mesmo assim</button>' : '');
+                $('[data-enviar-repetido]', erroEnvio)?.addEventListener('click', () => {
+                    if (window.confirm('Enviar esta planilha de novo? Os registros repetidos não serão mesclados nem apagados: cada linha vira um registro próprio.')) enviarArquivo(true);
+                });
             } finally {
                 carregando(botaoEnviar, false);
             }
-        });
+        }
+        botaoEnviar.addEventListener('click', () => enviarArquivo(false));
 
         // ---------- 2. Mapear ----------
         const selAba = $('[data-aba]', app);
@@ -255,8 +263,10 @@
             });
             const temTitulo = selects.some((s) => s.value === 'titulo');
             const repetidos = selects.some((s) => s.classList.contains('is-invalid'));
-            erroMapa.textContent = !temTitulo ? 'Escolha a coluna que contém o título do livro.' : repetidos ? 'Há campos escolhidos para mais de uma coluna.' : '';
-            return temTitulo && !repetidos;
+            // Sem coluna de título não bloqueia: as linhas entram com o alerta "Sem título".
+            erroMapa.textContent = repetidos ? 'Há campos escolhidos para mais de uma coluna.'
+                : !temTitulo ? 'Aviso: nenhuma coluna foi escolhida como título. A importação continua, e os livros ficam com o alerta "Sem título" para completar no inventário.' : '';
+            return !repetidos;
         }
         corpo.addEventListener('change', marcarRepetidos);
 
@@ -457,7 +467,7 @@
                     <h3 id="titulo-decisao">O que fazer com esta linha?</h3>
                     <p class="adm-field__hint">Decisão atual: <strong>${esc(item.acao_label || 'aguardando decisão')}</strong>${item.acao_automatica && item.acao ? ' (sugestão automática)' : ''}${item.revisado_por ? ` · revisado por ${esc(item.revisado_por)} em ${esc(item.revisado_em)}` : ''}.</p>
                     <div class="adm-imp-decision__grid">
-                        <button type="button" class="adm-button adm-button--ghost" data-decidir="criar" ${item.situacao === 'erro' ? 'disabled title="Corrija os erros primeiro"' : ''}>${icone('plus')} Criar novo livro</button>
+                        <button type="button" class="adm-button adm-button--ghost" data-decidir="criar">${icone('plus')} Criar novo livro</button>
                         ${item.livro_sugerido ? `<button type="button" class="adm-button adm-button--ghost" data-decidir="vincular" data-livro="${item.livro_sugerido.id}">${icone('link')} Vincular ao nº ${esc(item.livro_sugerido.id)}</button>` : ''}
                         ${item.linha_relacionada ? `<button type="button" class="adm-button adm-button--ghost" data-decidir="outro_exemplar" data-linha="${item.linha_relacionada}">${icone('copy')} Outro exemplar da linha ${esc(item.linha_relacionada)}</button>` : ''}
                         <button type="button" class="adm-button adm-button--ghost" data-decidir="revisar_depois">${icone('hourglass')} Revisar depois</button>
@@ -683,6 +693,31 @@
             }
         });
         $('[data-confirmacao-retomar]')?.addEventListener('click', gravar);
+
+        // "Importar todos e revisar no inventário": uma chamada, uma transação no servidor.
+        $('[data-importar-todos]', modalConfirmar)?.addEventListener('click', async (e) => {
+            const botao = e.currentTarget;
+            const erro = $('[data-erro-confirmar]', modalConfirmar);
+            const marca = $('[data-confirmar-repeticao]', modalConfirmar);
+            erro.textContent = '';
+            if (botao.hasAttribute('data-exige-repeticao') && !marca?.checked) {
+                erro.textContent = 'Marque que você sabe que esta planilha parece repetida para importar de novo.';
+                marca?.focus();
+                return;
+            }
+            carregando(botao, true, 'Importando…');
+            $$('[data-bloquear-durante]').forEach((b) => { b.disabled = true; });
+            try {
+                const r = await chamar('confirmar.php', { acao: 'importar_todos', id: cfg.id, confirmar_repeticao: marca?.checked ? '1' : '' });
+                const res = r.resultado;
+                toast('Importação concluída', `${numero(res.criados + res.vinculados)} registros gravados · ${numero(res.livros_com_pendencias)} com alertas para revisar no inventário.`, 'success');
+                setTimeout(() => { window.location.href = r.inventario_url || window.location.pathname + '?id=' + cfg.id; }, 1200);
+            } catch (err) {
+                erro.textContent = err.message + (err.status >= 500 ? ' Nada desta planilha foi gravado; tente de novo.' : '');
+                $$('[data-bloquear-durante]').forEach((b) => { b.disabled = false; });
+                carregando(botao, false);
+            }
+        });
         if (cfg.status === 'importando' && progresso) {
             gravar(); // retomada automática após interrupção
         }

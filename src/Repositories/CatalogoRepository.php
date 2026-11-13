@@ -40,7 +40,7 @@ final class CatalogoRepository
 
     public function totalLivros(): int
     {
-        return (int)$this->pdo->query('SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL')->fetchColumn();
+        return (int)$this->pdo->query('SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND titulo IS NOT NULL')->fetchColumn();
     }
 
     /** Números gerais do acervo para a página inicial. */
@@ -48,9 +48,9 @@ final class CatalogoRepository
     {
         $identificado = self::IDENTIFICADO;
         return $this->pdo->query(
-            "SELECT (SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL) AS titulos,
-                    (SELECT COUNT(*) FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL WHERE $identificado) AS exemplares,
-                    (SELECT COUNT(*) FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL WHERE e.situacao = 'disponivel') AS disponiveis"
+            "SELECT (SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND titulo IS NOT NULL) AS titulos,
+                    (SELECT COUNT(*) FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL AND l.titulo IS NOT NULL WHERE $identificado) AS exemplares,
+                    (SELECT COUNT(*) FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL AND l.titulo IS NOT NULL WHERE e.situacao = 'disponivel') AS disponiveis"
         )->fetch();
     }
 
@@ -86,7 +86,7 @@ final class CatalogoRepository
     /** Últimos livros cadastrados (página inicial). */
     public function recentes(int $limite): array
     {
-        $stmt = $this->pdo->prepare($this->selectLivros() . ' WHERE l.arquivado_em IS NULL ORDER BY l.criado_em DESC, l.id DESC LIMIT :limite');
+        $stmt = $this->pdo->prepare($this->selectLivros() . ' WHERE l.arquivado_em IS NULL AND l.titulo IS NOT NULL ORDER BY l.criado_em DESC, l.id DESC LIMIT :limite');
         $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll();
@@ -101,7 +101,7 @@ final class CatalogoRepository
         $stmt = $this->pdo->prepare(
             'SELECT l.id, l.titulo, l.subtitulo, l.isbn, l.editora, l.ano_publicacao, l.edicao, l.idioma,
                     l.numero_paginas, l.sinopse, l.palavras_chave, l.assunto, l.capa, l.criado_em
-               FROM livros l WHERE l.id = ? AND l.arquivado_em IS NULL'
+               FROM livros l WHERE l.id = ? AND l.arquivado_em IS NULL AND l.titulo IS NOT NULL'
         );
         $stmt->execute([$id]);
         $livro = $stmt->fetch();
@@ -150,7 +150,7 @@ final class CatalogoRepository
             'SELECT c.id, c.nome, c.descricao, COUNT(DISTINCT l.id) AS total
              FROM categorias c
              LEFT JOIN livro_categorias lc ON lc.categoria_id = c.id
-             LEFT JOIN livros l ON l.id = lc.livro_id AND l.arquivado_em IS NULL
+             LEFT JOIN livros l ON l.id = lc.livro_id AND l.arquivado_em IS NULL AND l.titulo IS NOT NULL
              WHERE c.arquivado_em IS NULL
              GROUP BY c.id, c.nome, c.descricao
              ORDER BY c.nome'
@@ -163,7 +163,7 @@ final class CatalogoRepository
         $sql = 'SELECT a.id, a.nome, COUNT(DISTINCT l.id) AS total
                 FROM autores a
                 JOIN livro_autores la ON la.autor_id = a.id
-                JOIN livros l ON l.id = la.livro_id AND l.arquivado_em IS NULL';
+                JOIN livros l ON l.id = la.livro_id AND l.arquivado_em IS NULL AND l.titulo IS NOT NULL';
         $params = [];
         if ($busca !== '') {
             $sql .= ' WHERE a.nome LIKE :busca COLLATE utf8mb4_unicode_ci';
@@ -183,7 +183,7 @@ final class CatalogoRepository
     public function nomeAutor(int $id): ?string
     {
         $stmt = $this->pdo->prepare('SELECT a.nome FROM autores a WHERE a.id = ?
-                                       AND EXISTS (SELECT 1 FROM livro_autores la JOIN livros l ON l.id = la.livro_id AND l.arquivado_em IS NULL WHERE la.autor_id = a.id)');
+                                       AND EXISTS (SELECT 1 FROM livro_autores la JOIN livros l ON l.id = la.livro_id AND l.arquivado_em IS NULL AND l.titulo IS NOT NULL WHERE la.autor_id = a.id)');
         $stmt->execute([$id]);
         $nome = $stmt->fetchColumn();
         return $nome === false ? null : (string)$nome;
@@ -196,7 +196,7 @@ final class CatalogoRepository
             return [];
         }
         $marcas = implode(', ', array_fill(0, count($ids), '?'));
-        $sql = $this->selectLivros() . " WHERE l.arquivado_em IS NULL AND l.id <> ?
+        $sql = $this->selectLivros() . " WHERE l.arquivado_em IS NULL AND l.titulo IS NOT NULL AND l.id <> ?
                  AND EXISTS (SELECT 1 FROM $tabela r WHERE r.livro_id = l.id AND r.$coluna IN ($marcas))
                ORDER BY l.titulo, l.id LIMIT " . max(1, min(24, $limite));
         $stmt = $this->pdo->prepare($sql);
@@ -224,7 +224,7 @@ final class CatalogoRepository
     /** @return array{0: string, 1: array<string, string|int>} */
     private function filtros(array $f): array
     {
-        $where = ['l.arquivado_em IS NULL'];
+        $where = ['l.arquivado_em IS NULL AND l.titulo IS NOT NULL'];
         $params = [];
 
         // Cada palavra pesquisada precisa aparecer em algum dos campos escolhidos (em qualquer ordem).

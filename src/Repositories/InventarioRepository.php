@@ -17,7 +17,12 @@ final class InventarioRepository
 
     /** Categorias dos itens (abas da página do inventário e do relatório). */
     public const FILTROS = [
-        'pendentes' => 'Pendências (decisão necessária)',
+        'a_conferir' => 'Pendentes',
+        'encontrados' => 'Encontrados',
+        'nao_localizados' => 'Não localizados',
+        'com_alertas' => 'Com alertas cadastrais',
+        'sem_codigo' => 'Sem código BDP',
+        'pendentes' => 'Decisões necessárias',
         'nao_conferidos' => 'Ainda não conferidos',
         'conferidos' => 'Conferidos',
         'local' => 'Localização diferente',
@@ -30,8 +35,12 @@ final class InventarioRepository
         'todos' => 'Todos os itens',
     ];
 
-    private const ITEM_SQL = "SELECT i.*, e.codigo_individual, e.situacao, e.estado_conservacao, e.localizacao_id, e.livro_id,
-                                     l.titulo, l.isbn,
+    /** Itens: com exemplar (código BDP) ou registro ainda sem exemplar (linha da planilha a conferir). */
+    private const ITEM_SQL = "SELECT i.*, e.codigo_individual, e.situacao, e.estado_conservacao, e.localizacao_id,
+                                     COALESCE(l.titulo, '" . self::SEM_TITULO . "') AS titulo, l.titulo AS titulo_cadastrado, l.isbn, l.isbn_original,
+                                     (SELECT COUNT(*) FROM livro_pendencias p WHERE p.livro_id = l.id AND p.resolvida_em IS NULL) AS alertas,
+                                     r.arquivo AS origem_arquivo, r.linha AS origem_linha, r.localizacao_antiga, r.quantidade_informada, r.cdd_original,
+                                     np.nome AS nao_localizado_por_nome,
                                      (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ', ') FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores,
                                      le.setor AS esperada_setor, le.estante AS esperada_estante, le.prateleira AS esperada_prateleira, le.complemento AS esperada_complemento,
                                      lf.setor AS encontrada_setor, lf.estante AS encontrada_estante, lf.prateleira AS encontrada_prateleira, lf.complemento AS encontrada_complemento,
@@ -39,13 +48,18 @@ final class InventarioRepository
                                      cp.nome AS conferido_por_nome, dp.nome AS decidido_por_nome,
                                      (SELECT m.id FROM emprestimos m WHERE m.exemplar_id = e.id AND m.data_devolucao IS NULL LIMIT 1) AS emprestimo_aberto
                               FROM inventario_itens i
-                              JOIN exemplares e ON e.id = i.exemplar_id
-                              JOIN livros l ON l.id = e.livro_id
+                              LEFT JOIN exemplares e ON e.id = i.exemplar_id
+                              JOIN livros l ON l.id = i.livro_id
+                              LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
+                              LEFT JOIN administradores np ON np.id = i.nao_localizado_por
                               LEFT JOIN localizacoes le ON le.id = i.localizacao_esperada_id
                               LEFT JOIN localizacoes lf ON lf.id = i.localizacao_encontrada_id
                               LEFT JOIN localizacoes la2 ON la2.id = e.localizacao_id
                               LEFT JOIN administradores cp ON cp.id = i.conferido_por
                               LEFT JOIN administradores dp ON dp.id = i.decidido_por";
+
+    /** Texto exibido para livros sem título informado (o banco guarda NULL; nada é inventado). */
+    public const SEM_TITULO = 'Sem título (a conferir)';
 
     public function __construct(private PDO $pdo)
     {
@@ -109,10 +123,14 @@ final class InventarioRepository
     public function resumo(int $id): array
     {
         $r = $this->linha("SELECT COUNT(*) AS itens,
+                                  COALESCE(SUM(i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio'), 0) AS a_conferir,
+                                  COALESCE(SUM(i.conferido_em IS NULL AND (i.nao_localizado_em IS NOT NULL OR i.decisao = 'registrar_extravio')), 0) AS nao_localizados,
+                                  COALESCE(SUM(i.exemplar_id IS NULL), 0) AS sem_codigo,
+                                  COALESCE(SUM(EXISTS (SELECT 1 FROM livro_pendencias p WHERE p.livro_id = i.livro_id AND p.resolvida_em IS NULL)), 0) AS com_alertas,
                                   COALESCE(SUM(i.previsto), 0) AS previstos,
                                   COALESCE(SUM(i.conferido_em IS NOT NULL), 0) AS conferidos,
                                   COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NOT NULL), 0) AS previstos_conferidos,
-                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND m.id IS NULL), 0) AS nao_conferidos,
+                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND m.id IS NULL), 0) AS nao_conferidos,
                                   COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND m.id IS NOT NULL), 0) AS em_circulacao,
                                   COALESCE(SUM(i.divergencia_local), 0) AS local_diferente,
                                   COALESCE(SUM(i.divergencia_estado), 0) AS estado_divergente,
@@ -121,13 +139,17 @@ final class InventarioRepository
                                   COALESCE(SUM(i.previsto = 0 AND i.cadastrado_no_inventario = 0 AND i.conferido_em IS NOT NULL), 0) AS fora_lista,
                                   COALESCE(SUM(i.conferido_em IS NOT NULL AND (i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao)), 0) AS divergencias,
                                   COALESCE(SUM(i.conferido_em IS NOT NULL AND (i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao) AND i.decisao IS NULL), 0) AS divergencias_pendentes,
-                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND i.decisao IS NULL AND m.id IS NULL), 0) AS ausentes_pendentes,
+                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND i.decisao IS NULL AND i.nao_localizado_em IS NULL AND m.id IS NULL), 0) AS ausentes_pendentes,
                                   COALESCE(SUM(i.decisao = 'registrar_extravio'), 0) AS extravios,
                                   COALESCE(SUM(i.correcoes), 0) AS correcoes
                            FROM inventario_itens i
                            LEFT JOIN emprestimos m ON m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL
                            WHERE i.inventario_id = ?", [$id]) ?? [];
-        return array_map('intval', $r);
+        $r = array_map('intval', $r);
+        $r['encontrados'] = $r['conferidos'] ?? 0;
+        // Progresso: itens com resultado (encontrado ou não localizado) sobre o total.
+        $r['percentual'] = !empty($r['itens']) ? (int)floor((($r['encontrados'] + $r['nao_localizados']) / $r['itens']) * 100) : 0;
+        return $r;
     }
 
     /** Condição SQL de cada categoria (FILTROS). */
@@ -136,8 +158,13 @@ final class InventarioRepository
         $divergente = '(i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao)';
         $aberto = 'EXISTS (SELECT 1 FROM emprestimos m WHERE m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL)';
         return match ($filtro) {
-            'pendentes' => "i.decisao IS NULL AND ((i.conferido_em IS NOT NULL AND $divergente) OR (i.previsto = 1 AND i.conferido_em IS NULL AND NOT $aberto))",
-            'nao_conferidos' => "i.previsto = 1 AND i.conferido_em IS NULL AND NOT $aberto",
+            'a_conferir' => "i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio'",
+            'encontrados' => 'i.conferido_em IS NOT NULL',
+            'nao_localizados' => "i.conferido_em IS NULL AND (i.nao_localizado_em IS NOT NULL OR i.decisao = 'registrar_extravio')",
+            'com_alertas' => 'EXISTS (SELECT 1 FROM livro_pendencias p WHERE p.livro_id = i.livro_id AND p.resolvida_em IS NULL)',
+            'sem_codigo' => 'i.exemplar_id IS NULL',
+            'pendentes' => "i.decisao IS NULL AND ((i.conferido_em IS NOT NULL AND $divergente) OR (i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND NOT $aberto))",
+            'nao_conferidos' => "i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND NOT $aberto",
             'em_circulacao' => "i.previsto = 1 AND i.conferido_em IS NULL AND $aberto",
             'conferidos' => 'i.conferido_em IS NOT NULL',
             'local' => 'i.divergencia_local = 1',
@@ -155,14 +182,25 @@ final class InventarioRepository
      * $porPagina = 0 traz todos (relatórios).
      * @return array{itens: list<array>, total: int, pagina: int, paginas: int}
      */
-    public function itens(int $inventarioId, string $filtro, string $q = '', int $pagina = 1, int $porPagina = 25): array
+    public function itens(int $inventarioId, string $filtro, string $q = '', int $pagina = 1, int $porPagina = 25, array $local = []): array
     {
         $where = ['i.inventario_id = ?', $this->condicao($filtro)];
         $params = [$inventarioId];
+        // Conferência por estante/setor: localização cadastrada (ou esperada) ou localização antiga da planilha.
+        if (!empty($local['localizacao_id'])) {
+            $where[] = 'COALESCE(e.localizacao_id, i.localizacao_esperada_id) = ?';
+            $params[] = (int)$local['localizacao_id'];
+        } elseif (!empty($local['setor'])) {
+            $where[] = 'EXISTS (SELECT 1 FROM localizacoes lx WHERE lx.id = COALESCE(e.localizacao_id, i.localizacao_esperada_id) AND lx.setor = ?)';
+            $params[] = (string)$local['setor'];
+        } elseif (isset($local['antiga']) && $local['antiga'] !== '') {
+            $where[] = 'r.localizacao_antiga = ?';
+            $params[] = (string)$local['antiga'];
+        }
         foreach (self::termos($q) as $termo) {
             $like = self::like($termo);
-            $cond = 'e.codigo_individual LIKE ? OR l.titulo LIKE ? OR EXISTS (SELECT 1 FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id AND au.nome LIKE ?)';
-            array_push($params, $like, $like, $like);
+            $cond = 'e.codigo_individual LIKE ? OR l.titulo LIKE ? OR l.isbn LIKE ? OR l.isbn_original LIKE ? OR EXISTS (SELECT 1 FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id AND au.nome LIKE ?)';
+            array_push($params, $like, $like, '%' . Isbn::normalizar($termo) . '%', $like, $like);
             if ($codigo = EmprestimoRepository::codigoExemplar($termo)) {
                 $cond .= ' OR e.codigo_individual = ?';
                 $params[] = $codigo;
@@ -170,7 +208,8 @@ final class InventarioRepository
             $where[] = "($cond)";
         }
         $w = implode(' AND ', $where);
-        $total = (int)$this->valor("SELECT COUNT(*) FROM inventario_itens i JOIN exemplares e ON e.id = i.exemplar_id JOIN livros l ON l.id = e.livro_id WHERE $w", $params);
+        $total = (int)$this->valor("SELECT COUNT(*) FROM inventario_itens i LEFT JOIN exemplares e ON e.id = i.exemplar_id JOIN livros l ON l.id = i.livro_id
+                                    LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id WHERE $w", $params);
         $limite = '';
         $paginas = 1;
         if ($porPagina > 0) {
@@ -178,7 +217,7 @@ final class InventarioRepository
             $pagina = max(1, min($pagina, $paginas));
             $limite = ' LIMIT ' . (int)$porPagina . ' OFFSET ' . (($pagina - 1) * (int)$porPagina);
         }
-        $ordem = $filtro === 'conferidos' || $filtro === 'cadastrados' ? 'i.conferido_em DESC, i.id DESC' : 'l.titulo, e.codigo_individual';
+        $ordem = in_array($filtro, ['conferidos', 'encontrados', 'cadastrados'], true) ? 'i.conferido_em DESC, i.id DESC' : 'l.titulo IS NULL, l.titulo, e.codigo_individual, i.id';
         $itens = $this->todas(self::ITEM_SQL . " WHERE $w ORDER BY $ordem$limite", $params);
         return ['itens' => $itens, 'total' => $total, 'pagina' => $pagina, 'paginas' => $paginas];
     }
@@ -186,6 +225,39 @@ final class InventarioRepository
     public function item(int $itemId): ?array
     {
         return $this->linha(self::ITEM_SQL . ' WHERE i.id = ?', [$itemId]);
+    }
+
+    /** Localizações antigas (texto da planilha) dos itens ainda pendentes: para conferir por estante. */
+    public function locaisAntigosPendentes(int $inventarioId): array
+    {
+        return array_column($this->todas("SELECT r.localizacao_antiga, COUNT(*) AS n FROM inventario_itens i
+                                          JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
+                                          WHERE i.inventario_id = ? AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND r.localizacao_antiga IS NOT NULL
+                                          GROUP BY r.localizacao_antiga ORDER BY r.localizacao_antiga LIMIT 500", [$inventarioId]), 'n', 'localizacao_antiga');
+    }
+
+    /** Alertas cadastrais abertos de um livro (dados incompletos, inconsistências, duplicidades). */
+    public function alertasLivro(int $livroId): array
+    {
+        return $this->todas('SELECT * FROM livro_pendencias WHERE livro_id = ? AND resolvida_em IS NULL ORDER BY FIELD(tipo, \'incompleto\', \'inconsistencia\', \'duplicidade\', \'outro\'), id', [$livroId]);
+    }
+
+    /** Registro do livro para a tela de conferência (dados bibliográficos editáveis + origem). */
+    public function livroConferencia(int $livroId): ?array
+    {
+        $l = $this->linha('SELECT l.*, (SELECT lc.categoria_id FROM livro_categorias lc WHERE lc.livro_id = l.id ORDER BY lc.principal DESC, lc.categoria_id LIMIT 1) AS categoria_id
+                           FROM livros l WHERE l.id = ? AND l.arquivado_em IS NULL', [$livroId]);
+        if (!$l) {
+            return null;
+        }
+        $l['autores'] = array_column($this->todas('SELECT a.nome FROM livro_autores la JOIN autores a ON a.id = la.autor_id WHERE la.livro_id = ? ORDER BY la.ordem, a.id', [$livroId]), 'nome');
+        $l['legados'] = $this->todas('SELECT arquivo, linha, localizacao_antiga, cdd_original, quantidade_informada, categoria_original, assunto_original, dados_originais
+                                      FROM registros_legados WHERE livro_id = ? ORDER BY id LIMIT 20', [$livroId]);
+        foreach ($l['legados'] as &$r) {
+            $r['dados_originais'] = json_decode((string)$r['dados_originais'], true) ?: [];
+        }
+        unset($r);
+        return $l;
     }
 
     public function itemPorExemplar(int $inventarioId, int $exemplarId): ?array
@@ -219,16 +291,17 @@ final class InventarioRepository
             array_push($params, $like, $like, $like);
             $isbn = Isbn::normalizar($termo);
             if (strlen($isbn) >= 4 && preg_match('/^[\d\-.\sXx]+$/', $termo)) {
-                $cond .= ' OR l.isbn LIKE ?';
-                $params[] = '%' . $isbn . '%';
+                $cond .= ' OR l.isbn LIKE ? OR l.isbn_original LIKE ?';
+                array_push($params, '%' . $isbn . '%', $like);
             }
             $where[] = "($cond)";
         }
-        $livros = $this->todas('SELECT l.id, l.titulo, l.subtitulo, l.isbn, l.editora, l.ano_publicacao, l.edicao,
+        $livros = $this->todas('SELECT l.id, COALESCE(l.titulo, \'' . self::SEM_TITULO . '\') AS titulo, l.subtitulo, l.isbn, l.isbn_original, l.editora, l.ano_publicacao, l.edicao,
+                                       (SELECT COUNT(*) FROM livro_pendencias p WHERE p.livro_id = l.id AND p.resolvida_em IS NULL) AS alertas,
                                        (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ", ") FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores,
                                        (SELECT SUM(r.quantidade_informada) FROM registros_legados r WHERE r.livro_id = l.id) AS quantidade_planilha,
                                        (SELECT r.localizacao_antiga FROM registros_legados r WHERE r.livro_id = l.id AND r.localizacao_antiga IS NOT NULL ORDER BY r.id DESC LIMIT 1) AS localizacao_antiga
-                                FROM livros l WHERE ' . implode(' AND ', $where) . ' ORDER BY l.titulo, l.id LIMIT ' . ($limite + 1), $params);
+                                FROM livros l WHERE ' . implode(' AND ', $where) . ' ORDER BY l.titulo IS NULL, l.titulo, l.id LIMIT ' . ($limite + 1), $params);
         $mais = count($livros) > $limite;
         $livros = array_slice($livros, 0, $limite);
         if (!$livros) {
@@ -246,8 +319,17 @@ final class InventarioRepository
         foreach ($exemplares as $ex) {
             $porLivro[(int)$ex['livro_id']][] = $ex;
         }
+        // Registros ainda sem exemplar neste inventário (linhas da planilha a conferir).
+        $registros = $this->todas("SELECT i.id, i.livro_id, i.conferido_em, i.nao_localizado_em, r.arquivo, r.linha, r.localizacao_antiga
+                                   FROM inventario_itens i LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
+                                   WHERE i.inventario_id = ? AND i.exemplar_id IS NULL AND i.livro_id IN ($marcas) ORDER BY i.id", array_merge([$inventarioId], $ids));
+        $regPorLivro = [];
+        foreach ($registros as $reg) {
+            $regPorLivro[(int)$reg['livro_id']][] = $reg;
+        }
         foreach ($livros as &$l) {
             $l['exemplares'] = $porLivro[(int)$l['id']] ?? [];
+            $l['registros'] = $regPorLivro[(int)$l['id']] ?? [];
         }
         unset($l);
         return ['livros' => $livros, 'mais' => $mais];
@@ -256,7 +338,7 @@ final class InventarioRepository
     /** Livro escolhido para cadastrar exemplar na conferência (não arquivado). */
     public function livroParaCadastro(int $livroId): ?array
     {
-        return $this->linha('SELECT l.id, l.titulo, l.isbn,
+        return $this->linha('SELECT l.id, COALESCE(l.titulo, \'' . self::SEM_TITULO . '\') AS titulo, l.isbn,
                                     (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ", ") FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores
                              FROM livros l WHERE l.id = ? AND l.arquivado_em IS NULL', [$livroId]);
     }

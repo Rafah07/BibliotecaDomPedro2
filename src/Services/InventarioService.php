@@ -30,6 +30,11 @@ use PDOException;
  *   * Exemplares novos só são criados por uma ação explícita na tela de conferência.
  *   * Empréstimos ativos são respeitados: um exemplar emprestado não é considerado ausente
  *     e nada no inventário muda a situação dele.
+ *   * Migração 110: o inventário também confere registros ainda SEM exemplar (linhas importadas
+ *     das planilhas, sem código BDP). Status de cada item, independente dos alertas cadastrais:
+ *       Pendente → Encontrado (conferido_em) | Não localizado (nao_localizado_em, por decisão
+ *       explícita da equipe, depois de procurar na estante/setor — nunca automático).
+ *     "Não localizado" pode ser desfeito (voltar a Pendente) ou corrigido ao encontrar o livro.
  */
 final class InventarioService
 {
@@ -106,15 +111,34 @@ final class InventarioService
                 $setorSql = ' AND lo.setor = ?';
                 $params[] = $inv['setor'];
             }
-            $previstos = $this->executar("INSERT INTO inventario_itens (inventario_id, exemplar_id, previsto, situacao_esperada, localizacao_esperada_id, estado_esperado)
-                                          SELECT ?, e.id, 1, e.situacao, e.localizacao_id, e.estado_conservacao
+            $previstos = $this->executar("INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, situacao_esperada, localizacao_esperada_id, estado_esperado)
+                                          SELECT ?, e.id, e.livro_id, 1, e.situacao, e.localizacao_id, e.estado_conservacao
                                           FROM exemplares e
                                           JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL
                                           LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id
                                           WHERE e.situacao NOT IN ('baixado', 'extraviado')$setorSql", $params);
+            // Registros importados de planilha que ainda não têm exemplar: um item "Pendente" por linha
+            // da planilha. Eles não têm localização cadastrada, por isso só entram no inventário do
+            // acervo inteiro. Livros cadastrados à mão sem exemplar não entram (nada a procurar).
+            if ($setorSql === '') {
+                $previstos += $this->incluirRegistrosSemExemplar($id);
+            }
             $this->registrarAcao($responsavelId, 'inventario.iniciar', 'inventario', $id, ['titulo' => $inv['titulo'], 'previstos' => $previstos]);
             return $previstos;
         }));
+    }
+
+    /** Inclui no inventário as linhas importadas cujo livro ainda não tem exemplar (registros a conferir). @return int incluídos */
+    public function incluirRegistrosSemExemplar(int $id): int
+    {
+        $n = $this->executar("INSERT IGNORE INTO inventario_itens (inventario_id, exemplar_id, livro_id, importacao_item_id, previsto)
+                              SELECT ?, NULL, r.livro_id, r.importacao_item_id, 1
+                              FROM registros_legados r
+                              JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL
+                              JOIN importacao_itens it ON it.id = r.importacao_item_id AND it.resultado_importacao <> 'vinculado'
+                              WHERE NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = l.id)
+                                AND NOT EXISTS (SELECT 1 FROM inventario_itens x WHERE x.inventario_id = ? AND x.importacao_item_id = r.importacao_item_id)", [$id, $id]);
+        return $n;
     }
 
     public function pausar(int $id, int $responsavelId): void
@@ -159,11 +183,11 @@ final class InventarioService
             }
             $resumo = $this->repo->resumo($id);
             $this->executar("INSERT INTO inventario_conferencias (inventario_id, livro_id, esperado, encontrados, observacao, responsavel_id)
-                             SELECT ?, e.livro_id, SUM(i.previsto OR i.cadastrado_no_inventario), SUM(i.conferido_em IS NOT NULL),
+                             SELECT ?, i.livro_id, SUM(i.previsto OR i.cadastrado_no_inventario), SUM(i.conferido_em IS NOT NULL),
                                     CONCAT(?, IF(SUM(i.cadastrado_no_inventario) > 0, CONCAT(' · ', SUM(i.cadastrado_no_inventario), ' exemplar(es) cadastrado(s) na conferência'), '')),
                                     ?
-                             FROM inventario_itens i JOIN exemplares e ON e.id = i.exemplar_id
-                             WHERE i.inventario_id = ? GROUP BY e.livro_id",
+                             FROM inventario_itens i
+                             WHERE i.inventario_id = ? GROUP BY i.livro_id",
                 [$id, 'Inventário nº ' . $id . ': ' . mb_substr($inv['titulo'], 0, 120), $responsavelId, $id]);
             $this->executar("UPDATE inventarios SET status = 'concluido', concluido_em = NOW(), concluido_por = ?, resumo_final = ? WHERE id = ?",
                 [$responsavelId, json_encode($resumo), $id]);
@@ -217,8 +241,8 @@ final class InventarioService
                 }
                 if (!$item) {
                     // Encontrado, mas não estava na lista prevista (outro setor, cadastrado depois do início etc.).
-                    $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, previsto, situacao_esperada, localizacao_esperada_id, estado_esperado) VALUES (?, ?, 0, ?, ?, ?)',
-                        [$inventarioId, $exemplarId, $ex['situacao'], $ex['localizacao_id'], $ex['estado_conservacao']]);
+                    $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, situacao_esperada, localizacao_esperada_id, estado_esperado) VALUES (?, ?, ?, 0, ?, ?, ?)',
+                        [$inventarioId, $exemplarId, $ex['livro_id'], $ex['situacao'], $ex['localizacao_id'], $ex['estado_conservacao']]);
                     $item = ['id' => (int)$this->pdo->lastInsertId()];
                 }
                 $localAtual = $ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null;
@@ -227,8 +251,9 @@ final class InventarioService
                 $divEstado = $estado !== $ex['estado_conservacao'];
                 $divSituacao = in_array($ex['situacao'], ['emprestado', 'extraviado', 'baixado'], true) || $ex['emprestimo_aberto'] !== null;
 
+                // Encontrado: se estava "Não localizado", a marcação é desfeita (fica no histórico do exemplar).
                 $this->executar('UPDATE inventario_itens SET conferido_em = NOW(), conferido_por = ?, localizacao_encontrada_id = ?, estado_encontrado = ?, observacao = ?,
-                                        divergencia_local = ?, divergencia_estado = ?, divergencia_situacao = ? WHERE id = ?',
+                                        divergencia_local = ?, divergencia_estado = ?, divergencia_situacao = ?, nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?',
                     [$responsavelId, $localEncontrado, $estado, $obs, (int)$divLocal, (int)$divEstado, (int)$divSituacao, $item['id']]);
 
                 // Exemplar ainda sem localização: a localização encontrada passa a ser a confirmada.
@@ -270,9 +295,9 @@ final class InventarioService
             $obs = self::textoLimpo($dados['observacoes'] ?? null);
             foreach ($criados as $c) {
                 $ex = $this->linha('SELECT localizacao_id, estado_conservacao, situacao FROM exemplares WHERE id = ?', [$c['id']]);
-                $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, previsto, cadastrado_no_inventario, conferido_em, conferido_por,
+                $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, cadastrado_no_inventario, conferido_em, conferido_por,
                                                                localizacao_encontrada_id, estado_encontrado, observacao)
-                                 VALUES (?, ?, 0, 1, NOW(), ?, ?, ?, ?)', [$inventarioId, $c['id'], $responsavelId, $ex['localizacao_id'], $ex['estado_conservacao'], $obs]);
+                                 VALUES (?, ?, ?, 0, 1, NOW(), ?, ?, ?, ?)', [$inventarioId, $c['id'], $livroId, $responsavelId, $ex['localizacao_id'], $ex['estado_conservacao'], $obs]);
                 $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$c['id']]);
             }
             return $criados;
@@ -329,6 +354,15 @@ final class InventarioService
             if ($item['decisao'] !== null) {
                 throw new AcervoException('Esta pendência já foi decidida (' . self::DECISOES[$item['decisao']] . ').');
             }
+            if ($item['exemplar_id'] === null) {
+                // Registro ainda sem exemplar: só cabe "manter sem alteração" (procurar depois) ou "Não localizado".
+                if ($item['conferido_em'] !== null || $decisao !== 'manter_sem_alteracao') {
+                    throw new AcervoException('Este registro ainda não tem exemplar. Escolha "Manter sem alteração" ou marque-o como não localizado.');
+                }
+                $this->executar('UPDATE inventario_itens SET decisao = ?, decisao_observacao = ?, decidido_por = ?, decidido_em = NOW() WHERE id = ?', [$decisao, $obs, $responsavelId, $itemId]);
+                $this->registrarAcao($responsavelId, 'inventario.decidir', 'inventario', $invId, ['item_id' => $itemId, 'decisao' => $decisao]);
+                return;
+            }
             $ex = $this->exemplares->bloquear((int)$item['exemplar_id']);
             $conferido = $item['conferido_em'] !== null;
             $divergente = (int)$item['divergencia_local'] || (int)$item['divergencia_estado'] || (int)$item['divergencia_situacao'];
@@ -380,11 +414,132 @@ final class InventarioService
             $this->exigirStatus($inv, ['em_andamento', 'pausado'], 'alterado');
             $n = $this->executar("UPDATE inventario_itens i
                                   SET i.decisao = 'manter_sem_alteracao', i.decisao_observacao = ?, i.decidido_por = ?, i.decidido_em = NOW()
-                                  WHERE i.inventario_id = ? AND i.previsto = 1 AND i.conferido_em IS NULL AND i.decisao IS NULL
+                                  WHERE i.inventario_id = ? AND i.previsto = 1 AND i.conferido_em IS NULL AND i.decisao IS NULL AND i.nao_localizado_em IS NULL
                                     AND NOT EXISTS (SELECT 1 FROM emprestimos m WHERE m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL)",
                 [$obs ?? 'Não localizados: mantidos sem alteração', $responsavelId, $inventarioId]);
             $this->registrarAcao($responsavelId, 'inventario.manter_ausentes', 'inventario', $inventarioId, ['itens' => $n]);
             return $n;
+        });
+    }
+
+    /**
+     * Marca como "Não localizado" os itens escolhidos, depois de a equipe terminar de procurar na
+     * estante ou no setor. Só itens ainda pendentes; exemplares emprestados ficam de fora.
+     * A situação do exemplar NÃO muda (não vira extraviado): é só o resultado da conferência,
+     * e pode ser desfeito. @return int itens marcados
+     */
+    public function marcarNaoLocalizados(int $inventarioId, array $itemIds, string $observacao, int $responsavelId): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $itemIds), fn ($v) => $v > 0)));
+        if (!$ids) {
+            throw new AcervoException('Selecione pelo menos um livro para marcar como não localizado.');
+        }
+        $ids = array_slice($ids, 0, 2000);
+        $obs = self::textoLimpo($observacao);
+        return $this->transacao(function () use ($inventarioId, $ids, $obs, $responsavelId) {
+            $inv = $this->bloquearInventario($inventarioId);
+            $this->exigirStatus($inv, ['em_andamento', 'pausado'], 'alterado');
+            $marcas = implode(',', array_fill(0, count($ids), '?'));
+            $n = $this->executar("UPDATE inventario_itens i SET i.nao_localizado_em = NOW(), i.nao_localizado_por = ?, i.nao_localizado_obs = ?
+                                  WHERE i.inventario_id = ? AND i.id IN ($marcas) AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL
+                                    AND NOT EXISTS (SELECT 1 FROM emprestimos m WHERE m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL)",
+                [$responsavelId, $obs, $inventarioId, ...$ids]);
+            $this->registrarAcao($responsavelId, 'inventario.nao_localizados', 'inventario', $inventarioId, ['itens' => $n, 'observacao' => $obs]);
+            return $n;
+        });
+    }
+
+    /**
+     * Corrige o resultado de um item: volta a "Pendente" para procurar ou conferir de novo.
+     *   * "Não localizado" → Pendente: basta pedir (a marcação é desfeita).
+     *   * "Encontrado" → Pendente: exige motivo e não pode ter decisão já aplicada ao cadastro.
+     *     O exemplar criado na conferência continua existindo (códigos BDP não são apagados).
+     */
+    public function voltarPendente(int $itemId, int $responsavelId, string $motivo = ''): void
+    {
+        $motivo = self::textoLimpo($motivo);
+        $this->transacao(function () use ($itemId, $responsavelId, $motivo) {
+            $item = $this->bloquearItem($itemId); // também confere se o inventário está aberto
+            if ($item['nao_localizado_em'] !== null) {
+                $this->executar('UPDATE inventario_itens SET nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?', [$itemId]);
+                $de = 'nao_localizado';
+            } elseif ($item['conferido_em'] !== null) {
+                if ($motivo === null) {
+                    throw new AcervoException('Informe o motivo para desfazer o "Encontrado".');
+                }
+                if ($item['decisao'] !== null) {
+                    throw new AcervoException('Este item já tem uma decisão registrada. Use "Corrigir esta conferência".');
+                }
+                $this->executar('UPDATE inventario_itens SET conferido_em = NULL, conferido_por = NULL, localizacao_encontrada_id = NULL, estado_encontrado = NULL,
+                                        divergencia_local = 0, divergencia_estado = 0, divergencia_situacao = 0, observacao = ? WHERE id = ?',
+                    [mb_substr('Encontrado desfeito: ' . $motivo, 0, 500), $itemId]);
+                if ($item['exemplar_id'] !== null) {
+                    $this->exemplares->movimentacao((int)$item['exemplar_id'], 'inventario', 'Conferência desfeita no inventário nº ' . $item['inventario_id'] . ': ' . $motivo,
+                        $responsavelId, (int)$item['inventario_id']);
+                }
+                $de = 'encontrado';
+            } else {
+                throw new AcervoException('Este item já está pendente.');
+            }
+            $this->registrarAcao($responsavelId, 'inventario.voltar_pendente', 'inventario', (int)$item['inventario_id'], ['item_id' => $itemId, 'de' => $de, 'motivo' => $motivo]);
+        });
+    }
+
+    /**
+     * Exemplar de um livro que não estava na lista (ou outro exemplar de uma obra já cadastrada),
+     * com o código BDP do carimbo (vazio = próximo código livre). Fica Encontrado na hora.
+     * @return array{id: int, codigo: string, item_id: int}
+     */
+    public function cadastrarExemplarComCodigo(int $inventarioId, int $livroId, ?string $codigo, array $dados, int $responsavelId): array
+    {
+        return $this->transacao(function () use ($inventarioId, $livroId, $codigo, $dados, $responsavelId) {
+            $this->inventarioParaConferencia($inventarioId);
+            $c = $this->exemplares->cadastrarComCodigo($livroId, $codigo, $dados + ['situacao' => 'disponivel'], $responsavelId, $inventarioId);
+            $ex = $this->linha('SELECT localizacao_id, estado_conservacao FROM exemplares WHERE id = ?', [$c['id']]);
+            $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, cadastrado_no_inventario, conferido_em, conferido_por,
+                                                           localizacao_encontrada_id, estado_encontrado, observacao)
+                             VALUES (?, ?, ?, 0, 1, NOW(), ?, ?, ?, ?)', [$inventarioId, $c['id'], $livroId, $responsavelId, $ex['localizacao_id'], $ex['estado_conservacao'],
+                self::textoLimpo($dados['observacoes'] ?? null)]);
+            $itemId = (int)$this->pdo->lastInsertId();
+            $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$c['id']]);
+            return $c + ['item_id' => $itemId];
+        });
+    }
+
+    /**
+     * Registro sem exemplar encontrado na estante: cria o exemplar com o código BDP do carimbo
+     * (ou o próximo código livre, se o campo ficar vazio) e marca o item como Encontrado.
+     * Clique repetido não cria outro exemplar: o item bloqueado já aparece como encontrado.
+     * @return array{item: array, codigo: string, exemplar_id: int}
+     */
+    public function encontrarRegistro(int $itemId, array $dados, int $responsavelId): array
+    {
+        $estado = (string)($dados['estado_conservacao'] ?? 'bom');
+        if (!in_array($estado, ExemplarService::CONSERVACAO, true)) {
+            throw new AcervoException('Informe o estado de conservação encontrado.');
+        }
+        $obs = self::textoLimpo($dados['observacao'] ?? null);
+        return $this->transacao(function () use ($itemId, $dados, $estado, $obs, $responsavelId) {
+            $item = $this->bloquearItem($itemId);
+            $invId = (int)$item['inventario_id'];
+            $this->inventarioParaConferencia($invId);
+            if ($item['conferido_em'] !== null) {
+                throw $this->duplicada($itemId);
+            }
+            if ($item['exemplar_id'] !== null) {
+                throw new AcervoException('Este item já tem exemplar. Confira-o pelo código BDP.');
+            }
+            $local = $this->exemplares->localizacaoValida($dados['localizacao_id'] ?? null);
+            $criado = $this->exemplares->cadastrarComCodigo((int)$item['livro_id'], $dados['codigo'] ?? null, [
+                'estado_conservacao' => $estado, 'situacao' => 'disponivel', 'localizacao_id' => $local, 'observacoes' => null,
+            ], $responsavelId, $invId);
+            $this->executar('UPDATE inventario_itens SET exemplar_id = ?, conferido_em = NOW(), conferido_por = ?, localizacao_encontrada_id = ?, estado_encontrado = ?, observacao = ?,
+                                    estado_esperado = ?, nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?',
+                [$criado['id'], $responsavelId, $local, $estado, $obs, $estado, $itemId]);
+            $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$criado['id']]);
+            $this->exemplares->movimentacao($criado['id'], 'inventario', 'Encontrado no inventário nº ' . $invId . ' (registro da planilha sem código BDP)', $responsavelId, $invId,
+                ['estado' => $estado, 'localizacao_id' => $local, 'item_id' => $itemId]);
+            return ['item' => $this->repo->item($itemId), 'codigo' => $criado['codigo'], 'exemplar_id' => $criado['id']];
         });
     }
 

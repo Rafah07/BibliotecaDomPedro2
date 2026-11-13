@@ -124,3 +124,30 @@
 @media print {
     .adm-previa { background: none; padding: 0; }
 }
+
+/* Conferência unificada: progresso, alertas cadastrais, livro não listado e fechamento de estante */
+.adm-progresso-inv { margin-bottom: 20px; }
+.adm-progresso-inv__topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; font-size: 14px; }
+.adm-progresso-inv__topo strong { font-size: 18px; }
+.adm-progresso-inv__topo span { color: var(--adm-muted); }
+.adm-progresso-inv .adm-stats { margin: 0; }
+.adm-alertas-cadastro {
+    margin: 0 0 14px; padding: 12px 14px; border-radius: var(--adm-radius-sm);
+    border: 1px solid #e9d9a6; background: #fffbea; font-size: 13px;
+}
+.adm-alertas-cadastro__titulo { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.adm-alertas-cadastro__titulo .icon { width: 16px; height: 16px; color: var(--adm-amber); flex: none; }
+.adm-alertas-cadastro ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.adm-correspondencias { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-bg); }
+.adm-correspondencias > p { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
+.adm-correspondencias > p .icon { width: 16px; height: 16px; color: var(--adm-amber); flex: none; }
+.adm-correspondencias .adm-resultados li { display: block; }
+.adm-form-actions--secundarias { padding-top: 12px; border-top: 0; justify-content: flex-start; }
+.adm-input--code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-transform: uppercase; letter-spacing: .03em; }
+.adm-fechar-estante__lista { max-height: 420px; overflow: auto; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); }
+.adm-fechar-estante__lista .adm-table { margin: 0; }
+@media (max-width: 720px) {
+    .adm-inline-form { flex-wrap: wrap; }
+    .adm-inline-form .adm-input { flex: 1 1 100%; }
+}
+.adm-progress--lg { height: 14px; margin: 6px 0 12px; }

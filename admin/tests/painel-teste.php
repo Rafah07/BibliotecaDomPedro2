@@ -210,7 +210,7 @@ try {
 } catch (RuntimeException $ex) {
     $erroRest = $ex->getMessage();
 }
-confere('restaurar com ISBN já usado por outro livro ativo é recusado', $erroRest !== null && str_contains($erroRest, 'ISBN'));
+confere('restaurar com ISBN já usado por outro livro ativo é permitido (o ISBN não é único desde a migração 110)', $erroRest === null);
 $pdo->exec('DELETE FROM livros WHERE id = ' . $outroId);
 
 // ---------------------------------------------------------------

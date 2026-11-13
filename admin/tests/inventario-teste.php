@@ -535,7 +535,7 @@ confere('código digitado leva ao formulário de conferência', $s === 303 && st
 [$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'ler', 'leitura' => 'bdp-1']);
 confere('código incompleto na conferência: mensagem clara, nada gravado', $s === 200 && str_contains($html, 'incompleto') && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND conferido_em IS NOT NULL', [$inv3]) === 0);
 [$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3 . '&codigo=bdp-000001');
-confere('formulário mostra o exemplar lido', $s === 200 && str_contains($html, 'Confirmar conferência') && str_contains($html, 'Dom Casmurro de Teste'));
+confere('formulário mostra o exemplar lido', $s === 200 && str_contains($html, 'Salvar e marcar como encontrado') && str_contains($html, 'Dom Casmurro de Teste'));
 [$s] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'conferir', 'exemplar_id' => $dom[0], 'estado_conservacao' => 'regular', 'localizacao_id' => $locA]);
 confere('conferência pelo formulário grava', $s === 303 && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id = ? AND conferido_em IS NOT NULL', [$inv3, $dom[0]]) === 1);
 [$s, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'conferir', 'exemplar_id' => $dom[0], 'estado_conservacao' => 'bom']);

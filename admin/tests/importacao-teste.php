@@ -76,7 +76,7 @@ $esperado = ['Localização na Estante' => 'localizacao_antiga', 'Cód. Autor' =
     'Sobrenome/Prenome do Autor' => 'autor', 'Título' => 'titulo', 'Subtítulo' => 'subtitulo', 'Assunto' => 'assunto_original',
     'ISBN' => 'isbn', 'Quantidade' => 'quantidade_informada'];
 confere('colunas padrão reconhecidas', array_intersect_key($map, $esperado) == $esperado, json_encode($map, JSON_UNESCAPED_UNICODE));
-confere('mapeamento sem título é recusado', $v->validarMapeamento(['A' => 'autor']) !== []);
+confere('mapeamento sem coluna de título é aceito (vira alerta nas linhas)', $v->validarMapeamento(['A' => 'autor']) === []);
 confere('coluna ignorada não entra nos dados', !in_array('Nº', array_keys($v->mapear(['Nº' => '9', 'Título' => 'X'], ['Nº' => 'ignorar', 'Título' => 'titulo'])), true)
     && !isset($v->mapear(['Nº' => '9'], ['Nº' => 'ignorar'])['ignorar']));
 $extra = $v->mapear(['Título' => 'Duna', 'Doador' => 'Escola X'], ['Título' => 'titulo', 'Doador' => 'extra']);
@@ -101,7 +101,7 @@ confere('sem ISBN e sem CDD não é erro', ImportValidationService::situacao($p)
 [$n, $p] = $linha(['B-02-01', '', 'LIT. BRAS.', 'Ramos, Graciliano', 'Vidas Secas']);
 confere('CDD fora do padrão só informa e é mantida', ImportValidationService::situacao($p) === 'valido' && $n['cdd_original'] === 'LIT. BRAS.' && in_array('cdd_fora_padrao', codigos($p), true));
 [, $p] = $linha(['C-01-02', '', 'abc']);
-confere('linha sem título, autor e ISBN é erro', in_array('dados_insuficientes', codigos($p), true) && ImportValidationService::situacao($p) === 'erro');
+confere('linha sem título, autor e ISBN é aceita com alerta de dados incompletos', in_array('sem_dados_bibliograficos', codigos($p), true) && ImportValidationService::situacao($p) !== 'erro');
 [, $p] = $linha(['', '', '', 'Saint-Exupéry, Antoine de', 'O Pequeno Príncipe', '', '', '9788501001660']);
 confere('ISBN inválido é erro', in_array('isbn_invalido', codigos($p), true));
 [$n, $p] = $linha(['', '', '', 'Azevedo, Aluísio', 'O Cortiço', '', '', '', '-2']);

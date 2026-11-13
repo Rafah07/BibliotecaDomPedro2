@@ -93,6 +93,70 @@ final class ExemplarService
         });
     }
 
+    /**
+     * Cadastra UM exemplar com o código BDP já carimbado no livro (conferência do inventário).
+     * Código vazio = próximo número livre da sequência. O código precisa estar completo
+     * (BDP-000000) e não pode pertencer a outro exemplar, mesmo baixado: a checagem dá uma
+     * mensagem clara, e o índice único do código continua sendo a última barreira.
+     * O gatilho exemplares_codigo_novo avança a sequência quando o número digitado é maior.
+     * @return array{id: int, codigo: string}
+     */
+    public function cadastrarComCodigo(int $livroId, ?string $codigo, array $dados, int $responsavelId, ?int $inventarioId = null): array
+    {
+        $texto = trim((string)$codigo);
+        if ($texto === '') {
+            return $this->cadastrar($livroId, $dados, $responsavelId, 1, $inventarioId)[0];
+        }
+        $normal = CodigoBdp::normalizar($texto);
+        if ($normal === null) {
+            throw new AcervoException(CodigoBdp::mensagemInvalido($texto));
+        }
+        $estado = (string)($dados['estado_conservacao'] ?? '');
+        $situacao = (string)($dados['situacao'] ?? 'disponivel');
+        if (!in_array($estado, self::CONSERVACAO, true)) {
+            throw new AcervoException('Escolha o estado de conservação do exemplar.');
+        }
+        if (!in_array($situacao, self::SITUACOES_MANUAIS, true)) {
+            throw new AcervoException('Escolha a situação inicial do exemplar.');
+        }
+        $obs = self::textoLimpo($dados['observacoes'] ?? null);
+        $localId = $this->localizacaoValida($dados['localizacao_id'] ?? null);
+
+        return $this->transacao(function () use ($livroId, $normal, $estado, $situacao, $obs, $localId, $responsavelId, $inventarioId) {
+            $livro = $this->linha('SELECT id, titulo, arquivado_em FROM livros WHERE id = ? LOCK IN SHARE MODE', [$livroId]);
+            if (!$livro) {
+                throw new AcervoException('Livro não encontrado.');
+            }
+            if ($livro['arquivado_em'] !== null) {
+                throw new AcervoException('Este livro está arquivado. Restaure o cadastro antes de registrar exemplares.');
+            }
+            // Mesma ordem de travas do cadastro automático (sequência primeiro): evita impasse.
+            $this->valor('SELECT ultimo FROM exemplar_codigo_seq WHERE id = 1 FOR UPDATE');
+            $existente = $this->linha('SELECT e.id, e.situacao, l.titulo FROM exemplares e JOIN livros l ON l.id = e.livro_id WHERE e.codigo_individual = ?', [$normal]);
+            if ($existente) {
+                throw new AcervoException('O código ' . $normal . ' já pertence a outro exemplar ("'
+                    . ($existente['titulo'] ?? 'Sem título') . '"' . ($existente['situacao'] === 'baixado' ? ', já baixado' : '')
+                    . '). Confira o carimbo: cada código BDP é único e não é reaproveitado.');
+            }
+            try {
+                $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, situacao, observacoes, cadastrado_por, inventario_id)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$livroId, $normal, $localId, $estado, $situacao, $obs, $responsavelId, $inventarioId]);
+            } catch (\PDOException $e) {
+                if (($e->errorInfo[1] ?? 0) === 1062) {
+                    throw new AcervoException('O código ' . $normal . ' acabou de ser usado em outro exemplar. Confira o carimbo.');
+                }
+                throw $e;
+            }
+            $id = (int)$this->pdo->lastInsertId();
+            $this->movimentacao($id, 'cadastro', ($inventarioId ? 'Exemplar cadastrado na conferência do inventário nº ' . $inventarioId : 'Exemplar físico cadastrado')
+                . ' com o código carimbado ' . $normal, $responsavelId, $inventarioId, ['estado' => $estado, 'situacao' => $situacao, 'localizacao_id' => $localId, 'codigo_informado' => true]);
+            $this->registrarAcao($responsavelId, 'exemplar.cadastrar', 'livro', $livroId, [
+                'titulo' => $livro['titulo'], 'codigos' => [$normal], 'inventario_id' => $inventarioId, 'codigo_informado' => true,
+            ]);
+            return ['id' => $id, 'codigo' => $normal];
+        });
+    }
+
     /** Altera o estado de conservação e as observações. */
     public function editar(int $id, array $dados, int $responsavelId): void
     {

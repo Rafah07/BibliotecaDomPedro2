@@ -141,7 +141,7 @@ final class LivroRepository
             return [];
         }
         $marcas = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT l.id, l.titulo, l.subtitulo, l.isbn, l.editora, l.ano_publicacao, l.edicao, l.assunto, l.status_validacao,
+        $sql = "SELECT l.id, COALESCE(l.titulo, 'Sem título (a conferir)') AS titulo, l.subtitulo, l.isbn, l.editora, l.ano_publicacao, l.edicao, l.assunto, l.status_validacao,
                        l.origem_cadastro, l.criado_em, l.arquivado_em,
                        (SELECT GROUP_CONCAT(a.nome ORDER BY la.ordem, a.id SEPARATOR '; ') FROM livro_autores la JOIN autores a ON a.id = la.autor_id WHERE la.livro_id = l.id) AS autores,
                        (SELECT GROUP_CONCAT(c.nome ORDER BY lc.principal DESC, c.nome SEPARATOR ', ') FROM livro_categorias lc JOIN categorias c ON c.id = lc.categoria_id AND c.arquivado_em IS NULL WHERE lc.livro_id = l.id) AS categorias,
@@ -362,7 +362,7 @@ final class LivroRepository
         });
     }
 
-    /** Desfaz o arquivamento. Recusa se outro livro ativo já usa o mesmo ISBN. */
+    /** Desfaz o arquivamento. O ISBN não é único (migração 110): outro livro com o mesmo ISBN não impede. */
     public function restaurar(int $id): void
     {
         $this->transacao(function () use ($id) {
