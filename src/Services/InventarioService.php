@@ -636,13 +636,20 @@ final class InventarioService
 
         return $this->transacao(function () use ($inventarioId, $livroId, $codigoTexto, $estado, $obs, $itemId, $temVinculo, $vinculo, $registroId, $encontrado, $situacao, $responsavelId, $dados, $processo) {
             $this->inventarioParaConferencia($inventarioId);
-            $livro = $this->linha('SELECT id, titulo, dados_verificados_em, arquivado_em FROM livros WHERE id = ? FOR UPDATE', [$livroId]);
+            // Trava COMPARTILHADA: duas pessoas registram cópias da mesma obra ao mesmo tempo. Uma trava
+            // exclusiva aqui, seguida da trava da sequência BDP, formava impasse com "Gerar código BDP"
+            // (que trava a sequência e depois lê a obra). A linha da planilha é protegida mais abaixo.
+            $livro = $this->linha('SELECT id, titulo, dados_verificados_em, arquivado_em FROM livros WHERE id = ? LOCK IN SHARE MODE', [$livroId]);
             if (!$livro || $livro['arquivado_em'] !== null) {
                 throw new AcervoException('Obra não encontrada ou arquivada.');
             }
             if ($livro['dados_verificados_em'] === null) {
                 throw new AcervoException('Verifique os dados da obra antes de registrar exemplares: clique em "Verificar e corrigir dados" e depois em "Salvar e marcar dados como verificados".');
             }
+            // Sequência BDP travada AGORA, antes da linha da planilha e dos itens do inventário: é a mesma
+            // ordem de "Gerar código BDP" e do cadastro do exemplar. Sem isso, duas pessoas registrando
+            // ao mesmo tempo (uma com linha da planilha, outra com exemplar adicional) podiam se travar.
+            $this->valor('SELECT ultimo FROM exemplar_codigo_seq WHERE id = 1 FOR UPDATE');
             // Formulário enviado de novo (clique duplo, atualização da página): o código gerado nele já foi usado.
             if ($processo !== null && ($ja = $this->linha('SELECT r.codigo, r.exemplar_id FROM exemplar_codigo_reservas r WHERE r.processo = ? AND r.reservado_por = ? AND r.usado_em IS NOT NULL LIMIT 1', [$processo, $responsavelId]))) {
                 throw new RegistroRepetidoException('Este formulário já registrou o exemplar ' . $ja['codigo'] . '. Nada foi gravado de novo.', (int)$ja['exemplar_id'], (string)$ja['codigo']);
