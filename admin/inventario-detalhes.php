@@ -313,8 +313,11 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
 
     <form class="adm-toolbar adm-toolbar--search" method="get" action="<?= e(admin_url('inventario-detalhes')) ?>">
         <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="filtro" value="<?= e($filtro) ?>">
-        <label class="adm-field-search adm-toolbar__q"><?= icon('search') ?><span class="adm-visually-hidden">Pesquisar nesta categoria</span>
-            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Código BDP, título, autor ou ISBN..." autocomplete="off" data-campo-codigo></label>
+        <label class="adm-field-search adm-toolbar__q adm-sugestoes"><?= icon('search') ?><span class="adm-visually-hidden">Pesquisar nesta categoria</span>
+            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Código BDP, título, autor ou ISBN..." autocomplete="off" data-campo-codigo
+                role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="itens-sugestoes"
+                data-sugestoes="<?= e(admin_asset('api/inventario/sugestoes.php') . '?id=' . $id) ?>" data-sugestoes-modo="preencher">
+            <ul class="adm-sugestoes__lista" id="itens-sugestoes" role="listbox" aria-label="Sugestões" hidden></ul></label>
         <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('search') ?> Pesquisar</button>
     </form>
 

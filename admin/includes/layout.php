@@ -31,7 +31,7 @@ function admin_page_start(string $paginaAtual, string $tituloPagina, string $tit
     <meta name="theme-color" content="#123d73">
     <meta name="robots" content="noindex">
     <title><?= htmlspecialchars($tituloPagina) ?> | Painel — Biblioteca Dom Pedro II</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261103e10')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261114s')) ?>">
     <?php foreach ($estilos as $estilo): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset($estilo)) ?>">
     <?php endforeach; ?>
@@ -63,6 +63,7 @@ function admin_page_end(array $scripts = []): void
 <div class="adm-toasts" aria-live="polite" aria-atomic="false"></div>
 <div class="adm-tooltip" role="tooltip" hidden></div>
 <script src="<?= htmlspecialchars(admin_asset('assets/js/admin.js?v=20261102e9')) ?>"></script>
+<script src="<?= htmlspecialchars(admin_asset('assets/js/sugestoes.js?v=20261114')) ?>"></script>
 <?php foreach ($scripts as $script): ?>
 <script src="<?= htmlspecialchars(admin_asset($script)) ?>"></script>
 <?php endforeach; ?>
