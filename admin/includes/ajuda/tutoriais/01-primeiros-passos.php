@@ -201,7 +201,7 @@ return [
         ],
         'requisitos' => ['Estar logado no painel e ter acesso à página da listagem.'],
         'passos' => [
-            ['titulo' => 'Use a pesquisa rápida do topo', 'texto' => 'O campo **Pesquisar livros, autores ou ISBN...** da barra superior procura no Acervo a partir de qualquer página. Pressione a tecla **/** (barra) para ir direto a esse campo.'],
+            ['titulo' => 'Use a pesquisa rápida do topo', 'texto' => 'O campo **Pesquisar livros, autores ou ISBN...** da barra superior procura no Acervo a partir de qualquer página. Enquanto você digita, ele sugere livros do acervo (ex.: "sher" sugere "Sherlock Holmes"); clique na sugestão para abrir o livro. Pressione a tecla **/** (barra) para ir direto a esse campo.'],
             ['titulo' => 'Use o campo de pesquisa da página', 'texto' => 'Cada listagem tem o seu campo, com um exemplo do que aceita. Na página Empréstimos, por exemplo: **Aluno, matrícula, e-mail, título ou código do exemplar...**. Digite parte do texto e clique em **Pesquisar** (ou pressione Enter). Na pesquisa de livros, acentos não importam: `coracao` encontra "Coração".'],
             ['titulo' => 'Combine com os filtros', 'texto' => 'Abaixo da pesquisa ficam os filtros (listas de opções e datas), como **Categoria**, **Situação da CDD** ou **Retirada a partir de**. Escolha as opções e clique em **Pesquisar** (ou **Filtrar**/**Aplicar filtros**, conforme a página). A frase acima da tabela mostra quantos registros foram encontrados.'],
             ['titulo' => 'Ordene pelas colunas', 'texto' => 'Quando o nome da coluna é um link (por exemplo, **Título** ou **Autor** no Acervo), clique nele para ordenar. Clique de novo para inverter a ordem. Algumas páginas também têm a lista **Ordenar por**.'],

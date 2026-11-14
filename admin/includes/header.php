@@ -17,7 +17,11 @@ $alertasHeader = dashboard_alertas();
     <div class="adm-header__actions">
         <form class="adm-search" role="search" method="get" action="<?= htmlspecialchars(admin_url('acervo')) ?>">
             <?= icon('search', 'adm-search__icon') ?>
-            <input type="search" name="q" placeholder="Pesquisar livros, autores ou ISBN..." aria-label="Pesquisar no acervo" autocomplete="off">
+            <input type="search" name="q" placeholder="Pesquisar livros, autores ou ISBN..." aria-label="Pesquisar no acervo" autocomplete="off"
+                role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="topo-sugestoes"
+                data-sugestoes="<?= htmlspecialchars(admin_asset('api/acervo/sugestoes.php') . '?id=0') ?>" data-sugestoes-modo="abrir"
+                data-sugestoes-livro="<?= htmlspecialchars(admin_url('detalhes-livro') . '?id=') ?>">
+            <ul class="adm-sugestoes__lista" id="topo-sugestoes" role="listbox" aria-label="Sugestões do acervo" hidden></ul>
             <kbd class="adm-search__kbd" aria-hidden="true">/</kbd>
         </form>
 

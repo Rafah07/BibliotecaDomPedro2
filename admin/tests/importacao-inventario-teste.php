@@ -302,6 +302,13 @@ confere('sugestões ao digitar: código BDP incompleto sugere os códigos (sem e
 [$s] = (new TesteNavegador($base))->ir('admin/api/inventario/sugestoes.php?id=' . $inv2 . '&q=Poem');
 [$s2] = $cons->ir('admin/api/inventario/sugestoes.php?id=' . $inv2 . '&q=Poem');
 confere('sugestões exigem login (401) e permissão de conferir (403)', $s === 401 && $s2 === 403, "$s / $s2");
+[$s, $json] = $aux->ir('admin/api/acervo/sugestoes.php?q=' . rawurlencode('poem'));
+$sug = json_decode($json, true)['sugestoes'] ?? [];
+confere('pesquisa do topo: "poem" sugere o livro "Poemas de Teste..." pelos dados do acervo', $s === 200 && (bool)array_filter($sug, fn ($x) => $x['tipo'] === 'livro' && $x['livro_id'] === $livroPoema), $json);
+[$s] = (new TesteNavegador($base))->ir('admin/api/acervo/sugestoes.php?q=poem');
+confere('sugestões do topo exigem login (401)', $s === 401);
+[$s, $html] = $bib->ir('admin/inventario-detalhes.php?id=' . $inv2);
+confere('lista de itens e pesquisa do topo com sugestões ligadas', str_contains($html, 'data-sugestoes-modo="preencher"') && str_contains($html, 'id="topo-sugestoes"') && str_contains($html, 'assets/js/sugestoes.js'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2);
 confere('campo de pesquisa da conferência tem as sugestões ligadas', str_contains($html, 'data-sugestoes=') && str_contains($html, 'role="listbox"'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&novo=1');
