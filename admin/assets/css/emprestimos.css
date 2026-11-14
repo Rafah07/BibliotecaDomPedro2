@@ -2,6 +2,8 @@
 
 /* Abas como links (filtro feito no servidor), no mesmo visual das abas do acervo */
 .adm-tabs--links { margin: -20px -20px 16px; }
+/* Abas como links fora de um painel (Categorias, Localizações): sem as margens negativas do painel. */
+.adm-tabs--links.adm-tabs--solta { margin: 0 0 16px; background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); padding: 0 8px; }
 .adm-tabs--links a {
     position: relative;
     display: inline-flex;

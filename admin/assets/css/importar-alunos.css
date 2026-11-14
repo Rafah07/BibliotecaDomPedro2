@@ -18,6 +18,9 @@
 .adm-alu-tabs { margin: 0; padding: 0; }
 .adm-alu-previa td { vertical-align: top; }
 .adm-alu-previa .adm-alu-msgs { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.4; }
+/* A coluna Situação quebra linha: antes a mensagem de erro ficava numa linha só e era cortada. */
+.adm-alu-previa td[data-label="Situação"] { white-space: normal; min-width: 240px; }
+.adm-alu-previa td[data-label="Nome"] { white-space: normal; min-width: 180px; }
 .adm-alu-msgs li.is-erro { color: var(--adm-red); }
 .adm-alu-msgs li.is-aviso { color: #92600a; }
 .adm-alu-diff { display: block; font-size: 12px; line-height: 1.35; }

@@ -18,8 +18,6 @@
 .adm-filtro-ativo .icon { width: 16px; height: 16px; flex: none; }
 .adm-filtro-ativo a { color: var(--adm-blue-accent); font-weight: 600; }
 
-/* Abas como links fora de um painel */
-.adm-tabs--solta { margin: 0 0 16px; background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius); padding: 0 8px; }
 .adm-tabs--scroll { overflow-x: auto; scrollbar-width: thin; }
 
 /* Seleção de exemplares para etiquetas */

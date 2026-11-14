@@ -56,7 +56,7 @@ $demo = auth_demo_disponivel();
     <meta name="robots" content="noindex">
     <title>Entrar | Painel — Biblioteca Dom Pedro II</title>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261102e9')) ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261102e9')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261113')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261102e9')) ?>">
 </head>
 <body class="adm-body adm-login">

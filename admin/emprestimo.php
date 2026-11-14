@@ -23,7 +23,7 @@ if (!$m) {
 $aberto = $m['data_devolucao'] === null;
 $impedimento = emprestimos_servico()->impedimentoRenovacao($m);
 
-admin_page_start('emprestimos', 'Empréstimo nº ' . $id, 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261102e9', 'assets/css/emprestimos.css?v=20261102e9']);
+admin_page_start('emprestimos', 'Empréstimo nº ' . $id, 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261113', 'assets/css/emprestimos.css?v=20261113']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Empréstimos', admin_url('emprestimos')], ['Empréstimo nº ' . $id]]) ?>
