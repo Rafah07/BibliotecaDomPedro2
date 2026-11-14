@@ -147,7 +147,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $r = conferencia_salvar_livro($livroAlvo, $_POST, $usuario['id'], true);
                 admin_flash('sucesso', $r && $r['alteracoes'] ? 'Informações do livro salvas.' : 'Nenhuma informação alterada.',
                     $r ? ($r['alertas_abertos'] ? $r['alertas_abertos'] . ' alerta(s) cadastral(is) continuam abertos.' : 'Nenhum alerta cadastral aberto.') : '');
-                admin_redirecionar($base . (admin_param($_POST, 'voltar') !== '' ? '&' . http_build_query(['item' => (int)admin_param($_POST, 'item_id')]) : ''));
+                $voltar = admin_param($_POST, 'voltar');
+                if ($voltar === 'corrigir') {
+                    admin_redirecionar($base . '&' . http_build_query(array_filter(['corrigir' => $livroAlvo, 'q' => admin_param($_POST, 'q')])) . '#corrigir-livro');
+                }
+                admin_redirecionar($base . ($voltar !== '' ? '&' . http_build_query(['item' => (int)admin_param($_POST, 'item_id')]) : ''));
             case 'nao_localizado':
                 $n = inventario_servico()->marcarNaoLocalizados($id, [(int)admin_param($_POST, 'item_id')], admin_param($_POST, 'observacao'), $usuario['id']);
                 admin_flash($n ? 'sucesso' : 'aviso', $n ? 'Marcado como não localizado.' : 'Nada foi alterado.', $n ? 'Se o livro aparecer depois, pesquise-o e marque como encontrado, ou use "Voltar para pendente".' : 'O item já tinha resultado ou está emprestado.');
@@ -235,7 +239,9 @@ try {
     }
     $codigoLido = mb_substr(admin_param($_GET, 'codigo'), 0, 30);
     $q = mb_substr(admin_param($_GET, 'q'), 0, 100);
-    $livroId = (int)($_POST['livro_id'] ?? $_GET['livro'] ?? 0);
+    // "Corrigir dados do livro": abre a ficha bibliográfica de qualquer livro aqui mesmo no Inventário.
+    $corrigirId = (int)(admin_param($_POST, 'voltar') === 'corrigir' ? admin_param($_POST, 'livro_id') : admin_param($_GET, 'corrigir'));
+    $livroId = $corrigirId ? 0 : (int)($_POST['livro_id'] ?? $_GET['livro'] ?? 0);
     $exemplar = $codigoLido !== '' ? exemplares_repo()->porCodigo($codigoLido) : null;
     $itemAnterior = $exemplar ? inventario_repo()->itemPorExemplar($id, (int)$exemplar['id']) : null;
     $busca = $q !== '' ? inventario_repo()->pesquisarLivros($id, $q) : null;
@@ -258,6 +264,9 @@ try {
         $livroLv = inventario_repo()->livroConferencia((int)$exemplar['livro_id']);
     }
     $alertasLv = $livroLv ? inventario_repo()->alertasLivro((int)$livroLv['id']) : [];
+    $livroCorrigir = $corrigirId && $podeEditarLivro && !$livroLv ? inventario_repo()->livroConferencia($corrigirId) : null;
+    $alertasCorrigir = $livroCorrigir ? inventario_repo()->alertasLivro($corrigirId) : [];
+    $itensCorrigir = $livroCorrigir ? inventario_repo()->itensDoLivro($id, $corrigirId) : [];
     $mostrarNovo = $podeCadastrar && ($novoForm !== null || admin_param($_GET, 'novo') === '1');
     $tokenNovo = $mostrarNovo ? ($novoForm !== null && isset($_SESSION['inv_nao_listado'][admin_param($novoForm, 'token')]) ? admin_param($novoForm, 'token') : conferencia_token_novo($id)) : '';
     $categoriasLista = db_query('SELECT id, nome FROM categorias WHERE arquivado_em IS NULL ORDER BY nome')->fetchAll();
@@ -352,7 +361,8 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                     <?php endif; ?>
                 <?php elseif ($itemAnterior && $itemAnterior['conferido_em'] !== null): ?>
                     <div class="adm-panel__header"><div><h2 id="titulo-lido"><span class="adm-code"><?= e($exemplar['codigo_individual']) ?></span> já conferido neste inventário</h2>
-                        <p><?= e($exemplar['titulo']) ?></p></div></div>
+                        <p><?= e($exemplar['titulo']) ?></p></div>
+                        <?php if ($podeEditarLivro): ?><a class="adm-button adm-button--primary adm-button--sm" href="<?= e($base . '&corrigir=' . (int)$exemplar['livro_id']) ?>#corrigir-livro"><?= icon('pencil') ?> Corrigir dados do livro</a><?php endif; ?></div>
                     <?= admin_aviso('aviso', 'Código já conferido: nada foi gravado de novo.', 'Conferido em ' . admin_data_hora($itemAnterior['conferido_em']) . ($itemAnterior['conferido_por_nome'] ? ' por ' . $itemAnterior['conferido_por_nome'] : '') . '.') ?>
                     <dl class="adm-meta adm-meta--boxed adm-meta--grid">
                         <div><dt>Localização encontrada</dt><dd><?= e(fisico_local($itemAnterior, 'encontrada_')) ?></dd></div>
@@ -391,6 +401,11 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                     <?php endif; ?>
                     <form method="post" action="<?= e($base) ?>" class="adm-form-section" data-loading-form>
                         <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="conferir"><input type="hidden" name="exemplar_id" value="<?= (int)$exemplar['id'] ?>">
+                        <?php if ($livroLv): ?>
+                            <?php $lv = $livroLv; $editavelLv = $podeEditarLivro; include __DIR__ . '/includes/form-conferencia-livro.php'; ?>
+                        <?php endif; ?>
+                        <fieldset class="adm-fieldset adm-form-section">
+                        <legend class="adm-field__label">Exemplar em mãos</legend>
                         <div class="adm-form-grid">
                             <label class="adm-field"><span class="adm-field__label">Estado encontrado *</span><?= fisico_select_conservacao('estado_conservacao', $exemplar['estado_conservacao']) ?></label>
                             <label class="adm-field"><span class="adm-field__label">Localização encontrada</span>
@@ -401,14 +416,12 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                                 <label class="adm-check-confirm adm-field--full"><input type="checkbox" name="aplicar" value="1"> <span>Se houver diferença de estado ou localização, já atualizar o cadastro deste exemplar (decisão registrada agora).</span></label>
                             <?php endif; ?>
                         </div>
-                        <?php if ($livroLv): ?>
-                            <details class="adm-acao adm-field--full"<?= $alertasLv ? ' open' : '' ?>>
-                                <summary class="adm-button adm-button--ghost adm-button--sm"><?= icon('pencil') ?> Corrigir informações do livro<?= $alertasLv ? ' (' . count($alertasLv) . ' alerta(s))' : '' ?></summary>
-                                <?php $lv = $livroLv; $editavelLv = $podeEditarLivro; include __DIR__ . '/includes/form-conferencia-livro.php'; ?>
-                            </details>
-                        <?php endif; ?>
-                        <button class="adm-button adm-button--primary" type="submit" autofocus><?= icon('square-check') ?> Salvar e marcar como encontrado</button>
-                        <a class="adm-button adm-button--ghost" href="<?= e($base) ?>">Cancelar</a>
+                        </fieldset>
+                        <div class="adm-form-actions adm-form-actions--static">
+                            <button class="adm-button adm-button--primary" type="submit"><?= icon('square-check') ?> Salvar e marcar como encontrado</button>
+                            <?php if ($podeEditarLivro && $livroLv): ?><button class="adm-button adm-button--ghost" type="submit" name="acao" value="salvar_livro" formnovalidate><?= icon('save') ?> Salvar só as correções</button><input type="hidden" name="livro_id" value="<?= (int)$livroLv['id'] ?>"><input type="hidden" name="voltar" value="corrigir"><?php endif; ?>
+                            <a class="adm-button adm-button--ghost" href="<?= e($base) ?>">Cancelar</a>
+                        </div>
                     </form>
                 <?php endif; ?>
             </section>
@@ -449,6 +462,7 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                                         </div>
                                     <?php endif; ?>
                                 </div>
+                                <?php if ($podeEditarLivro): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&corrigir=' . (int)$l['id'] . '&q=' . rawurlencode($q)) ?>#corrigir-livro"><?= icon('pencil') ?> Corrigir dados</a><?php endif; ?>
                                 <?php if ($podeCadastrar): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&livro=' . (int)$l['id'] . '&q=' . rawurlencode($q)) ?>#cadastro"><?= icon('plus') ?> Cadastrar exemplar</a><?php endif; ?>
                                 <?php if (!$l['exemplares'] && $l['registros']): ?><a class="adm-button adm-button--primary adm-button--sm" href="<?= e($base . '&item=' . (int)$l['registros'][0]['id']) ?>#registro"><?= icon('square-check') ?> Conferir</a><?php endif; ?>
                             </li>
@@ -457,6 +471,39 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                     <?php if ($busca['mais']): ?><p class="adm-field__hint">Há mais resultados. Refine a pesquisa.</p><?php endif; ?>
                 <?php endif; ?>
             </section>
+        <?php endif; ?>
+
+        <?php if ($livroCorrigir): ?>
+            <section class="adm-card adm-panel" id="corrigir-livro" aria-labelledby="titulo-corrigir">
+                <div class="adm-panel__header"><div>
+                    <h2 id="titulo-corrigir"><?= icon('pencil') ?> Corrigir dados do livro</h2>
+                    <p>Corrija título, autor, ISBN, editora, ano, categoria e os demais dados. Campos desconhecidos podem ficar vazios: o que faltar continua como alerta cadastral, sem impedir a conferência.</p>
+                </div></div>
+                <form method="post" action="<?= e($base) ?>#corrigir-livro" class="adm-form-section" data-loading-form>
+                    <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="salvar_livro"><input type="hidden" name="livro_id" value="<?= (int)$livroCorrigir['id'] ?>"><input type="hidden" name="voltar" value="corrigir"><input type="hidden" name="q" value="<?= e($q) ?>">
+                    <?php $lv = $livroCorrigir; $alertasLv = $alertasCorrigir; $editavelLv = true; include __DIR__ . '/includes/form-conferencia-livro.php'; $alertasLv = []; ?>
+                    <div class="adm-form-actions adm-form-actions--static">
+                        <button class="adm-button adm-button--primary" type="submit"><?= icon('save') ?> Salvar correções</button>
+                        <a class="adm-button adm-button--ghost" href="<?= e($base . ($q !== '' ? '&q=' . rawurlencode($q) : '')) ?>">Fechar</a>
+                    </div>
+                </form>
+                <?php if ($itensCorrigir): ?>
+                    <h3 class="adm-field__label">Exemplares e registros deste livro no inventário</h3>
+                    <div class="adm-exemplares-chips">
+                        <?php foreach ($itensCorrigir as $ic): ?>
+                            <?php $rotIc = $ic['conferido_em'] ? 'Encontrado' : ($ic['nao_localizado_em'] ? 'Não localizado' : 'Pendente'); ?>
+                            <?php if ($ic['exemplar_id'] !== null): ?>
+                                <a class="adm-chip<?= $ic['conferido_em'] ? ' adm-chip--ok' : '' ?>" href="<?= e($base . '&codigo=' . rawurlencode((string)$ic['codigo_individual'])) ?>"><?= e($ic['codigo_individual']) ?> · <?= e($rotIc) ?></a>
+                            <?php else: ?>
+                                <a class="adm-chip<?= $ic['conferido_em'] ? ' adm-chip--ok' : '' ?>" href="<?= e($base . '&item=' . (int)$ic['id']) ?>#registro"><?= icon('file-spreadsheet') ?> <?= $ic['origem_linha'] ? 'Linha ' . (int)$ic['origem_linha'] . ' da planilha' : 'Registro sem código' ?> · <?= e($rotIc) ?></a>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="adm-field__hint">Para registrar o código BDP e marcar como encontrado, abra o exemplar ou o registro pendente acima.</p>
+                <?php endif; ?>
+            </section>
+        <?php elseif ($corrigirId && !$podeEditarLivro): ?>
+            <?= admin_aviso('aviso', 'Seu perfil não pode corrigir dados de livros.', 'Peça a permissão "Editar livros" a quem administra o sistema.') ?>
         <?php endif; ?>
 
         <?php if ($itemRegistro && $livroLv): ?>

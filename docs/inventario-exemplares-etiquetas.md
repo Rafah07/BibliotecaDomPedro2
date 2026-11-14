@@ -78,7 +78,7 @@ A conferência e a correção dos dados acontecem numa única página, **Conferi
 
 1. Na página do inventário, clique em **Conferir e corrigir livros**.
 2. Em **Pesquisar livro: código BDP, título, autor ou ISBN**, digite o código escrito na etiqueta ou parte do título, do autor ou do ISBN.
-3. Com um código BDP, o sistema mostra o exemplar (título, autor, localização, situação). Confira o estado, a localização e, se precisar, abra **Corrigir informações do livro**. Clique em **Salvar e marcar como encontrado**.
+3. Com um código BDP, o sistema mostra o exemplar (título, autor, localização, situação). Confira o estado, a localização e, se precisar, corrija os dados em **Informações do livro** (a ficha já vem aberta). Clique em **Salvar e marcar como encontrado**.
 4. Com uma pesquisa por texto, os resultados mostram os exemplares e as linhas importadas (**Linha N da planilha · Pendente**). Clique em **Conferir** numa linha da planilha para:
    - corrigir os dados (todos opcionais);
    - escrever o **Código BDP do carimbo** (6 números; recusado se já pertencer a outro exemplar);
