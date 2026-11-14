@@ -252,7 +252,10 @@ foreach ($invRepo->itens($inv, 'pendentes', '', 1, 0)['itens'] as $p) {
 }
 $invServ->concluir($inv, $bibId);
 confere('inventário concluído fica no histórico', $val('SELECT status FROM inventarios WHERE id = ?', [$inv]) === 'concluido');
-$semExemplar = $num('SELECT COUNT(*) FROM registros_legados r WHERE NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = r.livro_id)');
+// Migração 130: cada linha da planilha é conferida individualmente (vínculo registros_legados.exemplar_id),
+// e não mais "só se a obra não tiver nenhum exemplar".
+$semExemplar = $num("SELECT COUNT(*) FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL
+                     JOIN importacao_itens it ON it.id = r.importacao_item_id AND it.resultado_importacao <> 'vinculado' WHERE r.exemplar_id IS NULL");
 $inv2 = $invServ->criar(['titulo' => 'Inventário Fictício 2027', 'data_inicio' => date('Y-m-d'), 'responsavel_id' => $bibId], $bibId);
 $prev = $invServ->iniciar($inv2, $bibId);
 confere('ao iniciar: exemplares ativos + registros importados sem exemplar, todos Pendentes', $prev === $num("SELECT COUNT(*) FROM exemplares WHERE situacao NOT IN ('baixado', 'extraviado')") + $semExemplar
@@ -267,18 +270,18 @@ $cons = new TesteNavegador($base);
 confere('contas entram no painel', $bib->entrar('bib@teste.br', $senha) === 200 && $aux->entrar('aux@teste.br', $senha) === 200 && $cons->entrar('cons@teste.br', $senha) === 200);
 $tk = $bib->csrf('admin/perfil.php');
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2);
-confere('conferência mostra progresso, indicadores e "Cadastrar livro não listado"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, '% concluído')
-    && str_contains($html, 'Não localizados') && str_contains($html, 'Com alertas cadastrais') && str_contains($html, 'Cadastrar livro não listado'));
+confere('conferência mostra progresso, indicadores e "Cadastrar livro não listado"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'dos exemplares deste inventário')
+    && str_contains($html, 'Não localizados') && str_contains($html, 'Linhas sem vínculo físico') && str_contains($html, 'Cadastrar livro não listado'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&q=' . rawurlencode('Poemas de Teste'));
-confere('pesquisa por título mostra a obra, as linhas da planilha sem exemplar e "Abrir obra"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'Linhas da planilha sem exemplar: ') && str_contains($html, 'Abrir obra'));
+confere('pesquisa por título mostra a obra, as linhas da planilha sem exemplar e "Abrir obra"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'linha(s) sem exemplar') && str_contains($html, '#obra">Abrir</a>'));
 $itPoema = (int)$val('SELECT i.id FROM inventario_itens i JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id WHERE i.inventario_id = ? AND r.linha = 6 ORDER BY i.id LIMIT 1', [$inv2]);
 [$s, , $locItem] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&item=' . $itPoema);
 $livroPoema = (int)$val('SELECT livro_id FROM inventario_itens WHERE id = ?', [$itPoema]);
 confere('endereço antigo do registro (&item=) leva à ficha da obra', $s === 303 && str_contains((string)$locItem, 'obra=' . $livroPoema));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&obra=' . $livroPoema);
 confere('ficha da obra: dados, "Dados não verificados", linhas da planilha e registro bloqueado até verificar', $s === 200 && teste_sem_erro_tecnico($html)
-    && str_contains($html, 'Dados não verificados') && str_contains($html, 'Verificar e corrigir dados') && str_contains($html, 'Linha 6 da planilha')
-    && str_contains($html, 'não contam como exemplares encontrados') && !str_contains($html, 'id="painel-registrar"'));
+    && str_contains($html, 'Dados não verificados') && str_contains($html, 'Verificar e corrigir dados') && str_contains($html, '<strong>Linha 6</strong>')
+    && str_contains($html, 'não conta como exemplar encontrado') && !str_contains($html, 'id="painel-registrar"'));
 confere('painel de verificação com os dois botões e os alertas', str_contains($html, 'id="painel-verificar"') && str_contains($html, 'Salvar e marcar dados como verificados')
     && str_contains($html, 'Salvar alterações') && str_contains($html, 'alerta(s) cadastral(is)'));
 $postVer = ['csrf' => $tk, 'id' => $inv2, 'acao' => 'verificar_obra', 'livro_id' => $livroPoema, 'editar_livro' => '1', 'titulo' => 'Poemas de Teste', 'autores' => 'Lima, Carla Fictícia', 'ano_publicacao' => '2001', 'isbn' => ''];
@@ -297,7 +300,7 @@ $postReg = ['csrf' => $tk, 'id' => $inv2, 'acao' => 'registrar_exemplar', 'livro
 [$s2, $html2] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, $postReg);
 confere('formulário grava o exemplar ligado à linha da planilha; o segundo envio não duplica', $s === 303 && $s2 === 200 && str_contains($html2, 'Nada foi gravado')
     && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-000300'") === 1 && $invRepo->item($itPoema)['codigo_individual'] === 'BDP-000300'
-    && $invRepo->item($itPoema)['conferido_em'] !== null);
+    && $invRepo->item($itPoema)['conferido_em'] !== null, "$s/$s2 " . (preg_match('/Nada foi gravado.{0,400}/su', (string)$html2, $mm) ? strip_tags($mm[0]) : 'sem msg') . ' ' . json_encode($invRepo->item($itPoema)['codigo_individual']));
 // Correção dos dados da obra depois de verificada: histórico e nova verificação.
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&q=' . rawurlencode('Poemas de Teste'));
 confere('resultado da pesquisa tem "Abrir obra" e o status da obra', $s === 200 && str_contains($html, '&amp;obra=' . $livroPoema) && str_contains($html, 'Dados verificados'));
@@ -307,7 +310,7 @@ confere('endereço antigo "Corrigir dados" abre o painel de verificação da obr
 confere('alterar o título de uma obra verificada grava e volta para "Dados não verificados"', $s === 303 && $val('SELECT titulo FROM livros WHERE id = ?', [$livroPoema]) === 'Poemas de Teste Corrigido'
     && $val('SELECT editora FROM livros WHERE id = ?', [$livroPoema]) === 'Editora Fictícia' && $val('SELECT dados_verificados_em FROM livros WHERE id = ?', [$livroPoema]) === null);
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&obra=' . $livroPoema);
-confere('histórico da verificação mostra a alteração (antes e depois)', $s === 200 && str_contains($html, 'Histórico da verificação') && str_contains($html, 'voltou para') && str_contains($html, 'Poemas de Teste Corrigido'));
+confere('histórico da verificação mostra a alteração (antes e depois)', $s === 200 && str_contains($html, 'Histórico (') && str_contains($html, 'voltou para') && str_contains($html, 'Poemas de Teste Corrigido'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&codigo=BDP-000300');
 confere('exemplar já encontrado mostra a obra e o link "Ver obra e exemplares"', $s === 200 && str_contains($html, 'Ver obra e exemplares') && str_contains($html, '&amp;obra=' . $livroPoema));
 [$s, $html] = $bib->ir('admin/inventario-detalhes.php?id=' . $inv2 . '&filtro=encontrados');
@@ -345,7 +348,8 @@ $postNovo = ['csrf' => $tk, 'id' => $inv2, 'acao' => 'nao_listado', 'token' => $
 confere('obras parecidas aparecem antes de gravar (nada gravado ainda), com "abrir esta obra"', $s === 200 && str_contains($html, 'obra(s) parecida(s)') && str_contains($html, 'É esta obra: abrir e registrar exemplar') && $num('SELECT COUNT(*) FROM livros') === $antes);
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, ['acao' => 'gerar_codigo', 'origem_form' => 'nao_listado', 'escolha' => 'novo'] + $postNovo);
 $codigoNovo = preg_match('/name="codigo_bdp"[^>]*value="(BDP-\d{6})"/', $html, $m) ? $m[1] : '';
-confere('"Gerar código BDP" sem JavaScript volta com o código reservado preenchido', $s === 200 && $codigoNovo !== '' && str_contains($html, 'Código reservado para você') && $num('SELECT COUNT(*) FROM livros') === $antes);
+$postNovo['processo_bdp'] = preg_match('/name="processo_bdp" value="([a-f0-9]{32})"/', $html, $m) ? $m[1] : '';
+confere('"Gerar código BDP" sem JavaScript volta com o código reservado preenchido', $s === 200 && $codigoNovo !== '' && str_contains($html, 'Código reservado para este formulário') && $num('SELECT COUNT(*) FROM livros') === $antes);
 [$s] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, ['codigo_bdp' => $codigoNovo, 'escolha' => 'novo'] + $postNovo);
 [$s2, , $loc2] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, ['codigo_bdp' => $codigoNovo, 'escolha' => 'novo'] + $postNovo);
 $livroMem = (int)$val('SELECT livro_id FROM exemplares WHERE codigo_individual = ?', [$codigoNovo]);

@@ -121,8 +121,9 @@ final class ExemplarService
         }
         $obs = self::textoLimpo($dados['observacoes'] ?? null);
         $localId = $this->localizacaoValida($dados['localizacao_id'] ?? null);
+        $processo = isset($dados['processo_bdp']) ? (string)$dados['processo_bdp'] : null;
 
-        return $this->transacao(function () use ($livroId, $normal, $estado, $situacao, $obs, $localId, $responsavelId, $inventarioId) {
+        return $this->transacao(function () use ($livroId, $normal, $estado, $situacao, $obs, $localId, $responsavelId, $inventarioId, $processo) {
             $livro = $this->linha('SELECT id, titulo, arquivado_em FROM livros WHERE id = ? LOCK IN SHARE MODE', [$livroId]);
             if (!$livro) {
                 throw new AcervoException('Livro não encontrado.');
@@ -138,11 +139,11 @@ final class ExemplarService
                     . ($existente['titulo'] ?? 'Sem título') . '"' . ($existente['situacao'] === 'baixado' ? ', já baixado' : '')
                     . '). Confira o carimbo: cada código BDP é único e não é reaproveitado.');
             }
-            // Código gerado ("Gerar código BDP") para outra pessoa: pode já estar escrito em outro livro.
-            $reserva = $this->linha('SELECT r.reservado_por, a.nome FROM exemplar_codigo_reservas r LEFT JOIN administradores a ON a.id = r.reservado_por WHERE r.codigo = ? AND r.usado_em IS NULL', [$normal]);
-            if ($reserva && (int)$reserva['reservado_por'] !== $responsavelId) {
-                throw new AcervoException('O código ' . $normal . ' foi gerado para outra pessoa' . ($reserva['nome'] ? ' (' . $reserva['nome'] . ')' : '')
-                    . ' e pode já estar escrito em outro livro. Clique em "Gerar código BDP" para receber um código só seu.');
+            // Código gerado ("Gerar código BDP"): só para quem gerou, no formulário que gerou, e não cancelado
+            // (CodigoBdpService::motivoRecusa). A linha da reserva fica bloqueada até o fim da transação.
+            $reserva = $this->linha('SELECT r.*, a.nome FROM exemplar_codigo_reservas r LEFT JOIN administradores a ON a.id = r.reservado_por WHERE r.codigo = ? AND r.usado_em IS NULL FOR UPDATE', [$normal]);
+            if ($reserva && ($motivo = CodigoBdpService::motivoRecusa($reserva, $responsavelId, $processo)) !== null) {
+                throw new AcervoException($motivo);
             }
             try {
                 $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, situacao, observacoes, cadastrado_por, inventario_id)

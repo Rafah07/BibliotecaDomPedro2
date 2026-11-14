@@ -111,11 +111,14 @@ final class InventarioService
                 $setorSql = ' AND lo.setor = ?';
                 $params[] = $inv['setor'];
             }
-            $previstos = $this->executar("INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, situacao_esperada, localizacao_esperada_id, estado_esperado)
-                                          SELECT ?, e.id, e.livro_id, 1, e.situacao, e.localizacao_id, e.estado_conservacao
+            // Exemplares: o vínculo permanente com a linha da planilha (registros_legados.exemplar_id,
+            // migração 130) vai junto, para a linha não entrar de novo como "registro sem exemplar".
+            $previstos = $this->executar("INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, importacao_item_id, previsto, situacao_esperada, localizacao_esperada_id, estado_esperado)
+                                          SELECT ?, e.id, e.livro_id, rl.importacao_item_id, 1, e.situacao, e.localizacao_id, e.estado_conservacao
                                           FROM exemplares e
                                           JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL
                                           LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id
+                                          LEFT JOIN registros_legados rl ON rl.exemplar_id = e.id
                                           WHERE e.situacao NOT IN ('baixado', 'extraviado')$setorSql", $params);
             // Registros importados de planilha que ainda não têm exemplar: um item "Pendente" por linha
             // da planilha. Eles não têm localização cadastrada, por isso só entram no inventário do
@@ -128,7 +131,20 @@ final class InventarioService
         }));
     }
 
-    /** Inclui no inventário as linhas importadas cujo livro ainda não tem exemplar (registros a conferir). @return int incluídos */
+    /**
+     * Inclui no inventário as linhas importadas que ainda NÃO estão ligadas a um exemplar físico.
+     *
+     * Correção (migração 130): antes, a linha só entrava se a OBRA não tivesse nenhum exemplar.
+     * Bastava registrar um exemplar para todas as outras linhas da mesma obra sumirem das
+     * pendências do inventário seguinte. Agora cada linha é conferida individualmente pelo
+     * vínculo permanente registros_legados.exemplar_id:
+     *   * linha sem exemplar ligado → entra como Pendente (mesmo que a obra já tenha outras cópias);
+     *   * linha já ligada a um exemplar → não entra de novo (o exemplar já está na lista, com a linha);
+     *   * nada é duplicado: uma linha por inventário (índice único inventario_itens_origem_uk).
+     * Pode ser chamado de novo a qualquer momento (ex.: inventário aberto antes da correção):
+     * só inclui o que falta. Inventários concluídos não são alterados.
+     * @return int incluídos
+     */
     public function incluirRegistrosSemExemplar(int $id): int
     {
         $n = $this->executar("INSERT IGNORE INTO inventario_itens (inventario_id, exemplar_id, livro_id, importacao_item_id, previsto)
@@ -136,9 +152,34 @@ final class InventarioService
                               FROM registros_legados r
                               JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL
                               JOIN importacao_itens it ON it.id = r.importacao_item_id AND it.resultado_importacao <> 'vinculado'
-                              WHERE NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = l.id)
+                              WHERE r.exemplar_id IS NULL
                                 AND NOT EXISTS (SELECT 1 FROM inventario_itens x WHERE x.inventario_id = ? AND x.importacao_item_id = r.importacao_item_id)", [$id, $id]);
         return $n;
+    }
+
+    /** Quantas linhas importadas sem exemplar ainda faltam neste inventário (botão "Incluir linhas que faltam"). */
+    public function registrosSemExemplarFaltando(int $id): int
+    {
+        return (int)$this->valor("SELECT COUNT(*) FROM registros_legados r
+                                  JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL
+                                  JOIN importacao_itens it ON it.id = r.importacao_item_id AND it.resultado_importacao <> 'vinculado'
+                                  WHERE r.exemplar_id IS NULL
+                                    AND NOT EXISTS (SELECT 1 FROM inventario_itens x WHERE x.inventario_id = ? AND x.importacao_item_id = r.importacao_item_id)", [$id]);
+    }
+
+    /** "Incluir linhas da planilha que ficaram de fora" (inventário em andamento ou pausado). @return int incluídos */
+    public function completarRegistrosSemExemplar(int $id, int $responsavelId): int
+    {
+        return $this->transacao(function () use ($id, $responsavelId) {
+            $inv = $this->bloquearInventario($id);
+            $this->exigirStatus($inv, ['em_andamento', 'pausado'], 'alterado');
+            if ($inv['setor'] !== null && $inv['setor'] !== '') {
+                throw new AcervoException('Este inventário é só do setor "' . $inv['setor'] . '". As linhas da planilha não têm localização confiável e só entram no inventário do acervo inteiro.');
+            }
+            $n = $this->incluirRegistrosSemExemplar($id);
+            $this->registrarAcao($responsavelId, 'inventario.incluir_registros', 'inventario', $id, ['incluidos' => $n]);
+            return $n;
+        });
     }
 
     public function pausar(int $id, int $responsavelId): void
@@ -537,6 +578,9 @@ final class InventarioService
                                     estado_esperado = ?, nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?',
                 [$criado['id'], $responsavelId, $local, $estado, $obs, $estado, $itemId]);
             $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$criado['id']]);
+            if ($item['importacao_item_id'] !== null && ($regId = $this->valor('SELECT id FROM registros_legados WHERE importacao_item_id = ? AND exemplar_id IS NULL FOR UPDATE', [$item['importacao_item_id']]))) {
+                $this->ligarRegistro((int)$regId, (int)$criado['id'], $responsavelId, $invId, 'Registro da planilha encontrado na conferência');
+            }
             $this->exemplares->movimentacao($criado['id'], 'inventario', 'Encontrado no inventário nº ' . $invId . ' (registro da planilha sem código BDP)', $responsavelId, $invId,
                 ['estado' => $estado, 'localizacao_id' => $local, 'item_id' => $itemId]);
             return ['item' => $this->repo->item($itemId), 'codigo' => $criado['codigo'], 'exemplar_id' => $criado['id']];
@@ -546,18 +590,24 @@ final class InventarioService
     /** Situação no inventário escolhida ao registrar um exemplar. */
     public const SITUACOES_REGISTRO = ['encontrado' => 'Encontrado', 'pendente' => 'Pendente'];
 
+    /** Valor do campo "vinculo" para um exemplar a mais, sem linha da planilha correspondente. */
+    public const VINCULO_ADICIONAL = 'adicional';
+
     /**
      * "+ Registrar exemplar": cadastra UM exemplar físico de uma obra JÁ VERIFICADA, com o código
      * BDP do carimbo (gerado por "Gerar código BDP" ou digitado), e o coloca neste inventário.
      *
      * Dados: codigo (obrigatório), estado_conservacao, localizacao_id, observacoes,
-     *        situacao_inventario ('encontrado' ou 'pendente'),
-     *        item_id (opcional): linha da planilha desta obra, ainda sem exemplar, que este
-     *        exemplar representa. Assim o vínculo com a linha original é preservado e a linha
-     *        deixa de ficar pendente. Sem item_id, é um exemplar a mais da obra.
+     *        situacao_inventario ('encontrado' ou 'pendente'), processo_bdp (formulário que gerou o código),
+     *        vinculo: a linha da planilha que este exemplar representa, escolhida conscientemente:
+     *          'r:<id de registros_legados>'  esta linha (deixa de ficar "sem exemplar", vínculo permanente);
+     *          'adicional'                    exemplar a mais, sem linha correspondente;
+     *          ''                             recusado se a obra tiver linhas ainda sem exemplar (nada é escolhido sozinho).
+     *        item_id (compatibilidade): item do inventário de uma linha da planilha. Sem "vinculo"
+     *        nem item_id, é um exemplar a mais (uso interno, ex.: livro não listado).
      *
      * Nada é deduzido da quantidade da planilha e nenhuma obra é unida a outra.
-     * @return array{id: int, codigo: string, item_id: int, situacao: string}
+     * @return array{id: int, codigo: string, item_id: int, situacao: string, registro_id: ?int}
      */
     public function registrarExemplar(int $inventarioId, int $livroId, array $dados, int $responsavelId): array
     {
@@ -575,9 +625,16 @@ final class InventarioService
         }
         $obs = self::textoLimpo($dados['observacoes'] ?? null);
         $itemId = (int)($dados['item_id'] ?? 0) ?: null;
+        $temVinculo = array_key_exists('vinculo', $dados) && $dados['vinculo'] !== null;
+        $vinculo = trim((string)($dados['vinculo'] ?? ''));
+        $registroId = str_starts_with($vinculo, 'r:') ? ((int)substr($vinculo, 2) ?: null) : null;
+        if ($temVinculo && $vinculo !== '' && $vinculo !== self::VINCULO_ADICIONAL && $registroId === null) {
+            throw new AcervoException('Escolha uma linha da planilha válida ou "Exemplar adicional, sem linha correspondente".');
+        }
         $encontrado = $situacao === 'encontrado';
+        $processo = CodigoBdpService::processoValido($dados['processo_bdp'] ?? null);
 
-        return $this->transacao(function () use ($inventarioId, $livroId, $codigoTexto, $estado, $obs, $itemId, $encontrado, $situacao, $responsavelId, $dados) {
+        return $this->transacao(function () use ($inventarioId, $livroId, $codigoTexto, $estado, $obs, $itemId, $temVinculo, $vinculo, $registroId, $encontrado, $situacao, $responsavelId, $dados, $processo) {
             $this->inventarioParaConferencia($inventarioId);
             $livro = $this->linha('SELECT id, titulo, dados_verificados_em, arquivado_em FROM livros WHERE id = ? FOR UPDATE', [$livroId]);
             if (!$livro || $livro['arquivado_em'] !== null) {
@@ -586,45 +643,186 @@ final class InventarioService
             if ($livro['dados_verificados_em'] === null) {
                 throw new AcervoException('Verifique os dados da obra antes de registrar exemplares: clique em "Verificar e corrigir dados" e depois em "Salvar e marcar dados como verificados".');
             }
+            // Formulário enviado de novo (clique duplo, atualização da página): o código gerado nele já foi usado.
+            if ($processo !== null && ($ja = $this->linha('SELECT r.codigo, r.exemplar_id FROM exemplar_codigo_reservas r WHERE r.processo = ? AND r.reservado_por = ? AND r.usado_em IS NOT NULL LIMIT 1', [$processo, $responsavelId]))) {
+                throw new RegistroRepetidoException('Este formulário já registrou o exemplar ' . $ja['codigo'] . '. Nada foi gravado de novo.', (int)$ja['exemplar_id'], (string)$ja['codigo']);
+            }
+
+            // Linha da planilha escolhida (registro) e o item dela neste inventário.
+            $registro = null;
             $item = null;
-            if ($itemId !== null) {
+            if ($itemId !== null && $registroId === null) {
                 $item = $this->bloquearItem($itemId);
                 if ((int)$item['inventario_id'] !== $inventarioId || (int)$item['livro_id'] !== $livroId) {
                     throw new AcervoException('Esta linha da planilha não pertence a esta obra neste inventário.');
                 }
-                if ($item['exemplar_id'] !== null || $item['conferido_em'] !== null) {
-                    throw new AcervoException('Esta linha da planilha já está ligada a um exemplar. Escolha outra linha ou registre como exemplar a mais.');
+                if ($item['importacao_item_id'] !== null) {
+                    $registro = $this->linha('SELECT * FROM registros_legados WHERE importacao_item_id = ? FOR UPDATE', [$item['importacao_item_id']]);
+                }
+            } elseif ($registroId !== null) {
+                $registro = $this->linha('SELECT * FROM registros_legados WHERE id = ? FOR UPDATE', [$registroId]);
+                if (!$registro || (int)$registro['livro_id'] !== $livroId) {
+                    throw new AcervoException('Esta linha da planilha não pertence a esta obra.');
+                }
+                $item = $this->linha('SELECT * FROM inventario_itens WHERE inventario_id = ? AND importacao_item_id = ? FOR UPDATE', [$inventarioId, $registro['importacao_item_id']]);
+            } elseif ($temVinculo && $vinculo === '') {
+                $livres = (int)$this->valor('SELECT COUNT(*) FROM registros_legados WHERE livro_id = ? AND exemplar_id IS NULL', [$livroId]);
+                if ($livres > 0) {
+                    throw new AcervoException('Esta obra tem ' . $livres . ' linha(s) da planilha ainda sem exemplar. Escolha a qual linha este exemplar corresponde, ou marque "Exemplar adicional, sem linha correspondente".');
                 }
             }
+            if ($registro !== null && $registro['exemplar_id'] !== null) {
+                $ligado = $this->valor('SELECT codigo_individual FROM exemplares WHERE id = ?', [$registro['exemplar_id']]);
+                throw new AcervoException('A linha ' . (int)$registro['linha'] . ' da planilha já está ligada ao exemplar ' . $ligado . '. Escolha outra linha ou registre como exemplar adicional.');
+            }
+            if ($item !== null && ($item['exemplar_id'] !== null || $item['conferido_em'] !== null)) {
+                throw new AcervoException('Esta linha da planilha já está ligada a um exemplar. Escolha outra linha ou registre como exemplar adicional.');
+            }
+
             $local = $this->exemplares->localizacaoValida($dados['localizacao_id'] ?? null);
             $c = $this->exemplares->cadastrarComCodigo($livroId, $codigoTexto, [
-                'estado_conservacao' => $estado, 'situacao' => $encontrado ? 'disponivel' : 'aguardando', 'localizacao_id' => $local, 'observacoes' => $obs,
+                'estado_conservacao' => $estado, 'situacao' => $encontrado ? 'disponivel' : 'aguardando', 'localizacao_id' => $local, 'observacoes' => $obs, 'processo_bdp' => $processo,
             ], $responsavelId, $inventarioId);
 
             if ($item !== null) {
-                // A linha da planilha passa a ser este exemplar (o vínculo importacao_item_id continua).
+                // O item da linha da planilha passa a ser este exemplar (o vínculo importacao_item_id continua).
                 $this->executar('UPDATE inventario_itens SET exemplar_id = ?, situacao_esperada = ?, estado_esperado = ?, localizacao_esperada_id = ?,
                                         conferido_em = ' . ($encontrado ? 'NOW()' : 'NULL') . ', conferido_por = ?, localizacao_encontrada_id = ?, estado_encontrado = ?, observacao = ?,
                                         nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?',
                     [$c['id'], $encontrado ? 'disponivel' : 'aguardando', $estado, $local, $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs, $item['id']]);
                 $novoItem = (int)$item['id'];
             } else {
-                $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, cadastrado_no_inventario, situacao_esperada, localizacao_esperada_id, estado_esperado,
+                $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, importacao_item_id, previsto, cadastrado_no_inventario, situacao_esperada, localizacao_esperada_id, estado_esperado,
                                                                conferido_em, conferido_por, localizacao_encontrada_id, estado_encontrado, observacao)
-                                 VALUES (?, ?, ?, 0, 1, ?, ?, ?, ' . ($encontrado ? 'NOW()' : 'NULL') . ', ?, ?, ?, ?)',
-                    [$inventarioId, $c['id'], $livroId, $encontrado ? 'disponivel' : 'aguardando', $local, $estado, $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs]);
+                                 VALUES (?, ?, ?, ?, 0, 1, ?, ?, ?, ' . ($encontrado ? 'NOW()' : 'NULL') . ', ?, ?, ?, ?)',
+                    [$inventarioId, $c['id'], $livroId, $registro['importacao_item_id'] ?? null, $encontrado ? 'disponivel' : 'aguardando', $local, $estado,
+                        $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs]);
                 $novoItem = (int)$this->pdo->lastInsertId();
+            }
+            if ($registro !== null) {
+                $this->ligarRegistro((int)$registro['id'], $c['id'], $responsavelId, $inventarioId, 'Exemplar ' . $c['codigo'] . ' registrado na conferência');
             }
             if ($encontrado) {
                 $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$c['id']]);
             }
-            $linha = $item !== null ? $this->valor('SELECT linha FROM registros_legados WHERE importacao_item_id = ? LIMIT 1', [$item['importacao_item_id']]) : null;
             $this->exemplares->movimentacao($c['id'], 'inventario', 'Registrado no inventário nº ' . $inventarioId . ' como ' . self::SITUACOES_REGISTRO[$situacao]
-                . ($item !== null ? ' (' . ($linha ? 'linha ' . (int)$linha . ' da planilha' : 'registro sem código') . ')' : ''), $responsavelId, $inventarioId,
-                ['estado' => $estado, 'localizacao_id' => $local, 'item_id' => $novoItem]);
+                . ($registro !== null ? ' (linha ' . (int)$registro['linha'] . ' da planilha)' : ($temVinculo ? ' (exemplar adicional, sem linha da planilha)' : '')), $responsavelId, $inventarioId,
+                ['estado' => $estado, 'localizacao_id' => $local, 'item_id' => $novoItem, 'registro_id' => $registro['id'] ?? null]);
             $this->registrarAcao($responsavelId, 'inventario.registrar_exemplar', 'inventario', $inventarioId,
-                ['livro_id' => $livroId, 'codigo' => $c['codigo'], 'situacao' => $situacao, 'item_planilha' => $item['id'] ?? null]);
-            return $c + ['item_id' => $novoItem, 'situacao' => $situacao];
+                ['livro_id' => $livroId, 'codigo' => $c['codigo'], 'situacao' => $situacao, 'registro_planilha' => $registro['id'] ?? null, 'adicional' => $registro === null]);
+            return $c + ['item_id' => $novoItem, 'situacao' => $situacao, 'registro_id' => isset($registro['id']) ? (int)$registro['id'] : null];
+        });
+    }
+
+    /**
+     * Corrige um vínculo feito por engano entre uma linha da planilha e um exemplar: a linha volta
+     * a ficar "sem exemplar" (Pendente neste inventário) e o exemplar continua existindo, como
+     * exemplar adicional. Fica no histórico (registro_vinculos), com o motivo.
+     */
+    public function desfazerVinculoLinha(int $inventarioId, int $registroId, int $responsavelId, string $motivo): void
+    {
+        $motivo = self::textoLimpo($motivo);
+        if ($motivo === null) {
+            throw new AcervoException('Informe o motivo para desfazer o vínculo com a linha da planilha.');
+        }
+        $this->transacao(function () use ($inventarioId, $registroId, $responsavelId, $motivo) {
+            $inv = $this->bloquearInventario($inventarioId);
+            $this->exigirStatus($inv, ['em_andamento', 'pausado'], 'alterado');
+            $reg = $this->linha('SELECT * FROM registros_legados WHERE id = ? FOR UPDATE', [$registroId]);
+            if (!$reg || $reg['exemplar_id'] === null) {
+                throw new AcervoException('Esta linha da planilha não está ligada a nenhum exemplar.');
+            }
+            $exemplarId = (int)$reg['exemplar_id'];
+            $this->executar('UPDATE registros_legados SET exemplar_id = NULL, vinculado_em = NULL, vinculado_por = NULL WHERE id = ?', [$registroId]);
+            // Neste inventário: o item do exemplar perde a linha e a linha volta como item Pendente.
+            $this->executar('UPDATE inventario_itens SET importacao_item_id = NULL WHERE inventario_id = ? AND importacao_item_id = ?', [$inventarioId, $reg['importacao_item_id']]);
+            $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, importacao_item_id, previsto) VALUES (?, NULL, ?, ?, 1)',
+                [$inventarioId, $reg['livro_id'], $reg['importacao_item_id']]);
+            $this->executar('INSERT INTO registro_vinculos (registro_id, acao, livro_anterior_id, livro_novo_id, exemplar_id, inventario_id, observacao, administrador_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [$registroId, 'desfazer_exemplar', $reg['livro_id'], $reg['livro_id'], $exemplarId, $inventarioId, mb_substr($motivo, 0, 500), $responsavelId]);
+            $codigo = (string)$this->valor('SELECT codigo_individual FROM exemplares WHERE id = ?', [$exemplarId]);
+            $this->exemplares->movimentacao($exemplarId, 'inventario', 'Vínculo com a linha ' . (int)$reg['linha'] . ' da planilha desfeito: ' . $motivo, $responsavelId, $inventarioId);
+            $this->registrarAcao($responsavelId, 'inventario.desfazer_vinculo_linha', 'inventario', $inventarioId, ['registro_id' => $registroId, 'codigo' => $codigo, 'motivo' => $motivo]);
+        });
+    }
+
+    /** Liga, de forma permanente, a linha da planilha ao exemplar (com histórico). Dentro de uma transação. */
+    private function ligarRegistro(int $registroId, int $exemplarId, int $responsavelId, ?int $inventarioId, string $observacao): void
+    {
+        $n = $this->executar('UPDATE registros_legados SET exemplar_id = ?, vinculado_em = NOW(), vinculado_por = ? WHERE id = ? AND exemplar_id IS NULL', [$exemplarId, $responsavelId, $registroId]);
+        if ($n !== 1) {
+            throw new AcervoException('Esta linha da planilha acabou de ser ligada a outro exemplar. Atualize a página e escolha de novo.');
+        }
+        $livro = $this->valor('SELECT livro_id FROM registros_legados WHERE id = ?', [$registroId]);
+        $this->executar('INSERT INTO registro_vinculos (registro_id, acao, livro_anterior_id, livro_novo_id, exemplar_id, inventario_id, observacao, administrador_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$registroId, 'vincular_exemplar', $livro, $livro, $exemplarId, $inventarioId, mb_substr($observacao, 0, 500), $responsavelId]);
+    }
+
+    // ---------------------------------------------------------------
+    // Conferência por estante ("Estante atual")
+    // ---------------------------------------------------------------
+
+    /**
+     * Finaliza a conferência de uma estante/prateleira. Só os itens ESCOLHIDOS pela equipe (que
+     * procurou e não achou) viram "Não localizado"; os demais continuam Pendentes. Só entram itens
+     * cuja localização CADASTRADA no início do inventário era esta estante (localização confiável):
+     * nada é deduzido de outro exemplar da mesma obra, e linhas da planilha sem localização nunca
+     * são classificadas aqui. Pode ser reaberta (reabrirEstante).
+     * @return array{nao_localizados: int, pendentes: int}
+     */
+    public function finalizarEstante(int $inventarioId, int $localizacaoId, array $itemIds, string $observacao, int $responsavelId): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $itemIds), fn ($v) => $v > 0)));
+        $obs = self::textoLimpo($observacao);
+        return $this->transacao(function () use ($inventarioId, $localizacaoId, $ids, $obs, $responsavelId) {
+            $inv = $this->bloquearInventario($inventarioId);
+            $this->exigirStatus($inv, ['em_andamento', 'pausado'], 'alterado');
+            if (!$this->valor('SELECT 1 FROM localizacoes WHERE id = ?', [$localizacaoId])) {
+                throw new AcervoException('Escolha a estante que está sendo finalizada.');
+            }
+            $n = 0;
+            if ($ids) {
+                $marcas = implode(',', array_fill(0, count($ids), '?'));
+                $n = $this->executar("UPDATE inventario_itens i SET i.nao_localizado_em = NOW(), i.nao_localizado_por = ?, i.nao_localizado_obs = ?
+                                      WHERE i.inventario_id = ? AND i.localizacao_esperada_id = ? AND i.id IN ($marcas)
+                                        AND i.exemplar_id IS NOT NULL AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND i.decisao IS NULL
+                                        AND NOT EXISTS (SELECT 1 FROM emprestimos m WHERE m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL)",
+                    [$responsavelId, $obs ?? 'Não localizado ao finalizar a estante', $inventarioId, $localizacaoId, ...$ids]);
+            }
+            $this->executar("INSERT INTO inventario_estantes (inventario_id, localizacao_id, status, finalizada_em, finalizada_por, nao_localizados, observacao)
+                             VALUES (?, ?, 'finalizada', NOW(), ?, ?, ?)
+                             ON DUPLICATE KEY UPDATE status = 'finalizada', finalizada_em = NOW(), finalizada_por = VALUES(finalizada_por),
+                                                     nao_localizados = nao_localizados + VALUES(nao_localizados), observacao = VALUES(observacao)",
+                [$inventarioId, $localizacaoId, $responsavelId, $n, $obs]);
+            $pendentes = (int)$this->valor("SELECT COUNT(*) FROM inventario_itens i WHERE i.inventario_id = ? AND i.localizacao_esperada_id = ? AND i.conferido_em IS NULL
+                                              AND i.nao_localizado_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio'", [$inventarioId, $localizacaoId]);
+            $this->registrarAcao($responsavelId, 'inventario.finalizar_estante', 'inventario', $inventarioId, ['localizacao_id' => $localizacaoId, 'nao_localizados' => $n, 'pendentes' => $pendentes]);
+            return ['nao_localizados' => $n, 'pendentes' => $pendentes];
+        });
+    }
+
+    /**
+     * Reabre a conferência de uma estante finalizada. Com $voltarPendentes, os itens marcados como
+     * "Não localizado" nesta estante voltam para Pendente. @return int itens que voltaram
+     */
+    public function reabrirEstante(int $inventarioId, int $localizacaoId, bool $voltarPendentes, int $responsavelId): int
+    {
+        return $this->transacao(function () use ($inventarioId, $localizacaoId, $voltarPendentes, $responsavelId) {
+            $inv = $this->bloquearInventario($inventarioId);
+            $this->exigirStatus($inv, ['em_andamento', 'pausado'], 'alterado');
+            $est = $this->linha('SELECT * FROM inventario_estantes WHERE inventario_id = ? AND localizacao_id = ? FOR UPDATE', [$inventarioId, $localizacaoId]);
+            if (!$est || $est['status'] !== 'finalizada') {
+                throw new AcervoException('Esta estante não está finalizada.');
+            }
+            $n = 0;
+            if ($voltarPendentes) {
+                $n = $this->executar('UPDATE inventario_itens SET nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL
+                                      WHERE inventario_id = ? AND localizacao_esperada_id = ? AND nao_localizado_em IS NOT NULL AND conferido_em IS NULL AND decisao IS NULL',
+                    [$inventarioId, $localizacaoId]);
+            }
+            $this->executar("UPDATE inventario_estantes SET status = 'aberta', reaberta_em = NOW(), reaberta_por = ? WHERE id = ?", [$responsavelId, $est['id']]);
+            $this->registrarAcao($responsavelId, 'inventario.reabrir_estante', 'inventario', $inventarioId, ['localizacao_id' => $localizacaoId, 'voltaram_pendentes' => $n]);
+            return $n;
         });
     }
 

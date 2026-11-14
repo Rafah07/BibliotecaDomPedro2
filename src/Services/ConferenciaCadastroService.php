@@ -221,6 +221,7 @@ final class ConferenciaCadastroService
                 $c = $this->inventario->registrarExemplar($inventarioId, $livroId, [
                     'codigo' => $fisico['codigo'] ?? '', 'estado_conservacao' => $fisico['estado_conservacao'] ?? 'bom', 'localizacao_id' => $fisico['localizacao_id'] ?? null,
                     'observacoes' => $fisico['observacao'] ?? null, 'situacao_inventario' => $fisico['situacao_inventario'] ?? 'encontrado',
+                    'processo_bdp' => $fisico['processo_bdp'] ?? null,
                 ], $responsavelId);
             }
             $alertas = $this->reconferirAlertas($livroId, $responsavelId, false);
