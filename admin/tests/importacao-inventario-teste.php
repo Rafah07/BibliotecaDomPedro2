@@ -287,6 +287,23 @@ confere('"Salvar correções" grava o título e volta para a ficha', $s === 303 
 confere('exemplar já encontrado ainda permite "Corrigir dados do livro"', $s === 200 && str_contains($html, 'Corrigir dados do livro') && str_contains($html, '&amp;corrigir=' . $livroPoema));
 [$s, $html] = $bib->ir('admin/inventario-detalhes.php?id=' . $inv2 . '&filtro=encontrados');
 confere('lista de itens do inventário tem "Corrigir dados do livro"', $s === 200 && str_contains($html, 'Corrigir dados do livro'));
+// Pesquisa do inventário: uma palavra sem números não pode trazer todos os itens (antes "ISBN LIKE '%%'").
+$todosItens = $invRepo->itens($inv2, 'todos', '', 1, 0)['total'];
+$soPoemas = $invRepo->itens($inv2, 'todos', 'Poemas', 1, 0)['total'];
+confere('lista do inventário: pesquisa por palavra filtra de verdade', $soPoemas >= 1 && $soPoemas < $todosItens, "$soPoemas de $todosItens");
+confere('lista do inventário: pesquisa por código BDP traz só o exemplar', $invRepo->itens($inv2, 'todos', 'BDP-000300', 1, 0)['total'] === 1);
+confere('pesquisa da conferência acha pela editora', (bool)array_filter($invRepo->pesquisarLivros($inv2, 'Editora Fictícia')['livros'], fn ($l) => (int)$l['id'] === $livroPoema));
+[$s, $json] = $bib->ir('admin/api/inventario/sugestoes.php?id=' . $inv2 . '&q=' . rawurlencode('Poem'));
+$sug = json_decode($json, true)['sugestoes'] ?? [];
+confere('sugestões ao digitar: livro pelo começo do título', $s === 200 && (bool)array_filter($sug, fn ($x) => $x['tipo'] === 'livro' && $x['livro_id'] === $livroPoema), $json);
+[$s, $json] = $bib->ir('admin/api/inventario/sugestoes.php?id=' . $inv2 . '&q=' . rawurlencode('bdp-0003'));
+$sug = json_decode($json, true)['sugestoes'] ?? [];
+confere('sugestões ao digitar: código BDP incompleto sugere os códigos (sem escolher sozinho)', $s === 200 && in_array('BDP-000300', array_column($sug, 'codigo'), true), $json);
+[$s] = (new TesteNavegador($base))->ir('admin/api/inventario/sugestoes.php?id=' . $inv2 . '&q=Poem');
+[$s2] = $cons->ir('admin/api/inventario/sugestoes.php?id=' . $inv2 . '&q=Poem');
+confere('sugestões exigem login (401) e permissão de conferir (403)', $s === 401 && $s2 === 403, "$s / $s2");
+[$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2);
+confere('campo de pesquisa da conferência tem as sugestões ligadas', str_contains($html, 'data-sugestoes=') && str_contains($html, 'role="listbox"'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&novo=1');
 $token = preg_match('/name="token" value="([a-f0-9]+)"/', $html, $m) ? $m[1] : '';
 confere('formulário de livro não listado com token de uso único', $s === 200 && $token !== '' && teste_sem_erro_tecnico($html));

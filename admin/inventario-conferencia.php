@@ -340,7 +340,12 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                 <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="ler">
                 <label for="leitura" id="titulo-leitura" class="adm-leitura__label"><?= icon('keyboard') ?> Pesquisar livro: código BDP, título, autor ou ISBN</label>
                 <div class="adm-leitura__linha">
-                    <input class="adm-input adm-leitura__campo" type="text" id="leitura" name="leitura" maxlength="100" placeholder="BDP-000001 (ou título, autor, ISBN)" autofocus data-campo-codigo autocapitalize="characters" spellcheck="false" aria-describedby="leitura-dica">
+                    <div class="adm-sugestoes">
+                        <input class="adm-input adm-leitura__campo" type="text" id="leitura" name="leitura" maxlength="100" placeholder="BDP-000001 (ou título, autor, ISBN)" autofocus data-campo-codigo autocapitalize="off" autocomplete="off" spellcheck="false" aria-describedby="leitura-dica"
+                            role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="leitura-sugestoes"
+                            data-sugestoes="<?= e(admin_asset('api/inventario/sugestoes.php') . '?id=' . $id) ?>" data-sugestoes-base="<?= e($base) ?>">
+                        <ul class="adm-sugestoes__lista" id="leitura-sugestoes" role="listbox" aria-label="Sugestões" hidden></ul>
+                    </div>
                     <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> Pesquisar</button>
                 </div>
                 <p class="adm-field__hint" id="leitura-dica">
@@ -437,7 +442,7 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                 <?php else: ?>
                     <ul class="adm-resultados adm-resultados--livros">
                         <?php foreach ($busca['livros'] as $l): ?>
-                            <li>
+                            <li id="livro-<?= (int)$l['id'] ?>">
                                 <div>
                                     <strong><?= e($l['titulo']) ?></strong><?= (int)$l['alertas'] ? ' <span class="adm-status adm-tone--indigo">' . (int)$l['alertas'] . ' alerta(s)</span>' : '' ?>
                                     <small><?= e($l['autores'] ?: 'Autor não informado') ?><?= $l['isbn'] ? ' · ISBN ' . e($l['isbn']) : ($l['isbn_original'] ? ' · ISBN informado: ' . e($l['isbn_original']) : '') ?><?= $l['edicao'] ? ' · ' . e($l['edicao']) : '' ?></small>

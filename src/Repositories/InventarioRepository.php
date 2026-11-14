@@ -199,8 +199,16 @@ final class InventarioRepository
         }
         foreach (self::termos($q) as $termo) {
             $like = self::like($termo);
-            $cond = 'e.codigo_individual LIKE ? OR l.titulo LIKE ? OR l.isbn LIKE ? OR l.isbn_original LIKE ? OR EXISTS (SELECT 1 FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id AND au.nome LIKE ?)';
-            array_push($params, $like, $like, '%' . Isbn::normalizar($termo) . '%', $like, $like);
+            // Antes o ISBN entrava sempre: uma palavra sem números virava "ISBN LIKE '%%'" e a pesquisa
+            // devolvia quase todos os itens. Agora o ISBN só é comparado quando o termo parece um ISBN.
+            $cond = 'e.codigo_individual LIKE ? OR l.titulo LIKE ? OR l.subtitulo LIKE ? OR l.editora LIKE ? OR l.isbn_original LIKE ? OR r.localizacao_antiga LIKE ?
+                     OR EXISTS (SELECT 1 FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id AND au.nome LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like, $like, $like);
+            $isbn = Isbn::normalizar($termo);
+            if (strlen($isbn) >= 4 && preg_match('/^[\d\-.\sXx]+$/', $termo)) {
+                $cond .= ' OR l.isbn LIKE ?';
+                $params[] = '%' . $isbn . '%';
+            }
             if ($codigo = EmprestimoRepository::codigoExemplar($termo)) {
                 $cond .= ' OR e.codigo_individual = ?';
                 $params[] = $codigo;
@@ -293,8 +301,12 @@ final class InventarioRepository
         $params = [];
         foreach ($termos as $termo) {
             $like = self::like($termo);
-            $cond = 'l.titulo LIKE ? OR l.subtitulo LIKE ? OR EXISTS (SELECT 1 FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id AND au.nome LIKE ?)';
-            array_push($params, $like, $like, $like);
+            // Título, subtítulo, autor, editora, assunto, código BDP de um exemplar e local antigo da planilha.
+            $cond = 'l.titulo LIKE ? OR l.subtitulo LIKE ? OR l.editora LIKE ? OR l.assunto LIKE ?
+                     OR EXISTS (SELECT 1 FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id AND au.nome LIKE ?)
+                     OR EXISTS (SELECT 1 FROM exemplares ex WHERE ex.livro_id = l.id AND ex.codigo_individual LIKE ?)
+                     OR EXISTS (SELECT 1 FROM registros_legados rl WHERE rl.livro_id = l.id AND rl.localizacao_antiga LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like, $like, $like);
             $isbn = Isbn::normalizar($termo);
             if (strlen($isbn) >= 4 && preg_match('/^[\d\-.\sXx]+$/', $termo)) {
                 $cond .= ' OR l.isbn LIKE ? OR l.isbn_original LIKE ?';
@@ -307,7 +319,7 @@ final class InventarioRepository
                                        (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ", ") FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores,
                                        (SELECT SUM(r.quantidade_informada) FROM registros_legados r WHERE r.livro_id = l.id) AS quantidade_planilha,
                                        (SELECT r.localizacao_antiga FROM registros_legados r WHERE r.livro_id = l.id AND r.localizacao_antiga IS NOT NULL ORDER BY r.id DESC LIMIT 1) AS localizacao_antiga
-                                FROM livros l WHERE ' . implode(' AND ', $where) . ' ORDER BY l.titulo IS NULL, l.titulo, l.id LIMIT ' . ($limite + 1), $params);
+                                FROM livros l WHERE ' . implode(' AND ', $where) . ' ORDER BY l.titulo IS NULL, l.titulo NOT LIKE ?, l.titulo, l.id LIMIT ' . ($limite + 1), array_merge($params, [addcslashes(trim($q), '%_\\') . '%']));
         $mais = count($livros) > $limite;
         $livros = array_slice($livros, 0, $limite);
         if (!$livros) {
@@ -339,6 +351,53 @@ final class InventarioRepository
         }
         unset($l);
         return ['livros' => $livros, 'mais' => $mais];
+    }
+
+    /**
+     * Sugestões enquanto a equipe digita na conferência: códigos BDP de exemplares e livros
+     * (título, autor, ISBN, editora). Só leitura: nada é escolhido sem o clique de quem confere.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function sugestoes(int $inventarioId, string $q, int $limite = 8): array
+    {
+        $q = trim($q);
+        if (mb_strlen($q) < 2) {
+            return [];
+        }
+        $saida = [];
+        $comPrefixo = (bool)preg_match('/^BDP/i', $q);
+        // Códigos BDP: "BDP-0001", "bdp 12" ou só os números ("000123", "123").
+        if (preg_match('/^(?:BDP\s*-?\s*)?(\d{0,6})$/i', $q, $m) && ($comPrefixo || $m[1] !== '')) {
+            $numeros = $m[1];
+            $padrao = $comPrefixo ? 'BDP-' . $numeros . '%' : '%' . $numeros . '%';
+            $codigos = $this->todas("SELECT e.codigo_individual, e.livro_id, COALESCE(l.titulo, '" . self::SEM_TITULO . "') AS titulo, i.conferido_em,
+                                            (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ', ') FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores
+                                     FROM exemplares e JOIN livros l ON l.id = e.livro_id
+                                     LEFT JOIN inventario_itens i ON i.exemplar_id = e.id AND i.inventario_id = ?
+                                     WHERE e.codigo_individual LIKE ? ORDER BY e.codigo_individual LIMIT " . max(1, $limite),
+                [$inventarioId, $padrao]);
+            foreach ($codigos as $c) {
+                $saida[] = ['tipo' => 'exemplar', 'codigo' => $c['codigo_individual'], 'livro_id' => (int)$c['livro_id'], 'titulo' => $c['titulo'],
+                    'detalhe' => ($c['autores'] ?: 'Autor não informado') . ($c['conferido_em'] !== null ? ' · já encontrado' : ''), 'conferido' => $c['conferido_em'] !== null];
+            }
+        }
+        if (count($saida) < $limite && !$comPrefixo) {
+            $busca = $this->pesquisarLivros($inventarioId, $q, $limite - count($saida));
+            foreach ($busca['livros'] as $l) {
+                $pend = count(array_filter($l['registros'], fn ($r) => $r['conferido_em'] === null && $r['nao_localizado_em'] === null));
+                $partes = [$l['autores'] ?: 'Autor não informado'];
+                if ($l['isbn'] || $l['isbn_original']) {
+                    $partes[] = 'ISBN ' . ($l['isbn'] ?: $l['isbn_original']);
+                }
+                if ($l['editora']) {
+                    $partes[] = $l['editora'];
+                }
+                $partes[] = count($l['exemplares']) . ' exemplar(es)' . ($pend ? ', ' . $pend . ' linha(s) da planilha pendente(s)' : '');
+                $saida[] = ['tipo' => 'livro', 'livro_id' => (int)$l['id'], 'titulo' => $l['titulo'], 'detalhe' => implode(' · ', $partes)];
+            }
+        }
+        return array_slice($saida, 0, $limite);
     }
 
     /** Livro escolhido para cadastrar exemplar na conferência (não arquivado). */
