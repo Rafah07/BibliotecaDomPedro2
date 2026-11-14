@@ -98,23 +98,36 @@ Localizações não são apagadas, só **desativadas**.
 3. Salve. O inventário fica **em preparação**.
 4. Confira os dados e clique em **Iniciar conferência**. A lista de exemplares previstos é fixada nesse momento.
 
-## 9. Como conferir livros (e corrigir o cadastro)
+## 9. Como conferir livros (obra e exemplares)
 
-Toda a conferência e a correção acontecem na página **Conferir e corrigir livros** do Inventário. Não existe página de revisão separada.
+Toda a conferência acontece na página **Conferir e corrigir livros** do Inventário. Ela separa duas coisas:
 
-Fluxo: **Importar planilha → Organizar estantes → Pesquisar livro → Corrigir informações → Registrar código BDP → Marcar como encontrado.**
+- **Obra** é o registro bibliográfico (título, autor, ISBN, editora, ano...). É verificada **uma única vez**.
+- **Exemplar** é cada livro físico, com o seu **código BDP** escrito no carimbo. Uma obra pode ter vários exemplares.
+
+Status da obra: **Dados não verificados** ou **Dados verificados**. Status do exemplar no inventário: **Pendente**, **Encontrado** ou **Não localizado**. São independentes.
+
+Fluxo:
 
 1. Na página do inventário, clique em **Conferir e corrigir livros**.
-2. Pegue o livro na prateleira e use **Pesquisar livro: código BDP, título, autor ou ISBN**. Com etiqueta, digite o código (ex.: `BDP-000121`); sem etiqueta, digite o título ou o autor. Enquanto você digita, o sistema sugere códigos BDP e livros (título, autor, ISBN ou editora); clique na sugestão ou use as setas e Enter.
-3. Nos resultados, as linhas vindas da planilha aparecem como **Linha N da planilha · Pendente**. Clique em **Conferir**.
-4. Corrija o que estiver errado em **Informações do livro** (título, autor, ISBN, editora, ano, categoria...; todos os campos são opcionais) e escreva o **Código BDP do carimbo**, se o livro tiver. A ficha aparece aberta tanto nos registros da planilha quanto nos exemplares que já têm código.
-   Para corrigir só os dados, sem marcar como encontrado, use o botão **Corrigir dados** ao lado do livro nos resultados (ou **Corrigir dados do livro** na lista de itens do inventário) e clique em **Salvar correções**.
-5. Clique em **Salvar e marcar como encontrado**. O cadastro e o inventário são atualizados juntos.
-6. Livro em mãos que não aparece na pesquisa: use **+ Cadastrar livro não listado**. O sistema mostra antes os livros parecidos; se for outro exemplar de uma obra já cadastrada, escolha-a.
-7. Ao terminar uma estante ou setor, em **Finalizar estante ou setor**, selecione os livros que realmente não estão lá e clique em **Marcar selecionados como não localizados** (há confirmação). Nada vira "Não localizado" sozinho, e a marcação pode ser desfeita com **Voltar para pendente**.
-8. Quando terminar, trate as decisões necessárias e clique em **Concluir inventário**. O relatório fica em **Relatório do inventário**.
+2. Pesquise a obra em **Pesquisar livro: código BDP, título, autor ou ISBN** e clique em **Abrir obra**.
+3. Se a obra estiver como **Dados não verificados**, clique em **Verificar e corrigir dados**. Confira com o livro em mãos, corrija o que for preciso (nada é obrigatório, nem o ISBN) e clique em **Salvar e marcar dados como verificados**. Só esse botão marca a obra como verificada; **Salvar alterações** guarda as correções sem verificar.
+4. Com a obra verificada, clique em **+ Registrar exemplar**.
+5. Livro já carimbado: digite o código. Sem carimbo: clique em **Gerar código BDP**. O sistema reserva o próximo número só para você e mostra o código antes de salvar.
+6. Escreva o código no carimbo do livro.
+7. Escolha a situação (**Encontrado** quando o livro está em mãos), a localização e o estado, e, se houver, a **linha da planilha** que corresponde a este exemplar.
+8. Clique em **Salvar exemplar**. O código fica definitivo e nunca será repetido.
+9. Outro exemplar da mesma obra: **Registrar outro exemplar desta obra**. Não precisa verificar de novo.
+10. Livro em mãos que não aparece na pesquisa: **+ Cadastrar livro não listado**. Num só formulário você cadastra a obra, marca os dados como verificados e registra o primeiro exemplar. O sistema mostra antes as obras parecidas; se for uma delas, abra-a e registre o exemplar nela.
 
-Os status são **Pendente**, **Encontrado** e **Não localizado**. Os **alertas cadastrais** (informação incompleta, possível inconsistência, possível duplicidade) são independentes e não impedem marcar como encontrado. Um código BDP nunca se repete: se já pertence a outro exemplar, o sistema recusa. Cliques repetidos não criam registros duplicados.
+Ao terminar uma estante ou setor, em **Finalizar estante ou setor**, selecione os livros que realmente não estão lá e clique em **Marcar selecionados como não localizados** (há confirmação). Nada vira "Não localizado" sozinho, e a marcação pode ser desfeita com **Voltar para pendente**. Quando terminar, clique em **Concluir inventário**; o relatório fica em **Relatório do inventário**.
+
+Regras importantes:
+
+- Linhas importadas da planilha sem exemplar continuam pesquisáveis e verificáveis, mas **não contam como encontradas** até que um exemplar seja registrado para elas. O sistema nunca cria exemplares nem códigos BDP sozinho para essas linhas.
+- Obras com o mesmo título ou ISBN **não são unidas** automaticamente.
+- Uma obra verificada pode ser corrigida depois. Toda mudança fica no **Histórico da verificação**. Se mudar título, subtítulo, autor, ISBN, editora, ano ou edição, a obra volta para **Dados não verificados** e pode ser verificada de novo.
+- Um código digitado à mão é aceito só se não pertencer a nenhum exemplar (nem baixado) e não tiver sido gerado para outra pessoa.
 
 ## 10. Como registrar empréstimos
 

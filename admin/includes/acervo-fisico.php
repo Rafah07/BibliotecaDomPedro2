@@ -15,14 +15,16 @@ require_once __DIR__ . '/acervo.php'; // acervo_breadcrumb, ACERVO_SITUACOES, AC
 
 use Biblioteca\Repositories\ExemplarRepository;
 use Biblioteca\Repositories\InventarioRepository;
+use Biblioteca\Services\CodigoBdpService;
 use Biblioteca\Services\ConferenciaCadastroService;
 use Biblioteca\Services\EtiquetaService;
 use Biblioteca\Services\ExemplarService;
 use Biblioteca\Services\InventarioService;
 use Biblioteca\Services\LocalizacaoService;
+use Biblioteca\Services\ObraVerificacaoService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114c'];
-const FISICO_JS = ['assets/js/inventario.js?v=20261114b'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114d'];
+const FISICO_JS = ['assets/js/inventario.js?v=20261114c'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
 
@@ -60,6 +62,47 @@ function conferencia_cadastro(): ConferenciaCadastroService
 {
     static $s = null;
     return $s ??= new ConferenciaCadastroService(db(), inventario_servico());
+}
+
+function codigo_bdp_servico(): CodigoBdpService
+{
+    static $s = null;
+    return $s ??= new CodigoBdpService(db());
+}
+
+function obra_verificacao_servico(): ObraVerificacaoService
+{
+    static $s = null;
+    return $s ??= new ObraVerificacaoService(db());
+}
+
+/** Selo do status dos dados da obra: "Dados verificados" ou "Dados não verificados". */
+function obra_badge_verificacao(?string $verificadoEm): string
+{
+    $ok = $verificadoEm !== null && $verificadoEm !== '';
+    return '<span class="adm-status adm-tone--' . ($ok ? 'green' : 'amber') . ' adm-status--obra">' . icon($ok ? 'circle-check' : 'circle-help') . ' '
+        . e(ObraVerificacaoService::rotulo($verificadoEm)) . '</span>';
+}
+
+/**
+ * Situação de um exemplar físico NESTE inventário (status do exemplar, separado do status da obra).
+ * @return array{0: string, 1: string} rótulo e tom
+ */
+function inventario_exemplar_status(array $ex): array
+{
+    if (($ex['situacao'] ?? '') === 'baixado') {
+        return ['Baixado', 'muted'];
+    }
+    if (($ex['conferido_em'] ?? null) !== null) {
+        return ['Encontrado', 'green'];
+    }
+    if (($ex['nao_localizado_em'] ?? null) !== null || ($ex['decisao'] ?? null) === 'registrar_extravio') {
+        return ['Não localizado', 'red'];
+    }
+    if ($ex['emprestimo_aberto'] ?? null) {
+        return ['Pendente · emprestado', 'indigo'];
+    }
+    return ['Pendente', 'amber'];
 }
 
 function etiquetas_servico(): EtiquetaService

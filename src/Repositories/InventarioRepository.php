@@ -37,7 +37,7 @@ final class InventarioRepository
 
     /** Itens: com exemplar (código BDP) ou registro ainda sem exemplar (linha da planilha a conferir). */
     private const ITEM_SQL = "SELECT i.*, e.codigo_individual, e.situacao, e.estado_conservacao, e.localizacao_id,
-                                     COALESCE(l.titulo, '" . self::SEM_TITULO . "') AS titulo, l.titulo AS titulo_cadastrado, l.isbn, l.isbn_original,
+                                     COALESCE(l.titulo, '" . self::SEM_TITULO . "') AS titulo, l.titulo AS titulo_cadastrado, l.isbn, l.isbn_original, l.dados_verificados_em,
                                      (SELECT COUNT(*) FROM livro_pendencias p WHERE p.livro_id = l.id AND p.resolvida_em IS NULL) AS alertas,
                                      r.arquivo AS origem_arquivo, r.linha AS origem_linha, r.localizacao_antiga, r.quantidade_informada, r.cdd_original,
                                      np.nome AS nao_localizado_por_nome,
@@ -146,6 +146,11 @@ final class InventarioRepository
                            LEFT JOIN emprestimos m ON m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL
                            WHERE i.inventario_id = ?", [$id]) ?? [];
         $r = array_map('intval', $r);
+        // Obras (livros) deste inventário e quantas já têm os dados verificados (status da obra, não do exemplar).
+        $obras = $this->linha('SELECT COUNT(*) AS obras, COALESCE(SUM(l.dados_verificados_em IS NOT NULL), 0) AS obras_verificadas
+                               FROM livros l WHERE l.id IN (SELECT DISTINCT i.livro_id FROM inventario_itens i WHERE i.inventario_id = ?)', [$id]) ?? [];
+        $r['obras'] = (int)($obras['obras'] ?? 0);
+        $r['obras_verificadas'] = (int)($obras['obras_verificadas'] ?? 0);
         $r['encontrados'] = $r['conferidos'] ?? 0;
         // Progresso: itens com resultado (encontrado ou não localizado) sobre o total.
         $r['percentual'] = !empty($r['itens']) ? (int)floor((($r['encontrados'] + $r['nao_localizados']) / $r['itens']) * 100) : 0;
@@ -259,8 +264,10 @@ final class InventarioRepository
     /** Registro do livro para a tela de conferência (dados bibliográficos editáveis + origem). */
     public function livroConferencia(int $livroId): ?array
     {
-        $l = $this->linha('SELECT l.*, (SELECT lc.categoria_id FROM livro_categorias lc WHERE lc.livro_id = l.id ORDER BY lc.principal DESC, lc.categoria_id LIMIT 1) AS categoria_id
-                           FROM livros l WHERE l.id = ? AND l.arquivado_em IS NULL', [$livroId]);
+        $l = $this->linha('SELECT l.*, (SELECT lc.categoria_id FROM livro_categorias lc WHERE lc.livro_id = l.id ORDER BY lc.principal DESC, lc.categoria_id LIMIT 1) AS categoria_id,
+                                  (SELECT c.nome FROM livro_categorias lc JOIN categorias c ON c.id = lc.categoria_id WHERE lc.livro_id = l.id ORDER BY lc.principal DESC, lc.categoria_id LIMIT 1) AS categoria_nome,
+                                  vp.nome AS verificado_por_nome
+                           FROM livros l LEFT JOIN administradores vp ON vp.id = l.dados_verificados_por WHERE l.id = ? AND l.arquivado_em IS NULL', [$livroId]);
         if (!$l) {
             return null;
         }
@@ -272,6 +279,39 @@ final class InventarioRepository
         }
         unset($r);
         return $l;
+    }
+
+    /**
+     * Exemplares físicos de uma obra, com a situação de cada um NESTE inventário
+     * (Encontrado, Não localizado ou Pendente) e a linha da planilha a que foi ligado, se houver.
+     */
+    public function exemplaresDaObra(int $inventarioId, int $livroId): array
+    {
+        return $this->todas("SELECT e.id, e.codigo_individual, e.situacao, e.estado_conservacao, e.observacoes, e.criado_em,
+                                    lo.setor, lo.estante, lo.prateleira, lo.complemento,
+                                    i.id AS item_id, i.conferido_em, i.nao_localizado_em, i.decisao, i.previsto, i.cadastrado_no_inventario,
+                                    r.linha AS origem_linha, r.arquivo AS origem_arquivo,
+                                    (SELECT m.id FROM emprestimos m WHERE m.exemplar_id = e.id AND m.data_devolucao IS NULL LIMIT 1) AS emprestimo_aberto
+                             FROM exemplares e
+                             LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id
+                             LEFT JOIN inventario_itens i ON i.exemplar_id = e.id AND i.inventario_id = ?
+                             LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
+                             WHERE e.livro_id = ? ORDER BY e.situacao = 'baixado', e.codigo_individual", [$inventarioId, $livroId]);
+    }
+
+    /**
+     * Registros importados da obra que ainda NÃO são exemplares (linhas da planilha sem código BDP)
+     * neste inventário. Servem para pesquisar e verificar; não contam como exemplares encontrados.
+     */
+    public function registrosSemExemplar(int $inventarioId, int $livroId): array
+    {
+        return $this->todas('SELECT i.id, i.conferido_em, i.nao_localizado_em, i.nao_localizado_obs, i.decisao, r.arquivo AS origem_arquivo, r.linha AS origem_linha,
+                                    r.localizacao_antiga, r.quantidade_informada, np.nome AS nao_localizado_por_nome
+                             FROM inventario_itens i
+                             LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
+                             LEFT JOIN administradores np ON np.id = i.nao_localizado_por
+                             WHERE i.inventario_id = ? AND i.livro_id = ? AND i.exemplar_id IS NULL
+                             ORDER BY r.linha IS NULL, r.linha, i.id', [$inventarioId, $livroId]);
     }
 
     public function itemPorExemplar(int $inventarioId, int $exemplarId): ?array
@@ -314,7 +354,7 @@ final class InventarioRepository
             }
             $where[] = "($cond)";
         }
-        $livros = $this->todas('SELECT l.id, COALESCE(l.titulo, \'' . self::SEM_TITULO . '\') AS titulo, l.subtitulo, l.isbn, l.isbn_original, l.editora, l.ano_publicacao, l.edicao,
+        $livros = $this->todas('SELECT l.id, COALESCE(l.titulo, \'' . self::SEM_TITULO . '\') AS titulo, l.subtitulo, l.isbn, l.isbn_original, l.editora, l.ano_publicacao, l.edicao, l.dados_verificados_em,
                                        (SELECT COUNT(*) FROM livro_pendencias p WHERE p.livro_id = l.id AND p.resolvida_em IS NULL) AS alertas,
                                        (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ", ") FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores,
                                        (SELECT SUM(r.quantidade_informada) FROM registros_legados r WHERE r.livro_id = l.id) AS quantidade_planilha,
@@ -394,6 +434,7 @@ final class InventarioRepository
                     $partes[] = $l['editora'];
                 }
                 $partes[] = count($l['exemplares']) . ' exemplar(es)' . ($pend ? ', ' . $pend . ' linha(s) da planilha pendente(s)' : '');
+                $partes[] = $l['dados_verificados_em'] !== null ? 'Dados verificados' : 'Dados não verificados';
                 $saida[] = ['tipo' => 'livro', 'livro_id' => (int)$l['id'], 'titulo' => $l['titulo'], 'detalhe' => implode(' · ', $partes)];
             }
         }

@@ -299,7 +299,7 @@ confere('9. código incompleto: mensagem clara e nada gravado', $s === 200 && st
 confere('9. código inexistente: "não encontrado", nada criado', str_contains($html, 'BDP-888888 não encontrado') && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-888888'") === 0);
 [, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv, ['csrf' => $tk, 'id' => $inv, 'acao' => 'ler', 'leitura' => 'Sem Exemplar']);
 [, $html] = $bib->ir($destino($loc));
-confere('9. pesquisa alternativa por título localiza o registro bibliográfico', str_contains($html, 'Livros encontrados') && str_contains($html, 'Livro Fictício Sem Exemplar'));
+confere('9. pesquisa alternativa por título localiza o registro bibliográfico', str_contains($html, 'Obras encontradas') && str_contains($html, 'Livro Fictício Sem Exemplar'));
 
 // 10. Empréstimo: aluno → código → conferir → confirmar
 [$s, $html] = $bib->ir('novo-emprestimo.php?aluno=' . $alunoId);

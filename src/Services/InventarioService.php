@@ -543,6 +543,91 @@ final class InventarioService
         });
     }
 
+    /** Situação no inventário escolhida ao registrar um exemplar. */
+    public const SITUACOES_REGISTRO = ['encontrado' => 'Encontrado', 'pendente' => 'Pendente'];
+
+    /**
+     * "+ Registrar exemplar": cadastra UM exemplar físico de uma obra JÁ VERIFICADA, com o código
+     * BDP do carimbo (gerado por "Gerar código BDP" ou digitado), e o coloca neste inventário.
+     *
+     * Dados: codigo (obrigatório), estado_conservacao, localizacao_id, observacoes,
+     *        situacao_inventario ('encontrado' ou 'pendente'),
+     *        item_id (opcional): linha da planilha desta obra, ainda sem exemplar, que este
+     *        exemplar representa. Assim o vínculo com a linha original é preservado e a linha
+     *        deixa de ficar pendente. Sem item_id, é um exemplar a mais da obra.
+     *
+     * Nada é deduzido da quantidade da planilha e nenhuma obra é unida a outra.
+     * @return array{id: int, codigo: string, item_id: int, situacao: string}
+     */
+    public function registrarExemplar(int $inventarioId, int $livroId, array $dados, int $responsavelId): array
+    {
+        $codigoTexto = trim((string)($dados['codigo'] ?? ''));
+        if ($codigoTexto === '') {
+            throw new AcervoException('Informe o código BDP do carimbo ou clique em "Gerar código BDP".');
+        }
+        $situacao = (string)($dados['situacao_inventario'] ?? 'encontrado');
+        if (!isset(self::SITUACOES_REGISTRO[$situacao])) {
+            throw new AcervoException('Escolha a situação do exemplar no inventário (Encontrado ou Pendente).');
+        }
+        $estado = (string)($dados['estado_conservacao'] ?? 'bom');
+        if (!in_array($estado, ExemplarService::CONSERVACAO, true)) {
+            throw new AcervoException('Escolha o estado de conservação do exemplar.');
+        }
+        $obs = self::textoLimpo($dados['observacoes'] ?? null);
+        $itemId = (int)($dados['item_id'] ?? 0) ?: null;
+        $encontrado = $situacao === 'encontrado';
+
+        return $this->transacao(function () use ($inventarioId, $livroId, $codigoTexto, $estado, $obs, $itemId, $encontrado, $situacao, $responsavelId, $dados) {
+            $this->inventarioParaConferencia($inventarioId);
+            $livro = $this->linha('SELECT id, titulo, dados_verificados_em, arquivado_em FROM livros WHERE id = ? FOR UPDATE', [$livroId]);
+            if (!$livro || $livro['arquivado_em'] !== null) {
+                throw new AcervoException('Obra não encontrada ou arquivada.');
+            }
+            if ($livro['dados_verificados_em'] === null) {
+                throw new AcervoException('Verifique os dados da obra antes de registrar exemplares: clique em "Verificar e corrigir dados" e depois em "Salvar e marcar dados como verificados".');
+            }
+            $item = null;
+            if ($itemId !== null) {
+                $item = $this->bloquearItem($itemId);
+                if ((int)$item['inventario_id'] !== $inventarioId || (int)$item['livro_id'] !== $livroId) {
+                    throw new AcervoException('Esta linha da planilha não pertence a esta obra neste inventário.');
+                }
+                if ($item['exemplar_id'] !== null || $item['conferido_em'] !== null) {
+                    throw new AcervoException('Esta linha da planilha já está ligada a um exemplar. Escolha outra linha ou registre como exemplar a mais.');
+                }
+            }
+            $local = $this->exemplares->localizacaoValida($dados['localizacao_id'] ?? null);
+            $c = $this->exemplares->cadastrarComCodigo($livroId, $codigoTexto, [
+                'estado_conservacao' => $estado, 'situacao' => $encontrado ? 'disponivel' : 'aguardando', 'localizacao_id' => $local, 'observacoes' => $obs,
+            ], $responsavelId, $inventarioId);
+
+            if ($item !== null) {
+                // A linha da planilha passa a ser este exemplar (o vínculo importacao_item_id continua).
+                $this->executar('UPDATE inventario_itens SET exemplar_id = ?, situacao_esperada = ?, estado_esperado = ?, localizacao_esperada_id = ?,
+                                        conferido_em = ' . ($encontrado ? 'NOW()' : 'NULL') . ', conferido_por = ?, localizacao_encontrada_id = ?, estado_encontrado = ?, observacao = ?,
+                                        nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?',
+                    [$c['id'], $encontrado ? 'disponivel' : 'aguardando', $estado, $local, $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs, $item['id']]);
+                $novoItem = (int)$item['id'];
+            } else {
+                $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, cadastrado_no_inventario, situacao_esperada, localizacao_esperada_id, estado_esperado,
+                                                               conferido_em, conferido_por, localizacao_encontrada_id, estado_encontrado, observacao)
+                                 VALUES (?, ?, ?, 0, 1, ?, ?, ?, ' . ($encontrado ? 'NOW()' : 'NULL') . ', ?, ?, ?, ?)',
+                    [$inventarioId, $c['id'], $livroId, $encontrado ? 'disponivel' : 'aguardando', $local, $estado, $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs]);
+                $novoItem = (int)$this->pdo->lastInsertId();
+            }
+            if ($encontrado) {
+                $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$c['id']]);
+            }
+            $linha = $item !== null ? $this->valor('SELECT linha FROM registros_legados WHERE importacao_item_id = ? LIMIT 1', [$item['importacao_item_id']]) : null;
+            $this->exemplares->movimentacao($c['id'], 'inventario', 'Registrado no inventário nº ' . $inventarioId . ' como ' . self::SITUACOES_REGISTRO[$situacao]
+                . ($item !== null ? ' (' . ($linha ? 'linha ' . (int)$linha . ' da planilha' : 'registro sem código') . ')' : ''), $responsavelId, $inventarioId,
+                ['estado' => $estado, 'localizacao_id' => $local, 'item_id' => $novoItem]);
+            $this->registrarAcao($responsavelId, 'inventario.registrar_exemplar', 'inventario', $inventarioId,
+                ['livro_id' => $livroId, 'codigo' => $c['codigo'], 'situacao' => $situacao, 'item_planilha' => $item['id'] ?? null]);
+            return $c + ['item_id' => $novoItem, 'situacao' => $situacao];
+        });
+    }
+
     // ---------------------------------------------------------------
 
     private function aplicarEncontrado(int $exemplarId, ?int $local, ?string $estado, int $responsavelId, int $inventarioId): void

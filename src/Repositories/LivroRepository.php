@@ -2,6 +2,7 @@
 
 namespace Biblioteca\Repositories;
 
+use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Support\Isbn;
 use PDO;
 use PDOException;
@@ -289,9 +290,9 @@ final class LivroRepository
      * pessoa salvou nesse meio-tempo, nada é gravado.
      * @return array<string, array{0: mixed, 1: mixed}> campos alterados [antes, depois]
      */
-    public function atualizar(int $id, array $dados, ?string $versao = null): array
+    public function atualizar(int $id, array $dados, ?string $versao = null, ?int $usuarioId = null): array
     {
-        return $this->transacao(function () use ($id, $dados, $versao) {
+        return $this->transacao(function () use ($id, $dados, $versao, $usuarioId) {
             $stmt = $this->pdo->prepare('SELECT * FROM livros WHERE id = ? FOR UPDATE');
             $stmt->execute([$id]);
             $atual = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -329,6 +330,9 @@ final class LivroRepository
             if ($alteracoes) {
                 // Garante nova versão mesmo quando só autores/categoria mudaram.
                 $this->pdo->prepare('UPDATE livros SET atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')->execute([$id]);
+                // Histórico da obra; mudar título, autor, ISBN, editora, ano ou edição de uma obra
+                // verificada a devolve para "Dados não verificados" (migração 120).
+                (new ObraVerificacaoService($this->pdo))->registrar($id, $alteracoes, $usuarioId, false, 'editar_livro');
             }
             return $alteracoes;
         });

@@ -138,6 +138,12 @@ final class ExemplarService
                     . ($existente['titulo'] ?? 'Sem título') . '"' . ($existente['situacao'] === 'baixado' ? ', já baixado' : '')
                     . '). Confira o carimbo: cada código BDP é único e não é reaproveitado.');
             }
+            // Código gerado ("Gerar código BDP") para outra pessoa: pode já estar escrito em outro livro.
+            $reserva = $this->linha('SELECT r.reservado_por, a.nome FROM exemplar_codigo_reservas r LEFT JOIN administradores a ON a.id = r.reservado_por WHERE r.codigo = ? AND r.usado_em IS NULL', [$normal]);
+            if ($reserva && (int)$reserva['reservado_por'] !== $responsavelId) {
+                throw new AcervoException('O código ' . $normal . ' foi gerado para outra pessoa' . ($reserva['nome'] ? ' (' . $reserva['nome'] . ')' : '')
+                    . ' e pode já estar escrito em outro livro. Clique em "Gerar código BDP" para receber um código só seu.');
+            }
             try {
                 $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, situacao, observacoes, cadastrado_por, inventario_id)
                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$livroId, $normal, $localId, $estado, $situacao, $obs, $responsavelId, $inventarioId]);
@@ -148,6 +154,7 @@ final class ExemplarService
                 throw $e;
             }
             $id = (int)$this->pdo->lastInsertId();
+            $this->executar('UPDATE exemplar_codigo_reservas SET usado_em = NOW(), exemplar_id = ? WHERE codigo = ? AND usado_em IS NULL', [$id, $normal]);
             $this->movimentacao($id, 'cadastro', ($inventarioId ? 'Exemplar cadastrado na conferência do inventário nº ' . $inventarioId : 'Exemplar físico cadastrado')
                 . ' com o código carimbado ' . $normal, $responsavelId, $inventarioId, ['estado' => $estado, 'situacao' => $situacao, 'localizacao_id' => $localId, 'codigo_informado' => true]);
             $this->registrarAcao($responsavelId, 'exemplar.cadastrar', 'livro', $livroId, [

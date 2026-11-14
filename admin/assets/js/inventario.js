@@ -55,6 +55,80 @@
         });
     }
 
+    // ---------- Painéis laterais do Inventário (Verificar e corrigir dados / Registrar exemplar) ----------
+    // Sem JavaScript, os links abrem a mesma página com &painel=... e o painel já vem aberto.
+    const abrirPainel = (dialog) => {
+        if (!dialog) return false;
+        if (typeof dialog.showModal === 'function') {
+            if (dialog.open) dialog.close();
+            dialog.showModal();
+        } else {
+            dialog.setAttribute('open', '');
+        }
+        const primeiro = dialog.querySelector('.adm-modal__body input:not([type=hidden]):not([readonly]), .adm-modal__body select');
+        setTimeout(() => primeiro && primeiro.focus(), 40);
+        return true;
+    };
+    document.querySelectorAll('dialog[data-painel-auto]').forEach((d) => abrirPainel(d));
+    document.addEventListener('click', (e) => {
+        const abrir = e.target.closest('[data-painel-abrir]');
+        if (abrir && abrirPainel(document.getElementById(abrir.dataset.painelAbrir))) {
+            e.preventDefault();
+            return;
+        }
+        const fechar = e.target.closest('[data-painel-fechar]');
+        if (fechar) {
+            const d = fechar.closest('dialog');
+            if (d) {
+                e.preventDefault();
+                if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+            }
+        }
+    });
+    // Clique no fundo escuro fecha o painel.
+    document.querySelectorAll('dialog.adm-painel-lateral').forEach((d) => d.addEventListener('mousedown', (e) => {
+        if (e.target !== d) return;
+        const r = d.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close();
+    }));
+
+    // ---------- Gerar código BDP ----------
+    // O número é calculado e RESERVADO pelo servidor (api/inventario/gerar-codigo.php). Aqui só se
+    // mostra o código recebido; nada é calculado no navegador. Sem JavaScript, o botão envia o
+    // formulário e a página volta com o código preenchido.
+    document.querySelectorAll('[data-gerar-codigo]').forEach((botao) => botao.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const caixa = botao.closest('[data-codigo-bdp]');
+        const campo = caixa && caixa.querySelector('[data-codigo-campo]');
+        const status = caixa && caixa.querySelector('[data-codigo-status]');
+        const form = botao.form;
+        const csrf = form && form.querySelector('input[name="csrf"]');
+        if (!campo || !csrf) { form && form.requestSubmit ? form.requestSubmit(botao) : null; return; }
+        botao.disabled = true;
+        if (status) { status.classList.remove('is-erro'); status.textContent = 'Gerando código…'; }
+        try {
+            const dados = new FormData();
+            dados.append('csrf', csrf.value);
+            dados.append('livro_id', botao.dataset.livro || '0');
+            const resp = await fetch(botao.dataset.gerarCodigo, { method: 'POST', body: dados, credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            const json = await resp.json().catch(() => ({}));
+            if (!resp.ok || !json.ok) throw new Error(json.erro || 'Não foi possível gerar o código agora.');
+            campo.value = json.codigo;
+            if (status) {
+                status.textContent = '';
+                status.append(json.nova ? 'Código reservado para você: ' : 'Você já tinha este código reservado (ainda não usado): ');
+                const forte = document.createElement('strong');
+                forte.textContent = json.codigo;
+                status.append(forte, '. Escreva-o no carimbo do livro e depois salve.');
+            }
+            campo.focus();
+        } catch (erro) {
+            if (status) { status.classList.add('is-erro'); status.textContent = erro.message; }
+        } finally {
+            botao.disabled = false;
+        }
+    }));
+
     // ---------- Confirmação ao registrar extravio ----------
     document.querySelectorAll('form.adm-decisao').forEach((form) => form.addEventListener('submit', (e) => {
         const decisao = form.querySelector('select[name="decisao"]');

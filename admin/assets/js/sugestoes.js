@@ -20,9 +20,9 @@
         const preencher = campo.dataset.sugestoesModo === 'preencher';
         const destino = (s) => s.tipo === 'exemplar'
             ? `${base}&codigo=${encodeURIComponent(s.codigo)}`
-            : `${base}&q=${encodeURIComponent(campo.value.trim())}#livro-${s.livro_id}`;
+            : `${base}&obra=${encodeURIComponent(s.livro_id)}#obra`; // ficha da obra (dados + exemplares)
         // data-sugestoes-modo:
-        //   (padrão)   conferência do inventário: abre o exemplar ou o livro na própria conferência;
+        //   (padrão)   conferência do inventário: abre o exemplar (código) ou a ficha da obra na própria conferência;
         //   preencher  completa o campo com o título (ou código) e pesquisa;
         //   abrir      pesquisa do topo: abre a página do livro (também ao escolher um código BDP).
         const abrir = campo.dataset.sugestoesModo === 'abrir';

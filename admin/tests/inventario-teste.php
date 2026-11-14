@@ -547,12 +547,21 @@ confere('conferência repetida pelo formulário: aviso com dados anteriores, nad
 confere('código inexistente: aviso, nada criado', str_contains($html, 'não encontrado') && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-777777'") === 0);
 [$s, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'ler', 'leitura' => 'Dom Casmurro']);
 [, $html] = $bib->ir($loc ? ltrim(str_replace('/admin/', '', parse_url($loc, PHP_URL_PATH)) . '?' . parse_url($loc, PHP_URL_QUERY), '/') : 'inventario-conferencia.php?id=' . $inv3);
-confere('texto lido pesquisa livros (título) com opção explícita de cadastrar exemplar', str_contains($html, 'Livros encontrados') && str_contains($html, 'Cadastrar exemplar'));
+confere('texto lido pesquisa obras (título) com "Abrir obra"', str_contains($html, 'Obras encontradas') && str_contains($html, 'Abrir obra'));
 $antesForm = $num('SELECT COUNT(*) FROM exemplares');
-[$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'cadastrar', 'livro_id' => $livro['semex'], 'estado_conservacao' => 'bom', 'situacao' => 'disponivel', 'quantidade' => '1']);
-confere('cadastro na conferência sem confirmação não grava', $s === 200 && str_contains($html, 'Marque a confirmação') && $num('SELECT COUNT(*) FROM exemplares') === $antesForm);
-[$s] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'cadastrar', 'livro_id' => $livro['semex'], 'estado_conservacao' => 'bom', 'situacao' => 'disponivel', 'quantidade' => '1', 'confirmar' => '1']);
-confere('cadastro na conferência com confirmação grava 1 exemplar', $s === 303 && $num('SELECT COUNT(*) FROM exemplares') === $antesForm + 1);
+$regSemex = ['csrf' => $tk, 'id' => $inv3, 'acao' => 'registrar_exemplar', 'livro_id' => $livro['semex'], 'estado_conservacao' => 'bom', 'situacao_inventario' => 'encontrado', 'codigo_bdp' => 'BDP-000050'];
+[$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3, $regSemex);
+confere('registrar exemplar de obra com dados não verificados não grava', $s === 200 && str_contains($html, 'Verifique os dados da obra') && $num('SELECT COUNT(*) FROM exemplares') === $antesForm);
+[$s] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'verificar_obra', 'livro_id' => $livro['semex'], 'marcar_verificado' => '1', 'titulo' => 'Sem Exemplar Fictício', 'editar_livro' => '1']);
+[$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['codigo_bdp' => ''] + $regSemex);
+confere('registrar exemplar sem código BDP não grava', $s === 200 && str_contains($html, 'Gerar código BDP') && $num('SELECT COUNT(*) FROM exemplares') === $antesForm);
+[$s, $json] = $bib->ir('api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $livro['semex']]);
+$gerado = json_decode($json, true)['codigo'] ?? '';
+confere('"Gerar código BDP" (API) devolve o próximo código da sequência', $s === 200 && preg_match('/^BDP-\d{6}$/', $gerado) === 1, $json);
+$regSemex['codigo_bdp'] = $gerado;
+[$s] = $bib->ir('inventario-conferencia.php?id=' . $inv3, $regSemex);
+confere('obra verificada: registrar exemplar grava 1 exemplar encontrado', $s === 303 && $num('SELECT COUNT(*) FROM exemplares') === $antesForm + 1
+    && $num("SELECT COUNT(*) FROM inventario_itens i JOIN exemplares e ON e.id = i.exemplar_id WHERE e.codigo_individual = ? AND i.conferido_em IS NOT NULL", [$gerado]) === 1);
 [$s, $pdfHttp, , $tipo] = $bib->ir('etiquetas.php', ['csrf' => $tk, 'acao' => 'pdf', 'ids' => $dom[0] . ',' . $dom[1], 'modelo' => $patrimonial['id']]);
 confere('PDF de etiquetas pelo painel (POST com CSRF)', $s === 200 && str_starts_with($tipo, 'application/pdf') && str_starts_with($pdfHttp, '%PDF-'));
 [$s] = $bib->ir('etiquetas.php', ['acao' => 'pdf', 'ids' => (string)$dom[0], 'modelo' => $patrimonial['id']]);

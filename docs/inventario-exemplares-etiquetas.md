@@ -74,19 +74,28 @@ Inventários concluídos ou cancelados ficam bloqueados.
 
 ## Como realizar a conferência
 
-A conferência e a correção dos dados acontecem numa única página, **Conferir e corrigir livros**. Não há página de revisão separada: a planilha importada entra inteira (com alertas) e é conferida aqui, com o livro em mãos.
+A conferência acontece numa única página, **Conferir e corrigir livros**, e separa a **obra** (dados bibliográficos, verificados uma vez) dos **exemplares** (livros físicos, cada um com o seu código BDP).
 
 1. Na página do inventário, clique em **Conferir e corrigir livros**.
-2. Em **Pesquisar livro: código BDP, título, autor ou ISBN**, digite o código escrito na etiqueta ou parte do título, do autor ou do ISBN.
-3. Com um código BDP, o sistema mostra o exemplar (título, autor, localização, situação). Confira o estado, a localização e, se precisar, corrija os dados em **Informações do livro** (a ficha já vem aberta). Clique em **Salvar e marcar como encontrado**.
-4. Com uma pesquisa por texto, os resultados mostram os exemplares e as linhas importadas (**Linha N da planilha · Pendente**). Clique em **Conferir** numa linha da planilha para:
-   - corrigir os dados (todos opcionais);
-   - escrever o **Código BDP do carimbo** (6 números; recusado se já pertencer a outro exemplar);
-   - **Salvar e marcar como encontrado**, **Salvar só as correções** ou **Marcar como não localizado**.
-5. Livro em mãos que não está na lista: **+ Cadastrar livro não listado**. Todos os campos podem ficar vazios. O sistema mostra antes os possíveis livros iguais; escolha um deles para cadastrar outro exemplar da mesma obra ou **Nenhum destes: é um livro diferente.** O livro já fica encontrado e os contadores mudam na hora.
-6. Ao terminar uma estante ou setor, use **Finalizar estante ou setor** na página do inventário: escolha o local, veja os pendentes, selecione os ausentes, marque **Procurei estes livros no local e confirmo que não estão lá.** e clique em **Marcar selecionados como não localizados**.
+2. Em **Pesquisar livro: código BDP, título, autor ou ISBN**, digite o código escrito no carimbo ou parte do título, do autor ou do ISBN. Nos resultados (**Obras encontradas**), clique em **Abrir obra**.
+3. A página da obra mostra o selo **Dados não verificados** ou **Dados verificados**, os **Exemplares físicos** e os **Registros da planilha ainda sem exemplar**.
+4. **Verificar e corrigir dados** abre um painel lateral. Corrija o que for preciso (todos os campos são opcionais) e clique em **Salvar e marcar dados como verificados**. Somente essa confirmação muda o status. **Salvar alterações** guarda sem verificar.
+5. Com a obra verificada, **+ Registrar exemplar** abre o painel do exemplar: **Código BDP** (digitado do carimbo ou criado com **Gerar código BDP**), situação no inventário (**Encontrado** ou **Pendente**), localização, estado de conservação, linha da planilha correspondente e observações. Clique em **Salvar exemplar**.
+6. Para mais cópias da mesma obra, use **Registrar outro exemplar desta obra**, sem verificar de novo.
+7. Um exemplar que já tem código: pesquise o código, confira estado e localização e clique em **Marcar como encontrado**.
+8. Livro em mãos que não está na lista: **+ Cadastrar livro não listado**. O sistema mostra antes as obras parecidas (**É esta obra: abrir e registrar exemplar**) ou permite marcar **Nenhuma destas: é uma obra diferente.** O botão **Salvar, marcar dados como verificados e registrar exemplar** faz tudo de uma vez.
+9. Ao terminar uma estante ou setor, use **Finalizar estante ou setor** na página do inventário: escolha o local, veja os pendentes, selecione os ausentes, marque **Procurei estes livros no local e confirmo que não estão lá.** e clique em **Marcar selecionados como não localizados**.
 
-Status do item: **Pendente**, **Encontrado** e **Não localizado**. Nada vira não localizado automaticamente. Um item não localizado pode voltar para pendente (**Voltar para pendente**); um encontrado pode ser desfeito por quem gerencia o inventário (**Desfazer “Encontrado”**, com motivo). Os alertas cadastrais são independentes do status.
+### Gerador de código BDP
+
+- O código é calculado no **servidor** (PHP + MySQL), nunca só no navegador. A linha da sequência `exemplar_codigo_seq` é bloqueada durante o cálculo, então dois cliques ao mesmo tempo recebem números diferentes.
+- O formato é o mesmo dos carimbos existentes: `BDP-000001`. A sequência começa depois do maior código já cadastrado.
+- O número gerado fica **reservado** para quem clicou (`exemplar_codigo_reservas`) e aparece antes de salvar. Clicar de novo sem usar devolve a mesma reserva. O código só fica definitivo ao salvar o exemplar (índice único em `exemplares.codigo_individual`).
+- A sequência nunca volta: códigos de exemplares baixados ou reservas abandonadas não são entregues de novo.
+- Um código digitado à mão é conferido no servidor: recusado se já pertencer a um exemplar ou se tiver sido gerado para outra pessoa.
+- Linhas importadas da planilha nunca recebem código automaticamente.
+
+Status do item: **Pendente**, **Encontrado** e **Não localizado**. Status da obra (separado): **Dados não verificados** e **Dados verificados**. Linhas da planilha sem exemplar não contam como encontradas. Nada vira não localizado automaticamente. Um item não localizado pode voltar para pendente (**Voltar para pendente**); um encontrado pode ser desfeito por quem gerencia o inventário (**Desfazer “Encontrado”**, com motivo). Os alertas cadastrais são independentes do status.
 
 O painel de progresso mostra **Total**, **Encontrados**, **Pendentes**, **Não localizados**, **Com alertas cadastrais**, **Sem código BDP** e o **% concluído**.
 
