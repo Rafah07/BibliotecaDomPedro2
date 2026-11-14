@@ -111,7 +111,7 @@ function detalhes_decisao(array $item): string
     return '<span class="adm-status adm-status--soft adm-tone--' . $a['tom'] . '">' . htmlspecialchars($a['label']) . '</span>';
 }
 
-admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261113', 'assets/css/importacao.css?v=20261113']);
+admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261114', 'assets/css/importacao.css?v=20261114']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Importação', admin_url('importar')], ['Histórico', admin_url('historico-importacoes')], ['Importação nº ' . $id]]) ?>
@@ -482,4 +482,4 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
 
 <script type="application/json" id="revisao-config"><?= json_encode($cfgJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php
-admin_page_end(['assets/js/importacao.js?v=20261113b']);
+admin_page_end(['assets/js/importacao.js?v=20261114']);

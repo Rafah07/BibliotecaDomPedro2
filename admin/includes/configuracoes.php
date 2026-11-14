@@ -13,7 +13,7 @@ require_once __DIR__ . '/acervo.php'; // acervo_breadcrumb
 use Biblioteca\Repositories\ConfiguracaoRepository;
 use Biblioteca\Support\ConfiguracaoSistema;
 
-const CONFIG_CSS = ['assets/css/acervo.css?v=20261113', 'assets/css/configuracoes.css?v=20261102e9'];
+const CONFIG_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/configuracoes.css?v=20261102e9'];
 
 /**
  * Variáveis que continuam só no .env (técnicas). 'segredo' => mostra só se está definida.

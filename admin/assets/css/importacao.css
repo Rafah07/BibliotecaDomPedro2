@@ -233,6 +233,18 @@ a.adm-kpi { color: inherit; text-decoration: none; }
 .adm-imp-problem-text--duplicidade { color: #3d4a94; }
 .adm-imp-problem-text--aviso { color: var(--adm-amber-text); }
 .adm-imp-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+/* Tabela da pré-visualização: cabe inteira em 1366px (a coluna Ações ficava escondida atrás da
+   rolagem lateral). Em telas menores a coluna Ações fica fixa à direita enquanto a tabela rola. */
+@media (min-width: 721px) {
+    .adm-imp-table th, .adm-imp-table td { padding-left: 12px; padding-right: 12px; }
+    .adm-imp-table th:first-child, .adm-imp-table td:first-child { padding-left: 20px; }
+    .adm-imp-table .adm-td-wrap { min-width: 150px; max-width: 300px; }
+    .adm-imp-table td[data-label="Autor"] { white-space: normal; min-width: 110px; max-width: 200px; }
+    .adm-imp-table .adm-imp-actions { flex-direction: column; align-items: flex-end; flex-wrap: nowrap; }
+    .adm-imp-table .adm-imp-actions .adm-status { white-space: normal; max-width: 150px; text-align: right; }
+    .adm-imp-table .adm-actions-col { position: sticky; right: 0; background: var(--adm-white); box-shadow: -8px 0 12px -10px rgba(23, 32, 51, .25); }
+    .adm-imp-table th.adm-actions-col { background: #f7f9fc; }
+}
 .adm-imp-pages { display: flex; gap: 4px; }
 .adm-imp-pages a {
     min-width: 34px;

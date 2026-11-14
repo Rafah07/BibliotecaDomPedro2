@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/livros.php';
 
 $livro = acervo_livro((int)($_GET['id'] ?? 0));
 
-admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261113', 'assets/css/classificacao.css?v=20261102e9', 'assets/css/inventario.css?v=20261113b']);
+admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261114', 'assets/css/classificacao.css?v=20261102e9', 'assets/css/inventario.css?v=20261114']);
 
 echo acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], ['Detalhes']]);
 
@@ -180,7 +180,7 @@ $meta = [
                 </div>
                 <dl class="adm-meta adm-meta--stack">
                     <div><dt>Cadastrado em</dt><dd><?= acervo_data($livro['criado_em']) ?></dd></div>
-                    <div><dt>Todas as categorias</dt><dd><?= htmlspecialchars(implode(', ', $livro['categorias_nomes'])) ?></dd></div>
+                    <div><dt>Todas as categorias</dt><dd><?= $livro['categorias_nomes'] ? htmlspecialchars(implode(', ', $livro['categorias_nomes'])) : '<span class="adm-missing">Nenhuma</span>' ?></dd></div>
                     <div><dt>Código interno</dt><dd class="adm-mono">LIV-<?= sprintf('%05d', $id) ?></dd></div>
                 </dl>
             </div>

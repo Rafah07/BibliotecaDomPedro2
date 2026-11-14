@@ -3,8 +3,9 @@
     'use strict';
 
     const toast = (titulo, mensagem, tom = 'info') => window.admToast && window.admToast(titulo, mensagem, tom);
-    const $ = (sel, raiz = document) => raiz.querySelector(sel);
-    const $$ = (sel, raiz = document) => Array.from(raiz.querySelectorAll(sel));
+    // raiz null (ex.: modal que não existe nesta situação da importação) não quebra o resto da página.
+    const $ = (sel, raiz = document) => (raiz ? raiz.querySelector(sel) : null);
+    const $$ = (sel, raiz = document) => (raiz ? Array.from(raiz.querySelectorAll(sel)) : []);
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     /** Chamada à API com CSRF. Lança Error com a mensagem do servidor. */

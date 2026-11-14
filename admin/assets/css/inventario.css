@@ -120,6 +120,11 @@
     .adm-inline-form { width: 100%; }
     .adm-actions-inline { justify-content: flex-start; }
     .adm-td-decisao { min-width: 0; }
+    /* Cartões da lista do inventário: título e decisão em largura total (antes a decisão
+       ocupava a coluna da direita e espremia o título, uma letra por linha). */
+    .adm-table--inventario .adm-td-title { grid-column: 1 / -1; }
+    .adm-table--inventario .adm-actions-col { grid-column: 1 / -1; grid-row: auto; text-align: left !important; padding-top: 8px !important; }
+    .adm-table--inventario .adm-actions-col:empty { display: none; }
 }
 @media print {
     .adm-previa { background: none; padding: 0; }

@@ -17,7 +17,7 @@ try {
 }
 $temFiltro = $filtros['q'] !== '' || $filtros['de'] !== '' || $filtros['ate'] !== '';
 
-admin_page_start('emprestimos', 'Empréstimos', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261113', 'assets/css/emprestimos.css?v=20261113']);
+admin_page_start('emprestimos', 'Empréstimos', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Empréstimos']]) ?>

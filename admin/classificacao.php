@@ -34,7 +34,7 @@ $cards = [
 ];
 
 admin_page_start('classificacao', 'Classificação CDD', 'Acervo', 'Reclassificação bibliográfica pela CDD', [
-    'assets/css/acervo.css?v=20261113',
+    'assets/css/acervo.css?v=20261114',
     'assets/css/classificacao.css?v=20261102e9',
 ]);
 ?>
@@ -228,6 +228,7 @@ admin_page_start('classificacao', 'Classificação CDD', 'Acervo', 'Reclassifica
             <tbody data-rows>
                 <?php foreach ($itens as $item): ?>
                     <?php
+                    $item['titulo'] ??= 'Sem título (a conferir)'; // importado sem título
                     $c = $item['class'];
                     $situacao = $c['status'] . ($c['precisa_revisao'] ? '|precisa_revisao' : '');
                     $novaCdd = $c['cdd_aprovada'] ?? $c['cdd_proposta'];
