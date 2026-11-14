@@ -15,12 +15,13 @@ require_once __DIR__ . '/acervo.php'; // acervo_breadcrumb, ACERVO_SITUACOES, AC
 
 use Biblioteca\Repositories\ExemplarRepository;
 use Biblioteca\Repositories\InventarioRepository;
+use Biblioteca\Services\ConferenciaCadastroService;
 use Biblioteca\Services\EtiquetaService;
 use Biblioteca\Services\ExemplarService;
 use Biblioteca\Services\InventarioService;
 use Biblioteca\Services\LocalizacaoService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261113', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261113'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261113', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261113b'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261102'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
@@ -53,6 +54,12 @@ function inventario_servico(): InventarioService
 {
     static $s = null;
     return $s ??= new InventarioService(db(), exemplares_servico(), inventario_repo());
+}
+
+function conferencia_cadastro(): ConferenciaCadastroService
+{
+    static $s = null;
+    return $s ??= new ConferenciaCadastroService(db(), inventario_servico());
 }
 
 function etiquetas_servico(): EtiquetaService
@@ -197,15 +204,21 @@ function inventario_divergencias(array $i): array
 function inventario_item_situacao(array $i): array
 {
     if ($i['conferido_em'] === null) {
-        if ($i['emprestimo_aberto']) {
+        if ($i['emprestimo_aberto'] ?? null) {
             return ['Emprestado (fora da estante)', 'indigo'];
         }
-        return $i['decisao'] === 'registrar_extravio' ? ['Registrado como extraviado', 'red'] : ($i['decisao'] ? ['Não localizado · mantido', 'muted'] : ['Não conferido', 'amber']);
+        if ($i['decisao'] === 'registrar_extravio') {
+            return ['Não localizado · extravio registrado', 'red'];
+        }
+        if (($i['nao_localizado_em'] ?? null) !== null) {
+            return ['Não localizado', 'red'];
+        }
+        return $i['decisao'] ? ['Não localizado · mantido', 'muted'] : ['Pendente', 'amber'];
     }
     if (inventario_divergencias($i)) {
         return $i['decisao'] ? ['Divergência decidida', 'blue'] : ['Divergência pendente', 'red'];
     }
-    return [(int)$i['cadastrado_no_inventario'] ? 'Cadastrado e conferido' : 'Conferido', 'green'];
+    return [(int)$i['cadastrado_no_inventario'] ? 'Encontrado · cadastrado na conferência' : 'Encontrado', 'green'];
 }
 
 /** Valores do formulário de cadastro de exemplar (form-exemplar.php). */

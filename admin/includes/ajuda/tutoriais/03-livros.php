@@ -143,7 +143,7 @@ return [
         'problemas' => [
             ['"Informe o título do livro."', 'O título ficou vazio.', 'Preencha o campo Título do livro.'],
             ['"O dígito de controle não confere..." ou "ISBN inválido: use 10 ou 13 dígitos..."', 'O ISBN foi digitado com erro.', 'Confira o ISBN no livro, número por número. Se não tiver certeza, deixe o campo vazio e marque **Dados incompletos**.'],
-            ['"Este ISBN já está cadastrado no livro..."', 'O livro já existe no acervo.', 'Não cadastre de novo: abra o livro indicado e cadastre lá o novo exemplar.'],
+            ['"Já existe um livro com este mesmo título ou ISBN."', 'Pode ser o mesmo livro já cadastrado. O ISBN não bloqueia, porque a mesma obra pode ter mais de um cadastro.', 'Se for o mesmo livro, não cadastre de novo: abra o livro indicado e cadastre lá o novo exemplar. Se for outra obra ou edição, marque a confirmação e salve.'],
             ['"Informe um ano entre 1450 e ..."', 'O ano tem letras ou está fora do intervalo.', 'Digite só os quatro números do ano (por exemplo, `2019`).'],
             ['"Categoria inválida. Escolha uma da lista."', 'A categoria escolhida não existe mais.', 'Recarregue a página e escolha outra categoria da lista.'],
         ],
@@ -153,7 +153,7 @@ return [
             'Não use as observações para dados pessoais de alunos.',
         ],
         'relacionados' => ['cadastrar-exemplar', 'livro-sem-isbn', 'duplicados-livros', 'classificar-livro-cdd'],
-        'confere' => ['cadastrar-livro.php' => ['Cadastrar novo livro', 'Livro cadastrado com sucesso.', 'Este ISBN já está cadastrado no livro'], 'includes/form-livro.php' => ['Título do livro', 'Autor ou autores', 'Pressione Enter para adicionar.', 'Aceita ISBN-10 ou ISBN-13, com ou sem hífens.', 'Ano de publicação', 'Palavras-chave', 'Sinopse', 'Visível apenas para os administradores.', 'Salvar e cadastrar outro', 'Salvar livro', 'Cadastrar o livro não o torna disponível para empréstimo.', 'A CDD informada entra como sugestão e só vale depois de aprovada na Classificação CDD.'], 'includes/livros.php' => ['Informe o título do livro.', 'O dígito de controle não confere.', 'Informe um ano entre 1450 e', 'Categoria inválida. Escolha uma da lista.']],
+        'confere' => ['cadastrar-livro.php' => ['Cadastrar novo livro', 'Livro cadastrado com sucesso.'], 'includes/form-livro.php' => ['com este mesmo título ou ISBN.', 'Título do livro', 'Autor ou autores', 'Pressione Enter para adicionar.', 'Aceita ISBN-10 ou ISBN-13, com ou sem hífens.', 'Ano de publicação', 'Palavras-chave', 'Sinopse', 'Visível apenas para os administradores.', 'Salvar e cadastrar outro', 'Salvar livro', 'Cadastrar o livro não o torna disponível para empréstimo.', 'A CDD informada entra como sugestão e só vale depois de aprovada na Classificação CDD.'], 'includes/livros.php' => ['Informe o título do livro.', 'O dígito de controle não confere.', 'Informe um ano entre 1450 e', 'Categoria inválida. Escolha uma da lista.']],
     ],
     [
         'id' => 'editar-livro',
@@ -175,7 +175,7 @@ return [
         'resultado' => ['A ficha do livro mostra os dados corrigidos e a alteração fica registrada com o nome de quem editou.'],
         'problemas' => [
             ['"Este livro foi alterado por outra pessoa enquanto você editava..."', 'Outra pessoa salvou o mesmo livro enquanto você estava com o formulário aberto.', 'Recarregue a página para ver a versão atual e refaça só a sua correção.'],
-            ['"Este ISBN já está cadastrado no livro..."', 'Outro registro já usa esse ISBN: pode ser um cadastro duplicado.', 'Compare os dois livros. Veja [[tutorial:duplicados-livros|registros duplicados]].'],
+            ['Aviso "ISBN também usado em outro livro."', 'Outro registro já usa esse ISBN: pode ser um cadastro duplicado. As alterações são salvas mesmo assim.', 'Compare os dois livros. Veja [[tutorial:duplicados-livros|registros duplicados]].'],
         ],
         'cuidados' => [
             'Nos livros importados, os valores originais da planilha ficam preservados e não mudam com a edição (link "Ver dados da importação").',
@@ -254,8 +254,8 @@ return [
         'quando' => ['Ao cadastrar um livro e aparecer o aviso de título igual.', 'Quando a pesquisa mostrar o mesmo livro duas vezes.'],
         'requisitos' => ['Para arquivar o cadastro repetido: permissão para arquivar livros (Administrador ou Bibliotecária).'],
         'passos' => [
-            ['titulo' => 'ISBN repetido: o sistema bloqueia', 'texto' => 'Se o ISBN digitado já existe, o formulário mostra "Este ISBN já está cadastrado no livro ... (nº ...)". Não é possível salvar. Abra o livro indicado e cadastre o novo volume como exemplar dele.'],
-            ['titulo' => 'Título igual: o sistema pede confirmação', 'texto' => 'Se já existe livro com o mesmo título, aparece o aviso amarelo **Já existe um livro com este mesmo título.** com a lista dos parecidos (autor, editora, ano, edição). Abra cada um para comparar.'],
+            ['titulo' => 'ISBN repetido: o sistema avisa', 'texto' => 'O ISBN não é único: a mesma obra pode ter mais de um cadastro. Se o ISBN digitado já existe, o formulário lista o livro com "Já existe um livro com este mesmo título ou ISBN." e pede confirmação. Se for o mesmo livro, abra o cadastro indicado e cadastre o novo volume como exemplar dele.'],
+            ['titulo' => 'Título igual: o sistema pede confirmação', 'texto' => 'Se já existe livro com o mesmo título, aparece o aviso amarelo **Já existe um livro com este mesmo título ou ISBN.** com a lista dos parecidos (autor, editora, ano, edição). Abra cada um para comparar.'],
             ['titulo' => 'Decida: mesma edição ou outra?', 'texto' => 'Se for a **mesma** obra e edição, não salve: cadastre um exemplar no livro existente. Se for **outra** edição (outro ano, editora ou tradução), marque **Conferi os registros acima e confirmo que se trata de outra obra ou edição.** e salve de novo.'],
             ['titulo' => 'Encontre duplicidades já existentes', 'texto' => 'Em Relatórios → **Acervo**, a tabela **Possíveis duplicidades** lista registros com o mesmo título e o mesmo autor principal. É só um aviso: nada é juntado automaticamente.'],
             ['titulo' => 'Arquive o cadastro repetido', 'texto' => 'Escolha o cadastro que vai ficar (o mais completo, com exemplares e CDD). No repetido, use **Arquivar** com o motivo, por exemplo "cadastro duplicado do livro nº 123". Veja [[tutorial:arquivar-livro|Como arquivar um livro]].', 'atencao' => 'Um livro com exemplares em uso não pode ser arquivado. Transfira a situação dos exemplares antes, com a orientação da bibliotecária.'],
@@ -270,7 +270,7 @@ return [
             'Títulos iguais são permitidos quando se trata de outra edição.',
         ],
         'relacionados' => ['arquivar-livro', 'cadastrar-livro', 'livro-x-exemplar'],
-        'confere' => ['includes/form-livro.php' => ['com este mesmo título.', 'Conferi os registros acima e confirmo que se trata de outra obra ou edição.'], 'cadastrar-livro.php' => ['Este ISBN já está cadastrado no livro'], '../src/Services/RelatorioService.php' => ['Possíveis duplicidades']],
+        'confere' => ['includes/form-livro.php' => ['com este mesmo título ou ISBN.', 'Conferi os registros acima e confirmo que se trata de outra obra ou edição.'], 'editar-livro.php' => ['ISBN também usado em outro livro.'], '../src/Services/RelatorioService.php' => ['Possíveis duplicidades']],
     ],
     [
         'id' => 'livro-sem-isbn',

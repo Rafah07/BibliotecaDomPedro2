@@ -33,6 +33,7 @@ php admin/tests/backup-restauracao-teste.php
 php admin/tests/desempenho-teste.php            # --livros=3000 para uma rodada rápida
 php admin/tests/ajuda-teste.php                 # Central de Ajuda (Etapa 10)
 php admin/tests/alunos-categorias-teste.php     # Alunos e categorias (Etapa 11)
+php admin/tests/importacao-inventario-teste.php  # Importar todos e conferir no Inventário
 ```
 
 No **Prompt de Comando do Windows (XAMPP)**, dentro de `C:\xampp\htdocs\BibliotecaDomPedro2`:

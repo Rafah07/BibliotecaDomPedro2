@@ -163,7 +163,7 @@ admin_page_start('importar', 'ISBNs inválidos · Importação nº ' . $id, 'Imp
             <strong>Linha <?= $flash['linha'] ?>: ISBN corrigido para <?= htmlspecialchars($flash['isbn']) ?>.</strong>
             <p>Situação agora: <?= htmlspecialchars($flash['situacao_label']) ?>.
                 <?= in_array($flash['situacao'], ['valido', 'aviso'], true)
-                    ? 'A linha foi aprovada e será gravada ao clicar em "Importar registros aprovados" na página da importação.'
+                    ? 'A linha foi aprovada e será gravada ao clicar em "Importar todos e revisar no inventário" na página da importação.'
                     : 'A linha ainda precisa de revisão na página da importação.' ?>
                 O ISBN original da planilha continua guardado.</p>
         </div>

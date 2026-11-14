@@ -21,10 +21,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     } elseif (!$erros) {
         try {
             $dup = livros_repo()->duplicidades($dados);
-            if ($dup['isbn']) {
-                $erros['isbn'] = 'Este ISBN já está cadastrado no livro "' . $dup['isbn']['titulo'] . '" (nº ' . (int)$dup['isbn']['id'] . '). Para outra unidade do mesmo livro, use o cadastro existente.';
-            } elseif ($dup['titulo'] && admin_param($_POST, 'confirmar_duplicidade') !== '1') {
-                $duplicados = $dup['titulo'];
+            // ISBN ou título repetido não bloqueia (o ISBN não é único): mostra os parecidos e pede confirmação.
+            $parecidos = $dup['titulo'];
+            if ($dup['isbn'] && !in_array((int)$dup['isbn']['id'], array_map('intval', array_column($parecidos, 'id')), true)) {
+                array_unshift($parecidos, $dup['isbn'] + ['editora' => null, 'ano_publicacao' => null, 'edicao' => null, 'autores' => 'mesmo ISBN']);
+            }
+            if ($parecidos && admin_param($_POST, 'confirmar_duplicidade') !== '1') {
+                $duplicados = $parecidos;
             } else {
                 $r = livros_cadastrar($dados, $usuario);
                 admin_flash('sucesso', 'Livro cadastrado com sucesso.', '"' . $dados['titulo'] . '" foi incluído no acervo. Os exemplares físicos serão registrados no inventário.');
@@ -37,9 +40,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
         } catch (PDOException $e) {
             error_log('[biblioteca] Erro ao cadastrar livro: ' . $e->getMessage());
-            $falha = ($e->errorInfo[1] ?? 0) === 1062
-                ? 'Já existe um livro ativo com este ISBN.'
-                : 'Não foi possível gravar o livro. Tente novamente; se o problema continuar, avise o responsável pelo sistema.';
+            $falha = 'Não foi possível gravar o livro. Tente novamente; se o problema continuar, avise o responsável pelo sistema.';
         }
     }
 }

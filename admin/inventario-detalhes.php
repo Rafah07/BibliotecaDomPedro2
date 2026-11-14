@@ -3,6 +3,11 @@
  * Detalhes de um inventário: números, mudanças de situação (iniciar, pausar, retomar,
  * concluir, cancelar), itens por categoria e decisões sobre divergências e ausências.
  * Nenhum exemplar vira extraviado sem uma decisão registrada aqui.
+ *
+ * Status de cada item: Pendente (ainda não conferido), Encontrado e Não localizado. Nada vira
+ * "Não localizado" sozinho: em "Finalizar estante ou setor" a equipe escolhe a estante, o setor
+ * ou o local antigo da planilha, vê os itens ainda pendentes e marca os que confirmou não estarem
+ * lá (com confirmação). A marcação pode ser desfeita ("Voltar para pendente").
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/acervo-fisico.php';
@@ -25,7 +30,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         switch ($acao) {
             case 'iniciar':
                 $n = $s->iniciar($id, $usuario['id']);
-                admin_flash('sucesso', 'Conferência iniciada.', fisico_numero($n) . ' exemplar(es) entraram na lista prevista.');
+                admin_flash('sucesso', 'Conferência iniciada.', fisico_numero($n) . ' item(ns) entraram na lista prevista, todos como Pendente (exemplares e registros importados ainda sem código BDP).');
                 break;
             case 'pausar':
                 $s->pausar($id, $usuario['id']);
@@ -57,6 +62,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $n = $s->manterAusentes($id, admin_param($_POST, 'observacao'), $usuario['id']);
                 admin_flash('sucesso', fisico_numero($n) . ' exemplar(es) não localizado(s) mantido(s) sem alteração.', 'Nenhum exemplar foi marcado como extraviado.');
                 break;
+            case 'marcar_nao_localizados':
+                if (admin_param($_POST, 'confirmar') !== '1') {
+                    throw new AcervoException('Confirme que os livros selecionados foram procurados e não estão no local.');
+                }
+                $sel = $_POST['itens'] ?? [];
+                $n = $s->marcarNaoLocalizados($id, is_array($sel) ? $sel : [], admin_param($_POST, 'observacao'), $usuario['id']);
+                admin_flash('sucesso', fisico_numero($n) . ' item(ns) marcado(s) como não localizado(s).', 'A situação dos exemplares não mudou. Se algum livro aparecer, pesquise-o na conferência e marque como encontrado.');
+                $volta = admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'fechar' => admin_param($_POST, 'fechar')]) . '#fechar';
+                break;
+            case 'voltar_pendente':
+                $s->voltarPendente((int)admin_param($_POST, 'item_id'), $usuario['id'], admin_param($_POST, 'motivo'));
+                admin_flash('sucesso', 'O item voltou para Pendente.');
+                break;
             case 'corrigir':
                 $s->corrigir((int)admin_param($_POST, 'item_id'), [
                     'estado_conservacao' => admin_param($_POST, 'estado_conservacao'),
@@ -87,10 +105,25 @@ try {
     }
     // Depois da conclusão os itens ficam bloqueados (gatilhos), então os números continuam iguais ao resumo final.
     $resumo = inventario_repo()->resumo($id);
-    $filtro = $filtro ?: ($inv['status'] === 'aberto' ? 'todos' : (($resumo['divergencias_pendentes'] + $resumo['ausentes_pendentes']) > 0 && in_array($inv['status'], ['em_andamento', 'pausado'], true) ? 'pendentes' : 'conferidos'));
+    $emCurso = in_array($inv['status'], ['em_andamento', 'pausado'], true);
+    $filtro = $filtro ?: ($inv['status'] === 'aberto' ? 'todos' : ($emCurso && $resumo['a_conferir'] > 0 ? 'a_conferir'
+        : (($resumo['divergencias_pendentes'] + $resumo['ausentes_pendentes']) > 0 && $emCurso ? 'pendentes' : 'encontrados')));
     $itens = inventario_repo()->itens($id, $filtro, $q, max(1, (int)admin_param($_GET, 'pagina', '1')), 25);
     $estimados = $inv['status'] === 'aberto' ? inventario_repo()->previstosEstimados($inv['setor']) : null;
     $locais = localizacoes_servico()->ativas();
+    // Finalizar estante ou setor: lista os itens ainda pendentes do local escolhido.
+    $fechar = mb_substr(admin_param($_GET, 'fechar'), 0, 200);
+    $fecharLocal = [];
+    if (str_starts_with($fechar, 'local:')) {
+        $fecharLocal = ['localizacao_id' => (int)substr($fechar, 6)];
+    } elseif (str_starts_with($fechar, 'setor:')) {
+        $fecharLocal = ['setor' => substr($fechar, 6)];
+    } elseif (str_starts_with($fechar, 'antiga:')) {
+        $fecharLocal = ['antiga' => substr($fechar, 7)];
+    }
+    $fecharItens = $fecharLocal && $emCurso ? inventario_repo()->itens($id, 'a_conferir', '', 1, 500, $fecharLocal) : null;
+    $setores = $emCurso ? localizacoes_servico()->setores() : [];
+    $locaisAntigos = $emCurso ? inventario_repo()->locaisAntigosPendentes($id) : [];
 } catch (PDOException $e) {
     http_response_code(500);
     admin_pagina_erro('Não foi possível carregar o inventário', fisico_erro_tecnico($e, 'detalhes do inventário'));
@@ -102,6 +135,8 @@ $pode = auth_pode('inventario.gerenciar');
 $transicoes = InventarioService::TRANSICOES[$inv['status']];
 $pendentes = $resumo['divergencias_pendentes'] + $resumo['ausentes_pendentes'];
 $contagens = [
+    'a_conferir' => $resumo['a_conferir'], 'encontrados' => $resumo['encontrados'], 'nao_localizados' => $resumo['nao_localizados'],
+    'com_alertas' => $resumo['com_alertas'], 'sem_codigo' => $resumo['sem_codigo'],
     'pendentes' => $pendentes, 'nao_conferidos' => $resumo['nao_conferidos'], 'conferidos' => $resumo['conferidos'], 'local' => $resumo['local_diferente'],
     'estado' => $resumo['estado_divergente'], 'situacao' => $resumo['situacao_divergente'], 'cadastrados' => $resumo['cadastrados'], 'fora_lista' => $resumo['fora_lista'],
     'em_circulacao' => $resumo['em_circulacao'], 'todos' => $resumo['itens'],
@@ -122,7 +157,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
     </div>
     <div class="adm-page-head__actions">
         <?php if ($inv['status'] === 'em_andamento' && auth_pode('inventario.conferir')): ?>
-            <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-conferencia') . '?id=' . $id) ?>"><?= icon('clipboard-check') ?> Conferir exemplares</a>
+            <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-conferencia') . '?id=' . $id) ?>"><?= icon('clipboard-check') ?> Conferir e corrigir livros</a>
         <?php endif; ?>
         <?php if ($inv['status'] !== 'aberto'): ?>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-relatorio') . '?id=' . $id) ?>"><?= icon('file-chart-column') ?> Relatório</a>
@@ -149,13 +184,72 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
         </div></div>
     </section>
 <?php else: ?>
-    <section class="adm-stats adm-stats--6" aria-label="Números do inventário">
-        <?= fisico_stat('Previstos', $resumo['previstos'], 'Na lista ao iniciar', 'list-checks', 'blue', admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'filtro' => 'todos'])) ?>
-        <?= fisico_stat('Conferidos', $resumo['conferidos'], fisico_numero($resumo['previstos_conferidos']) . ' dos previstos', 'square-check', 'green', admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'filtro' => 'conferidos'])) ?>
-        <?= fisico_stat('Não conferidos', $resumo['nao_conferidos'], fisico_numero($resumo['em_circulacao']) . ' emprestado(s) à parte', 'hourglass', 'amber', admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'filtro' => 'nao_conferidos'])) ?>
-        <?= fisico_stat('Local diferente', $resumo['local_diferente'], 'Encontrados em outra localização', 'arrow-right-left', 'indigo', admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'filtro' => 'local'])) ?>
-        <?= fisico_stat('Estado divergente', $resumo['estado_divergente'], 'Conservação diferente do cadastro', 'wrench', 'red', admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'filtro' => 'estado'])) ?>
-        <?= fisico_stat('Cadastrados no inventário', $resumo['cadastrados'], 'Exemplares novos registrados', 'book-plus', 'teal', admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'filtro' => 'cadastrados'])) ?>
+    <?php $det = fn (string $f) => admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'filtro' => $f]); ?>
+    <section class="adm-card adm-panel adm-progresso-inv" aria-label="Progresso do inventário">
+        <div class="adm-progresso-inv__topo">
+            <strong><?= (int)$resumo['percentual'] ?>% concluído</strong>
+            <span><?= fisico_numero($resumo['encontrados'] + $resumo['nao_localizados']) ?> de <?= fisico_numero($resumo['itens']) ?> itens com resultado · <?= fisico_numero($resumo['divergencias']) ?> divergência(s) · <?= fisico_numero($resumo['cadastrados']) ?> cadastrado(s) na conferência</span>
+        </div>
+        <div class="adm-progress adm-progress--lg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int)$resumo['percentual'] ?>" aria-label="Percentual concluído"><div class="adm-progress__bar adm-progress__bar--ok" style="width: <?= (int)$resumo['percentual'] ?>%"></div></div>
+        <div class="adm-stats adm-stats--6">
+            <?= fisico_stat('Total', $resumo['itens'], 'Itens deste inventário', 'list-checks', 'blue', $det('todos')) ?>
+            <?= fisico_stat('Encontrados', $resumo['encontrados'], fisico_numero($resumo['previstos_conferidos']) . ' dos previstos', 'square-check', 'green', $det('encontrados')) ?>
+            <?= fisico_stat('Pendentes', $resumo['a_conferir'], fisico_numero($resumo['em_circulacao']) . ' emprestado(s) à parte', 'hourglass', 'amber', $det('a_conferir')) ?>
+            <?= fisico_stat('Não localizados', $resumo['nao_localizados'], 'Procurados e não achados', 'book-x', 'red', $det('nao_localizados')) ?>
+            <?= fisico_stat('Com alertas cadastrais', $resumo['com_alertas'], 'Dados a completar ou conferir', 'triangle-alert', 'indigo', $det('com_alertas')) ?>
+            <?= fisico_stat('Sem código BDP', $resumo['sem_codigo'], 'Registros importados a conferir', 'tag', 'teal', $det('sem_codigo')) ?>
+        </div>
+    </section>
+<?php endif; ?>
+
+<?php if ($emCurso && $pode): ?>
+    <section class="adm-card adm-panel" id="fechar" aria-labelledby="titulo-fechar">
+        <div class="adm-panel__header"><div><h2 id="titulo-fechar">Finalizar estante ou setor</h2>
+            <p>Terminou de conferir uma estante ou setor? Escolha o local para ver os livros que continuam pendentes ali. Marque como não localizados só os que você confirmou que não estão lá. Nada muda sem a sua confirmação, e a marcação pode ser desfeita.</p></div></div>
+        <form method="get" action="<?= e(admin_url('inventario-detalhes')) ?>#fechar" class="adm-inline-form">
+            <input type="hidden" name="id" value="<?= $id ?>">
+            <label class="adm-field"><span class="adm-field__sublabel">Local conferido</span>
+                <select class="adm-select" name="fechar" required>
+                    <option value="">Escolha a estante, o setor ou o local antigo...</option>
+                    <?php if ($locais): ?><optgroup label="Estantes e prateleiras cadastradas">
+                        <?php foreach ($locais as $lo): ?><option value="local:<?= (int)$lo['id'] ?>"<?= $fechar === 'local:' . $lo['id'] ? ' selected' : '' ?>><?= e(Biblioteca\Services\ExemplarService::localizacaoTexto($lo)) ?></option><?php endforeach; ?>
+                    </optgroup><?php endif; ?>
+                    <?php if ($setores): ?><optgroup label="Setores inteiros">
+                        <?php foreach ($setores as $st): ?><option value="setor:<?= e($st) ?>"<?= $fechar === 'setor:' . $st ? ' selected' : '' ?>>Setor <?= e($st) ?></option><?php endforeach; ?>
+                    </optgroup><?php endif; ?>
+                    <?php if ($locaisAntigos): ?><optgroup label="Localização antiga (da planilha)">
+                        <?php foreach ($locaisAntigos as $ant => $n): ?><option value="antiga:<?= e((string)$ant) ?>"<?= $fechar === 'antiga:' . $ant ? ' selected' : '' ?>><?= e((string)$ant) ?> (<?= (int)$n ?> pendente(s))</option><?php endforeach; ?>
+                    </optgroup><?php endif; ?>
+                </select></label>
+            <button class="adm-button adm-button--ghost" type="submit"><?= icon('list-checks') ?> Ver pendentes deste local</button>
+        </form>
+        <?php if ($fecharItens !== null): ?>
+            <?php if (!$fecharItens['itens']): ?>
+                <?= admin_aviso('sucesso', 'Nenhum livro pendente neste local.', 'Todos os itens deste local já foram encontrados ou marcados.') ?>
+            <?php else: ?>
+                <form method="post" class="adm-form-section" data-selecao data-confirm="Marcar os livros selecionados como não localizados? A situação dos exemplares não muda e a marcação pode ser desfeita depois.">
+                    <?= csrf_campo() ?><?= $campoVolta() ?><input type="hidden" name="acao" value="marcar_nao_localizados"><input type="hidden" name="fechar" value="<?= e($fechar) ?>">
+                    <div class="adm-selecao-barra"><label><input type="checkbox" data-selecao-todos> Selecionar todos</label><span data-selecao-total></span><span><?= fisico_numero($fecharItens['total']) ?> pendente(s) neste local<?= $fecharItens['total'] > 500 ? ' (mostrando 500)' : '' ?></span></div>
+                    <div class="adm-fechar-estante__lista">
+                        <table class="adm-table">
+                            <thead><tr><th class="adm-check-col" scope="col"><span class="adm-visually-hidden">Selecionar</span></th><th scope="col">Livro</th><th scope="col">Código / origem</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($fecharItens['itens'] as $fi): ?>
+                                    <tr>
+                                        <td class="adm-check-col"><input type="checkbox" name="itens[]" value="<?= (int)$fi['id'] ?>" data-selecao-item aria-label="Selecionar <?= e($fi['titulo']) ?>"<?= $fi['emprestimo_aberto'] ? ' disabled title="Emprestado: fora da estante"' : '' ?>></td>
+                                        <td><strong><?= e($fi['titulo']) ?></strong><small class="adm-block-muted"><?= e($fi['autores'] ?: 'Autor não informado') ?></small></td>
+                                        <td><?= $fi['codigo_individual'] ? '<span class="adm-code">' . e($fi['codigo_individual']) . '</span>' : 'Sem código' ?><?= $fi['origem_linha'] ? '<small class="adm-block-muted">Linha ' . (int)$fi['origem_linha'] . ' da planilha' . ($fi['localizacao_antiga'] ? ' · ' . e($fi['localizacao_antiga']) : '') . '</small>' : '' ?><?= $fi['emprestimo_aberto'] ? '<small class="adm-block-muted">Emprestado</small>' : '' ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <label class="adm-field"><span class="adm-field__sublabel">Observação <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="observacao" maxlength="500" placeholder="Ex.: estante E03 conferida inteira em 13/11"></label>
+                    <label class="adm-check-confirm"><input type="checkbox" name="confirmar" value="1" required> <span>Procurei estes livros no local e confirmo que não estão lá.</span></label>
+                    <button class="adm-button adm-button--primary" type="submit" data-selecao-enviar><?= icon('book-x') ?> Marcar selecionados como não localizados</button>
+                </form>
+            <?php endif; ?>
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 
@@ -185,7 +279,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                         <p>A conclusão grava o resultado e bloqueia o inventário. Só é possível sem pendências.</p>
                         <label class="adm-check-confirm"><input type="checkbox" name="confirmar" value="1" required> <span>Confirmo que a conferência terminou.</span></label>
                         <button class="adm-button adm-button--primary" type="submit"<?= $pendentes ? ' disabled' : '' ?>><?= icon('flag') ?> Concluir</button>
-                        <?php if ($pendentes): ?><p class="adm-field__hint">Trate as pendências primeiro (aba "Pendências").</p><?php endif; ?>
+                        <?php if ($pendentes): ?><p class="adm-field__hint">Trate as pendências primeiro (aba "Decisões necessárias").</p><?php endif; ?>
                     </form>
                 </details>
             <?php endif; ?>
@@ -219,7 +313,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
     <form class="adm-toolbar adm-toolbar--search" method="get" action="<?= e(admin_url('inventario-detalhes')) ?>">
         <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="filtro" value="<?= e($filtro) ?>">
         <label class="adm-field-search adm-toolbar__q"><?= icon('search') ?><span class="adm-visually-hidden">Pesquisar nesta categoria</span>
-            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Código BDP, título ou autor..." autocomplete="off" data-campo-codigo></label>
+            <input type="search" name="q" value="<?= e($q) ?>" placeholder="Código BDP, título, autor ou ISBN..." autocomplete="off" data-campo-codigo></label>
         <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('search') ?> Pesquisar</button>
     </form>
 
@@ -239,7 +333,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
     <div class="adm-table-wrap adm-table-wrap--flush">
         <table class="adm-table adm-table--cards adm-table--inventario">
             <thead>
-                <tr><th scope="col">Exemplar</th><th scope="col">Cadastro</th><th scope="col">Encontrado</th><th scope="col">Situação</th><?php if ($aberto && $pode): ?><th scope="col" class="adm-actions-col">Decisão</th><?php endif; ?></tr>
+                <tr><th scope="col">Exemplar ou registro</th><th scope="col">Cadastro</th><th scope="col">Encontrado</th><th scope="col">Situação</th><?php if ($aberto && $pode): ?><th scope="col" class="adm-actions-col">Decisão</th><?php endif; ?></tr>
             </thead>
             <tbody>
                 <?php foreach ($itens['itens'] as $it): ?>
@@ -247,19 +341,23 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                     [$rotulo, $tom] = inventario_item_situacao($it);
                     $divs = inventario_divergencias($it);
                     $podeDecidirDiv = $it['conferido_em'] !== null && $divs && $it['decisao'] === null;
-                    $podeDecidirAus = $it['conferido_em'] === null && (int)$it['previsto'] && !$it['emprestimo_aberto'] && $it['decisao'] === null;
+                    $podeDecidirAus = $it['conferido_em'] === null && (int)$it['previsto'] && !$it['emprestimo_aberto'] && $it['decisao'] === null && $it['nao_localizado_em'] === null;
+                    $semExemplar = $it['exemplar_id'] === null;
                     ?>
                     <tr>
-                        <td class="adm-td-title"><a class="adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$it['exemplar_id']) ?>"><?= e($it['codigo_individual']) ?></a>
-                            <small class="adm-block-muted adm-td-livro"><strong><?= e($it['titulo']) ?></strong> · <?= e($it['autores'] ?: 'Autor não informado') ?></small>
+                        <td class="adm-td-title"><?php if ($it['exemplar_id'] !== null): ?><a class="adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$it['exemplar_id']) ?>"><?= e($it['codigo_individual']) ?></a>
+                            <?php else: ?><a class="adm-link" href="<?= e(admin_url('inventario-conferencia') . '?id=' . $id . '&item=' . (int)$it['id']) ?>#registro"><?= icon('file-spreadsheet') ?> <?= $it['origem_linha'] ? 'Linha ' . (int)$it['origem_linha'] . ' da planilha' : 'Sem código BDP' ?></a><?php endif; ?>
+                            <small class="adm-block-muted adm-td-livro"><strong><?= e($it['titulo']) ?></strong> · <?= e($it['autores'] ?: 'Autor não informado') ?><?= (int)$it['alertas'] ? ' · <span class="adm-status adm-tone--indigo">' . (int)$it['alertas'] . ' alerta(s)</span>' : '' ?></small>
+                            <?php if ($it['localizacao_antiga']): ?><small class="adm-table__muted">Local antigo: <?= e($it['localizacao_antiga']) ?></small><?php endif; ?>
                             <?php if (!(int)$it['previsto']): ?><small class="adm-table__muted"><?= (int)$it['cadastrado_no_inventario'] ? 'cadastrado na conferência' : 'fora da lista prevista' ?></small><?php endif; ?></td>
-                        <td data-label="Cadastro"><?= e(fisico_local($it, 'atual_')) ?><small class="adm-block-muted"><?= e(ACERVO_CONSERVACAO[$it['estado_conservacao']] ?? $it['estado_conservacao']) ?> · <?= e(Biblioteca\Services\ExemplarService::rotuloSituacao($it['situacao'])) ?></small></td>
+                        <td data-label="Cadastro"><?php if ($it['exemplar_id'] !== null): ?><?= e(fisico_local($it, 'atual_')) ?><small class="adm-block-muted"><?= e(ACERVO_CONSERVACAO[$it['estado_conservacao']] ?? $it['estado_conservacao']) ?> · <?= e(Biblioteca\Services\ExemplarService::rotuloSituacao($it['situacao'])) ?></small><?php else: ?><span class="adm-missing">Ainda sem exemplar</span><?php endif; ?></td>
                         <td data-label="Encontrado">
                             <?php if ($it['conferido_em']): ?>
                                 <?= e(fisico_local($it, 'encontrada_')) ?><small class="adm-block-muted"><?= e(ACERVO_CONSERVACAO[$it['estado_encontrado']] ?? '') ?> · <?= admin_data_hora($it['conferido_em']) ?><?= $it['conferido_por_nome'] ? ' · ' . e($it['conferido_por_nome']) : '' ?></small>
                                 <?php if ($it['observacao']): ?><small class="adm-block-muted"><?= icon('message-square-text') ?> <?= e($it['observacao']) ?></small><?php endif; ?>
                                 <?php if ((int)$it['correcoes']): ?><small class="adm-block-muted">Corrigido <?= (int)$it['correcoes'] ?> vez(es)</small><?php endif; ?>
-                            <?php else: ?><span class="adm-missing">Não conferido</span><?php endif; ?>
+                            <?php elseif ($it['nao_localizado_em']): ?><span class="adm-missing">Não localizado</span><small class="adm-block-muted"><?= admin_data_hora($it['nao_localizado_em']) ?><?= $it['nao_localizado_por_nome'] ? ' · ' . e($it['nao_localizado_por_nome']) : '' ?><?= $it['nao_localizado_obs'] ? ' · ' . e($it['nao_localizado_obs']) : '' ?></small>
+                            <?php else: ?><span class="adm-missing">Pendente</span><?php endif; ?>
                         </td>
                         <td data-label="Situação">
                             <span class="adm-status adm-tone--<?= $tom ?>"><?= e($rotulo) ?></span>
@@ -271,10 +369,10 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                                 <?php if ($podeDecidirDiv || $podeDecidirAus): ?>
                                     <form method="post" class="adm-decisao">
                                         <?= csrf_campo() ?><?= $campoVolta() ?><input type="hidden" name="acao" value="decidir"><input type="hidden" name="item_id" value="<?= (int)$it['id'] ?>">
-                                        <label class="adm-visually-hidden" for="decisao-<?= (int)$it['id'] ?>">Decisão para <?= e($it['codigo_individual']) ?></label>
+                                        <label class="adm-visually-hidden" for="decisao-<?= (int)$it['id'] ?>">Decisão para <?= e($it['codigo_individual'] ?? $it['titulo']) ?></label>
                                         <select class="adm-select adm-select--sm" name="decisao" id="decisao-<?= (int)$it['id'] ?>" required>
                                             <option value="">Escolha...</option>
-                                            <?php foreach ($podeDecidirDiv ? ['atualizar_cadastro', 'manter_cadastro'] : ['manter_sem_alteracao', 'registrar_extravio'] as $dec): ?>
+                                            <?php foreach ($podeDecidirDiv ? ['atualizar_cadastro', 'manter_cadastro'] : ($semExemplar ? ['manter_sem_alteracao'] : ['manter_sem_alteracao', 'registrar_extravio']) as $dec): ?>
                                                 <?php if ($dec === 'atualizar_cadastro' && (int)$it['divergencia_situacao'] && ($it['emprestimo_aberto'] || in_array($it['situacao'], ['emprestado', 'baixado'], true))) { continue; } ?>
                                                 <option value="<?= $dec ?>"><?= e(InventarioService::DECISOES[$dec]) ?></option>
                                             <?php endforeach; ?>
@@ -282,6 +380,22 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                                         <input class="adm-input adm-input--sm" name="observacao" maxlength="500" placeholder="Observação (opcional)" aria-label="Observação da decisão">
                                         <button class="adm-button adm-button--primary adm-button--sm" type="submit"<?= $podeDecidirAus ? '' : '' ?>><?= icon('check') ?> Registrar</button>
                                     </form>
+                                <?php endif; ?>
+                                <?php if ($it['nao_localizado_em'] !== null && $it['decisao'] === null): ?>
+                                    <form method="post" class="adm-inline-form">
+                                        <?= csrf_campo() ?><?= $campoVolta() ?><input type="hidden" name="acao" value="voltar_pendente"><input type="hidden" name="item_id" value="<?= (int)$it['id'] ?>">
+                                        <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('rotate-ccw') ?> Voltar para pendente</button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($it['conferido_em'] !== null && $it['decisao'] === null): ?>
+                                    <details class="adm-acao adm-acao--mini">
+                                        <summary class="adm-link"><?= icon('rotate-ccw') ?> Desfazer “Encontrado”</summary>
+                                        <form method="post" class="adm-acao__form" data-confirm="Voltar este item para Pendente? O exemplar e o código BDP continuam cadastrados.">
+                                            <?= csrf_campo() ?><?= $campoVolta() ?><input type="hidden" name="acao" value="voltar_pendente"><input type="hidden" name="item_id" value="<?= (int)$it['id'] ?>">
+                                            <label class="adm-field"><span class="adm-field__sublabel">Motivo *</span><input class="adm-input" name="motivo" maxlength="500" required placeholder="Ex.: marcado no livro errado"></label>
+                                            <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('rotate-ccw') ?> Voltar para pendente</button>
+                                        </form>
+                                    </details>
                                 <?php endif; ?>
                                 <?php if ($it['conferido_em'] !== null): ?>
                                     <details class="adm-acao adm-acao--mini">
@@ -302,7 +416,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                 <?php endforeach; ?>
                 <?php if (!$itens['itens']): ?>
                     <tr><td colspan="5"><div class="adm-empty"><?= icon('list-checks') ?>
-                        <strong><?= $q !== '' ? 'Nenhum exemplar encontrado nesta categoria' : ($filtro === 'pendentes' ? 'Nenhuma pendência' : 'Nenhum exemplar nesta categoria') ?></strong>
+                        <strong><?= $q !== '' ? 'Nenhum item encontrado nesta categoria' : ($filtro === 'pendentes' ? 'Nenhuma decisão necessária' : 'Nenhum item nesta categoria') ?></strong>
                         <span><?= $filtro === 'pendentes' ? 'Todas as divergências e ausências já têm decisão.' : 'Os exemplares aparecem aqui conforme a conferência avança.' ?></span>
                     </div></td></tr>
                 <?php endif; ?>

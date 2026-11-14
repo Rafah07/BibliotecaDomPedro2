@@ -47,10 +47,14 @@ function upload_enviar(array $usuario): never
 
     $hash = hash_file('sha256', $arquivo['tmp_name']);
     $repo = importacao_repo();
-    if ($existente = $repo->buscarPorArquivo($hash)) {
+    // Mesmo arquivo de novo: aviso com confirmação, nunca bloqueio. Nada é mesclado nem apagado.
+    $existente = $repo->buscarPorArquivo($hash);
+    $confirmouRepeticao = ($_POST['confirmar_repeticao'] ?? '') === '1';
+    if ($existente && !$confirmouRepeticao) {
         api_resposta([
             'ok' => false,
-            'erro' => 'Este arquivo já foi enviado em ' . importacao_data($existente['criado_em']) . ' (importação nº ' . $existente['id'] . ', ' . mb_strtolower(IMPORTACAO_STATUS[$existente['status']]['label']) . '). Abra a importação existente em vez de repetir o envio.',
+            'repetido' => true,
+            'erro' => 'Este arquivo já foi enviado em ' . importacao_data($existente['criado_em']) . ' (importação nº ' . $existente['id'] . ', ' . mb_strtolower(IMPORTACAO_STATUS[$existente['status']]['label']) . '). Você pode abrir a importação existente ou enviar de novo: os registros não serão mesclados nem apagados.',
             'importacao_existente' => (int)$existente['id'],
             'url' => admin_url('detalhes-importacao') . '?id=' . $existente['id'],
         ], 409);
@@ -84,12 +88,11 @@ function upload_enviar(array $usuario): never
             'aba' => $abaInicial,
             'usuario_id' => $usuario['id'],
             'total_linhas' => 0,
+            'repete_importacao_id' => $existente ? (int)$existente['id'] : null,
+            'repeticao_confirmada_por' => $existente ? $usuario['id'] : null,
         ]);
     } catch (PDOException $e) {
         @unlink($destino);
-        if ((int)($e->errorInfo[1] ?? 0) === 1062) {
-            api_resposta(['ok' => false, 'erro' => 'Este arquivo já foi enviado por outra pessoa agora há pouco.'], 409);
-        }
         throw $e;
     } catch (Throwable $e) {
         @unlink($destino);

@@ -40,7 +40,7 @@ if (($capaLivro['titulo'] ?? '') === '') {
         <div class="adm-notice adm-notice--amber" role="alert">
             <?= icon('copy') ?>
             <div class="adm-notice__content">
-                <strong>Já existe<?= count($duplicados) > 1 ? 'm livros' : ' um livro' ?> com este mesmo título.</strong>
+                <strong>Já existe<?= count($duplicados) > 1 ? 'm livros' : ' um livro' ?> com este mesmo título ou ISBN.</strong>
                 <p>Confira se não é o mesmo registro antes de salvar. Títulos iguais são permitidos quando se trata de outra edição.</p>
                 <ul class="adm-dupe-list">
                     <?php foreach ($duplicados as $d): ?>

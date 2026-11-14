@@ -9,10 +9,14 @@ use Biblioteca\Support\Texto;
  * Mapeamento, normalização e validação das linhas das planilhas.
  *
  * Tudo aqui é "puro" (não acessa o banco): recebe dados e devolve resultados.
- * Os problemas encontrados têm três níveis:
- *   erro   — a linha não pode ser importada sem correção;
- *   aviso  — pode ser importada, mas merece atenção;
- *   info   — só informação (ex.: espaços removidos, CDD antiga fora do padrão).
+ *
+ * Regra da importação (migração 110): NENHUM problema impede gravar a linha. Os problemas
+ * viram alertas cadastrais do livro, conferidos depois no Inventário. Cada problema tem:
+ *   nivel — aviso (vira pendência), duplicidade (vira pendência) ou info (só informação);
+ *   tipo  — incompleto (falta título ou autor, ou a linha não tem dados bibliográficos),
+ *           inconsistencia (valor que parece errado: ISBN, ano, quantidade, colunas trocadas,
+ *           texto longo demais) ou duplicidade.
+ * O nível "erro" não é mais gerado; ele só aparece em importações antigas, antes da migração 110.
  * Duplicidades são tratadas à parte (analisarDuplicidades), porque dependem das outras linhas.
  */
 final class ImportValidationService
@@ -138,9 +142,8 @@ final class ImportValidationService
             }
             $contagem[$campo] = ($contagem[$campo] ?? 0) + 1;
         }
-        if (empty($contagem['titulo'])) {
-            $erros[] = 'Escolha a coluna que contém o título do livro.';
-        }
+        // Nenhum campo é obrigatório: sem a coluna do título, os livros entram "sem título"
+        // e ficam com o alerta para a conferência no Inventário (a tela avisa antes de analisar).
         foreach ($contagem as $campo => $n) {
             if ($n > 1 && !in_array($campo, ['ignorar', 'extra', 'observacoes'], true)) {
                 $erros[] = 'O campo "' . self::CAMPOS[$campo]['label'] . '" foi escolhido para mais de uma coluna.';
@@ -249,82 +252,98 @@ final class ImportValidationService
     // Validação de uma linha
     // ---------------------------------------------------------------
 
+    /** Campos bibliográficos: se todos estiverem vazios, a linha é registrada como incompleta. */
+    public const CAMPOS_BIBLIOGRAFICOS = ['titulo', 'subtitulo', 'autor', 'isbn_informado', 'editora', 'ano_informado', 'edicao'];
+
     /**
-     * @return array<int, array{nivel: string, codigo: string, campo: ?string, mensagem: string}>
+     * Problemas da linha. Nenhum deles impede a importação: todos viram pendências para a revisão.
+     * @return array<int, array{nivel: string, tipo: string, codigo: string, campo: ?string, mensagem: string}>
      */
     public function validarLinha(array $n): array
     {
         $p = [];
-        $add = function (string $nivel, string $codigo, ?string $campo, string $mensagem) use (&$p) {
-            $p[] = ['nivel' => $nivel, 'codigo' => $codigo, 'campo' => $campo, 'mensagem' => $mensagem];
+        $add = function (string $tipo, string $codigo, ?string $campo, string $mensagem, string $nivel = 'aviso') use (&$p) {
+            $p[] = ['nivel' => $nivel, 'tipo' => $tipo, 'codigo' => $codigo, 'campo' => $campo, 'mensagem' => $mensagem];
         };
         $rotulo = fn (string $campo) => self::CAMPOS[$campo]['label'] ?? $campo;
 
-        // Campos obrigatórios / identificação da obra
-        if ($n['titulo'] === null) {
-            if ($n['autor'] === null && $n['isbn'] === null) {
-                $add('erro', 'dados_insuficientes', 'titulo', 'Linha sem título, autor ou ISBN: não há dados suficientes para identificar a obra.');
-            } else {
-                $add('erro', 'sem_titulo', 'titulo', 'Título não informado.');
+        // Informações ausentes (incompleto)
+        $semDados = true;
+        foreach (self::CAMPOS_BIBLIOGRAFICOS as $campo) {
+            if (($n[$campo] ?? null) !== null) {
+                $semDados = false;
+                break;
             }
-        } elseif (mb_strlen($n['titulo']) < 2) {
-            $add('erro', 'titulo_insuficiente', 'titulo', 'Título curto demais para identificar a obra.');
-        } elseif (Isbn::pareceIsbn($n['titulo'])) {
-            $add('aviso', 'valores_trocados', 'titulo', 'O título parece ser um ISBN. Confira se as colunas foram trocadas.');
-        } elseif (preg_match('/^[\d\s.,\-\/]+$/u', $n['titulo'])) {
-            $add('aviso', 'titulo_numerico', 'titulo', 'O título contém apenas números. Confira se a coluna está correta.');
+        }
+        if ($semDados) {
+            $add('incompleto', 'sem_dados_bibliograficos', 'titulo', 'Linha sem título, autor, ISBN, editora ou ano. Foi importada assim mesmo: identifique o livro na conferência física.');
+        } elseif ($n['titulo'] === null) {
+            $add('incompleto', 'sem_titulo', 'titulo', 'Título não informado.');
+        }
+        if (!$semDados && $n['autor'] === null) {
+            $add('incompleto', 'sem_autor', 'autor', 'Autor não informado.');
         }
 
-        if ($n['autor'] === null) {
-            $add('aviso', 'sem_autor', 'autor', 'Autor não informado (registro incompleto).');
-        } elseif (Isbn::pareceIsbn($n['autor']) || preg_match('/^[\d\s.,\-\/]+$/u', $n['autor'])) {
-            $add('aviso', 'valores_trocados', 'autor', 'O autor contém apenas números. Confira se as colunas foram trocadas.');
-        } elseif ($n['titulo'] !== null && Texto::chave($n['autor']) === Texto::chave($n['titulo'])) {
-            $add('aviso', 'valores_trocados', 'autor', 'Título e autor estão iguais. Confira se as colunas foram trocadas.');
+        // Valores que parecem errados (inconsistência)
+        if ($n['titulo'] !== null) {
+            if (mb_strlen($n['titulo']) < 2) {
+                $add('inconsistencia', 'titulo_insuficiente', 'titulo', 'Título curto demais ("' . $n['titulo'] . '"). Confira no livro.');
+            } elseif (Isbn::pareceIsbn($n['titulo'])) {
+                $add('inconsistencia', 'valores_trocados', 'titulo', 'O título parece ser um ISBN. Confira se as colunas foram trocadas.');
+            } elseif (preg_match('/^[\d\s.,\-\/]+$/u', $n['titulo'])) {
+                $add('inconsistencia', 'titulo_numerico', 'titulo', 'O título contém apenas números. Confira se a coluna está correta.');
+            }
+        }
+        if ($n['autor'] !== null) {
+            if (Isbn::pareceIsbn($n['autor']) || preg_match('/^[\d\s.,\-\/]+$/u', $n['autor'])) {
+                $add('inconsistencia', 'valores_trocados', 'autor', 'O autor contém apenas números. Confira se as colunas foram trocadas.');
+            } elseif ($n['titulo'] !== null && Texto::chave($n['autor']) === Texto::chave($n['titulo'])) {
+                $add('inconsistencia', 'valores_trocados', 'autor', 'Título e autor estão iguais. Confira se as colunas foram trocadas.');
+            }
         }
 
-        // ISBN (não obrigatório: livros antigos podem não ter)
+        // ISBN: não é obrigatório (livros antigos podem não ter). Inválido não impede a importação:
+        // o texto original fica guardado no livro (isbn_original) para a conferência.
         if ($n['isbn_informado'] !== null && !Isbn::valido($n['isbn'])) {
-            $add('erro', 'isbn_invalido', 'isbn', 'ISBN inválido: "' . $n['isbn_informado'] . '". Confira os dígitos ou deixe o campo vazio.');
+            $add('inconsistencia', 'isbn_invalido', 'isbn', 'ISBN inválido ou incompleto: "' . $n['isbn_informado'] . '". Foi guardado como veio; confira na contracapa do livro.');
         }
 
-        // Ano
         $anoMax = (int)date('Y') + 1;
         if ($n['ano_informado'] !== null && ($n['ano_publicacao'] === null || $n['ano_publicacao'] < 1450 || $n['ano_publicacao'] > $anoMax)) {
-            $add('aviso', 'ano_invalido', 'ano_publicacao', 'Ano inválido: "' . $n['ano_informado'] . '". O ano não será gravado.');
+            $add('inconsistencia', 'ano_invalido', 'ano_publicacao', 'Ano inválido: "' . $n['ano_informado'] . '". O valor original fica guardado; confira no livro.');
         }
 
         // Quantidade (apenas referência; não gera exemplares)
         if ($n['quantidade_texto'] !== null) {
             if ($n['quantidade_informada'] === null) {
-                $add('erro', 'quantidade_invalida', 'quantidade_informada', 'Quantidade inválida: "' . $n['quantidade_texto'] . '". Use um número inteiro.');
+                $add('inconsistencia', 'quantidade_invalida', 'quantidade_informada', 'Quantidade inválida: "' . $n['quantidade_texto'] . '".');
             } elseif ($n['quantidade_informada'] < 0) {
-                $add('erro', 'quantidade_negativa', 'quantidade_informada', 'Quantidade negativa: ' . $n['quantidade_informada'] . '.');
+                $add('inconsistencia', 'quantidade_negativa', 'quantidade_informada', 'Quantidade negativa: ' . $n['quantidade_informada'] . '.');
             } elseif ($n['quantidade_informada'] === 0) {
-                $add('aviso', 'quantidade_zero', 'quantidade_informada', 'Quantidade informada igual a zero.');
+                $add('inconsistencia', 'quantidade_zero', 'quantidade_informada', 'Quantidade informada igual a zero.');
             } elseif ($n['quantidade_informada'] > 200) {
-                $add('aviso', 'quantidade_alta', 'quantidade_informada', 'Quantidade muito alta (' . $n['quantidade_informada'] . '). Confira se não é outro número.');
+                $add('inconsistencia', 'quantidade_alta', 'quantidade_informada', 'Quantidade muito alta (' . $n['quantidade_informada'] . '). Confira se não é outro número.');
             }
         }
 
-        // CDD antiga: nunca impede a importação
+        // CDD antiga: nunca é pendência (será revista na reclassificação)
         if ($n['cdd_original'] !== null) {
             if (Isbn::pareceIsbn($n['cdd_original'])) {
-                $add('aviso', 'valores_trocados', 'cdd_original', 'A CDD antiga parece ser um ISBN. Confira se as colunas foram trocadas.');
+                $add('inconsistencia', 'valores_trocados', 'cdd_original', 'A CDD antiga parece ser um ISBN. Confira se as colunas foram trocadas.');
             } elseif (!preg_match('/^\d{3}(\.\d+)?$/', $n['cdd_original'])) {
-                $add('info', 'cdd_fora_padrao', 'cdd_original', 'CDD antiga fora do padrão ("' . $n['cdd_original'] . '"). Será revista na reclassificação.');
+                $add('outro', 'cdd_fora_padrao', 'cdd_original', 'CDD antiga fora do padrão ("' . $n['cdd_original'] . '"). Será revista na reclassificação.', 'info');
             }
         }
 
         if ($n['editora'] !== null && preg_match('/^[\d\s.,\-\/]+$/u', $n['editora'])) {
-            $add('aviso', 'valores_trocados', 'editora', 'A editora contém apenas números. Confira se as colunas foram trocadas.');
+            $add('inconsistencia', 'valores_trocados', 'editora', 'A editora contém apenas números. Confira se as colunas foram trocadas.');
         }
 
         foreach ($n['_excede'] ?? [] as $campo) {
-            $add('erro', 'texto_longo', $campo, $rotulo($campo) . ' passa do limite de ' . self::LIMITES[$campo] . ' caracteres.');
+            $add('inconsistencia', 'texto_longo', $campo, $rotulo($campo) . ' passa do limite de ' . self::LIMITES[$campo] . ' caracteres. O livro recebe o início do texto; o texto completo fica guardado nos dados originais.');
         }
         if ($n['_limpezas']) {
-            $add('info', 'texto_limpo', null, 'Espaços e caracteres desnecessários removidos em: ' . implode(', ', array_map($rotulo, $n['_limpezas'])) . '.');
+            $add('outro', 'texto_limpo', null, 'Espaços e caracteres desnecessários removidos em: ' . implode(', ', array_map($rotulo, $n['_limpezas'])) . '.', 'info');
         }
         return $p;
     }
@@ -365,14 +384,14 @@ final class ImportValidationService
             $id = $item['id'];
             $r = ['problemas' => [], 'ja_cadastrado' => false, 'livro_sugerido_id' => null, 'linha_relacionada' => null];
             $dup = function (string $codigo, string $mensagem, ?int $linha = null) use (&$r) {
-                $r['problemas'][] = ['nivel' => 'duplicidade', 'codigo' => $codigo, 'campo' => null, 'mensagem' => $mensagem, 'linha_relacionada' => $linha];
+                $r['problemas'][] = ['nivel' => 'duplicidade', 'tipo' => 'duplicidade', 'codigo' => $codigo, 'campo' => null, 'mensagem' => $mensagem, 'linha_relacionada' => $linha];
                 $r['linha_relacionada'] ??= $linha;
             };
 
             // Na própria planilha
             if (isset($primeiroHash[$item['hash']])) {
                 $origem = $primeiroHash[$item['hash']];
-                $dup('linha_identica', 'Registro idêntico à linha ' . $origem['linha'] . '. Pode ser outro exemplar ou uma repetição.', $origem['linha']);
+                $dup('linha_identica', 'Registro idêntico à linha ' . $origem['linha'] . '. Pode ser outro exemplar ou uma repetição: os dois foram importados e serão conferidos na revisão.', $origem['linha']);
                 $copias[$origem['id']][] = $item['linha'];
             } else {
                 $primeiroHash[$item['hash']] = $item;
@@ -382,7 +401,7 @@ final class ImportValidationService
                 } elseif ($item['obra'] !== null && isset($primeiraObra[$item['obra']])) {
                     $origem = $primeiraObra[$item['obra']];
                     if ($item['isbn'] !== null && $origem['isbn'] !== null && $item['isbn'] !== $origem['isbn']) {
-                        $r['problemas'][] = ['nivel' => 'info', 'codigo' => 'outra_edicao', 'campo' => null, 'mensagem' => 'Mesmo título e autor da linha ' . $origem['linha'] . ', mas com outro ISBN (provavelmente outra edição).', 'linha_relacionada' => $origem['linha']];
+                        $r['problemas'][] = ['nivel' => 'info', 'tipo' => 'outro', 'codigo' => 'outra_edicao', 'campo' => null, 'mensagem' => 'Mesmo título e autor da linha ' . $origem['linha'] . ', mas com outro ISBN (provavelmente outra edição).', 'linha_relacionada' => $origem['linha']];
                     } else {
                         $dup('obra_semelhante', 'Título e autor semelhantes aos da linha ' . $origem['linha'] . '.', $origem['linha']);
                     }
@@ -416,12 +435,15 @@ final class ImportValidationService
             $res[$id] = $r;
         }
         foreach ($copias as $id => $linhas) {
-            $res[$id]['problemas'][] = ['nivel' => 'info', 'codigo' => 'possui_copias', 'campo' => null, 'mensagem' => 'Esta linha se repete de forma idêntica nas linhas ' . implode(', ', $linhas) . '.', 'linha_relacionada' => null];
+            $res[$id]['problemas'][] = ['nivel' => 'info', 'tipo' => 'outro', 'codigo' => 'possui_copias', 'campo' => null, 'mensagem' => 'Esta linha se repete de forma idêntica nas linhas ' . implode(', ', $linhas) . '.', 'linha_relacionada' => null];
         }
         return $res;
     }
 
-    /** Situação final da linha a partir dos problemas: erro > duplicidade > aviso > válido. */
+    /**
+     * Situação final da linha a partir dos problemas: duplicidade > aviso > válido ("sem alertas").
+     * "erro" só existe em importações anteriores à migração 110 (nenhuma regra gera mais esse nível).
+     */
     public static function situacao(array $problemas): string
     {
         $niveis = array_column($problemas, 'nivel');

@@ -27,9 +27,9 @@ const IMPORTACAO_STATUS = [
 ];
 
 const IMPORTACAO_SITUACOES = [
-    'valido' => ['label' => 'Válido', 'tom' => 'green', 'icone' => 'circle-check'],
-    'aviso' => ['label' => 'Aviso', 'tom' => 'amber', 'icone' => 'triangle-alert'],
-    'erro' => ['label' => 'Erro', 'tom' => 'red', 'icone' => 'circle-alert'],
+    'valido' => ['label' => 'Sem alertas', 'tom' => 'green', 'icone' => 'circle-check'],
+    'aviso' => ['label' => 'Com alerta', 'tom' => 'amber', 'icone' => 'triangle-alert'],
+    'erro' => ['label' => 'Erro (importação antiga)', 'tom' => 'red', 'icone' => 'circle-alert'],
     'duplicidade' => ['label' => 'Possível duplicidade', 'tom' => 'indigo', 'icone' => 'copy'],
 ];
 
@@ -159,10 +159,10 @@ function importacao_tamanho(int $bytes): string
     return number_format($bytes / 1048576, 1, ',', '.') . ' MB';
 }
 
-/** Etapas do assistente: 1. Enviar → 2. Mapear → 3. Validar → 4. Revisar → 5. Confirmar → 6. Concluir */
+/** Etapas do assistente: 1. Enviar → 2. Mapear → 3. Analisar → 4. Pré-visualizar → 5. Importar todos → 6. Revisar no inventário */
 function importacao_etapas(int $atual): string
 {
-    $etapas = ['Enviar arquivo', 'Mapear colunas', 'Validar', 'Revisar', 'Confirmar', 'Concluir'];
+    $etapas = ['Enviar arquivo', 'Mapear colunas', 'Analisar', 'Pré-visualizar', 'Importar todos', 'Revisar no inventário'];
     $html = '<ol class="adm-imp-steps" aria-label="Etapas da importação">';
     foreach ($etapas as $i => $nome) {
         $n = $i + 1;

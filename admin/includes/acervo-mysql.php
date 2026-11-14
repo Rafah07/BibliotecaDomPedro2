@@ -50,7 +50,7 @@ function acervo_mysql_dados(): array
         $id = (int)$l['id'];
         $livros[$id] = [
             'id' => $id,
-            'titulo' => $l['titulo'],
+            'titulo' => $l['titulo'] ?? 'Sem título (a conferir)', // importado sem título: nada é inventado no banco
             'subtitulo' => (string)$l['subtitulo'],
             'autores' => $autoresPorLivro[$id] ?? [],
             'categorias' => $categoriasPorLivro[$id] ?? [],

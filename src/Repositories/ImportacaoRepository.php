@@ -12,7 +12,13 @@ use RuntimeException;
 
 /**
  * Acesso ao MySQL do módulo de importação.
- * Todas as consultas são preparadas. As gravações no acervo acontecem só em confirmarLote().
+ * Todas as consultas são preparadas. As gravações no acervo acontecem em importarTodos()
+ * (uma única transação: ou a planilha inteira entra, ou nada entra) e, nas importações
+ * antigas que estavam "Gravando no acervo", em confirmarLote().
+ *
+ * Desde a migração 110 nenhuma linha é barrada por falta de dados ou por valores errados:
+ * os alertas viram alertas cadastrais do livro (livro_pendencias) e cada linha gravada entra
+ * como item "Pendente" do inventário em andamento, para a conferência física.
  */
 final class ImportacaoRepository
 {
@@ -45,23 +51,67 @@ final class ImportacaoRepository
         return $linha;
     }
 
-    /** Importação ativa (não cancelada) com o mesmo conteúdo de arquivo. */
-    public function buscarPorArquivo(string $hash): ?array
+    /**
+     * Importação anterior com o mesmo arquivo (mesmo SHA-256), que não foi cancelada antes de gravar.
+     * Enviar o mesmo arquivo de novo é permitido, mas só depois de a pessoa confirmar o aviso.
+     */
+    public function buscarPorArquivo(string $hash, ?int $ignorarId = null): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, nome_arquivo, status, criado_em FROM importacoes WHERE arquivo_ativo = ?');
-        $stmt->execute([$hash]);
+        $stmt = $this->pdo->prepare('SELECT id, nome_arquivo, status, criado_em, total_importados + total_vinculados AS gravados
+                                     FROM importacoes WHERE arquivo_ativo = ? AND id <> ? ORDER BY id DESC LIMIT 1');
+        $stmt->execute([$hash, $ignorarId ?? 0]);
         return $stmt->fetch() ?: null;
+    }
+
+    /**
+     * Sinais de que esta importação repete outra: mesmo arquivo, mesmo conteúdo (outro arquivo com
+     * as mesmas linhas) ou linhas idênticas a linhas já gravadas por importações anteriores.
+     * Exemplares diferentes da mesma obra NÃO entram aqui: só linhas inteiras iguais, de OUTRA importação.
+     * @return array{repetida: bool, arquivo: ?array, conteudo: ?array, linhas_ja_importadas: int, confirmada_em: ?string}
+     */
+    public function repeticoes(int $id): array
+    {
+        $imp = $this->buscar($id);
+        if (!$imp) {
+            return ['repetida' => false, 'arquivo' => null, 'conteudo' => null, 'linhas_ja_importadas' => 0, 'confirmada_em' => null];
+        }
+        $arquivo = $this->buscarPorArquivo($imp['identificador_arquivo'], $id);
+        $conteudo = null;
+        if ($imp['hash_conteudo']) {
+            $stmt = $this->pdo->prepare("SELECT id, nome_arquivo, status, criado_em FROM importacoes
+                                         WHERE hash_conteudo = ? AND id <> ? AND (status NOT IN ('cancelada', 'falhou') OR total_importados + total_vinculados > 0)
+                                         ORDER BY id DESC LIMIT 1");
+            $stmt->execute([$imp['hash_conteudo'], $id]);
+            $conteudo = $stmt->fetch() ?: null;
+        }
+        $linhas = (int)$this->valor(
+            "SELECT COUNT(*) FROM importacao_itens it
+             WHERE it.importacao_id = ? AND it.processado_em IS NULL
+               AND EXISTS (SELECT 1 FROM importacao_itens o WHERE o.hash_linha = it.hash_linha AND o.importacao_id <> it.importacao_id
+                           AND o.resultado_importacao IN ('criado', 'vinculado', 'outro_exemplar'))",
+            [$id]
+        );
+        return [
+            'repetida' => $arquivo !== null || $conteudo !== null || $linhas > 0,
+            'arquivo' => $arquivo,
+            'conteudo' => $conteudo,
+            'linhas_ja_importadas' => $linhas,
+            'confirmada_em' => $imp['repeticao_confirmada_em'],
+        ];
     }
 
     public function criar(array $dados): int
     {
         $stmt = $this->pdo->prepare(
-            'INSERT INTO importacoes (nome_arquivo, identificador_arquivo, arquivo_armazenado, tipo_arquivo, tamanho_bytes, abas_json, aba, usuario_id, total_linhas)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO importacoes (nome_arquivo, identificador_arquivo, arquivo_armazenado, tipo_arquivo, tamanho_bytes, abas_json, aba, usuario_id, total_linhas,
+                                      repete_importacao_id, repeticao_confirmada_em, repeticao_confirmada_por)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
+        $repete = $dados['repete_importacao_id'] ?? null;
         $stmt->execute([
             mb_substr($dados['nome_arquivo'], 0, 255), $dados['identificador_arquivo'], $dados['arquivo_armazenado'], $dados['tipo_arquivo'],
             $dados['tamanho_bytes'], json_encode($dados['abas'], JSON_UNESCAPED_UNICODE), $dados['aba'], $dados['usuario_id'], $dados['total_linhas'],
+            $repete, $repete ? date('Y-m-d H:i:s') : null, $repete ? $dados['usuario_id'] : null,
         ]);
         return (int)$this->pdo->lastInsertId();
     }
@@ -94,19 +144,19 @@ final class ImportacaoRepository
                     COALESCE(SUM(total_importados + total_vinculados), 0) AS importados
              FROM importacoes WHERE status <> 'enviada'"
         )->fetch();
-        $itens = $this->pdo->query(
-            "SELECT COALESCE(SUM(it.processado_em IS NULL AND (it.acao_importacao IS NULL OR it.acao_importacao = 'revisar_depois') AND it.status_validacao <> 'erro'), 0) AS pendencias,
-                    COALESCE(SUM((it.status_validacao = 'erro' AND it.processado_em IS NULL AND COALESCE(it.acao_importacao, '') <> 'ignorar')
-                                 OR it.resultado_importacao = 'falhou'), 0) AS erros
-             FROM importacao_itens it
-             JOIN importacoes i ON i.id = it.importacao_id
-             WHERE i.status NOT IN ('cancelada', 'falhou')"
+        // Livros importados que ainda esperam a conferência física, e os que têm pendências de dados.
+        $rev = $this->pdo->query(
+            "SELECT COALESCE(SUM(NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = l.id)), 0) AS pendentes,
+                    COALESCE(SUM(EXISTS (SELECT 1 FROM livro_pendencias p WHERE p.livro_id = l.id AND p.resolvida_em IS NULL)), 0) AS com_pendencias
+             FROM livros l WHERE l.arquivado_em IS NULL AND l.origem_cadastro = 'planilha'"
         )->fetch();
         return [
             'importacoes' => (int)$imp['total'],
             'importados' => (int)$imp['importados'],
-            'pendencias' => (int)$itens['pendencias'],
-            'erros' => (int)$itens['erros'],
+            'pendencias' => (int)$rev['com_pendencias'],
+            'pendentes_revisao' => (int)$rev['pendentes'],
+            // Mantido por compatibilidade: a importação não barra mais linhas por erro.
+            'erros' => 0,
         ];
     }
 
@@ -190,11 +240,34 @@ final class ImportacaoRepository
         });
     }
 
-    /** Termina a análise: procura duplicidades e libera a revisão. */
+    /** Termina a análise: procura duplicidades, guarda a impressão digital do conteúdo e libera a pré-visualização. */
     public function concluirAnalise(int $id): void
     {
         $this->recalcular($id);
-        $this->pdo->prepare("UPDATE importacoes SET status = 'em_revisao' WHERE id = ? AND status = 'em_analise'")->execute([$id]);
+        $this->pdo->prepare("UPDATE importacoes SET status = 'em_revisao', hash_conteudo = ? WHERE id = ? AND status = 'em_analise'")
+            ->execute([$this->hashConteudo($id), $id]);
+    }
+
+    /**
+     * Impressão digital das linhas lidas (na ordem da planilha). Duas planilhas com as mesmas linhas
+     * têm o mesmo valor, mesmo que o arquivo tenha outro nome ou tenha sido salvo de novo.
+     */
+    public function hashConteudo(int $id): ?string
+    {
+        $ctx = hash_init('sha1');
+        $ultimo = 0;
+        $total = 0;
+        do {
+            $stmt = $this->pdo->prepare('SELECT numero_linha, hash_linha FROM importacao_itens WHERE importacao_id = ? AND numero_linha > ? ORDER BY numero_linha LIMIT 2000');
+            $stmt->execute([$id, $ultimo]);
+            $lote = $stmt->fetchAll();
+            foreach ($lote as $l) {
+                hash_update($ctx, $l['hash_linha'] . "\n");
+                $ultimo = (int)$l['numero_linha'];
+                $total++;
+            }
+        } while (count($lote) === 2000);
+        return $total > 0 ? hash_final($ctx) : null;
     }
 
     // ---------------------------------------------------------------
@@ -257,7 +330,8 @@ final class ImportacaoRepository
                 $status = ImportValidationService::situacao($problemas);
                 $acao = $item['acao_importacao'];
                 if ((int)$item['acao_automatica'] === 1) {
-                    $acao = in_array($status, ['valido', 'aviso'], true) ? 'criar' : null;
+                    // Toda linha entra como livro novo; os alertas viram alertas cadastrais, conferidos no inventário.
+                    $acao = 'criar';
                 }
                 $novo = [$status, $this->json($problemas), $d['ja_cadastrado'] ? 1 : 0, $d['livro_sugerido_id'], $d['linha_relacionada'], $acao];
                 $atual = [$item['status_validacao'], $item['erros_json'] === null ? null : $this->json(json_decode($item['erros_json'], true)), (int)$item['ja_cadastrado'],
@@ -300,10 +374,12 @@ final class ImportacaoRepository
 
     public const FILTROS = [
         '' => 'Todas',
-        'valido' => 'Válidas',
-        'aviso' => 'Com aviso',
-        'erro' => 'Com erro',
+        'valido' => 'Sem alertas',
+        'incompleto' => 'Informações incompletas',
+        'inconsistencia' => 'Possíveis inconsistências',
         'duplicidade' => 'Possíveis duplicidades',
+        'aviso' => 'Com alertas',
+        'erro' => 'Com erro (importação antiga)',
         'ja_cadastrado' => 'Já cadastradas',
         'sem_decisao' => 'Aguardando decisão',
         'revisar_depois' => 'Revisar depois',
@@ -324,6 +400,10 @@ final class ImportacaoRepository
             case 'duplicidade':
                 $where[] = 'it.status_validacao = ?';
                 $params[] = $filtro;
+                break;
+            case 'incompleto':
+            case 'inconsistencia':
+                $where[] = self::sqlTipo($filtro);
                 break;
             case 'ja_cadastrado':
                 $where[] = 'it.ja_cadastrado = 1';
@@ -381,6 +461,8 @@ final class ImportacaoRepository
                     COALESCE(SUM(status_validacao = 'valido'), 0) AS valido, COALESCE(SUM(status_validacao = 'aviso'), 0) AS aviso,
                     COALESCE(SUM(status_validacao = 'erro'), 0) AS erro, COALESCE(SUM(status_validacao = 'duplicidade'), 0) AS duplicidade,
                     COALESCE(SUM(ja_cadastrado), 0) AS ja_cadastrado,
+                    COALESCE(SUM(" . self::sqlTipo('incompleto', '') . "), 0) AS incompleto,
+                    COALESCE(SUM(" . self::sqlTipo('inconsistencia', '') . "), 0) AS inconsistencia,
                     COALESCE(SUM(processado_em IS NULL AND acao_importacao IS NULL), 0) AS sem_decisao,
                     COALESCE(SUM(processado_em IS NULL AND acao_importacao = 'revisar_depois'), 0) AS revisar_depois,
                     COALESCE(SUM(acao_importacao = 'ignorar'), 0) AS ignorado,
@@ -541,9 +623,6 @@ final class ImportacaoRepository
         if (!in_array($acao, self::ACOES, true)) {
             throw new RuntimeException('Ação inválida.');
         }
-        if ($acao === 'criar' && $item['status_validacao'] === 'erro') {
-            throw new RuntimeException('Corrija os erros desta linha antes de importá-la.');
-        }
         if ($acao === 'vincular') {
             if (!$livroId || !$this->livrosResumo([$livroId]) || $this->livrosResumo([$livroId])[$livroId]['arquivado_em'] !== null) {
                 throw new RuntimeException('Escolha um livro ativo do acervo para vincular esta linha.');
@@ -585,7 +664,6 @@ final class ImportacaoRepository
             'linha_identica:ignorar' => "JSON_SEARCH(it.erros_json, 'one', 'linha_identica', NULL, '$[*].codigo') IS NOT NULL",
             'linha_identica:outro_exemplar' => "JSON_SEARCH(it.erros_json, 'one', 'linha_identica', NULL, '$[*].codigo') IS NOT NULL",
             'ja_cadastrado:vincular' => "it.ja_cadastrado = 1 AND it.livro_sugerido_id IS NOT NULL AND JSON_SEARCH(it.erros_json, 'one', 'ja_cadastrado', NULL, '$[*].codigo') IS NOT NULL",
-            'erro:ignorar' => "it.status_validacao = 'erro'",
         ];
         $chave = $filtro . ':' . $acao;
         if (!isset($permitidas[$chave])) {
@@ -865,13 +943,13 @@ final class ImportacaoRepository
     {
         $stmt = $this->pdo->prepare(
             "SELECT
-                COALESCE(SUM(processado_em IS NULL AND status_validacao <> 'erro' AND acao_importacao = 'criar'), 0) AS criar,
-                COALESCE(SUM(processado_em IS NULL AND status_validacao <> 'erro' AND acao_importacao = 'vincular'), 0) AS vincular,
-                COALESCE(SUM(processado_em IS NULL AND status_validacao <> 'erro' AND acao_importacao = 'outro_exemplar'), 0) AS outro_exemplar,
+                COALESCE(SUM(processado_em IS NULL AND acao_importacao = 'criar'), 0) AS criar,
+                COALESCE(SUM(processado_em IS NULL AND acao_importacao = 'vincular'), 0) AS vincular,
+                COALESCE(SUM(processado_em IS NULL AND acao_importacao = 'outro_exemplar'), 0) AS outro_exemplar,
                 COALESCE(SUM(acao_importacao = 'ignorar' AND processado_em IS NULL), 0) AS ignorar,
                 COALESCE(SUM(processado_em IS NULL AND acao_importacao = 'revisar_depois'), 0) AS revisar_depois,
-                COALESCE(SUM(processado_em IS NULL AND acao_importacao IS NULL AND status_validacao <> 'erro'), 0) AS sem_decisao,
-                COALESCE(SUM(processado_em IS NULL AND status_validacao = 'erro' AND COALESCE(acao_importacao, '') <> 'ignorar'), 0) AS com_erro,
+                COALESCE(SUM(processado_em IS NULL AND acao_importacao IS NULL), 0) AS sem_decisao,
+                0 AS com_erro,
                 COALESCE(SUM(resultado_importacao IN ('criado', 'vinculado', 'outro_exemplar')), 0) AS ja_gravadas,
                 COALESCE(SUM(resultado_importacao = 'falhou'), 0) AS falharam
              FROM importacao_itens WHERE importacao_id = ?"
@@ -879,6 +957,8 @@ final class ImportacaoRepository
         $stmt->execute([$id]);
         $r = array_map('intval', $stmt->fetch() ?: []);
         $r['a_gravar'] = $r['criar'] + $r['vincular'] + $r['outro_exemplar'];
+        // "Importar todos e revisar depois": tudo o que ainda não foi gravado, menos o que alguém marcou para ignorar.
+        $r['todos'] = $r['a_gravar'] + $r['revisar_depois'] + $r['sem_decisao'] + $r['falharam'];
         return $r;
     }
 
@@ -897,7 +977,7 @@ final class ImportacaoRepository
                 throw new RuntimeException('Esta importação não está pronta para confirmação.');
             }
             if ($this->resumoConfirmacao($id)['a_gravar'] === 0) {
-                throw new RuntimeException('Não há linhas aprovadas para gravar.');
+                throw new RuntimeException('Não há linhas para gravar.');
             }
             $this->pdo->prepare("UPDATE importacoes SET status = 'importando', iniciado_em = COALESCE(iniciado_em, NOW()) WHERE id = ?")->execute([$id]);
             return $this->buscar($id);
@@ -918,7 +998,7 @@ final class ImportacaoRepository
             }
             $stmt = $this->pdo->prepare(
                 "SELECT * FROM importacao_itens
-                 WHERE importacao_id = ? AND processado_em IS NULL AND status_validacao <> 'erro'
+                 WHERE importacao_id = ? AND processado_em IS NULL
                    AND acao_importacao IN ('criar', 'vincular', 'outro_exemplar')
                  ORDER BY FIELD(acao_importacao, 'criar', 'vincular', 'outro_exemplar'), numero_linha
                  LIMIT " . max(1, min(500, $tamanho)) . ' FOR UPDATE'
@@ -951,7 +1031,7 @@ final class ImportacaoRepository
             }
 
             $restantes = (int)$this->valor(
-                "SELECT COUNT(*) FROM importacao_itens WHERE importacao_id = ? AND processado_em IS NULL AND status_validacao <> 'erro'
+                "SELECT COUNT(*) FROM importacao_itens WHERE importacao_id = ? AND processado_em IS NULL
                  AND acao_importacao IN ('criar', 'vincular', 'outro_exemplar')",
                 [$id]
             );
@@ -966,6 +1046,185 @@ final class ImportacaoRepository
             }
             return ['gravados' => $gravados, 'falhas' => $falhas, 'restantes' => $restantes, 'concluida' => $concluida];
         });
+    }
+
+    // ---------------------------------------------------------------
+    // Importar todos e revisar depois
+    // ---------------------------------------------------------------
+
+    /** Filtro SQL: a linha tem ao menos um alerta do tipo informado (incompleto | inconsistencia | duplicidade). */
+    private static function sqlTipo(string $tipo, string $alias = 'it.'): string
+    {
+        $tipo = in_array($tipo, ['incompleto', 'inconsistencia', 'duplicidade'], true) ? $tipo : 'outro';
+        return "JSON_SEARCH({$alias}erros_json, 'one', '$tipo', NULL, '$[*].tipo') IS NOT NULL";
+    }
+
+    /**
+     * Números da pré-visualização. Um registro pode ter mais de um tipo de alerta
+     * (ex.: sem autor e com ISBN inválido), por isso os grupos podem se sobrepor.
+     */
+    public function previa(int $id): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*) AS total,
+                    COALESCE(SUM(status_validacao = 'valido'), 0) AS sem_alertas,
+                    COALESCE(SUM(" . self::sqlTipo('incompleto', '') . "), 0) AS incompletos,
+                    COALESCE(SUM(" . self::sqlTipo('inconsistencia', '') . " OR status_validacao = 'erro'), 0) AS inconsistencias,
+                    COALESCE(SUM(status_validacao = 'duplicidade' OR " . self::sqlTipo('duplicidade', '') . "), 0) AS duplicidades,
+                    COALESCE(SUM(ja_cadastrado), 0) AS ja_cadastrados
+             FROM importacao_itens WHERE importacao_id = ?"
+        );
+        $stmt->execute([$id]);
+        return array_map('intval', $stmt->fetch() ?: []);
+    }
+
+    /**
+     * Grava no acervo TODAS as linhas ainda não gravadas (menos as que alguém marcou para ignorar),
+     * mesmo as que têm alertas. Cada linha vira um livro, os alertas viram alertas cadastrais desse
+     * livro e, se houver inventário em andamento (ou pausado), a linha entra nele como item "Pendente"
+     * (sem exemplar ainda: o código BDP é registrado quando o livro é encontrado na estante).
+     * Nada é inventado: campo ausente fica vazio (NULL). Nada é marcado como encontrado.
+     *
+     * Tudo roda em UMA transação: se acontecer uma falha técnica (queda do banco, disco cheio...),
+     * nada desta planilha fica gravado e a importação volta para a pré-visualização, pronta para
+     * tentar de novo. Repetir o pedido não duplica nada (linhas já gravadas são puladas).
+     *
+     * @param bool $repeticaoConfirmada a pessoa confirmou o aviso de importação repetida
+     * @return array{criados: int, vinculados: int, ignorados: int, livros_com_pendencias: int, status: string}
+     */
+    public function importarTodos(int $id, int $usuarioId, bool $repeticaoConfirmada = false): array
+    {
+        $rep = $this->repeticoes($id);
+        return $this->transacao(function () use ($id, $usuarioId, $repeticaoConfirmada, $rep) {
+            $imp = $this->buscar($id, true); // bloqueia a importação: um pedido por vez
+            if (!$imp) {
+                throw new RuntimeException('Importação não encontrada.');
+            }
+            if ($imp['status'] === 'concluida') {
+                return $this->resultadoImportacao($id, 'concluida');
+            }
+            if (!in_array($imp['status'], [...self::STATUS_EDITAVEIS, 'importando'], true)) {
+                throw new RuntimeException('Esta importação não está pronta para ser gravada.');
+            }
+            if ($rep['repetida'] && !$repeticaoConfirmada) {
+                throw new RuntimeException('Esta planilha parece já ter sido importada. Confirme que deseja importar de novo (os registros repetidos não serão mesclados nem apagados).');
+            }
+            if ($rep['repetida']) {
+                $this->pdo->prepare('UPDATE importacoes SET repete_importacao_id = COALESCE(repete_importacao_id, ?), repeticao_confirmada_em = NOW(), repeticao_confirmada_por = ? WHERE id = ?')
+                    ->execute([$rep['arquivo']['id'] ?? $rep['conteudo']['id'] ?? null, $usuarioId, $id]);
+            }
+            // Linhas sem decisão, deixadas para depois ou que falharam antes: entram como livro novo.
+            $this->pdo->prepare(
+                "UPDATE importacao_itens SET acao_importacao = 'criar', processado_em = NULL, resultado_importacao = NULL, mensagem_processamento = NULL
+                 WHERE importacao_id = ? AND (processado_em IS NULL OR resultado_importacao = 'falhou')
+                   AND (acao_importacao IS NULL OR acao_importacao = 'revisar_depois' OR resultado_importacao = 'falhou')
+                   AND COALESCE(acao_importacao, '') <> 'ignorar'"
+            )->execute([$id]);
+            $this->pdo->prepare("UPDATE importacoes SET status = 'importando', iniciado_em = COALESCE(iniciado_em, NOW()), mensagem_erro = NULL WHERE id = ?")->execute([$id]);
+
+            $marcar = $this->pdo->prepare('UPDATE importacao_itens SET processado_em = NOW(), livro_resultante_id = ?, resultado_importacao = ?, mensagem_processamento = ? WHERE id = ?');
+            // Inventário em andamento ou pausado: cada linha gravada entra como item "Pendente" (sem exemplar).
+            $inventarioId = (int)$this->valor("SELECT id FROM inventarios WHERE status IN ('em_andamento', 'pausado') ORDER BY id DESC LIMIT 1 FOR UPDATE") ?: null;
+            $paraInventario = $this->pdo->prepare('INSERT IGNORE INTO inventario_itens (inventario_id, exemplar_id, livro_id, importacao_item_id, previsto) VALUES (?, NULL, ?, ?, 1)');
+            $noInventario = 0;
+            $ultimaOrdem = -1;
+            $ultimaLinha = 0;
+            do {
+                // Primeiro os livros novos, depois vínculos e "outro exemplar" (que podem apontar para eles).
+                $stmt = $this->pdo->prepare(
+                    "SELECT *, FIELD(acao_importacao, 'criar', 'vincular', 'outro_exemplar') AS ordem FROM importacao_itens
+                     WHERE importacao_id = ? AND processado_em IS NULL AND acao_importacao IN ('criar', 'vincular', 'outro_exemplar')
+                       AND (FIELD(acao_importacao, 'criar', 'vincular', 'outro_exemplar') > ? OR (FIELD(acao_importacao, 'criar', 'vincular', 'outro_exemplar') = ? AND numero_linha > ?))
+                     ORDER BY ordem, numero_linha LIMIT 500 FOR UPDATE"
+                );
+                $stmt->execute([$id, $ultimaOrdem, $ultimaOrdem, $ultimaLinha]);
+                $lote = $stmt->fetchAll();
+                foreach ($lote as $linha) {
+                    $item = $this->decodificarItem($linha);
+                    $mensagem = null;
+                    try {
+                        [$livroId, $resultado] = $this->gravarItem($imp, $item, $usuarioId);
+                    } catch (ItemNaoGravado $e) {
+                        // Vínculo impossível (livro arquivado, linha de referência ignorada...):
+                        // a linha não é perdida, entra como livro novo e o motivo vira pendência.
+                        $item['acao_importacao'] = 'criar';
+                        $item['pendencia_extra'] = 'Não foi possível ligar esta linha ao livro escolhido (' . $e->getMessage() . '). Ela foi importada como livro separado: confira se é o mesmo livro.';
+                        $this->pdo->prepare("UPDATE importacao_itens SET acao_importacao = 'criar' WHERE id = ?")->execute([$item['id']]);
+                        [$livroId, $resultado] = $this->gravarItem($imp, $item, $usuarioId);
+                        $mensagem = mb_substr($item['pendencia_extra'], 0, 500);
+                    }
+                    $marcar->execute([$livroId, $resultado, $mensagem, $item['id']]);
+                    if ($inventarioId && $resultado !== 'vinculado') {
+                        // "Vincular" = a mesma unidade de um livro já cadastrado (já está no inventário pelo exemplar).
+                        $paraInventario->execute([$inventarioId, $livroId, $item['id']]);
+                        $noInventario++;
+                    }
+                    $ultimaOrdem = (int)$linha['ordem'];
+                    $ultimaLinha = (int)$linha['numero_linha'];
+                }
+            } while (count($lote) === 500);
+
+            $this->atualizarTotais($id);
+            $this->pdo->prepare("UPDATE importacoes SET status = 'concluida', finalizado_em = NOW() WHERE id = ?")->execute([$id]);
+            return ['inventario_id' => $inventarioId, 'no_inventario' => $noInventario] + $this->resultadoImportacao($id, 'concluida');
+        });
+    }
+
+    private function resultadoImportacao(int $id, string $status): array
+    {
+        $imp = $this->buscar($id);
+        $comPendencias = (int)$this->valor(
+            'SELECT COUNT(DISTINCT p.livro_id) FROM livro_pendencias p WHERE p.importacao_id = ? AND p.resolvida_em IS NULL',
+            [$id]
+        );
+        return [
+            'criados' => (int)$imp['total_importados'],
+            'vinculados' => (int)$imp['total_vinculados'],
+            'ignorados' => (int)$imp['total_ignorados'],
+            'livros_com_pendencias' => $comPendencias,
+            'status' => $status,
+            'inventario_id' => null,
+            'no_inventario' => 0,
+        ];
+    }
+
+    /** Guarda os alertas da linha como alertas cadastrais do livro (conferidos no inventário). */
+    private function registrarPendencias(int $livroId, array $imp, array $item, array $extras = []): int
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO livro_pendencias (livro_id, importacao_id, importacao_item_id, tipo, codigo, campo, mensagem) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        $n = 0;
+        $vistos = [];
+        foreach ([...($item['erros_json'] ?? []), ...$extras] as $p) {
+            if (!in_array($p['nivel'] ?? '', ['aviso', 'duplicidade', 'erro'], true)) {
+                continue;
+            }
+            $tipo = self::tipoPendencia($p);
+            $chave = $p['codigo'] . '|' . ($p['campo'] ?? '');
+            if (isset($vistos[$chave])) {
+                continue;
+            }
+            $vistos[$chave] = true;
+            $stmt->execute([$livroId, $imp['id'], $item['id'], $tipo, mb_substr((string)$p['codigo'], 0, 40), $p['campo'] ?? null,
+                mb_substr('Linha ' . $item['numero_linha'] . ' da planilha: ' . $p['mensagem'], 0, 500)]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /** Tipo da pendência; alertas de importações antigas (sem "tipo") são classificados pelo código. */
+    public static function tipoPendencia(array $p): string
+    {
+        if (isset($p['tipo']) && in_array($p['tipo'], ['incompleto', 'inconsistencia', 'duplicidade'], true)) {
+            return $p['tipo'];
+        }
+        return match (true) {
+            ($p['nivel'] ?? '') === 'duplicidade' => 'duplicidade',
+            in_array($p['codigo'] ?? '', ['sem_titulo', 'sem_autor', 'dados_insuficientes', 'sem_dados_bibliograficos'], true) => 'incompleto',
+            ($p['nivel'] ?? '') === 'erro', ($p['nivel'] ?? '') === 'aviso' => 'inconsistencia',
+            default => 'outro',
+        };
     }
 
     /** @return array{0: int, 1: string} [livro_id, resultado] */
@@ -998,42 +1257,73 @@ final class ImportacaoRepository
             $resultado = 'outro_exemplar';
         }
 
+        $extras = [];
+        if (!empty($item['pendencia_extra'])) {
+            $extras[] = ['nivel' => 'aviso', 'tipo' => 'duplicidade', 'codigo' => 'vinculo_nao_feito', 'campo' => null, 'mensagem' => $item['pendencia_extra']];
+        }
+        if ($acao !== 'criar') {
+            // Outra linha da planilha passou a apontar para este livro: fica o alerta para a conferência.
+            $extras[] = ['nivel' => 'aviso', 'tipo' => 'duplicidade', 'codigo' => $acao === 'vincular' ? 'linha_vinculada' : 'outro_exemplar',
+                'campo' => null, 'mensagem' => $acao === 'vincular'
+                    ? 'Foi ligada a este livro. Confira se é o mesmo livro e registre o código BDP do exemplar.'
+                    : 'Indica outro exemplar deste livro. Confira na estante e registre o código BDP de cada exemplar.'];
+        }
+        $this->registrarPendencias($livroId, $imp, $item, $extras);
+
         $this->pdo->prepare(
             'INSERT INTO registros_legados (importacao_id, importacao_item_id, livro_id, arquivo, linha, titulo_original, autor_original, codigo_autor_antigo,
                 localizacao_antiga, cdd_original, assunto_original, categoria_original, quantidade_informada, representa_exemplar, observacoes, dados_originais)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
             $imp['id'], $item['id'], $livroId, $imp['nome_arquivo'], $item['numero_linha'],
-            $this->corte($n['titulo'], 500), $this->corte($n['autor'], 500), $n['codigo_autor_antigo'], $n['localizacao_antiga'],
-            $n['cdd_original'], $n['assunto_original'], $n['categoria_original'],
-            $n['quantidade_informada'] !== null && $n['quantidade_informada'] >= 0 ? $n['quantidade_informada'] : null,
+            $this->corte($n['titulo'], 500), $this->corte($n['autor'], 500), $this->corte($n['codigo_autor_antigo'], 50), $this->corte($n['localizacao_antiga'], 100),
+            $this->corte($n['cdd_original'], 50), $this->corte($n['assunto_original'], 500), $this->corte($n['categoria_original'], 255),
+            $n['quantidade_informada'] !== null && $n['quantidade_informada'] >= 0 && $n['quantidade_informada'] <= 2147483647 ? $n['quantidade_informada'] : null,
             $acao === 'outro_exemplar' ? 1 : 0, $n['observacoes'], $this->json($item['dados_originais_json']),
         ]);
         return [$livroId, $resultado];
     }
 
+    /**
+     * Cria o livro com o que a planilha trouxe. Nada é inventado: campo ausente fica NULL.
+     * Valores que não cabem nas regras do acervo não impedem a gravação:
+     *   * ISBN inválido → isbn NULL e o texto original em isbn_original;
+     *   * ano inválido → ano NULL (o original fica nos dados da planilha e nas observações);
+     *   * texto longo demais → o início do texto (o completo fica nos dados originais).
+     * A situação do cadastro acompanha os alertas: dados incompletos, com divergência ou
+     * aguardando conferência. A existência física só é confirmada no inventário.
+     */
     private function criarLivro(array $imp, array $item, array $n): int
     {
         $isbn = $n['isbn'] !== null && Isbn::valido($n['isbn']) ? $n['isbn'] : null;
+        $isbnOriginal = $isbn === null && ($n['isbn_informado'] ?? null) !== null ? $this->corte($n['isbn_informado'], 100) : null;
         $nota = 'Importado da planilha "' . $imp['nome_arquivo'] . '", linha ' . $item['numero_linha'] . '.';
         if (!empty($item['isbn_removido'])) {
             $nota .= ' ISBN informado na planilha (inválido, não gravado): "' . $item['isbn_removido'] . '". Confira no livro físico.';
-        }
-        if ($isbn !== null) {
-            $existente = $this->valor('SELECT id FROM livros WHERE isbn_ativo IN (?, ?)', [$isbn, Isbn::para13($isbn)]);
-            if ($existente) {
-                throw new ItemNaoGravado('Já existe um livro com este ISBN (cadastro nº ' . $existente . '). Vincule a linha a ele ou confirme que é outro exemplar.');
-            }
+            $isbnOriginal ??= $this->corte($item['isbn_removido'], 100);
+        } elseif ($isbnOriginal !== null) {
+            $nota .= ' ISBN da planilha (inválido ou incompleto, guardado para conferência): "' . $isbnOriginal . '".';
         }
         $anoMax = (int)date('Y') + 1;
         $ano = $n['ano_publicacao'] !== null && $n['ano_publicacao'] >= 1450 && $n['ano_publicacao'] <= $anoMax ? $n['ano_publicacao'] : null;
-        $status = $n['autor'] === null ? 'dados_incompletos' : 'aguardando_conferencia';
+        if ($ano === null && ($n['ano_informado'] ?? null) !== null) {
+            $nota .= ' Ano da planilha: "' . mb_substr($n['ano_informado'], 0, 40) . '".';
+        }
+        $tipos = array_map([self::class, 'tipoPendencia'], array_filter($item['erros_json'] ?? [], fn ($p) => in_array($p['nivel'] ?? '', ['aviso', 'duplicidade', 'erro'], true)));
+        $status = match (true) {
+            in_array('incompleto', $tipos, true) => 'dados_incompletos',
+            in_array('inconsistencia', $tipos, true) || in_array('duplicidade', $tipos, true) || !empty($item['pendencia_extra']) => 'com_divergencia',
+            default => 'aguardando_conferencia',
+        };
+        $titulo = $this->corte($n['titulo'], 255);
         $this->pdo->prepare(
-            "INSERT INTO livros (titulo, subtitulo, isbn, editora, ano_publicacao, edicao, idioma, assunto, observacoes_internas, status_validacao, origem_cadastro)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'planilha')"
+            "INSERT INTO livros (titulo, subtitulo, isbn, isbn_original, editora, ano_publicacao, edicao, idioma, assunto, observacoes_internas,
+                                 status_validacao, origem_cadastro)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'planilha')"
         )->execute([
-            $n['titulo'], $n['subtitulo'], $isbn, $n['editora'], $ano, $n['edicao'],
-            $n['idioma'] ? $this->corte($n['idioma'], 30) : 'Português',
+            $titulo !== null && trim($titulo) !== '' ? $titulo : null,
+            $this->corte($n['subtitulo'], 255), $isbn, $isbnOriginal, $this->corte($n['editora'], 150), $ano, $this->corte($n['edicao'], 60),
+            $this->corte($n['idioma'], 30),
             $this->corte($n['assunto_original'], 255),
             $nota,
             $status,
@@ -1147,10 +1437,10 @@ final class ImportacaoRepository
     {
         $codigo = (int)($e->errorInfo[1] ?? 0);
         return match ($codigo) {
-            1062 => 'Registro duplicado no acervo (provavelmente o mesmo ISBN). Vincule a linha ao livro existente.',
-            3819 => 'Algum valor não passou nas regras do acervo (ISBN, ano ou título). Corrija a linha e tente novamente.',
-            1406 => 'Algum texto é longo demais para o campo do acervo. Corrija a linha e tente novamente.',
-            default => 'Não foi possível gravar esta linha. Tente novamente; se continuar, revise os dados.',
+            1062 => 'O banco recusou um registro repetido. Tente novamente; se continuar, avise o responsável pelo sistema.',
+            3819, 4025 => 'Algum valor não passou nas regras do acervo. Tente novamente; se continuar, avise o responsável pelo sistema.',
+            1406 => 'Algum texto é longo demais para o campo do acervo. Avise o responsável pelo sistema.',
+            default => 'Não foi possível gravar esta linha por uma falha técnica. Tente novamente.',
         };
     }
 

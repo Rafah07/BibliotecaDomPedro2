@@ -280,11 +280,11 @@ confere('8. cadastro pela página gera o próximo código (BDP-000007) e nada ma
 $inv = $invServ->criar(['titulo' => 'Inventário Fictício dos Códigos', 'data_inicio' => $hoje, 'responsavel_id' => $bibId], $bibId);
 $invServ->iniciar($inv, $bibId);
 [$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv);
-confere('9. tela de conferência pede para digitar o código (sem leitor ou câmera)', $s === 200 && str_contains($html, 'Digite o código do exemplar') && str_contains($html, 'Pesquisar exemplar')
+confere('9. tela de conferência pede para digitar o código (sem leitor ou câmera)', $s === 200 && str_contains($html, 'Pesquisar livro: código BDP')
     && !preg_match('/c[óo]digo de barras|leitor|escane|QR ?Code|c[âa]mera/iu', strip_tags($html)));
 [$s, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv, ['csrf' => $tk, 'id' => $inv, 'acao' => 'ler', 'leitura' => '  bdp-000002  ']);
 [, $html] = $bib->ir($destino($loc));
-confere('9. código digitado (minúsculo, com espaços) mostra o título e o formulário de confirmação', $s === 303 && str_contains($loc, 'codigo=BDP-000002') && str_contains($html, 'Livro Fictício Com CDD Aprovada') && str_contains($html, 'Confirmar conferência'));
+confere('9. código digitado (minúsculo, com espaços) mostra o título e o formulário de confirmação', $s === 303 && str_contains($loc, 'codigo=BDP-000002') && str_contains($html, 'Livro Fictício Com CDD Aprovada') && str_contains($html, 'Salvar e marcar como encontrado'));
 $exB2 = (int)$a[1]['id'];
 [$s] = $bib->ir('inventario-conferencia.php?id=' . $inv, ['csrf' => $tk, 'id' => $inv, 'acao' => 'conferir', 'exemplar_id' => $exB2, 'estado_conservacao' => 'bom', 'localizacao_id' => $local]);
 confere('9. conferência registrada', $s === 303 && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id = ? AND conferido_em IS NOT NULL', [$inv, $exB2]) === 1);

@@ -1,7 +1,11 @@
 <?php
 /**
- * Detalhes de uma importação: pré-visualização, revisão das linhas, confirmação e conclusão
- * (etapas 4, 5 e 6). Também é a página de consulta das importações anteriores.
+ * Detalhes de uma importação: pré-visualização das linhas, "Importar todos e revisar no
+ * inventário" e conclusão (etapas 4, 5 e 6). Também é a página de consulta das importações anteriores.
+ *
+ * Nenhuma linha é bloqueada por dados incompletos ou inconsistentes: os alertas acompanham cada
+ * livro e são corrigidos depois, na conferência do Inventário (não há página de revisão separada).
+ * Planilha que parece repetida gera um aviso com confirmação, nunca um bloqueio ou mescla.
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/importacao.php';
@@ -43,23 +47,26 @@ $paginas = max(1, (int)ceil($lista['total'] / $porPagina));
 $contagem = $repo->contagemFiltros($id);
 $resumo = $repo->resumoConfirmacao($id);
 $isbnInvalidos = $repo->contagemIsbnInvalido($id);
+$previa = $repo->previa($id);
+$repeticao = $editavel ? $repo->repeticoes($id) : ['repetida' => false];
+$inventarioAtivo = db_query("SELECT id, titulo FROM inventarios WHERE status IN ('em_andamento', 'pausado') ORDER BY id DESC LIMIT 1")->fetch() ?: null;
 
 $etapa = match ($status) {
     'enviada' => 2,
     'em_analise' => 3,
-    'em_revisao' => $resumo['sem_decisao'] === 0 && $resumo['a_gravar'] > 0 ? 5 : 4,
+    'em_revisao' => 4,
     'importando' => 5,
     'parcial', 'concluida' => 6,
     default => 1,
 };
 
 $indicadores = [
-    ['titulo' => 'Total de linhas', 'valor' => (int)$imp['total_linhas'], 'icone' => 'sheet', 'tom' => 'blue', 'filtro' => ''],
-    ['titulo' => 'Registros válidos', 'valor' => (int)$imp['total_validos'], 'icone' => 'circle-check', 'tom' => 'green', 'filtro' => 'valido'],
-    ['titulo' => 'Com avisos', 'valor' => (int)$imp['total_avisos'], 'icone' => 'triangle-alert', 'tom' => 'amber', 'filtro' => 'aviso'],
-    ['titulo' => 'Com erros', 'valor' => (int)$imp['total_erros'], 'icone' => 'circle-alert', 'tom' => 'red', 'filtro' => 'erro'],
-    ['titulo' => 'Possíveis duplicidades', 'valor' => (int)$imp['total_duplicidades'], 'icone' => 'copy', 'tom' => 'indigo', 'filtro' => 'duplicidade'],
-    ['titulo' => 'Já cadastrados', 'valor' => (int)$imp['total_ja_cadastrados'], 'icone' => 'library-big', 'tom' => 'teal', 'filtro' => 'ja_cadastrado'],
+    ['titulo' => 'Total de registros', 'valor' => $previa['total'] ?? 0, 'icone' => 'sheet', 'tom' => 'blue', 'filtro' => ''],
+    ['titulo' => 'Sem alertas', 'valor' => $previa['sem_alertas'] ?? 0, 'icone' => 'circle-check', 'tom' => 'green', 'filtro' => 'valido'],
+    ['titulo' => 'Informações incompletas', 'valor' => $previa['incompletos'] ?? 0, 'icone' => 'triangle-alert', 'tom' => 'amber', 'filtro' => 'incompleto'],
+    ['titulo' => 'Possíveis inconsistências', 'valor' => $previa['inconsistencias'] ?? 0, 'icone' => 'circle-alert', 'tom' => 'red', 'filtro' => 'inconsistencia'],
+    ['titulo' => 'Possíveis duplicidades', 'valor' => $previa['duplicidades'] ?? 0, 'icone' => 'copy', 'tom' => 'indigo', 'filtro' => 'duplicidade'],
+    ['titulo' => 'Já cadastrados', 'valor' => $previa['ja_cadastrados'] ?? 0, 'icone' => 'library-big', 'tom' => 'teal', 'filtro' => 'ja_cadastrado'],
 ];
 
 $urlBase = admin_url('detalhes-importacao') . '?id=' . $id;
@@ -97,14 +104,11 @@ function detalhes_decisao(array $item): string
         $r = IMPORTACAO_RESULTADOS[$item['resultado_importacao']];
         return '<span class="adm-status adm-status--soft adm-tone--' . $r['tom'] . '">' . htmlspecialchars($r['label']) . '</span>';
     }
-    if (!$item['acao_importacao']) {
-        return $item['status_validacao'] === 'erro'
-            ? '<span class="adm-status adm-status--soft adm-tone--red">Corrigir ou ignorar</span>'
-            : '<span class="adm-status adm-status--soft adm-tone--amber">Aguardando decisão</span>';
+    if (!$item['acao_importacao'] || $item['acao_importacao'] === 'revisar_depois') {
+        return '<span class="adm-status adm-status--soft adm-tone--green">Será importado (livro novo)</span>';
     }
     $a = IMPORTACAO_ACOES[$item['acao_importacao']];
-    $bloqueada = $item['status_validacao'] === 'erro' && in_array($item['acao_importacao'], ['criar', 'vincular', 'outro_exemplar'], true);
-    return '<span class="adm-status adm-status--soft adm-tone--' . ($bloqueada ? 'red' : $a['tom']) . '">' . htmlspecialchars($a['label']) . ($bloqueada ? ' (corrija o erro)' : '') . '</span>';
+    return '<span class="adm-status adm-status--soft adm-tone--' . $a['tom'] . '">' . htmlspecialchars($a['label']) . '</span>';
 }
 
 admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261113', 'assets/css/importacao.css?v=20261113']);
@@ -167,9 +171,30 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
                 <div><dt>Ignorados</dt><dd><?= number_format((int)$imp['total_ignorados'], 0, ',', '.') ?></dd></div>
                 <div><dt>Pendentes ou com falha</dt><dd><?= number_format($resumo['sem_decisao'] + $resumo['revisar_depois'] + $resumo['com_erro'] + $resumo['falharam'], 0, ',', '.') ?></dd></div>
             </dl>
-            <p>Os livros importados ficam <strong>aguardando reclassificação CDD</strong> e <strong>aguardando inventário físico</strong>. Nenhum exemplar ou código BDP foi criado: eles nascem na conferência física.<?= $status === 'parcial' ? ' As linhas pendentes podem ser revisadas e importadas depois, nesta mesma página.' : '' ?></p>
+            <p>Os registros entraram no acervo com os alertas ligados a cada livro e ficam <strong>Pendentes</strong> no inventário até serem encontrados na estante. A conferência, a correção dos dados e o registro do código BDP são feitos na página do <strong>Inventário</strong>.<?= $status === 'parcial' ? ' As linhas que ainda não foram gravadas podem ser importadas depois, nesta mesma página.' : '' ?></p>
         </div>
-        <a class="adm-button adm-button--primary" href="<?= htmlspecialchars($url(['filtro' => 'importado', 'pagina' => null])) ?>"><?= icon('list') ?> Consultar registros importados</a>
+        <?php if ($inventarioAtivo && auth_pode('inventario.conferir')): ?>
+            <a class="adm-button adm-button--primary" href="<?= htmlspecialchars(admin_url('inventario-conferencia') . '?id=' . (int)$inventarioAtivo['id']) ?>"><?= icon('clipboard-check') ?> Revisar no inventário</a>
+        <?php elseif (auth_pode('inventario.gerenciar')): ?>
+            <a class="adm-button adm-button--primary" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('clipboard-check') ?> Abrir o Inventário</a>
+        <?php endif; ?>
+        <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars($url(['filtro' => 'importado', 'pagina' => null])) ?>"><?= icon('list') ?> Consultar registros importados</a>
+    </div>
+<?php endif; ?>
+
+<?php if ($editavel && $repeticao['repetida']): ?>
+    <div class="adm-notice adm-notice--amber" role="note">
+        <?= icon('copy') ?>
+        <div class="adm-notice__content">
+            <strong>Esta planilha parece já ter sido importada.<?= $repeticao['confirmada_em'] ? ' O envio repetido foi confirmado em ' . importacao_data($repeticao['confirmada_em']) . '.' : '' ?></strong>
+            <p><?php
+                $partes = [];
+                if ($repeticao['arquivo']) { $partes[] = 'o mesmo arquivo foi enviado na importação nº ' . (int)$repeticao['arquivo']['id'] . ' (' . importacao_data($repeticao['arquivo']['criado_em']) . ')'; }
+                if ($repeticao['conteudo'] && (!$repeticao['arquivo'] || (int)$repeticao['conteudo']['id'] !== (int)$repeticao['arquivo']['id'])) { $partes[] = 'as mesmas linhas aparecem na importação nº ' . (int)$repeticao['conteudo']['id']; }
+                if ($repeticao['linhas_ja_importadas']) { $partes[] = number_format($repeticao['linhas_ja_importadas'], 0, ',', '.') . ' linha(s) iguais a linhas já gravadas'; }
+                echo htmlspecialchars(ucfirst(implode('; ', $partes)) . '.');
+            ?> Você ainda pode importar: nada será mesclado nem apagado, e cada linha vira um registro próprio. Para não duplicar, confira antes ou cancele esta importação.</p>
+        </div>
     </div>
 <?php endif; ?>
 
@@ -188,9 +213,9 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
 <section class="adm-card adm-panel" id="revisao" data-revisao aria-labelledby="titulo-revisao">
     <div class="adm-panel__header">
         <div>
-            <h2 id="titulo-revisao"><?= $editavel ? 'Revisão dos registros' : 'Registros da planilha' ?></h2>
+            <h2 id="titulo-revisao"><?= $editavel ? 'Pré-visualização dos registros' : 'Registros da planilha' ?></h2>
             <p><?= $editavel
-                ? 'Clique em uma linha para ver os dados originais e normalizados, corrigir valores ou decidir o que fazer com ela.'
+                ? 'Os alertas não impedem a importação: todas as linhas serão importadas e poderão ser corrigidas depois, no Inventário. Se quiser, clique em uma linha para ver os dados originais ou marcar para ignorar.'
                 : 'Clique em uma linha para consultar os dados originais, os problemas encontrados e o resultado.' ?></p>
         </div>
     </div>
@@ -229,15 +254,12 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
         if ($contagem['ja_cadastrado']) {
             $lote[] = ['filtro' => 'ja_cadastrado', 'decisao' => 'vincular', 'rotulo' => 'Vincular as já cadastradas por ISBN', 'icone' => 'link', 'confirmar' => 'Vincular ao livro existente todas as linhas cujo ISBN já está no acervo (e que ainda não tiveram decisão)? Os cadastros existentes não serão alterados.'];
         }
-        if ($contagem['erro']) {
-            $lote[] = ['filtro' => 'erro', 'decisao' => 'ignorar', 'rotulo' => 'Ignorar linhas com erro', 'icone' => 'ban', 'confirmar' => 'Ignorar todas as linhas com erro que ainda não tiveram decisão? Elas continuarão no histórico e no relatório.'];
-        }
         ?>
         <?php if ($lote || $isbnInvalidos): ?>
             <div class="adm-imp-bulk">
                 <span><?= icon('layers') ?> Decisões em lote:</span>
                 <?php if ($isbnInvalidos): ?>
-                    <a class="adm-button adm-button--primary adm-button--sm" href="<?= htmlspecialchars(admin_url('isbn-invalidos') . '?id=' . $id) ?>"><?= icon('barcode') ?> Tratar ISBNs inválidos em lote (<?= number_format($isbnInvalidos, 0, ',', '.') ?>)</a>
+                    <a class="adm-button adm-button--ghost adm-button--sm" href="<?= htmlspecialchars(admin_url('isbn-invalidos') . '?id=' . $id) ?>" title="Opcional: os ISBNs inválidos já são importados como foram escritos, com alerta"><?= icon('barcode') ?> Tratar ISBNs inválidos agora (opcional, <?= number_format($isbnInvalidos, 0, ',', '.') ?>)</a>
                 <?php endif; ?>
                 <?php foreach ($lote as $l): ?>
                     <button type="button" class="adm-button adm-button--ghost adm-button--sm" data-decidir-lote="<?= $l['decisao'] ?>" data-filtro="<?= $l['filtro'] ?>" data-confirmar="<?= htmlspecialchars($l['confirmar']) ?>" data-bloquear-durante><?= icon($l['icone']) ?> <?= htmlspecialchars($l['rotulo']) ?></button>
@@ -323,40 +345,36 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
 <section class="adm-card adm-panel adm-imp-confirm" id="confirmar" aria-labelledby="titulo-confirmar">
     <div class="adm-panel__header">
         <div>
-            <h2 id="titulo-confirmar">Resumo da importação</h2>
-            <p>Confira o que será gravado antes de confirmar. Os cadastros já existentes no acervo não são alterados.</p>
+            <h2 id="titulo-confirmar">Importar todos e revisar no inventário</h2>
+            <p>Todas as linhas são importadas, mesmo com ISBN inválido, campos vazios ou possíveis duplicidades. Os valores originais ficam guardados e os alertas acompanham cada livro. Os cadastros já existentes não são alterados.</p>
         </div>
     </div>
 
     <ul class="adm-imp-resume">
-        <li><strong><?= number_format((int)$imp['total_linhas'], 0, ',', '.') ?></strong> linhas analisadas</li>
-        <li><strong><?= number_format((int)$imp['total_validos'], 0, ',', '.') ?></strong> registros válidos</li>
-        <li><strong><?= number_format((int)$imp['total_avisos'], 0, ',', '.') ?></strong> com avisos</li>
-        <li><strong><?= number_format((int)$imp['total_duplicidades'], 0, ',', '.') ?></strong> possíveis duplicidades</li>
-        <li><strong><?= number_format((int)$imp['total_erros'], 0, ',', '.') ?></strong> registros com erros</li>
-        <li><strong><?= number_format((int)$imp['total_ignorados'], 0, ',', '.') ?></strong> registros ignorados</li>
+        <li><strong><?= number_format($previa['total'] ?? 0, 0, ',', '.') ?></strong> registros</li>
+        <li><strong><?= number_format($previa['sem_alertas'] ?? 0, 0, ',', '.') ?></strong> sem alertas</li>
+        <li><strong><?= number_format($previa['incompletos'] ?? 0, 0, ',', '.') ?></strong> com informações incompletas</li>
+        <li><strong><?= number_format($previa['inconsistencias'] ?? 0, 0, ',', '.') ?></strong> com possíveis inconsistências</li>
+        <li><strong><?= number_format($previa['duplicidades'] ?? 0, 0, ',', '.') ?></strong> possíveis duplicidades</li>
+        <li><strong><?= number_format($resumo['ignorar'], 0, ',', '.') ?></strong> marcados para ignorar</li>
     </ul>
 
     <div class="adm-imp-plan">
         <div class="adm-imp-plan__col adm-imp-plan__col--ok">
             <h3><?= icon('circle-check') ?> Será gravado no acervo</h3>
             <dl>
-                <div><dt>Novos livros (cadastro bibliográfico)</dt><dd><?= number_format($resumo['criar'], 0, ',', '.') ?></dd></div>
+                <div><dt>Novos livros (cadastro bibliográfico)</dt><dd><?= number_format($resumo['criar'] + $resumo['sem_decisao'] + $resumo['revisar_depois'] + $resumo['falharam'], 0, ',', '.') ?></dd></div>
                 <div><dt>Vinculados a livros já existentes</dt><dd><?= number_format($resumo['vincular'], 0, ',', '.') ?></dd></div>
                 <div><dt>Registrados como outro exemplar</dt><dd><?= number_format($resumo['outro_exemplar'], 0, ',', '.') ?></dd></div>
             </dl>
-            <p>Para cada linha gravada, os dados antigos (CDD, código do autor, localização, assunto e quantidade) ficam guardados para a reclassificação e o inventário.</p>
+            <p>Cada linha guarda a referência ao arquivo e ao número da linha, e os dados antigos (CDD, código do autor, localização, assunto e quantidade).<?= $inventarioAtivo ? ' Todas entram como <strong>Pendente</strong> no inventário “' . htmlspecialchars($inventarioAtivo['titulo']) . '”.' : ' Elas entram como <strong>Pendente</strong> no próximo inventário do acervo inteiro que for iniciado.' ?></p>
         </div>
         <div class="adm-imp-plan__col">
             <h3><?= icon('ban') ?> Não será gravado agora</h3>
             <dl>
-                <div><dt>Aguardando decisão</dt><dd><?= number_format($resumo['sem_decisao'], 0, ',', '.') ?></dd></div>
-                <div><dt>Marcados para revisar depois</dt><dd><?= number_format($resumo['revisar_depois'], 0, ',', '.') ?></dd></div>
-                <div><dt>Com erro não corrigido</dt><dd><?= number_format($resumo['com_erro'], 0, ',', '.') ?></dd></div>
-                <div><dt>Ignorados</dt><dd><?= number_format($resumo['ignorar'], 0, ',', '.') ?></dd></div>
-                <?php if ($resumo['falharam']): ?><div><dt>Falharam na gravação anterior</dt><dd><?= number_format($resumo['falharam'], 0, ',', '.') ?></dd></div><?php endif; ?>
+                <div><dt>Marcados para ignorar</dt><dd><?= number_format($resumo['ignorar'], 0, ',', '.') ?></dd></div>
             </dl>
-            <p>Nenhum exemplar nem código BDP é criado: a quantidade informada é só referência para o inventário físico.</p>
+            <p>Nenhum registro é confirmado como encontrado e nenhum código BDP é criado agora: o código é registrado quando o livro for encontrado na estante. A quantidade informada é só referência.</p>
         </div>
     </div>
 
@@ -376,7 +394,7 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
                     <button type="button" class="adm-button adm-button--ghost adm-button--danger-text" data-modal-open="modal-cancelar" data-bloquear-durante><?= icon('x') ?> Cancelar importação</button>
                 <?php endif; ?>
                 <?php if ($podeExecutar): ?>
-                    <button type="button" class="adm-button adm-button--primary" data-modal-open="modal-confirmar" data-bloquear-durante<?= $resumo['a_gravar'] === 0 ? ' disabled title="Nenhuma linha aprovada para gravar"' : '' ?>><?= icon('check') ?> Importar registros aprovados</button>
+                    <button type="button" class="adm-button adm-button--primary" data-modal-open="modal-confirmar" data-bloquear-durante<?= $resumo['todos'] === 0 ? ' disabled title="Nenhuma linha para gravar"' : '' ?>><?= icon('check') ?> Importar todos e revisar no inventário</button>
                 <?php endif; ?>
             </div>
         </div>
@@ -411,24 +429,27 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
         <header class="adm-modal__header">
             <span class="adm-icon-box adm-icon-box--sm adm-tone--green"><?= icon('check') ?></span>
             <div>
-                <h2 id="modal-confirmar-titulo">Importar registros aprovados?</h2>
-                <p>A gravação é feita em blocos, com transações. Se a conexão cair, nada é gravado duas vezes.</p>
+                <h2 id="modal-confirmar-titulo">Importar todos e revisar no inventário?</h2>
+                <p>Tudo é gravado de uma vez, em uma única transação: se houver uma falha técnica, nada fica pela metade.</p>
             </div>
             <button type="button" class="adm-modal__close" data-modal-close aria-label="Fechar"><?= icon('x') ?></button>
         </header>
         <div class="adm-modal__body">
             <ul class="adm-imp-confirm-list">
-                <li><?= icon('book-plus') ?> <span><strong><?= number_format($resumo['criar'], 0, ',', '.') ?></strong> novos livros serão cadastrados, com situação "Aguardando conferência".</span></li>
-                <li><?= icon('link') ?> <span><strong><?= number_format($resumo['vincular'], 0, ',', '.') ?></strong> linhas serão vinculadas a livros existentes, sem alterar esses cadastros.</span></li>
-                <li><?= icon('copy') ?> <span><strong><?= number_format($resumo['outro_exemplar'], 0, ',', '.') ?></strong> linhas serão registradas como outro exemplar de um livro.</span></li>
-                <li><?= icon('ban') ?> <span><strong><?= number_format($resumo['sem_decisao'] + $resumo['revisar_depois'] + $resumo['com_erro'] + $resumo['ignorar'], 0, ',', '.') ?></strong> linhas ficarão de fora (ignoradas, com erro ou sem decisão).</span></li>
+                <li><?= icon('book-plus') ?> <span><strong><?= number_format($resumo['todos'], 0, ',', '.') ?></strong> registros serão importados<?= $resumo['vincular'] + $resumo['outro_exemplar'] ? ' (' . number_format($resumo['vincular'] + $resumo['outro_exemplar'], 0, ',', '.') . ' ligados a livros existentes, sem alterar esses cadastros)' : '' ?>.</span></li>
+                <li><?= icon('triangle-alert') ?> <span><strong><?= number_format(($previa['total'] ?? 0) - ($previa['sem_alertas'] ?? 0), 0, ',', '.') ?></strong> têm alertas (dados incompletos, inconsistências ou possíveis duplicidades). Os alertas ficam ligados a cada livro.</span></li>
+                <li><?= icon('clipboard-check') ?> <span>Todos entram como <strong>Pendente</strong> no inventário. Nenhum é marcado como encontrado.</span></li>
+                <?php if ($resumo['ignorar']): ?><li><?= icon('ban') ?> <span><strong><?= number_format($resumo['ignorar'], 0, ',', '.') ?></strong> linhas marcadas para ignorar ficam de fora.</span></li><?php endif; ?>
             </ul>
-            <p class="adm-field__hint">Nenhum exemplar, código BDP ou nova CDD será criado. Os dados antigos ficam preservados para a reclassificação e o inventário.</p>
+            <div class="adm-notice adm-notice--blue" role="note"><?= icon('info') ?><div class="adm-notice__content"><p><strong>Os dados podem ser corrigidos depois.</strong> Na página do Inventário, pesquise o livro, corrija as informações, registre o código BDP do carimbo e clique em “Salvar e marcar como encontrado”.</p></div></div>
+            <?php if ($repeticao['repetida'] && !$repeticao['confirmada_em']): ?>
+                <label class="adm-check-confirm"><input type="checkbox" data-confirmar-repeticao> <span>Sei que esta planilha parece já ter sido importada e quero importar de novo (nada será mesclado nem apagado).</span></label>
+            <?php endif; ?>
             <p class="adm-field__error" data-erro-confirmar role="alert"></p>
         </div>
         <footer class="adm-modal__footer">
             <button type="button" class="adm-button adm-button--ghost" data-modal-close>Voltar para revisão</button>
-            <button type="button" class="adm-button adm-button--primary" data-confirmar-importacao><?= icon('check') ?> Importar <?= number_format($resumo['a_gravar'], 0, ',', '.') ?> registros</button>
+            <button type="button" class="adm-button adm-button--primary" data-importar-todos<?= $repeticao['repetida'] && !$repeticao['confirmada_em'] ? ' data-exige-repeticao' : '' ?>><?= icon('check') ?> Importar todos e revisar no inventário</button>
         </footer>
     </div>
 </dialog>
@@ -461,4 +482,4 @@ admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 
 
 <script type="application/json" id="revisao-config"><?= json_encode($cfgJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php
-admin_page_end(['assets/js/importacao.js?v=20261113']);
+admin_page_end(['assets/js/importacao.js?v=20261113b']);

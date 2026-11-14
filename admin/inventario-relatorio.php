@@ -35,13 +35,13 @@ try {
 $linhaItem = function (array $i): array {
     [$situacao] = inventario_item_situacao($i);
     return [
-        $i['codigo_individual'], $i['titulo'], $i['autores'] ?? '', $i['isbn'] ?? '',
+        $i['codigo_individual'] ?? 'Sem código (registro da planilha)', $i['titulo'], $i['autores'] ?? '', $i['isbn'] ?? '',
         (int)$i['previsto'] ? 'Sim' : 'Não', (int)$i['cadastrado_no_inventario'] ? 'Sim' : 'Não',
         $i['localizacao_esperada_id'] ? fisico_local($i, 'esperada_') : 'Sem localização',
         $i['conferido_em'] ? fisico_local($i, 'encontrada_') : '',
-        ExemplarService::rotuloConservacao((string)($i['estado_esperado'] ?? $i['estado_conservacao'])),
+        ($i['estado_esperado'] ?? $i['estado_conservacao'] ?? null) !== null ? ExemplarService::rotuloConservacao((string)($i['estado_esperado'] ?? $i['estado_conservacao'])) : '',
         $i['estado_encontrado'] ? ExemplarService::rotuloConservacao($i['estado_encontrado']) : '',
-        ExemplarService::rotuloSituacao($i['situacao']), $situacao, implode(' | ', inventario_divergencias($i)),
+        $i['situacao'] !== null ? ExemplarService::rotuloSituacao($i['situacao']) : 'Sem exemplar', $situacao, implode(' | ', inventario_divergencias($i)),
         $i['decisao'] ? InventarioService::DECISOES[$i['decisao']] : '', $i['decisao_observacao'] ?? '',
         $i['conferido_em'] ? admin_data_hora($i['conferido_em']) : '', $i['conferido_por_nome'] ?? '', $i['observacao'] ?? '',
     ];
@@ -125,7 +125,7 @@ if ($formato === 'pdf') {
             $cabecalho();
         }
         $x = $margem + 1;
-        $pdf->texto($x, $y, $i['codigo_individual'], 7.5, 'negrito');
+        $pdf->texto($x, $y, $i['codigo_individual'] ?? 'Sem código', 7.5, 'negrito');
         $x += $colunas[0][1];
         foreach ($livro as $n => $l) {
             $pdf->texto($x, $y + 4 * $n, $l, 7.5);

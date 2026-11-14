@@ -74,18 +74,21 @@ Inventários concluídos ou cancelados ficam bloqueados.
 
 ## Como realizar a conferência
 
-1. Na página do inventário, clique em **Conferir exemplares**.
-2. No campo **Digite o código do exemplar**, informe o código BDP escrito na etiqueta e pressione **Enter** (ou clique em **Pesquisar exemplar**). Veja abaixo como o código é aceito.
-3. O sistema localiza o exemplar e mostra o título, o autor, a localização e a situação. Confira se é o livro que está em mãos.
-4. Confira:
-   - o estado encontrado;
-   - a localização encontrada;
-   - a observação (opcional).
-5. Clique em **Confirmar conferência**. A conferência fica registrada.
-6. Se o texto digitado não for um código, o sistema pesquisa livros por título, autor ou ISBN. Cada resultado mostra:
-   - os exemplares já cadastrados;
-   - a quantidade da planilha e a localização antiga (só como referência).
-7. Livro em mãos sem código: use **Cadastrar exemplar**, marque a confirmação, e o exemplar novo já fica conferido e recebe o próximo código BDP.
+A conferência e a correção dos dados acontecem numa única página, **Conferir e corrigir livros**. Não há página de revisão separada: a planilha importada entra inteira (com alertas) e é conferida aqui, com o livro em mãos.
+
+1. Na página do inventário, clique em **Conferir e corrigir livros**.
+2. Em **Pesquisar livro: código BDP, título, autor ou ISBN**, digite o código escrito na etiqueta ou parte do título, do autor ou do ISBN.
+3. Com um código BDP, o sistema mostra o exemplar (título, autor, localização, situação). Confira o estado, a localização e, se precisar, abra **Corrigir informações do livro**. Clique em **Salvar e marcar como encontrado**.
+4. Com uma pesquisa por texto, os resultados mostram os exemplares e as linhas importadas (**Linha N da planilha · Pendente**). Clique em **Conferir** numa linha da planilha para:
+   - corrigir os dados (todos opcionais);
+   - escrever o **Código BDP do carimbo** (6 números; recusado se já pertencer a outro exemplar);
+   - **Salvar e marcar como encontrado**, **Salvar só as correções** ou **Marcar como não localizado**.
+5. Livro em mãos que não está na lista: **+ Cadastrar livro não listado**. Todos os campos podem ficar vazios. O sistema mostra antes os possíveis livros iguais; escolha um deles para cadastrar outro exemplar da mesma obra ou **Nenhum destes: é um livro diferente.** O livro já fica encontrado e os contadores mudam na hora.
+6. Ao terminar uma estante ou setor, use **Finalizar estante ou setor** na página do inventário: escolha o local, veja os pendentes, selecione os ausentes, marque **Procurei estes livros no local e confirmo que não estão lá.** e clique em **Marcar selecionados como não localizados**.
+
+Status do item: **Pendente**, **Encontrado** e **Não localizado**. Nada vira não localizado automaticamente. Um item não localizado pode voltar para pendente (**Voltar para pendente**); um encontrado pode ser desfeito por quem gerencia o inventário (**Desfazer “Encontrado”**, com motivo). Os alertas cadastrais são independentes do status.
+
+O painel de progresso mostra **Total**, **Encontrados**, **Pendentes**, **Não localizados**, **Com alertas cadastrais**, **Sem código BDP** e o **% concluído**.
 
 Algumas regras da conferência:
 
@@ -111,7 +114,7 @@ A biblioteca identifica os exemplares **somente pelo código escrito** na etique
 
 ## Como tratar divergências
 
-Na página do inventário, a aba **Pendências** mostra o que precisa de decisão:
+Na página do inventário, a aba **Decisões necessárias** mostra o que precisa de decisão:
 
 - **Encontrado com diferença** (outra localização ou outro estado). As decisões possíveis são:
   - **Atualizar o cadastro com o que foi encontrado**;

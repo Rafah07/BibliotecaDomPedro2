@@ -98,15 +98,22 @@ Localizações não são apagadas, só **desativadas**.
 3. Salve. O inventário fica **em preparação**.
 4. Confira os dados e clique em **Iniciar conferência**. A lista de exemplares previstos é fixada nesse momento.
 
-## 9. Como conferir livros
+## 9. Como conferir livros (e corrigir o cadastro)
 
-1. Na página do inventário, clique em **Conferir exemplares**.
-2. Pegue o livro na prateleira, leia o código da etiqueta e digite no campo **Digite o código do exemplar** (ex.: `BDP-000121`). Pressione **Enter**.
-3. Confira se o título mostrado é o do livro em mãos, ajuste o estado ou a localização se precisar e clique em **Confirmar conferência**.
-4. Livro **sem etiqueta**? Digite o título para pesquisar. Se ele ainda não tem exemplar, use **Cadastrar exemplar** ali mesmo: ele já fica conferido e ganha o próximo código.
-5. Quando terminar, trate as pendências (não encontrados, divergências) e clique em **Concluir inventário**. O relatório fica em **Relatório do inventário**.
+Toda a conferência e a correção acontecem na página **Conferir e corrigir livros** do Inventário. Não existe página de revisão separada.
 
-Conferir o mesmo exemplar duas vezes não duplica nada: o sistema avisa que ele já foi conferido.
+Fluxo: **Importar planilha → Organizar estantes → Pesquisar livro → Corrigir informações → Registrar código BDP → Marcar como encontrado.**
+
+1. Na página do inventário, clique em **Conferir e corrigir livros**.
+2. Pegue o livro na prateleira e use **Pesquisar livro: código BDP, título, autor ou ISBN**. Com etiqueta, digite o código (ex.: `BDP-000121`); sem etiqueta, digite o título ou o autor.
+3. Nos resultados, as linhas vindas da planilha aparecem como **Linha N da planilha · Pendente**. Clique em **Conferir**.
+4. Corrija o que estiver errado em **Corrigir informações do livro** (todos os campos são opcionais) e escreva o **Código BDP do carimbo**, se o livro tiver.
+5. Clique em **Salvar e marcar como encontrado**. O cadastro e o inventário são atualizados juntos.
+6. Livro em mãos que não aparece na pesquisa: use **+ Cadastrar livro não listado**. O sistema mostra antes os livros parecidos; se for outro exemplar de uma obra já cadastrada, escolha-a.
+7. Ao terminar uma estante ou setor, em **Finalizar estante ou setor**, selecione os livros que realmente não estão lá e clique em **Marcar selecionados como não localizados** (há confirmação). Nada vira "Não localizado" sozinho, e a marcação pode ser desfeita com **Voltar para pendente**.
+8. Quando terminar, trate as decisões necessárias e clique em **Concluir inventário**. O relatório fica em **Relatório do inventário**.
+
+Os status são **Pendente**, **Encontrado** e **Não localizado**. Os **alertas cadastrais** (informação incompleta, possível inconsistência, possível duplicidade) são independentes e não impedem marcar como encontrado. Um código BDP nunca se repete: se já pertence a outro exemplar, o sistema recusa. Cliques repetidos não criam registros duplicados.
 
 ## 10. Como registrar empréstimos
 

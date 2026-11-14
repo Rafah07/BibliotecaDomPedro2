@@ -149,6 +149,11 @@ $impId = $repo->criar(['nome_arquivo' => 'teste.csv', 'identificador_arquivo' =>
 $repo->iniciarAnalise($impId, 'CSV', 1, $cab, $mapa);
 $repo->inserirLinhas($impId, array_map(fn ($l) => array_combine($cab, $l), $linhas), $mapa, 8);
 $repo->concluirAnalise($impId);
+// Desde a migração 110 a importação grava todas as linhas ("Importar todos e revisar no inventário").
+// Aqui as linhas 3 a 6 ficam para depois e a 8 sem decisão, para exercitar a ferramenta opcional
+// de ISBN em lote, que continua disponível para quem quiser tratar os ISBNs antes de gravar.
+$pdo->exec("UPDATE importacao_itens SET acao_importacao = 'revisar_depois', acao_automatica = 0 WHERE importacao_id = $impId AND numero_linha IN (3, 4, 5, 6)");
+$pdo->exec("UPDATE importacao_itens SET acao_importacao = NULL, acao_automatica = 0 WHERE importacao_id = $impId AND numero_linha = 8");
 $repo->iniciarConfirmacao($impId);
 do {
     $r = $repo->confirmarLote($impId, $bibliotecaria);
@@ -163,8 +168,9 @@ confere('linha 8 aguarda decisão de duplicidade', $item(8)['status_validacao'] 
 $pend = $repo->pendenciasIsbn($impId);
 $porLinha = array_column($pend, null, 'numero_linha');
 confere('4 linhas pendentes com ISBN inválido', count($pend) === 4 && $repo->contagemIsbnInvalido($impId) === 4, implode(',', array_keys($porLinha)));
-confere('linhas 3 e 4 podem ser importadas sem ISBN (ISBN é o único erro)', $porLinha[3]['avaliacao']['elegivel'] && $porLinha[4]['avaliacao']['elegivel']);
-confere('linha 5 (ISBN + quantidade inválida) fica para revisão individual', !$porLinha[5]['avaliacao']['elegivel'] && str_contains(implode(' ', $porLinha[5]['avaliacao']['motivos']), 'Quantidade'));
+confere('linhas 3 e 4 podem ser importadas sem ISBN', $porLinha[3]['avaliacao']['elegivel'] && $porLinha[4]['avaliacao']['elegivel']);
+confere('linha 5 (ISBN + quantidade inválida) também pode: quantidade é só alerta', $porLinha[5]['avaliacao']['elegivel']);
+confere('ISBN inválido é alerta, não erro', !in_array('erro', array_column($porLinha[3]['erros_json'], 'nivel'), true));
 confere('linha 6 (ISBN + possível duplicidade) fica para revisão individual', !$porLinha[6]['avaliacao']['elegivel']);
 confere('linha 4 recebe sugestão confiável; linha 3 não', ($porLinha[4]['diagnostico']['sugestoes'][0]['isbn'] ?? '') === '8526279866' && $porLinha[3]['diagnostico']['sugestoes'] === []);
 confere('filtro "isbn_invalido" da página de detalhes', $repo->itens($impId, 'isbn_invalido', '', 1, 50)['total'] === 4);
@@ -214,14 +220,14 @@ $f = $requisicao($bibliotecaria, ['csrf' => 'token-de-teste', 'acao' => 'importa
 confere('ids maliciosos são descartados (sem SQL injection)', ($f['tipo'] ?? '') === 'erro' && $num('SELECT COUNT(*) FROM livros') === 2 && $estado() == $e0);
 
 echo "Importação sem ISBN (seleção de vários registros)\n";
-$selecao = array_merge($ids([3, 4, 5, 6, 8, 2]), ['999999']);
+$selecao = array_merge($ids([3, 4, 6, 8, 2]), ['999999']);
 $f = $requisicao($bibliotecaria, ['csrf' => 'token-de-teste', 'acao' => 'importar', 'confirmado' => '1', 'itens' => $selecao]);
 $concluidas = array_column($f['concluidos'] ?? [], 'linha');
 sort($concluidas);
 confere('só as linhas 3 e 4 foram importadas', $concluidas === [3, 4], json_encode($f, JSON_UNESCAPED_UNICODE));
 $pendLinhas = array_column($f['pendentes'] ?? [], 'linha');
 sort($pendLinhas);
-confere('linhas 5, 6, 8 e o id inexistente continuam pendentes, com motivo', $pendLinhas === [null, 5, 6, 8] && !array_filter($f['pendentes'], fn ($p) => !$p['motivos']));
+confere('linhas 6, 8 e o id inexistente continuam pendentes, com motivo', $pendLinhas === [null, 6, 8] && !array_filter($f['pendentes'], fn ($p) => !$p['motivos']));
 confere('linha 2 (já importada) é pulada', array_column($f['ja_importados'] ?? [], 'linha') === [2]);
 confere('2 livros novos criados', $num('SELECT COUNT(*) FROM livros') === 4);
 
@@ -246,7 +252,7 @@ confere('nenhum exemplar criado', $depois['exemplares'] === $antes['exemplares']
 confere('nenhuma classificação CDD criada ou alterada', $depois['cdd'] === $antes['cdd']);
 confere('dados originais de todas as linhas intactos', $depois['originais'] == $antes['originais']);
 confere('duplicidade aguardando decisão não foi processada', $depois['linha8'] == $antes['linha8']);
-confere('linhas com outros erros não foram alteradas', $depois['linhas_5_6'] == $antes['linhas_5_6']);
+confere('linhas não selecionadas ou com duplicidade não foram alteradas', $depois['linhas_5_6'] == $antes['linhas_5_6']);
 confere('consulta posterior: lista de importados sem ISBN', array_column($repo->importadosSemIsbn($impId), 'isbn_original') === ['85-359-03282-8', '978-85-262-7986-6']);
 confere('importação continua com pendências', $repo->buscar($impId)['status'] === 'parcial' && $repo->contagemIsbnInvalido($impId) === 2);
 
@@ -280,7 +286,7 @@ $f = $requisicao($auxiliar, ['csrf' => 'token-de-teste', 'acao' => 'corrigir', '
 $l5 = $item(5);
 confere('ISBN válido digitado é gravado como correção', ($f['tipo'] ?? '') === 'corrigido' && ($l5['dados_corrigidos_json']['isbn'] ?? '') === '978-85-262-7986-5', json_encode($f, JSON_UNESCAPED_UNICODE));
 confere('original da planilha continua guardado', $l5['dados_originais_json']['ISBN'] === '978-85268-378-7');
-confere('outro erro (quantidade) continua impedindo a importação', $l5['status_validacao'] === 'erro' && $l5['processado_em'] === null);
+confere('a correção não grava a linha sozinha (continua pendente até a importação)', $l5['processado_em'] === null);
 confere('correção manual registrada com o usuário', $num("SELECT COUNT(*) FROM acoes_administrativas WHERE acao = 'importacao.corrigir' AND usuario_id = ? AND entidade_id = ?", [$auxiliar, $l5['id']]) === 1);
 
 echo "\n" . ($falhas ? "$falhas de $total testes falharam.\n" : "Todos os $total testes passaram.\n");

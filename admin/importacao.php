@@ -11,7 +11,7 @@ use Biblioteca\Services\ExcelImportService;
 use Biblioteca\Services\ImportValidationService;
 
 $erroBanco = null;
-$estatisticas = ['importacoes' => 0, 'importados' => 0, 'pendencias' => 0, 'erros' => 0];
+$estatisticas = ['importacoes' => 0, 'importados' => 0, 'pendencias' => 0, 'pendentes_revisao' => 0, 'erros' => 0];
 $abertas = [];
 $retomar = null;
 $modoReal = db_modo() === 'mysql';
@@ -40,9 +40,9 @@ $podeEnviar = $modoReal && auth_pode('importacao.revisar');
 
 $cards = [
     ['titulo' => 'Total de importações', 'valor' => $estatisticas['importacoes'], 'descricao' => 'Arquivos processados', 'icone' => 'file-spreadsheet', 'tom' => 'blue'],
-    ['titulo' => 'Registros importados', 'valor' => $estatisticas['importados'], 'descricao' => 'Linhas aprovadas e gravadas no acervo', 'icone' => 'circle-check', 'tom' => 'green'],
-    ['titulo' => 'Registros com pendências', 'valor' => $estatisticas['pendencias'], 'descricao' => 'Aguardando decisão ou revisão', 'icone' => 'hourglass', 'tom' => 'amber'],
-    ['titulo' => 'Erros identificados', 'valor' => $estatisticas['erros'], 'descricao' => 'Linhas que não puderam ser importadas', 'icone' => 'circle-alert', 'tom' => 'red'],
+    ['titulo' => 'Registros importados', 'valor' => $estatisticas['importados'], 'descricao' => 'Linhas gravadas no acervo', 'icone' => 'circle-check', 'tom' => 'green'],
+    ['titulo' => 'Com alertas cadastrais', 'valor' => $estatisticas['pendencias'], 'descricao' => 'Dados a corrigir no Inventário', 'icone' => 'triangle-alert', 'tom' => 'amber'],
+    ['titulo' => 'Aguardando conferência física', 'valor' => $estatisticas['pendentes_revisao'], 'descricao' => 'Livros importados ainda sem código BDP', 'icone' => 'hourglass', 'tom' => 'indigo'],
 ];
 
 $campos = ['ignorar' => 'Ignorar coluna'];
@@ -97,7 +97,7 @@ admin_page_start('importar', 'Importação de Planilhas', 'Importação de Plani
         <?= icon('info') ?>
         <div class="adm-notice__content">
             <strong>Nenhuma planilha foi importada ainda.</strong>
-            <p>Comece enviando o primeiro arquivo abaixo. Nada entra no acervo antes da sua revisão e confirmação; se preferir, baixe o modelo de planilha para conferir as colunas esperadas.</p>
+            <p>Comece enviando o primeiro arquivo abaixo. Você vê uma pré-visualização com os alertas e depois importa todos os registros, mesmo os incompletos: as correções são feitas depois, na página do Inventário. Se preferir, baixe o modelo de planilha para conferir as colunas esperadas.</p>
         </div>
     </div>
 <?php endif; ?>
@@ -265,4 +265,4 @@ admin_page_start('importar', 'Importação de Planilhas', 'Importação de Plani
 <?php endif; ?>
 
 <?php
-admin_page_end($podeEnviar ? ['assets/js/importacao.js?v=20261113'] : []);
+admin_page_end($podeEnviar ? ['assets/js/importacao.js?v=20261113b'] : []);
