@@ -417,7 +417,8 @@ final class InventarioRepository
      */
     public function exemplaresDaObra(int $inventarioId, int $livroId): array
     {
-        return $this->todas("SELECT e.id, e.codigo_individual, e.situacao, e.estado_conservacao, e.observacoes, e.criado_em,
+        return $this->todas("SELECT e.id, e.codigo_individual, e.situacao, e.estado_conservacao, e.observacoes, e.criado_em, e.carimbo_status, e.localizacao_id,
+                                    (SELECT COUNT(*) FROM exemplar_ocorrencias oc WHERE oc.exemplar_id = e.id AND oc.status = 'aberta') AS ocorrencias_abertas,
                                     lo.setor, lo.estante, lo.prateleira, lo.complemento,
                                     i.id AS item_id, i.conferido_em, i.nao_localizado_em, i.decisao, i.previsto, i.cadastrado_no_inventario,
                                     r.linha AS origem_linha, r.arquivo AS origem_arquivo,

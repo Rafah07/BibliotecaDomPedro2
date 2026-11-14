@@ -26,6 +26,8 @@ final class ConfiguracaoSistema
             'descricao' => 'Nome da biblioteca usado nos materiais impressos. Os textos do site público ficam em Sistema → Site público.'],
         'circulacao' => ['titulo' => 'Regras de empréstimo', 'icone' => 'book-open-check',
             'descricao' => 'Prazos, renovações e limites aplicados em novos empréstimos e renovações. Empréstimos já registrados mantêm as datas que tinham.'],
+        'preparo' => ['titulo' => 'Preparo dos exemplares', 'icone' => 'stamp',
+            'descricao' => 'Quando um exemplar recém-registrado pode ser emprestado. Exemplares que esperam o preparo ficam "Aguardando liberação" e são liberados sozinhos quando o preparo termina.'],
         'alunos' => ['titulo' => 'Cadastro de alunos', 'icone' => 'graduation-cap',
             'descricao' => 'Regras usadas na importação de alunos.'],
         'seguranca' => ['titulo' => 'Segurança do painel', 'icone' => 'shield-check',
@@ -58,6 +60,13 @@ final class ConfiguracaoSistema
         'EMPRESTIMO_BLOQUEAR_ATRASO' => ['grupo' => 'circulacao', 'rotulo' => 'Impedir novo empréstimo para aluno com livro atrasado', 'tipo' => 'opcao',
             'padrao' => 'não (o empréstimo é permitido)', 'permissao' => 'configuracoes.editar',
             'ajuda' => 'Ative somente se essa regra fizer parte do regulamento aprovado pela escola.'],
+
+        'EXEMPLAR_EMPRESTAR_SEM_CARIMBO' => ['grupo' => 'preparo', 'rotulo' => 'Emprestar exemplar que ainda aguarda carimbo', 'tipo' => 'opcao',
+            'padrao' => 'não (só depois de carimbado)', 'permissao' => 'configuracoes.editar',
+            'ajuda' => 'Com "não", o exemplar novo fica Aguardando liberação até alguém confirmar o carimbo na Planilha de Códigos BDP.'],
+        'EXEMPLAR_EMPRESTAR_SEM_ORGANIZACAO' => ['grupo' => 'preparo', 'rotulo' => 'Emprestar exemplar que ainda está na área de triagem (sem estante)', 'tipo' => 'opcao',
+            'padrao' => 'não (só depois de organizado)', 'permissao' => 'configuracoes.editar',
+            'ajuda' => 'Com "não", o exemplar novo fica Aguardando liberação até receber estante e prateleira definitivas.'],
 
         'ALUNOS_EMAIL_DOMINIO' => ['grupo' => 'alunos', 'rotulo' => 'Domínio do e-mail institucional dos alunos', 'tipo' => 'dominio', 'max' => 120,
             'padrao' => 'qualquer e-mail válido', 'permissao' => 'configuracoes.editar',

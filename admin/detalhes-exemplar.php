@@ -38,8 +38,15 @@ try {
                     break;
                 case 'transferir':
                     fisico_exigir('exemplares.gerenciar');
-                    $servico->transferir($id, (int)admin_param($_POST, 'localizacao_id') ?: null, $usuario['id'], admin_param($_POST, 'motivo'));
-                    admin_flash('sucesso', 'Localização atualizada.', 'Só este exemplar mudou de lugar; os outros exemplares do livro continuam onde estão.');
+                    $op = operacoes_servico()->realizar('localizacao', 'Localização alterada no exemplar nº ' . $id, $usuario['id'],
+                        fn () => $servico->transferir($id, (int)admin_param($_POST, 'localizacao_id') ?: null, $usuario['id'], admin_param($_POST, 'motivo')));
+                    admin_flash('sucesso', 'Localização atualizada.', 'Só este exemplar mudou de lugar; os outros exemplares do livro continuam onde estão.' . ($op['total'] ? ' Errou? Use “Desfazer” em Ações recentes.' : ''));
+                    break;
+                case 'carimbar':
+                    fisico_exigir('exemplares.gerenciar');
+                    operacoes_servico()->realizar('carimbo', 'Carimbo confirmado no exemplar nº ' . $id, $usuario['id'],
+                        fn () => $servico->marcarCarimbado([$id], $usuario['id'], admin_param($_POST, 'observacao')));
+                    admin_flash('sucesso', 'Exemplar marcado como carimbado.', 'Ele saiu da lista “Aguardando carimbo” da Planilha de Códigos BDP.');
                     break;
                 case 'situacao':
                     fisico_exigir('exemplares.gerenciar');
@@ -83,6 +90,8 @@ try {
         $conferencias = exemplares_repo()->conferencias($id);
         $planilha = exemplares_repo()->dadosPlanilha((int)$ex['livro_id']);
         $locais = localizacoes_servico()->ativas($ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null);
+        $ocorrencias = preparo_repo()->ocorrenciasDoExemplar($id);
+        $loteEx = $ex['lote_id'] !== null ? preparo_repo()->lote((int)$ex['lote_id']) : null;
     }
 } catch (PDOException $e) {
     http_response_code(500);
@@ -143,9 +152,12 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
                 <div><dt>Autor</dt><dd><?= e($ex['autores'] ?: 'Não informado') ?></dd></div>
                 <div><dt>ISBN da edição</dt><dd class="adm-mono"><?= $ex['isbn'] ? e($ex['isbn']) : '<span class="adm-missing">Não informado</span>' ?></dd></div>
                 <div><dt>Classificação CDD</dt><dd><?= $ex['cdd_aprovada'] ? '<span class="adm-mono">' . e($ex['cdd_aprovada']) . '</span> (aprovada)' : '<span class="adm-missing">Pendente — a reclassificação é feita no módulo CDD</span>' ?></dd></div>
-                <div><dt>Situação</dt><dd><?= acervo_badge_situacao($ex['situacao']) ?></dd></div>
+                <div><dt>Situação</dt><dd><?= acervo_badge_situacao($ex['situacao']) ?><?= (int)$ex['liberacao_pendente'] ? ' <small class="adm-table__muted">aguardando liberação (carimbo ou estante definitiva)</small>' : '' ?></dd></div>
+                <div><dt>Preparo físico</dt><dd><?= fisico_selos_preparo($ex, count(array_filter($ocorrencias, fn ($o) => $o['status'] === 'aberta'))) ?></dd></div>
+                <div><dt>Carimbo</dt><dd><?= fisico_badge_carimbo($ex['carimbo_status']) ?><?= $ex['carimbado_em'] ? ' em ' . admin_data_hora($ex['carimbado_em']) : '' ?><?= $ex['carimbo_observacao'] ? ' · ' . e($ex['carimbo_observacao']) : '' ?></dd></div>
+                <div><dt>Lote de cadastramento</dt><dd><?= $loteEx ? '<a class="adm-link" href="' . e(admin_url('planilha-bdp') . '?' . http_build_query(['aba' => 'todos', 'lote' => (int)$loteEx['id']])) . '">' . e(Biblioteca\Repositories\PreparoRepository::rotuloLote($loteEx)) . '</a> · nº ' . (int)$ex['lote_ordem'] . ' na ordem de registro' : '<span class="adm-missing">Sem lote (cadastro anterior)</span>' ?></dd></div>
                 <div><dt>Estado de conservação</dt><dd><?= acervo_badge_conservacao($ex['estado_conservacao']) ?></dd></div>
-                <div><dt>Localização física confirmada</dt><dd><?= $ex['localizacao_id'] ? e(fisico_local($ex)) . ($ex['local_codigo'] ? ' <span class="adm-mono">(' . e($ex['local_codigo']) . ')</span>' : '') : '<span class="adm-missing">Ainda não definida</span>' ?></dd></div>
+                <div><dt>Localização física confirmada</dt><dd><?= $ex['localizacao_id'] ? e(fisico_local($ex)) . ($ex['local_codigo'] ? ' <span class="adm-mono">(' . e($ex['local_codigo']) . ')</span>' : '') : '<span class="adm-missing">Aguardando organização (área de triagem)</span>' ?></dd></div>
                 <div><dt>Localização antiga (planilha)</dt><dd><?= $planilha['localizacoes'] ? e($planilha['localizacoes']) . ' <small class="adm-table__muted">— histórica, não confirmada</small>' : '<span class="adm-missing">Não informada</span>' ?></dd></div>
                 <div><dt>Cadastrado em</dt><dd><?= admin_data_hora($ex['criado_em']) ?><?= $ex['cadastrado_por_nome'] ? ' por ' . e($ex['cadastrado_por_nome']) : '' ?></dd></div>
                 <div><dt>Origem do cadastro</dt><dd><?= $ex['inventario_id'] ? 'Conferência do <a class="adm-link" href="' . e(admin_url('inventario-detalhes') . '?id=' . (int)$ex['inventario_id']) . '">inventário nº ' . (int)$ex['inventario_id'] . '</a>' : 'Cadastro manual' ?></dd></div>
@@ -153,6 +165,30 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
                 <div><dt>Etiqueta</dt><dd><?= $ex['etiqueta_gerada_em'] ? 'Gerada em ' . admin_data_hora($ex['etiqueta_gerada_em']) : '<span class="adm-missing">Ainda não gerada</span>' ?></dd></div>
                 <div class="adm-meta__full"><dt>Observações</dt><dd><?= $ex['observacoes'] ? e($ex['observacoes']) : '<span class="adm-missing">Sem observações.</span>' ?></dd></div>
             </dl>
+        </section>
+
+        <section class="adm-card adm-panel" id="ocorrencias" aria-labelledby="titulo-ocorrencias">
+            <div class="adm-panel__header"><div><h2 id="titulo-ocorrencias">Ocorrências e conservação</h2><p>Problemas físicos registrados neste exemplar. Nada é apagado: as resolvidas continuam no histórico.</p></div>
+                <?php if ($podeGerenciar && !$baixado): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('ocorrencias') . '?' . http_build_query(['codigo' => $ex['codigo_individual'], 'voltar' => $url])) ?>#nova"><?= icon('triangle-alert') ?> Registrar ocorrência</a><?php endif; ?></div>
+            <?php if (!$ocorrencias): ?>
+                <p class="adm-field__hint">Nenhuma ocorrência registrada.</p>
+            <?php else: ?>
+                <ul class="adm-ocorrencias">
+                    <?php foreach ($ocorrencias as $o): ?>
+                        <li class="adm-ocorrencia is-<?= e($o['status']) ?>">
+                            <div class="adm-ocorrencia__topo">
+                                <strong><?= e(Biblioteca\Services\OcorrenciaService::TIPOS[$o['tipo']] ?? $o['tipo']) ?></strong>
+                                <span class="adm-status adm-tone--<?= $o['status'] === 'aberta' ? 'amber' : ($o['status'] === 'resolvida' ? 'green' : 'muted') ?>"><?= e(Biblioteca\Services\OcorrenciaService::STATUS[$o['status']] ?? $o['status']) ?></span>
+                            </div>
+                            <?php if ($o['descricao']): ?><p class="adm-ocorrencia__desc"><?= e($o['descricao']) ?></p><?php endif; ?>
+                            <p class="adm-table__muted"><?= (int)$o['bloqueia_emprestimo'] ? 'Deixou o exemplar indisponível para empréstimo' : 'Empréstimos permitidos' ?> · <?= admin_data_hora($o['criado_em']) ?><?= $o['registrada_por_nome'] ? ' por ' . e($o['registrada_por_nome']) : '' ?>
+                                <?= $o['resolvida_em'] ? ' · resolvida em ' . admin_data_hora($o['resolvida_em']) . ($o['resolvida_por_nome'] ? ' por ' . e($o['resolvida_por_nome']) : '') : '' ?></p>
+                            <?php if ($o['resolucao']): ?><p class="adm-ocorrencia__desc"><strong>O que foi feito:</strong> <?= e($o['resolucao']) ?></p><?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <a class="adm-link" href="<?= e(admin_url('ocorrencias') . '?' . http_build_query(['q' => $ex['codigo_individual'], 'status' => 'todas'])) ?>"><?= icon('list') ?> Consultar, editar ou resolver em Ocorrências e Conservação</a>
+            <?php endif; ?>
         </section>
 
         <section class="adm-card adm-panel" id="historico" aria-labelledby="titulo-historico">
@@ -208,11 +244,23 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
             <section class="adm-card adm-panel adm-acoes-exemplar" aria-labelledby="titulo-acoes">
                 <div class="adm-panel__header"><div><h2 id="titulo-acoes">Ações</h2><p>Cada alteração fica registrada no histórico.</p></div></div>
 
+                <?php if ($ex['carimbo_status'] === 'aguardando'): ?>
+                    <details class="adm-acao" open>
+                        <summary><?= icon('stamp') ?> Marcar como carimbado</summary>
+                        <form method="post" data-enviar-uma-vez>
+                            <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="carimbar">
+                            <p class="adm-field__hint">Confira se o carimbo do livro mostra exatamente <strong class="adm-mono"><?= e($ex['codigo_individual']) ?></strong>.</p>
+                            <label class="adm-field"><span class="adm-field__label">Observação <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="observacao" maxlength="300" placeholder="Ex.: carimbo na folha de rosto"></label>
+                            <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('check') ?> Confirmar carimbo</button>
+                        </form>
+                    </details>
+                <?php endif; ?>
+
                 <details class="adm-acao"<?= admin_param($_GET, 'acao') === 'localizacao' ? ' open' : '' ?>>
                     <summary><?= icon('map-pin') ?> Transferir de localização</summary>
                     <form method="post" data-loading-form>
                         <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="transferir">
-                        <fieldset class="adm-field"><legend class="adm-field__label">Nova localização (estante e prateleira)</legend><?= fisico_campo_local('localizacao_id', $ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null, 'Sem localização', 'transferir-local') ?></fieldset>
+                        <fieldset class="adm-field"><legend class="adm-field__label">Nova localização (estante e prateleira)</legend><?= fisico_campo_local('localizacao_id', $ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null, 'Aguardando organização (área de triagem)', 'transferir-local') ?></fieldset>
                         <label class="adm-field"><span class="adm-field__label">Motivo <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="motivo" maxlength="300" placeholder="Ex.: reorganização da estante"></label>
                         
                         <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('check') ?> Salvar localização</button>

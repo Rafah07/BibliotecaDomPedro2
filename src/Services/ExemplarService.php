@@ -22,6 +22,12 @@ use PDO;
  *     é marcado como extraviado: a devolução é registrada no módulo de empréstimos.
  *   * A situação "emprestado" só é definida pelo módulo de empréstimos.
  *   * Baixa é definitiva; não há exclusão de exemplares.
+ *   * Preparo (migração 150): todo exemplar novo nasce "Aguardando carimbo" (código gerado pelo
+ *     sistema) ou "Carimbado" (código digitado do carimbo do livro), entra no lote de cadastramento
+ *     aberto de quem registrou (com a ordem dentro do lote) e, se ainda falta carimbo ou localização
+ *     definitiva, fica "Aguardando liberação" até o preparo terminar (regras em Configurações).
+ *   * Operação atual (definirOperacao): cada movimentação gravada leva o número da operação, para
+ *     que "Desfazer ações recentes" saiba exatamente o que foi alterado.
  */
 final class ExemplarService
 {
@@ -46,8 +52,38 @@ final class ExemplarService
 
     private const CODIGO_MAXIMO = 999999;
 
+    public const CARIMBO = ['aguardando' => 'Aguardando carimbo', 'carimbado' => 'Carimbado'];
+
+    /**
+     * Regras de liberação (Configurações → Preparo dos exemplares). O serviço sozinho não segura nada
+     * (compatível com quem o usa direto, como scripts e testes antigos); o painel SEMPRE aplica a
+     * regra configurada por exemplares_servico(), cujo padrão é só liberar o exemplar carimbado e
+     * com estante definitiva.
+     */
+    private bool $emprestarSemCarimbo = true;
+    private bool $emprestarSemOrganizacao = true;
+
+    /** Operação em andamento (OperacaoService): gravada em cada movimentação. */
+    private ?int $operacaoId = null;
+
     public function __construct(private PDO $pdo)
     {
+    }
+
+    public function definirRegrasPreparo(bool $emprestarSemCarimbo, bool $emprestarSemOrganizacao): void
+    {
+        $this->emprestarSemCarimbo = $emprestarSemCarimbo;
+        $this->emprestarSemOrganizacao = $emprestarSemOrganizacao;
+    }
+
+    public function definirOperacao(?int $id): void
+    {
+        $this->operacaoId = $id;
+    }
+
+    public function operacaoAtual(): ?int
+    {
+        return $this->operacaoId;
     }
 
     /**
@@ -70,8 +106,9 @@ final class ExemplarService
         }
         $obs = self::textoLimpo($dados['observacoes'] ?? null);
         $localId = $this->localizacaoValida($dados['localizacao_id'] ?? null);
+        $carimbo = self::carimboValido($dados['carimbo'] ?? null) ?? 'aguardando'; // código gerado agora: ainda não está no carimbo
 
-        return $this->transacao(function () use ($livroId, $estado, $situacao, $obs, $localId, $responsavelId, $quantidade, $inventarioId) {
+        return $this->transacao(function () use ($livroId, $estado, $situacao, $obs, $localId, $responsavelId, $quantidade, $inventarioId, $carimbo) {
             $livro = $this->linha('SELECT id, titulo, arquivado_em FROM livros WHERE id = ? LOCK IN SHARE MODE', [$livroId]);
             if (!$livro) {
                 throw new AcervoException('Livro não encontrado.');
@@ -85,18 +122,19 @@ final class ExemplarService
                 throw new AcervoException('A numeração BDP chegou ao limite de ' . self::CODIGO_MAXIMO . ' exemplares.');
             }
             $this->executar('UPDATE exemplar_codigo_seq SET ultimo = ? WHERE id = 1', [$ultimo + $quantidade]);
+            [$situacaoFinal, $pendente] = $this->situacaoInicial($situacao, $carimbo, $localId);
+            [$loteId, $ordem] = $this->reservarOrdemNoLote($responsavelId, $quantidade);
 
             $criados = [];
             for ($i = 1; $i <= $quantidade; $i++) {
                 $codigo = CodigoBdp::formatar($ultimo + $i);
-                $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, conservacao_avaliada_em, conservacao_avaliada_por, situacao, observacoes, cadastrado_por, inventario_id)
-                                 VALUES (?, ?, ?, ?, ' . ($estado === self::NAO_AVALIADO ? 'NULL, NULL' : 'NOW(), ?') . ', ?, ?, ?, ?)',
-                    array_merge([$livroId, $codigo, $localId, $estado], $estado === self::NAO_AVALIADO ? [] : [$responsavelId], [$situacao, $obs, $responsavelId, $inventarioId]));
-                $id = (int)$this->pdo->lastInsertId();
-                $this->movimentacao($id, 'cadastro', $inventarioId ? 'Exemplar cadastrado durante a conferência do inventário nº ' . $inventarioId : 'Exemplar físico cadastrado',
-                    $responsavelId, $inventarioId, ['estado' => $estado, 'situacao' => $situacao, 'localizacao_id' => $localId]);
-                $criados[] = ['id' => $id, 'codigo' => $codigo];
+                $id = $this->inserir($livroId, $codigo, $localId, $estado, $responsavelId, $situacaoFinal, $pendente, $obs, $inventarioId, $carimbo, $loteId, $ordem + $i);
+                $this->movimentacao($id, 'cadastro', ($inventarioId ? 'Exemplar cadastrado durante a conferência do inventário nº ' . $inventarioId : 'Exemplar físico cadastrado')
+                    . ' · ' . self::CARIMBO[$carimbo] . ($pendente ? ' · aguardando liberação para empréstimo' : ''),
+                    $responsavelId, $inventarioId, ['estado' => $estado, 'situacao' => $situacaoFinal, 'localizacao_id' => $localId, 'carimbo' => $carimbo, 'lote_id' => $loteId]);
+                $criados[] = ['id' => $id, 'codigo' => $codigo, 'carimbo' => $carimbo, 'situacao' => $situacaoFinal, 'lote_id' => $loteId, 'lote_ordem' => $ordem + $i];
             }
+            $this->lembrarLocal($responsavelId, $localId);
             $this->registrarAcao($responsavelId, 'exemplar.cadastrar', 'livro', $livroId, [
                 'titulo' => $livro['titulo'], 'codigos' => array_column($criados, 'codigo'), 'inventario_id' => $inventarioId,
             ]);
@@ -133,8 +171,9 @@ final class ExemplarService
         $obs = self::textoLimpo($dados['observacoes'] ?? null);
         $localId = $this->localizacaoValida($dados['localizacao_id'] ?? null);
         $processo = isset($dados['processo_bdp']) ? (string)$dados['processo_bdp'] : null;
+        $carimboPedido = self::carimboValido($dados['carimbo'] ?? null);
 
-        return $this->transacao(function () use ($livroId, $normal, $estado, $situacao, $obs, $localId, $responsavelId, $inventarioId, $processo) {
+        return $this->transacao(function () use ($livroId, $normal, $estado, $situacao, $obs, $localId, $responsavelId, $inventarioId, $processo, $carimboPedido) {
             $livro = $this->linha('SELECT id, titulo, arquivado_em FROM livros WHERE id = ? LOCK IN SHARE MODE', [$livroId]);
             if (!$livro) {
                 throw new AcervoException('Livro não encontrado.');
@@ -156,24 +195,28 @@ final class ExemplarService
             if ($reserva && ($motivo = CodigoBdpService::motivoRecusa($reserva, $responsavelId, $processo)) !== null) {
                 throw new AcervoException($motivo);
             }
+            // Código gerado pelo sistema ("Gerar código BDP"): ainda não está no carimbo. Código digitado sem
+            // reserva: veio do carimbo que o livro já tem. O formulário pode dizer explicitamente qual é o caso.
+            $carimbo = $carimboPedido ?? ($reserva ? 'aguardando' : 'carimbado');
+            [$situacaoFinal, $pendente] = $this->situacaoInicial($situacao, $carimbo, $localId);
+            [$loteId, $ordem] = $this->reservarOrdemNoLote($responsavelId, 1);
             try {
-                $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, conservacao_avaliada_em, conservacao_avaliada_por, situacao, observacoes, cadastrado_por, inventario_id)
-                                 VALUES (?, ?, ?, ?, ' . ($estado === self::NAO_AVALIADO ? 'NULL, NULL' : 'NOW(), ?') . ', ?, ?, ?, ?)',
-                    array_merge([$livroId, $normal, $localId, $estado], $estado === self::NAO_AVALIADO ? [] : [$responsavelId], [$situacao, $obs, $responsavelId, $inventarioId]));
+                $id = $this->inserir($livroId, $normal, $localId, $estado, $responsavelId, $situacaoFinal, $pendente, $obs, $inventarioId, $carimbo, $loteId, $ordem + 1);
             } catch (\PDOException $e) {
                 if (($e->errorInfo[1] ?? 0) === 1062) {
                     throw new AcervoException('O código ' . $normal . ' acabou de ser usado em outro exemplar. Confira o carimbo.');
                 }
                 throw $e;
             }
-            $id = (int)$this->pdo->lastInsertId();
             $this->executar('UPDATE exemplar_codigo_reservas SET usado_em = NOW(), exemplar_id = ? WHERE codigo = ? AND usado_em IS NULL', [$id, $normal]);
             $this->movimentacao($id, 'cadastro', ($inventarioId ? 'Exemplar cadastrado na conferência do inventário nº ' . $inventarioId : 'Exemplar físico cadastrado')
-                . ' com o código carimbado ' . $normal, $responsavelId, $inventarioId, ['estado' => $estado, 'situacao' => $situacao, 'localizacao_id' => $localId, 'codigo_informado' => true]);
+                . ' com o código ' . $normal . ' · ' . self::CARIMBO[$carimbo] . ($pendente ? ' · aguardando liberação para empréstimo' : ''), $responsavelId, $inventarioId,
+                ['estado' => $estado, 'situacao' => $situacaoFinal, 'localizacao_id' => $localId, 'codigo_informado' => !$reserva, 'carimbo' => $carimbo, 'lote_id' => $loteId]);
+            $this->lembrarLocal($responsavelId, $localId);
             $this->registrarAcao($responsavelId, 'exemplar.cadastrar', 'livro', $livroId, [
                 'titulo' => $livro['titulo'], 'codigos' => [$normal], 'inventario_id' => $inventarioId, 'codigo_informado' => true,
             ]);
-            return ['id' => $id, 'codigo' => $normal];
+            return ['id' => $id, 'codigo' => $normal, 'carimbo' => $carimbo, 'situacao' => $situacaoFinal, 'lote_id' => $loteId, 'lote_ordem' => $ordem + 1];
         });
     }
 
@@ -235,24 +278,135 @@ final class ExemplarService
      * Transfere o exemplar para outra localização (ou deixa sem localização, com null).
      * Só este exemplar muda: os outros exemplares do livro continuam onde estão.
      */
-    public function transferir(int $id, ?int $localizacaoId, int $responsavelId, string $motivo = '', ?int $inventarioId = null): void
+    public function transferir(int $id, ?int $localizacaoId, int $responsavelId, string $motivo = '', ?int $inventarioId = null): bool
     {
         $localId = $this->localizacaoValida($localizacaoId);
         $motivo = self::textoLimpo($motivo);
-        $this->transacao(function () use ($id, $localId, $responsavelId, $motivo, $inventarioId) {
+        return $this->transacao(function () use ($id, $localId, $responsavelId, $motivo, $inventarioId) {
             $ex = $this->bloquear($id);
             if ($ex['situacao'] === 'baixado') {
                 throw new AcervoException('Exemplares baixados não mudam de localização.');
             }
             $anterior = $ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null;
             if ($anterior === $localId) {
-                return;
+                return false;
             }
             $this->executar('UPDATE exemplares SET localizacao_id = ? WHERE id = ?', [$localId, $id]);
-            $texto = 'Localização: ' . $this->localTexto($anterior) . ' → ' . $this->localTexto($localId) . ($motivo ? ' · ' . $motivo : '');
+            $texto = ($anterior === null ? 'Organizado: ' : ($localId === null ? 'Voltou para a área de triagem: ' : 'Localização: '))
+                . $this->localTexto($anterior) . ' → ' . $this->localTexto($localId) . ($motivo ? ' · ' . $motivo : '');
             $this->movimentacao($id, 'localizacao', $texto, $responsavelId, $inventarioId, ['de' => $anterior, 'para' => $localId]);
-            $this->registrarAcao($responsavelId, 'exemplar.transferir', 'exemplar', $id, ['codigo' => $ex['codigo_individual'], 'de' => $anterior, 'para' => $localId]);
+            $this->registrarAcao($responsavelId, 'exemplar.transferir', 'exemplar', $id, ['codigo' => $ex['codigo_individual'], 'de' => $anterior, 'para' => $localId, 'operacao_id' => $this->operacaoId]);
+            $this->lembrarLocal($responsavelId, $localId);
+            if ($localId !== null) {
+                $this->concluirPreparo($id, $responsavelId, $inventarioId);
+            }
+            return true;
         });
+    }
+
+    /**
+     * "Marcar como carimbado": a equipe escreveu o código BDP no carimbo do livro. Exemplares já
+     * carimbados ou baixados são ignorados. Se o preparo terminou, o exemplar é liberado.
+     * @param list<int> $ids
+     * @return list<string> códigos marcados agora
+     */
+    public function marcarCarimbado(array $ids, int $responsavelId, string $observacao = ''): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($i) => $i > 0)));
+        if (!$ids) {
+            throw new AcervoException('Selecione pelo menos um exemplar.');
+        }
+        if (count($ids) > 1000) {
+            throw new AcervoException('Marque no máximo 1.000 exemplares de cada vez.');
+        }
+        $obs = self::textoLimpo($observacao, 255);
+        return $this->transacao(function () use ($ids, $responsavelId, $obs) {
+            $marcados = [];
+            sort($ids); // mesma ordem de travas em operações simultâneas
+            foreach ($ids as $id) {
+                $ex = $this->bloquear($id);
+                if ($ex['carimbo_status'] === 'carimbado' || $ex['situacao'] === 'baixado') {
+                    continue;
+                }
+                $this->executar("UPDATE exemplares SET carimbo_status = 'carimbado', carimbado_em = NOW(), carimbado_por = ?" . ($obs !== null ? ', carimbo_observacao = ?' : '') . ' WHERE id = ?',
+                    $obs !== null ? [$responsavelId, $obs, $id] : [$responsavelId, $id]);
+                $this->movimentacao($id, 'carimbo', 'Carimbo confirmado: o código ' . $ex['codigo_individual'] . ' foi escrito no livro', $responsavelId, null, ['de' => 'aguardando', 'para' => 'carimbado']);
+                $this->concluirPreparo($id, $responsavelId, null);
+                $marcados[] = $ex['codigo_individual'];
+            }
+            if ($marcados) {
+                $this->registrarAcao($responsavelId, 'exemplar.carimbo', 'exemplar', count($marcados) === 1 ? $ids[0] : null, ['total' => count($marcados), 'codigos' => array_slice($marcados, 0, 200), 'operacao_id' => $this->operacaoId]);
+            }
+            return $marcados;
+        });
+    }
+
+    /** Volta para "Aguardando carimbo" (marcado por engano). Usado pelo "Desfazer". */
+    public function voltarAguardandoCarimbo(int $id, int $responsavelId, string $motivo = ''): void
+    {
+        $this->transacao(function () use ($id, $responsavelId, $motivo) {
+            $ex = $this->bloquear($id);
+            if ($ex['carimbo_status'] !== 'carimbado') {
+                return;
+            }
+            $this->executar("UPDATE exemplares SET carimbo_status = 'aguardando', carimbado_em = NULL, carimbado_por = NULL WHERE id = ?", [$id]);
+            $this->movimentacao($id, 'carimbo', 'Voltou para Aguardando carimbo' . ($motivo !== '' ? ' · ' . $motivo : ''), $responsavelId, null, ['de' => 'carimbado', 'para' => 'aguardando']);
+        });
+    }
+
+    /** Observação da Planilha de Códigos BDP (ex.: "carimbo borrado, refazer"). */
+    public function observacaoCarimbo(int $id, string $texto, int $responsavelId): void
+    {
+        $obs = self::textoLimpo($texto, 255);
+        $this->transacao(function () use ($id, $obs, $responsavelId) {
+            $ex = $this->bloquear($id);
+            $this->executar('UPDATE exemplares SET carimbo_observacao = ? WHERE id = ?', [$obs, $id]);
+            $this->registrarAcao($responsavelId, 'exemplar.observacao_carimbo', 'exemplar', $id, ['codigo' => $ex['codigo_individual']]);
+        });
+    }
+
+    /**
+     * Preparo concluído? (carimbado e com localização definitiva, conforme as regras). Se sim e o
+     * exemplar estava retido só pelo preparo, ele é liberado para empréstimo. Uma ocorrência que
+     * bloqueia o empréstimo continua valendo: a liberação fica para a resolução da ocorrência.
+     * Dentro de uma transação, com o exemplar já bloqueado.
+     */
+    public function concluirPreparo(int $id, int $responsavelId, ?int $inventarioId): bool
+    {
+        $ex = $this->linha('SELECT id, situacao, liberacao_pendente, carimbo_status, localizacao_id FROM exemplares WHERE id = ? FOR UPDATE', [$id]);
+        if (!$ex || !(int)$ex['liberacao_pendente'] || !$this->preparoCompleto($ex)) {
+            return false;
+        }
+        $bloqueio = (int)$this->valor("SELECT COUNT(*) FROM exemplar_ocorrencias WHERE exemplar_id = ? AND status = 'aberta' AND bloqueia_emprestimo = 1", [$id]);
+        if ($ex['situacao'] !== 'aguardando' || $bloqueio > 0) {
+            $this->executar('UPDATE exemplares SET liberacao_pendente = 0 WHERE id = ?', [$id]);
+            return false;
+        }
+        $this->executar("UPDATE exemplares SET situacao = 'disponivel', liberacao_pendente = 0 WHERE id = ?", [$id]);
+        $this->movimentacao($id, 'situacao', 'Situação: Aguardando liberação → Disponível · preparo concluído (carimbo e localização)', $responsavelId, $inventarioId,
+            ['de' => 'aguardando', 'para' => 'disponivel', 'liberacao' => true]);
+        return true;
+    }
+
+    /** Volta a reter o exemplar pelo preparo (usado só pelo "Desfazer" de uma liberação automática). */
+    public function voltarAguardandoLiberacao(int $id, int $responsavelId, string $motivo): void
+    {
+        $this->transacao(function () use ($id, $responsavelId, $motivo) {
+            $ex = $this->bloquear($id);
+            $this->recusarSeEmprestado($ex);
+            if ($ex['situacao'] !== 'disponivel') {
+                return;
+            }
+            $this->executar("UPDATE exemplares SET situacao = 'aguardando', liberacao_pendente = 1 WHERE id = ?", [$id]);
+            $this->movimentacao($id, 'situacao', 'Situação: Disponível → Aguardando liberação · ' . $motivo, $responsavelId, null, ['de' => 'disponivel', 'para' => 'aguardando', 'liberacao' => true]);
+        });
+    }
+
+    /** O preparo (carimbo e localização) está completo, segundo as regras de liberação? */
+    public function preparoCompleto(array $ex): bool
+    {
+        return ($this->emprestarSemCarimbo || $ex['carimbo_status'] === 'carimbado')
+            && ($this->emprestarSemOrganizacao || $ex['localizacao_id'] !== null);
     }
 
     /**
@@ -274,7 +428,8 @@ final class ExemplarService
             if ($ex['situacao'] === $nova) {
                 return;
             }
-            $this->executar('UPDATE exemplares SET situacao = ? WHERE id = ?', [$nova, $id]);
+            // Escolha manual da situação substitui a retenção automática do preparo.
+            $this->executar('UPDATE exemplares SET situacao = ?, liberacao_pendente = 0 WHERE id = ?', [$nova, $id]);
             $tipo = $nova === 'manutencao' ? 'manutencao' : 'situacao';
             $texto = 'Situação: ' . self::rotuloSituacao($ex['situacao']) . ' → ' . self::rotuloSituacao($nova) . ($motivo ? ' · ' . $motivo : '');
             $this->movimentacao($id, $tipo, $texto, $responsavelId, $inventarioId, ['de' => $ex['situacao'], 'para' => $nova]);
@@ -357,6 +512,64 @@ final class ExemplarService
         }
     }
 
+    /** 'aguardando' | 'carimbado' | null (não informado). */
+    public static function carimboValido(mixed $valor): ?string
+    {
+        $valor = (string)($valor ?? '');
+        return isset(self::CARIMBO[$valor]) ? $valor : null;
+    }
+
+    /**
+     * Situação gravada no cadastro. Quem escolhe "Disponível" para um exemplar ainda sem carimbo ou
+     * sem localização definitiva (e as regras não permitem emprestar assim) recebe "Aguardando
+     * liberação", com liberacao_pendente = 1: a liberação acontece sozinha ao concluir o preparo.
+     * @return array{0: string, 1: bool}
+     */
+    private function situacaoInicial(string $situacao, string $carimbo, ?int $localId): array
+    {
+        if ($situacao !== 'disponivel' || $this->preparoCompleto(['carimbo_status' => $carimbo, 'localizacao_id' => $localId])) {
+            return [$situacao, false];
+        }
+        return ['aguardando', true];
+    }
+
+    private function inserir(int $livroId, string $codigo, ?int $localId, string $estado, int $responsavelId, string $situacao, bool $pendente, ?string $obs, ?int $inventarioId, string $carimbo, ?int $loteId, ?int $ordem): int
+    {
+        $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, carimbo_status, carimbado_em, carimbado_por, lote_id, lote_ordem, localizacao_id, estado_conservacao,
+                                                 conservacao_avaliada_em, conservacao_avaliada_por, situacao, liberacao_pendente, observacoes, cadastrado_por, inventario_id)
+                         VALUES (?, ?, ?, ' . ($carimbo === 'carimbado' ? 'NOW(), ?' : 'NULL, NULL') . ', ?, ?, ?, ?, ' . ($estado === self::NAO_AVALIADO ? 'NULL, NULL' : 'NOW(), ?') . ', ?, ?, ?, ?, ?)',
+            array_merge([$livroId, $codigo, $carimbo], $carimbo === 'carimbado' ? [$responsavelId] : [], [$loteId, $ordem, $localId, $estado],
+                $estado === self::NAO_AVALIADO ? [] : [$responsavelId], [$situacao, $pendente ? 1 : 0, $obs, $responsavelId, $inventarioId]));
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
+     * Lote de cadastramento aberto de quem registra (cria "Lote NNN" se não houver) e reserva
+     * $quantidade posições seguidas nele. Chamado com a sequência BDP já travada: dois cadastros
+     * simultâneos recebem ordens diferentes e o número de um lote novo não se repete.
+     * @return array{0: int, 1: int} id do lote e a última ordem usada antes desta reserva
+     */
+    private function reservarOrdemNoLote(int $responsavelId, int $quantidade): array
+    {
+        $lote = $this->linha("SELECT id, total FROM cadastro_lotes WHERE responsavel_id = ? AND status = 'aberto' ORDER BY id DESC LIMIT 1 FOR UPDATE", [$responsavelId]);
+        if (!$lote) {
+            $numero = (int)$this->valor('SELECT COALESCE(MAX(numero), 0) + 1 FROM cadastro_lotes');
+            $equipe = $this->valor('SELECT equipe FROM administradores WHERE id = ?', [$responsavelId]);
+            $this->executar('INSERT INTO cadastro_lotes (numero, equipe, responsavel_id) VALUES (?, ?, ?)', [$numero, $equipe ?: null, $responsavelId]);
+            $lote = ['id' => (int)$this->pdo->lastInsertId(), 'total' => 0];
+        }
+        $this->executar('UPDATE cadastro_lotes SET total = total + ? WHERE id = ?', [$quantidade, $lote['id']]);
+        return [(int)$lote['id'], (int)$lote['total']];
+    }
+
+    /** Guarda a última prateleira usada por quem registrou ou moveu (sugestão do próximo registro). */
+    private function lembrarLocal(int $responsavelId, ?int $localId): void
+    {
+        if ($localId !== null) {
+            $this->executar('UPDATE administradores SET ultima_localizacao_id = ? WHERE id = ?', [$localId, $responsavelId]);
+        }
+    }
+
     /** Confere se a localização existe e está ativa (a prateleira, a estante e o setor dela). Vazio = sem localização. */
     public function localizacaoValida(mixed $id): ?int
     {
@@ -389,8 +602,8 @@ final class ExemplarService
 
     public function movimentacao(int $exemplarId, string $tipo, string $descricao, ?int $responsavelId, ?int $inventarioId = null, array $detalhes = []): void
     {
-        $this->executar('INSERT INTO movimentacoes (exemplar_id, inventario_id, tipo, descricao, detalhes, responsavel_id) VALUES (?, ?, ?, ?, ?, ?)', [
-            $exemplarId, $inventarioId, $tipo, mb_substr($descricao, 0, 1000), $detalhes ? json_encode($detalhes, JSON_UNESCAPED_UNICODE) : null, $responsavelId,
+        $this->executar('INSERT INTO movimentacoes (exemplar_id, inventario_id, operacao_id, tipo, descricao, detalhes, responsavel_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+            $exemplarId, $inventarioId, $this->operacaoId, $tipo, mb_substr($descricao, 0, 1000), $detalhes ? json_encode($detalhes, JSON_UNESCAPED_UNICODE) : null, $responsavelId,
         ]);
     }
 

@@ -6,12 +6,13 @@ um tutorial, edite o arquivo, rode o teste e faça commit.
 
 ```
 admin/includes/ajuda/
-├── modulos.php            17 módulos (ordem, nome, ícone, descrição, arquivo, palavras-chave)
+├── modulos.php            18 módulos (ordem, nome, ícone, descrição, arquivo, palavras-chave)
 ├── tutoriais/
 │   ├── 01-primeiros-passos.php
 │   ├── ...
 │   ├── 16-solucao-problemas.php   perguntas frequentes
-│   └── 17-organizacao-fisica.php   estantes, prateleiras, localização e pendências
+│   ├── 17-organizacao-fisica.php   estantes, prateleiras, localização e pendências
+│   └── 18-preparo-exemplares.php   carimbo, Planilha de Códigos BDP, lotes, triagem, ocorrências, mapa, desfazer
 └── LEIA-ME.md             este guia
 admin/assets/ajuda/        capturas de tela (só dados fictícios)
 admin/includes/ajuda.php   funções: carregar, pesquisar, formatar, "voltar", ajuda contextual

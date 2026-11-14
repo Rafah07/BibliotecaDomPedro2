@@ -2,7 +2,7 @@
 /**
  * Campos do EXEMPLAR físico no Inventário ("+ Registrar exemplar" e "Cadastrar livro não listado").
  * Espera: $rx (valores: codigo_bdp, estado_conservacao, localizacao_id, observacao, situacao_inventario, vinculo, processo_bdp),
- *         $rxSugestao (opcional: id da localização sugerida, a estante atual ou a última usada), $rxLivroId (obra, para a reserva do código; 0 = obra nova),
+ *         $rxSugestao (opcional: fisico_sugestao_local(), ou só o id da localização sugerida), $rxLivroId (obra, para a reserva do código; 0 = obra nova),
  *         $rxRegistros (TODAS as linhas da planilha desta obra, InventarioRepository::registrosDaObra; [] = nenhuma),
  *         $rxOrigem ('registrar' ou 'nao_listado': para onde volta o "Gerar código BDP" sem JavaScript).
  * O formulário que inclui este arquivo cuida do <form>, do CSRF e dos botões de salvar.
@@ -31,7 +31,9 @@ $rxId = 'rx-' . $rxOrigem;
 $rxProcesso = CodigoBdpService::processoValido((string)$rx['processo_bdp']) ?? CodigoBdpService::novoProcesso();
 $rxLivres = array_values(array_filter($rxRegistros, fn ($r) => $r['exemplar_id'] === null));
 $rxVinculo = (string)$rx['vinculo'];
-$rxSugestao = isset($rxSugestao) && $rxSugestao ? (int)$rxSugestao : null;
+$rxSugestao = isset($rxSugestao) && is_array($rxSugestao) ? $rxSugestao
+    : ['id' => isset($rxSugestao) && $rxSugestao ? (int)$rxSugestao : null, 'origem' => 'estante atual / última utilizada', 'aviso' => null];
+$rxCarimbo = in_array($rx['carimbo'] ?? '', ['aguardando', 'carimbado'], true) ? $rx['carimbo'] : '';
 $rxLocal = (string)$rx['localizacao_id'] !== '' ? (int)$rx['localizacao_id'] : null;
 ?>
 <fieldset class="adm-fieldset adm-form-section">
@@ -91,11 +93,17 @@ $rxLocal = (string)$rx['localizacao_id'] !== '' ? (int)$rx['localizacao_id'] : n
             <?php endforeach; ?>
         </fieldset>
         <fieldset class="adm-field adm-field--full adm-escolha">
+            <legend class="adm-field__sublabel">Carimbo</legend>
+            <label class="adm-escolha__opcao"><input type="radio" name="carimbo" value="aguardando"<?= $rxCarimbo !== 'carimbado' ? ' checked' : '' ?>>
+                <span><strong>Carimbar depois</strong> <small>o código entra na Planilha de Códigos BDP como “Aguardando carimbo”</small></span></label>
+            <label class="adm-escolha__opcao"><input type="radio" name="carimbo" value="carimbado"<?= $rxCarimbo === 'carimbado' ? ' checked' : '' ?>>
+                <span><strong>O código já está no carimbo</strong> <small>o livro já foi carimbado com este código</small></span></label>
+        </fieldset>
+        <fieldset class="adm-field adm-field--full adm-escolha">
             <legend class="adm-field__sublabel">Localização definitiva (setor, estante, prateleira)</legend>
-            <?= fisico_campo_local('localizacao_id', $rxLocal, 'Sem localização definida agora', $rxId . '-local') ?>
-            <?php if ($rxSugestao !== null && $rxSugestao === $rxLocal): ?>
-                <p class="adm-local-sugestao"><?= icon('map-pin') ?> Localização sugerida: <?= e(fisico_local_id($rxSugestao)) ?> (estante atual / última utilizada). Pode trocar à vontade ou escolher “Sem localização definida agora”.</p>
-            <?php endif; ?>
+            <?= fisico_campo_local('localizacao_id', $rxLocal, 'Aguardando organização (área de triagem)', $rxId . '-local') ?>
+            <?= fisico_sugestao_html($rxSugestao, $rxLocal) ?>
+            <p class="adm-field__hint">Ainda sem estante? Deixe em “Aguardando organização”: o exemplar fica na área de triagem e pode ser organizado depois, inclusive em lote.</p>
         </fieldset>
         <label class="adm-field"><span class="adm-field__sublabel">Estado de conservação</span><?= fisico_select_conservacao('estado_conservacao', (string)$rx['estado_conservacao']) ?>
             <span class="adm-field__hint">Avalie este exemplar. “Não avaliado” pode ficar para depois.</span></label>

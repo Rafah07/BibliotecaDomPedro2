@@ -21,6 +21,7 @@ final class ExemplarRepository
 
     private const COLUNAS = "e.id, e.livro_id, e.codigo_individual, e.situacao, e.estado_conservacao, e.conservacao_avaliada_em, e.localizacao_id, e.criado_em, e.conferido_em,
                              e.observacoes, e.etiqueta_gerada_em, e.inventario_id, e.baixado_em, e.motivo_baixa,
+                             e.carimbo_status, e.carimbado_em, e.carimbado_por, e.carimbo_observacao, e.lote_id, e.lote_ordem, e.liberacao_pendente,
                              l.titulo, l.subtitulo, l.isbn, l.arquivado_em AS livro_arquivado_em,
                              (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ', ') FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores,
                              lo.setor, lo.estante, lo.prateleira, lo.complemento, lo.codigo AS local_codigo, lo.ativa AS local_ativa, lo.estante_id AS local_estante_id,

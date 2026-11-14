@@ -6,6 +6,9 @@
 /storage/importacoes/*
 !/storage/importacoes/.gitkeep
 !/storage/importacoes/.htaccess
+/storage/backups/*
+!/storage/backups/.htaccess
+!/storage/backups/index.html
 
 # Capas enviadas pelo painel ficam só no servidor (cada escola tem as suas).
 /uploads/capas/*

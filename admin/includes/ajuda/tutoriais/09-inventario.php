@@ -225,8 +225,8 @@ return [
     [
         'id' => 'conferir-inventario',
         'titulo' => 'Como marcar como encontrado um exemplar que já tem código',
-        'resumo' => 'Escolha a Estante atual, digite o código BDP da etiqueta, confira estado e localização e clique em Salvar e marcar como encontrado. Use o modo rápido nas estantes em ordem.',
-        'palavras' => ['conferir', 'conferência', 'digitar código', 'modo rápido', 'localização em conferência', 'estado encontrado', 'salvar e marcar como encontrado', 'marcar como encontrado', 'exemplar com etiqueta'],
+        'resumo' => 'Escolha a Estante atual, digite o código BDP da etiqueta, confira estado e localização e clique em Salvar e marcar como encontrado.',
+        'palavras' => ['conferir', 'conferência', 'digitar código', 'localização em conferência', 'estado encontrado', 'salvar e marcar como encontrado', 'marcar como encontrado', 'exemplar com etiqueta'],
         'paginas' => [],
         'permissao' => 'inventario.conferir',
         'objetivo' => 'Registrar como Encontrado cada exemplar com código BDP achado na estante.',
@@ -235,13 +235,12 @@ return [
         'passos' => [
             ['titulo' => 'Abra a conferência', 'texto' => 'Em **Inventário**, clique em **Continuar a conferência** (ou, na página do inventário, em **Conferir e corrigir livros**).', 'imagem' => ['arquivo' => 'inventario-conferencia.png', 'alt' => 'Página Conferência do inventário com o campo de pesquisa e a estante atual', 'legenda' => 'Conferência do inventário.']],
             ['titulo' => 'Escolha a Estante atual', 'texto' => 'No quadro **Estante atual**, em **Onde você está trabalhando agora**, escolha a estante e a prateleira à sua frente e clique em **Aplicar**. Ela vem sugerida em cada conferência e em cada exemplar registrado, e muda sozinha para a última prateleira usada.'],
-            ['titulo' => 'Ligue o Modo rápido, se quiser', 'texto' => 'Marque **Modo rápido: livro com etiqueta é conferido assim que o código é digitado** e clique em **Aplicar**, quando os volumes estiverem em bom estado e no lugar certo.'],
             ['titulo' => 'Digite o código', 'texto' => 'Em **Pesquisar livro: título, autor, ISBN ou código BDP**, digite o código BDP da etiqueta e pressione **Enter** (ou **Pesquisar**). Maiúsculas ou minúsculas funcionam. A tecla **/** leva o cursor para a pesquisa.'],
             ['titulo' => 'Confira e salve', 'texto' => 'Em **Localização encontrada**, a prateleira escolhida passa a ser a localização do exemplar (a mudança fica no histórico). Em **Estado encontrado**, escolher um estado registra a avaliação; **Não avaliado** não muda nada. Clique em **Salvar e marcar como encontrado**. Este botão muda só o **exemplar**; os dados bibliográficos são da obra (use **Ver obra e exemplares** para verificá-los).'],
             ['titulo' => 'Exemplar Pendente na ficha da obra', 'texto' => 'Na ficha da obra, os exemplares Pendentes têm o botão **Marcar como encontrado**, que abre este mesmo formulário.'],
             ['titulo' => 'Acompanhe', 'texto' => '**Últimas conferências** mostra o que já foi registrado. Uma conferência errada pode ser corrigida, com motivo.'],
         ],
-        'exemplo' => 'Na Estante A, prateleira 1, a auxiliar escolhe essa localização, liga o modo rápido e digita BDP-000001, BDP-000002, BDP-000003... Um volume rasgado ela confere sem o modo rápido, escolhendo Ruim em Estado encontrado.',
+        'exemplo' => 'Na Estante A, prateleira 1, a auxiliar escolhe essa localização e digita BDP-000001, confere e salva; depois BDP-000002, BDP-000003... Um volume rasgado ela confere escolhendo Ruim em Estado encontrado e registra uma ocorrência.',
         'resultado' => ['Cada exemplar digitado sai de **Pendentes** e entra em **Encontrados** (ou numa divergência).'],
         'problemas' => [
             ['"... já foi conferido neste inventário"', 'O código foi digitado duas vezes.', 'Siga para o próximo volume. Se o primeiro registro estava errado, corrija a conferência.'],
@@ -250,7 +249,7 @@ return [
         ],
         'cuidados' => ['Não digite códigos de uma lista de papel: só os volumes que estão na sua mão.', 'Nunca complete um código ilegível de cabeça.'],
         'relacionados' => ['registrar-exemplar', 'codigos-bdp', 'divergencias-pendencias-inventario'],
-        'confere' => ['inventario-conferencia.php' => ['Pesquisar livro: título, autor, ISBN ou código BDP', 'Pesquisar', 'Estante atual', 'Onde você está trabalhando agora', 'Modo rápido: livro com etiqueta é conferido assim que o código é digitado', 'Aplicar', 'Estado encontrado', 'Localização encontrada', 'Salvar e marcar como encontrado', 'Ver obra e exemplares', 'Marcar como encontrado', 'Últimas conferências'], 'inventario-detalhes.php' => ['Conferir e corrigir livros'], '../src/Services/InventarioService.php' => ['já foi conferido neste inventário']],
+        'confere' => ['inventario-conferencia.php' => ['Pesquisar livro: título, autor, ISBN ou código BDP', 'Pesquisar', 'Estante atual', 'Onde você está trabalhando agora', 'Aplicar', 'Estado encontrado', 'Localização encontrada', 'Salvar e marcar como encontrado', 'Ver obra e exemplares', 'Marcar como encontrado', 'Últimas conferências'], 'inventario-detalhes.php' => ['Conferir e corrigir livros'], '../src/Services/InventarioService.php' => ['já foi conferido neste inventário']],
     ],
     [
         'id' => 'fluxo-conferencia-inventario',

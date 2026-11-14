@@ -97,8 +97,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 admin_flash('sucesso', 'Prateleira excluída.');
                 break;
             case 'prateleira_transferir':
-                $n = $org->transferirExemplares((int)admin_param($_POST, 'prateleira_id'), (int)admin_param($_POST, 'destino_id'), $uid, admin_param($_POST, 'motivo'));
-                admin_flash('sucesso', fisico_numero($n) . ' exemplar(es) transferido(s).', 'Cada movimentação ficou no histórico do exemplar.');
+                $op = operacoes_servico()->realizar('transferencia_prateleira', 'Transferência da prateleira ' . fisico_local_id((int)admin_param($_POST, 'prateleira_id')) . ' para ' . fisico_local_id((int)admin_param($_POST, 'destino_id')), $uid,
+                    fn () => $org->transferirExemplares((int)admin_param($_POST, 'prateleira_id'), (int)admin_param($_POST, 'destino_id'), $uid, admin_param($_POST, 'motivo')));
+                admin_flash('sucesso', fisico_numero((int)$op['resultado']) . ' exemplar(es) transferido(s).', 'Operação nº ' . $op['id'] . '. Cada movimentação ficou no histórico do exemplar. Errou? Use “Desfazer” em Ações recentes.');
                 break;
             case 'setor_salvar':
                 $painelErro = 'setor';
@@ -117,7 +118,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 break;
             case 'mover_exemplar':
                 $painelErro = 'mover';
-                $r = $org->moverExemplar(admin_param($_POST, 'codigo'), (int)admin_param($_POST, 'destino_id'), $uid, admin_param($_POST, 'motivo'));
+                $r = operacoes_servico()->realizar('mover', 'Exemplar ' . admin_param($_POST, 'codigo') . ' movido na Organização Física', $uid,
+                    fn () => $org->moverExemplar(admin_param($_POST, 'codigo'), (int)admin_param($_POST, 'destino_id'), $uid, admin_param($_POST, 'motivo')))['resultado'];
                 $destino = organizacao_repo()->prateleira($r['para']);
                 admin_flash('sucesso', 'Exemplar ' . $r['codigo'] . ' movido.', 'Nova localização: ' . ($destino ? fisico_rotulo_estante($destino + ['nome' => $destino['estante_nome']], false) . ' · ' . fisico_rotulo_prateleira($destino) : '') . '. O histórico do exemplar registrou a localização anterior e a nova.');
                 break;
@@ -205,6 +207,8 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
             <a class="adm-button adm-button--ghost" href="<?= e($base . '?painel=lote') ?>" data-painel-abrir="painel-lote"><?= icon('layers') ?> Criar várias estantes</a>
         <?php endif; ?>
         <?php if ($podeMover): ?><a class="adm-button adm-button--ghost" href="<?= e(admin_url_filtros($aqui, [], ['painel' => 'mover'])) ?>" data-painel-abrir="painel-mover"><?= icon('arrow-right-left') ?> Mover exemplar</a><?php endif; ?>
+        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('organizacao-mapa')) ?>"><?= icon('map') ?> Mapa das estantes</a>
+        <?php if ($podeMover): ?><a class="adm-button adm-button--ghost" href="<?= e(admin_url('movimentacao-lote')) ?>"><?= icon('move') ?> Movimentação em lote</a><?php endif; ?>
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('organizacao-etiquetas') . ($estante ? '?estante=' . (int)$estante['id'] : '')) ?>"><?= icon('printer') ?> Etiquetas das estantes</a>
     </div>
 </section>
@@ -219,6 +223,10 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
 </section>
 <div class="adm-progress adm-progress--lg adm-org__progresso" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $resumo['pct_alocados'] ?>" aria-label="Exemplares com localização definida"><div class="adm-progress__bar adm-progress__bar--ok" style="width: <?= $resumo['pct_alocados'] ?>%"></div></div>
 <p class="adm-field__hint"><?= icon('info') ?> O andamento é medido pelos exemplares registrados e colocados nas prateleiras. Livros podem mudar de estante a qualquer momento (use <strong>Mover exemplar</strong>).</p>
+<?php if (!$estante): ?>
+    <h2 class="adm-org__subtitulo">Conferência física × organização definitiva</h2>
+    <?= fisico_indicadores_preparo_html(preparo_repo()->indicadores(), admin_url('planilha-bdp')) ?>
+<?php endif; ?>
 
 <?php if ($estante): ?>
     <?php $inativa = !(int)$estante['ativa']; ?>

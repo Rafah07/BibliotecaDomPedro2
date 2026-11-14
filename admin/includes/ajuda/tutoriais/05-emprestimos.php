@@ -86,7 +86,7 @@ return [
         'passos' => [
             ['titulo' => 'Leia o motivo', 'lista' => [
                 '**Este exemplar já está emprestado.**: a devolução anterior não foi registrada. Se o volume está na sua mão, registre a devolução primeiro.',
-                '**Este exemplar ainda aguarda a conferência física (inventário) e não foi liberado para empréstimo.**: confira o volume e mude a situação para Disponível na ficha do exemplar.',
+                '**Este exemplar ainda não foi liberado para empréstimo (aguarda o carimbo, a estante definitiva ou a conferência física).**: confirme o carimbo na Planilha de Códigos BDP e defina a estante (o exemplar é liberado sozinho), ou mude a situação para Disponível na ficha do exemplar.',
                 '**Este exemplar está em manutenção.**: se o reparo terminou, mude a situação para Disponível.',
                 '**Este exemplar está registrado como extraviado.**: se ele apareceu, mude a situação para Disponível.',
                 '**Este exemplar está registrado como danificado e foi retirado de circulação.**',
@@ -103,7 +103,7 @@ return [
         ],
         'cuidados' => ['Não mude a situação de um volume que não está na sua frente.'],
         'relacionados' => ['disponibilidade-exemplar', 'registrar-devolucao', 'faq-exemplar-indisponivel'],
-        'confere' => ['../src/Services/EmprestimoService.php' => ['Este exemplar já está emprestado.', 'Este exemplar ainda aguarda a conferência física (inventário) e não foi liberado para empréstimo.', 'Este exemplar está em manutenção.', 'Este exemplar está registrado como extraviado.', 'Este exemplar foi baixado do acervo.', 'O livro deste exemplar está arquivado.']],
+        'confere' => ['../src/Services/EmprestimoService.php' => ['Este exemplar já está emprestado.', 'Este exemplar ainda não foi liberado para empréstimo (aguarda o carimbo, a estante definitiva ou a conferência física).', 'Este exemplar está em manutenção.', 'Este exemplar está registrado como extraviado.', 'Este exemplar foi baixado do acervo.', 'O livro deste exemplar está arquivado.']],
     ],
     [
         'id' => 'limites-emprestimo',

@@ -83,6 +83,13 @@ $exId = (int)$ex[0]['id'];
 $ex2 = (int)$ex[1]['id'];
 [$s] = $bib->ir('admin/detalhes-exemplar.php?id=' . $exId, ['csrf' => $tb, 'acao' => 'transferir', 'localizacao_id' => (string)$localId, 'motivo' => 'Organização inicial']);
 confere('5. exemplar associado à localização', $s === 303 && $num('SELECT localizacao_id FROM exemplares WHERE id = ?', [$exId]) === $localId);
+// Preparo (migração 150): exemplar novo fica "Aguardando carimbo" e só é liberado para empréstimo
+// depois de carimbado E com estante definitiva (regra padrão de Configurações).
+confere('5. exemplar novo entra como "Aguardando carimbo" e ainda não fica disponível', $num("SELECT COUNT(*) FROM exemplares WHERE livro_id = ? AND carimbo_status = 'aguardando' AND situacao = 'aguardando'", [$livroId]) === 2);
+[$s] = $bib->ir('admin/detalhes-exemplar.php?id=' . $ex2, ['csrf' => $tb, 'acao' => 'transferir', 'localizacao_id' => (string)$localId, 'motivo' => 'Organização inicial']);
+[$s] = $bib->ir('admin/planilha-bdp.php', ['csrf' => $tb, 'acao' => 'carimbar', 'ids' => [(string)$exId, (string)$ex2]]);
+confere('5. carimbo confirmado na Planilha de Códigos BDP libera os dois exemplares organizados', $s === 303
+    && $num("SELECT COUNT(*) FROM exemplares WHERE livro_id = ? AND carimbo_status = 'carimbado' AND situacao = 'disponivel'", [$livroId]) === 2, "status $s");
 try {
     $pdo->exec("UPDATE exemplares SET codigo_individual = 'BDP-999999' WHERE id = $exId");
     confere('3. o banco não deixa trocar o código BDP de um exemplar', false);

@@ -58,6 +58,11 @@ admin_page_start('importar-alunos', 'Importar Alunos', 'Importar Alunos', 'Cadas
     </div>
 </section>
 
+<?php if ($modoReal): ?>
+    <?php // Importação é operação de alto impacto: avisa quando não há cópia de segurança recente.
+    try { require_once __DIR__ . '/includes/backup.php'; echo backup_aviso_html(); } catch (Throwable) { } ?>
+<?php endif; ?>
+
 <div class="adm-notice adm-notice--blue" role="note">
     <?= icon('shield-check') ?>
     <div class="adm-notice__content">

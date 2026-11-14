@@ -17,10 +17,16 @@ const ADMIN_MENU = [
         'historico-cdd' => ['label' => 'Histórico CDD', 'icon' => 'history', 'arquivo' => 'historico-cdd.php', 'pronta' => true, 'oculto' => true],
         'relatorio-cdd' => ['label' => 'Relatórios CDD', 'icon' => 'file-chart-column', 'arquivo' => 'relatorio-cdd.php', 'pronta' => true, 'oculto' => true],
         'exemplares' => ['label' => 'Exemplares', 'icon' => 'book-copy', 'arquivo' => 'exemplares.php', 'pronta' => true],
+        // Preparo dos exemplares (migração 150): carimbo, triagem, lotes, ocorrências e ações reversíveis.
+        'planilha-bdp' => ['label' => 'Planilha de Códigos BDP', 'icon' => 'stamp', 'arquivo' => 'planilha-bdp.php', 'pronta' => true, 'pai' => 'exemplares'],
+        'ocorrencias' => ['label' => 'Ocorrências e Conservação', 'icon' => 'triangle-alert', 'arquivo' => 'ocorrencias.php', 'pronta' => true, 'pai' => 'exemplares'],
+        'acoes-recentes' => ['label' => 'Ações recentes (desfazer)', 'icon' => 'undo-2', 'arquivo' => 'acoes-recentes.php', 'pronta' => true, 'pai' => 'exemplares'],
         'cadastrar-exemplar' => ['label' => 'Cadastrar exemplar', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-exemplar.php', 'pronta' => true, 'oculto' => true],
         // Organização Física (migração 140): setores, estantes, prateleiras, responsáveis e etiquetas.
         'organizacao-fisica' => ['label' => 'Organização Física', 'icon' => 'columns-3', 'arquivo' => 'organizacao-fisica.php', 'pronta' => true],
         'organizacao-etiquetas' => ['label' => 'Etiquetas das estantes', 'icon' => 'printer', 'arquivo' => 'organizacao-etiquetas.php', 'pronta' => true, 'oculto' => true],
+        'movimentacao-lote' => ['label' => 'Movimentação em lote', 'icon' => 'move', 'arquivo' => 'movimentacao-lote.php', 'pronta' => true, 'pai' => 'organizacao-fisica'],
+        'organizacao-mapa' => ['label' => 'Mapa das estantes', 'icon' => 'map', 'arquivo' => 'organizacao-mapa.php', 'pronta' => true, 'pai' => 'organizacao-fisica'],
         'localizacoes' => ['label' => 'Localizações anteriores', 'icon' => 'map-pin', 'arquivo' => 'localizacoes.php', 'pronta' => true, 'pai' => 'organizacao-fisica'],
         'localizacao' => ['label' => 'Localização', 'icon' => 'map-pin', 'arquivo' => 'localizacao.php', 'pronta' => true, 'oculto' => true],
         'categorias' => ['label' => 'Categorias', 'icon' => 'tags', 'arquivo' => 'categorias.php', 'pronta' => true],
@@ -64,6 +70,7 @@ const ADMIN_MENU = [
         'importar-alunos' => ['label' => 'Importar Alunos', 'icon' => 'users', 'arquivo' => 'importar-alunos.php', 'pronta' => true, 'permissao' => 'alunos.importar'],
         // Central de relatórios (Etapa 5). "Atividades" abre a seção de atividades da mesma página.
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column', 'arquivo' => 'relatorios.php', 'pronta' => true, 'permissao' => 'relatorios.ver'],
+        'relatorio-atividades' => ['label' => 'Relatório de Atividades', 'icon' => 'activity', 'arquivo' => 'relatorio-atividades.php', 'pronta' => true, 'permissao' => 'relatorios.ver'],
         'atividades' => ['label' => 'Atividades', 'icon' => 'history', 'arquivo' => 'relatorios.php?secao=atividades', 'pronta' => true, 'permissao' => 'relatorios.atividades'],
     ],
     'Sistema' => [

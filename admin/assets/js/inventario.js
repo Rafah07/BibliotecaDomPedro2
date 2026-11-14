@@ -11,11 +11,11 @@
         const itens = () => Array.from(form.querySelectorAll('[data-selecao-item]'));
         const todos = form.querySelector('[data-selecao-todos]');
         const total = form.querySelector('[data-selecao-total]');
-        const botao = form.querySelector('[data-selecao-enviar]');
+        const botoes = Array.from(form.querySelectorAll('[data-selecao-enviar]'));
         const atualizar = () => {
             const marcados = itens().filter((i) => i.checked).length;
             if (total) total.textContent = marcados === 0 ? 'Nenhum exemplar selecionado' : (marcados === 1 ? '1 exemplar selecionado' : `${marcados} exemplares selecionados`);
-            if (botao) botao.disabled = marcados === 0;
+            botoes.forEach((b) => { b.disabled = marcados === 0; });
             if (todos) {
                 todos.checked = marcados > 0 && marcados === itens().length;
                 todos.indeterminate = marcados > 0 && marcados < itens().length;
@@ -182,6 +182,29 @@
         montarEstantes();
         montarPrateleiras();
     };
+    // "Limpar seleção" da localização sugerida: volta tudo para "Aguardando organização".
+    document.addEventListener('click', (e) => {
+        const botao = e.target.closest('[data-local-limpar]');
+        if (!botao) return;
+        const area = botao.closest('form') || document;
+        const caixa = area.querySelector('[data-local-dep]');
+        if (!caixa) return;
+        ['[data-local-setor]', '[data-local-estante]', '[data-local-prateleira]'].forEach((sel) => {
+            const s = caixa.querySelector(sel);
+            if (s) { s.value = ''; s.dispatchEvent(new Event('change', { bubbles: true })); }
+        });
+        const aviso = botao.closest('[data-local-sugestao]');
+        if (aviso) aviso.hidden = true;
+        const prat = caixa.querySelector('[data-local-prateleira]');
+        if (prat) prat.focus();
+    });
+    // Trocar a prateleira à mão esconde o texto "Localização sugerida".
+    document.addEventListener('change', (e) => {
+        if (!e.isTrusted || !e.target.matches || !e.target.matches('[data-local-prateleira]')) return;
+        const area = e.target.closest('form');
+        const aviso = area && area.querySelector('[data-local-sugestao]');
+        if (aviso) aviso.hidden = true;
+    });
     const iniciarLocais = () => document.querySelectorAll('[data-local-dep]').forEach(iniciarLocal);
     iniciarLocais();
     document.addEventListener('conferencia:atualizada', iniciarLocais);

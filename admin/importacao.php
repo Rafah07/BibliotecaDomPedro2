@@ -78,6 +78,11 @@ admin_page_start('importar', 'Importação de Planilhas', 'Importação de Plani
 <?php if (!$modoReal): ?>
     <?= importacao_aviso_banco($erroBanco) ?>
 <?php endif; ?>
+<?php if ($modoReal): ?>
+    <?php // Importação é operação de alto impacto: avisa quando não há cópia de segurança recente.
+    try { require_once __DIR__ . '/includes/backup.php'; echo backup_aviso_html(); } catch (Throwable) { } ?>
+<?php endif; ?>
+
 
 <section class="adm-stats" aria-label="Resumo das importações">
     <?php foreach ($cards as $card): ?>
