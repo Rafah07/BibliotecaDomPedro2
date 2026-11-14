@@ -21,8 +21,11 @@ use PDO;
  *     da importação). Eles são independentes do status do inventário. Quando o dado é corrigido,
  *     o alerta é resolvido como "corrigida"; quem conferiu pode marcar os restantes como
  *     "confirmada" (ex.: o livro realmente não tem autor indicado). Nada é apagado.
- *   * O cadastro de livro não listado cria, em UMA transação, o livro, os alertas, o exemplar
- *     (com o código BDP do carimbo ou o próximo livre) e o item do inventário já Encontrado.
+ *   * A verificação dos dados é da OBRA (ObraVerificacaoService): "Dados não verificados" até a
+ *     equipe confirmar explicitamente. O exemplar (código BDP, situação no inventário) é outra
+ *     ação: InventarioService::registrarExemplar, só para obras verificadas.
+ *   * O cadastro de livro não listado cria, em UMA transação, a obra, os alertas e, quando a
+ *     pessoa confirma os dados, a verificação e o primeiro exemplar com o código BDP.
  */
 final class ConferenciaCadastroService
 {
@@ -31,8 +34,11 @@ final class ConferenciaCadastroService
     /** Alertas que o sistema sabe reconferir sozinho depois de uma correção. */
     private const ALERTAS_AUTOMATICOS = ['sem_titulo', 'sem_autor', 'sem_dados_bibliograficos', 'dados_insuficientes', 'isbn_invalido', 'ano_invalido', 'titulo_insuficiente', 'titulo_numerico'];
 
+    private ObraVerificacaoService $verificacao;
+
     public function __construct(private PDO $pdo, private InventarioService $inventario)
     {
+        $this->verificacao = new ObraVerificacaoService($pdo);
     }
 
     /** Executa várias gravações (correção do livro + conferência) em uma só transação. */
@@ -86,21 +92,25 @@ final class ConferenciaCadastroService
     }
 
     /**
-     * Grava as correções do livro e reconfere os alertas.
-     * @return array{alteracoes: list<string>, alertas_abertos: int}
+     * Grava as correções da obra e reconfere os alertas. Com $marcarVerificado (botão "Salvar e
+     * marcar dados como verificados"), a obra passa a "Dados verificados". Sem ele, alterar um dado
+     * relevante de uma obra verificada a devolve para "Dados não verificados" (ObraVerificacaoService).
+     * @return array{alteracoes: list<string>, alertas_abertos: int, verificacao: string}
      */
-    public function atualizarLivro(int $livroId, array $d, int $responsavelId, bool $confirmarAlertas = false): array
+    public function atualizarLivro(int $livroId, array $d, int $responsavelId, bool $confirmarAlertas = false, bool $marcarVerificado = false, ?int $inventarioId = null): array
     {
-        return $this->transacao(function () use ($livroId, $d, $responsavelId, $confirmarAlertas) {
+        return $this->transacao(function () use ($livroId, $d, $responsavelId, $confirmarAlertas, $marcarVerificado, $inventarioId) {
             $atual = $this->linha('SELECT * FROM livros WHERE id = ? FOR UPDATE', [$livroId]);
             if (!$atual || $atual['arquivado_em'] !== null) {
                 throw new AcervoException('Livro não encontrado ou arquivado.');
             }
             $campos = ['titulo', 'subtitulo', 'isbn', 'isbn_original', 'editora', 'ano_publicacao', 'edicao', 'idioma', 'assunto'];
             $alteracoes = [];
+            $historico = []; // campo => [antes, depois]
             foreach ($campos as $c) {
                 if ((string)($atual[$c] ?? '') !== (string)($d[$c] ?? '')) {
                     $alteracoes[] = $c;
+                    $historico[$c] = [$atual[$c], $d[$c]];
                 }
             }
             if ($alteracoes) {
@@ -112,18 +122,21 @@ final class ConferenciaCadastroService
                 $this->executar('DELETE FROM livro_autores WHERE livro_id = ?', [$livroId]);
                 $this->gravarAutores($livroId, $d['autores']);
                 $alteracoes[] = 'autores';
+                $historico['autores'] = [implode('; ', $autoresAtuais) ?: null, implode('; ', $d['autores']) ?: null];
             }
             $categoriaAtual = $this->valor('SELECT categoria_id FROM livro_categorias WHERE livro_id = ? AND principal = TRUE LIMIT 1', [$livroId]);
             if ((int)$categoriaAtual !== (int)$d['categoria_id']) {
                 $this->gravarCategoria($livroId, $d['categoria_id']);
                 $alteracoes[] = 'categoria';
+                $historico['categoria'] = [$categoriaAtual ? (int)$categoriaAtual : null, $d['categoria_id']];
             }
             $abertos = $this->reconferirAlertas($livroId, $responsavelId, $confirmarAlertas);
             if ($alteracoes) {
                 $this->executar('UPDATE livros SET atualizado_em = CURRENT_TIMESTAMP WHERE id = ?', [$livroId]);
                 $this->registrarAcao($responsavelId, 'livro.editar', 'livro', $livroId, ['campos' => $alteracoes, 'origem' => 'inventario']);
             }
-            return ['alteracoes' => $alteracoes, 'alertas_abertos' => $abertos];
+            $verificacao = $this->verificacao->registrar($livroId, $historico, $responsavelId, $marcarVerificado, 'inventario', $inventarioId);
+            return ['alteracoes' => $alteracoes, 'alertas_abertos' => $abertos, 'verificacao' => $verificacao];
         });
     }
 
@@ -172,14 +185,17 @@ final class ConferenciaCadastroService
     }
 
     /**
-     * Livro que não estava na lista nem no sistema: cria o livro (todos os campos opcionais),
-     * os alertas de dados que faltam, o exemplar com o código BDP e o item do inventário Encontrado.
-     * Com $livroExistenteId, só cria outro exemplar da obra já cadastrada.
-     * @return array{livro_id: int, exemplar_id: int, codigo: string, item_id: int, alertas: int, novo_livro: bool}
+     * "Cadastrar livro não listado": cria a obra (todos os campos opcionais) e os alertas do que
+     * falta. Com $marcarVerificado (a pessoa confirmou os dados com o livro em mãos), a obra já fica
+     * "Dados verificados" e o primeiro exemplar é registrado no mesmo passo, com o código BDP
+     * (obrigatório: gerado ou digitado). Sem a confirmação, só a obra é cadastrada, como
+     * "Dados não verificados", e nenhum exemplar é criado.
+     * Com $livroExistenteId, não cria obra: só registra outro exemplar da obra (que precisa estar verificada).
+     * @return array{livro_id: int, exemplar_id: ?int, codigo: ?string, item_id: ?int, alertas: int, novo_livro: bool, verificado: bool}
      */
-    public function cadastrarNaoListado(int $inventarioId, array $d, array $fisico, int $responsavelId, ?int $livroExistenteId = null): array
+    public function cadastrarNaoListado(int $inventarioId, array $d, array $fisico, int $responsavelId, ?int $livroExistenteId = null, bool $marcarVerificado = false): array
     {
-        return $this->transacao(function () use ($inventarioId, $d, $fisico, $responsavelId, $livroExistenteId) {
+        return $this->transacao(function () use ($inventarioId, $d, $fisico, $responsavelId, $livroExistenteId, $marcarVerificado) {
             $novo = $livroExistenteId === null;
             if ($novo) {
                 $this->executar("INSERT INTO livros (titulo, subtitulo, isbn, isbn_original, editora, ano_publicacao, edicao, idioma, assunto, observacoes_internas, status_validacao, origem_cadastro)
@@ -191,17 +207,26 @@ final class ConferenciaCadastroService
                 $this->gravarAutores($livroId, $d['autores']);
                 $this->gravarCategoria($livroId, $d['categoria_id']);
                 $this->registrarAcao($responsavelId, 'livro.cadastrar', 'livro', $livroId, ['origem' => 'inventario', 'inventario_id' => $inventarioId]);
+                if ($marcarVerificado) {
+                    $this->verificacao->registrar($livroId, [], $responsavelId, true, 'nao_listado', $inventarioId);
+                }
             } else {
                 $livroId = $livroExistenteId;
                 if (!$this->valor('SELECT 1 FROM livros WHERE id = ? AND arquivado_em IS NULL', [$livroId])) {
                     throw new AcervoException('O livro escolhido não foi encontrado ou está arquivado.');
                 }
             }
-            $c = $this->inventario->cadastrarExemplarComCodigo($inventarioId, $livroId, $fisico['codigo'] ?? null, [
-                'estado_conservacao' => $fisico['estado_conservacao'] ?? 'bom', 'localizacao_id' => $fisico['localizacao_id'] ?? null, 'observacoes' => $fisico['observacao'] ?? null,
-            ], $responsavelId);
+            $c = null;
+            if (!$novo || $marcarVerificado) {
+                $c = $this->inventario->registrarExemplar($inventarioId, $livroId, [
+                    'codigo' => $fisico['codigo'] ?? '', 'estado_conservacao' => $fisico['estado_conservacao'] ?? 'bom', 'localizacao_id' => $fisico['localizacao_id'] ?? null,
+                    'observacoes' => $fisico['observacao'] ?? null, 'situacao_inventario' => $fisico['situacao_inventario'] ?? 'encontrado',
+                ], $responsavelId);
+            }
             $alertas = $this->reconferirAlertas($livroId, $responsavelId, false);
-            return ['livro_id' => $livroId, 'exemplar_id' => $c['id'], 'codigo' => $c['codigo'], 'item_id' => $c['item_id'], 'alertas' => $alertas, 'novo_livro' => $novo];
+            $verificado = (bool)$this->valor('SELECT dados_verificados_em IS NOT NULL FROM livros WHERE id = ?', [$livroId]);
+            return ['livro_id' => $livroId, 'exemplar_id' => $c['id'] ?? null, 'codigo' => $c['codigo'] ?? null, 'item_id' => $c['item_id'] ?? null,
+                'alertas' => $alertas, 'novo_livro' => $novo, 'verificado' => $verificado];
         });
     }
 

@@ -158,3 +158,70 @@
     .adm-inline-form .adm-input { flex: 1 1 100%; }
 }
 .adm-progress--lg { height: 14px; margin: 6px 0 12px; }
+
+/* Obra × exemplar (migração 120): ficha da obra, exemplares, linhas da planilha e painéis laterais */
+.adm-progresso-inv__obras { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 12px 0 0; font-size: 13px; color: var(--adm-muted); }
+.adm-progresso-inv__obras .icon { width: 15px; height: 15px; color: var(--adm-green); flex: none; }
+.adm-progresso-inv__obras strong { color: var(--adm-text); }
+.adm-status--obra { gap: 4px; white-space: nowrap; vertical-align: middle; }
+.adm-status--obra::before { display: none; }
+.adm-status--obra .icon { width: 13px; height: 13px; }
+.adm-obra { border-left: 4px solid var(--adm-blue-accent); }
+.adm-obra__rotulo, .adm-obra-resumo__rotulo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--adm-muted); }
+.adm-obra__rotulo .icon { width: 14px; height: 14px; }
+.adm-obra h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.adm-obra .adm-meta { margin: 0 0 10px; }
+.adm-obra .adm-field__hint .icon { width: 14px; height: 14px; vertical-align: -2px; }
+.adm-obra__historico { margin-top: 10px; }
+.adm-historico-obra { margin: 0; padding: 12px 14px 12px 32px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.adm-historico-obra__campos { margin: 4px 0 0; padding-left: 16px; color: var(--adm-muted); }
+.adm-historico-obra del { color: var(--adm-red); }
+.adm-historico-obra ins { color: #166534; text-decoration: none; font-weight: 600; }
+.adm-obra-resumo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; padding: 10px 12px; border-radius: var(--adm-radius-sm); background: var(--adm-bg); border: 1px solid var(--adm-border); }
+.adm-obra-resumo .adm-button { margin-left: auto; }
+.adm-obra-exemplares .adm-panel__header h2 .icon, #registros h2 .icon { width: 18px; height: 18px; vertical-align: -3px; }
+.adm-button.is-disabled { opacity: .6; cursor: not-allowed; pointer-events: none; }
+.adm-exemplares-obra, .adm-registros-obra { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.adm-exemplares-obra li, .adm-registros-obra li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--adm-border); }
+.adm-exemplares-obra li:last-child, .adm-registros-obra li:last-child { border-bottom: 0; }
+.adm-exemplares-obra li.is-novo { background: var(--adm-green-50); margin: 0 -12px; padding: 12px; border-radius: var(--adm-radius-sm); }
+.adm-exemplares-obra .adm-code { font-size: 15px; }
+.adm-exemplares-obra__info { flex: 1 1 260px; min-width: 0; font-size: 13px; color: var(--adm-muted); }
+.adm-exemplares-obra .adm-actions-inline, .adm-registros-obra .adm-actions-inline { margin-left: auto; }
+.adm-registros-obra li > small { flex-basis: 100%; }
+.adm-registros-obra li .icon { width: 15px; height: 15px; vertical-align: -2px; }
+.adm-code--grande { font-size: 22px; letter-spacing: .06em; }
+.adm-criados > p { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.adm-criados > p .icon { width: 18px; height: 18px; color: var(--adm-green); }
+.adm-correspondencias .adm-resultados li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.adm-correspondencias .adm-check-confirm { margin-top: 10px; }
+.adm-guia-obra ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+
+/* Código BDP e gerador */
+.adm-codigo-bdp__linha { display: flex; gap: 8px; }
+.adm-codigo-bdp__linha .adm-input { flex: 1; min-width: 0; font-size: 18px; }
+.adm-codigo-bdp__status { margin: 4px 0 0; font-size: 13px; color: #166534; min-height: 1em; }
+.adm-codigo-bdp__status:empty { display: none; }
+.adm-codigo-bdp__status.is-erro { color: var(--adm-red); }
+.adm-escolha { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-escolha legend { margin-bottom: 6px; }
+.adm-escolha__opcao { flex: 1 1 200px; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); cursor: pointer; background: var(--adm-white); }
+.adm-escolha__opcao:has(input:checked) { border-color: var(--adm-blue-accent); background: var(--adm-blue-50); }
+.adm-escolha__opcao input { margin-top: 3px; accent-color: var(--adm-navy); }
+.adm-escolha__opcao small { display: block; color: var(--adm-muted); font-weight: 400; }
+
+/* Painel lateral (dialog) para editar sem sair do Inventário */
+.adm-painel-lateral { margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; width: min(640px, 100vw); border-radius: 16px 0 0 16px; }
+.adm-painel-lateral .adm-modal__box { max-height: 100dvh; height: 100%; }
+.adm-painel-lateral .adm-modal__body { flex: 1; }
+.adm-painel-lateral[open]:not(:modal) { position: fixed; inset: 0 0 0 auto; z-index: 60; }
+.adm-painel-lateral[open] { animation: adm-painel-in .2s var(--adm-ease); }
+@keyframes adm-painel-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.adm-painel-lateral .adm-modal__close { text-decoration: none; }
+@media (max-width: 720px) {
+    .adm-painel-lateral { margin: auto 0 0; width: 100vw; max-width: 100vw; height: 94dvh; max-height: 94dvh; border-radius: 18px 18px 0 0; }
+    .adm-painel-lateral[open]:not(:modal) { inset: auto 0 0 0; }
+    .adm-codigo-bdp__linha { flex-direction: column; }
+    .adm-obra-resumo .adm-button, .adm-exemplares-obra .adm-actions-inline, .adm-registros-obra .adm-actions-inline { margin-left: 0; }
+    .adm-painel-lateral .adm-modal__footer .adm-button { flex: 1 1 100%; justify-content: center; }
+}

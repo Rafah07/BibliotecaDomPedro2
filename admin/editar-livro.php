@@ -53,7 +53,11 @@ if ($livroForm && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if ($dup['isbn']) {
                 admin_flash('aviso', 'ISBN também usado em outro livro.', 'O livro "' . ($dup['isbn']['titulo'] ?? 'Sem título') . '" (nº ' . (int)$dup['isbn']['id'] . ') tem o mesmo ISBN. Confira se não é um cadastro repetido.');
             }
-            $alteracoes = livros_repo()->atualizar($id, $dados, admin_param($_POST, 'versao'));
+            $verificadoAntes = (bool)db_query('SELECT dados_verificados_em IS NOT NULL FROM livros WHERE id = ?', [$id])->fetchColumn();
+            $alteracoes = livros_repo()->atualizar($id, $dados, admin_param($_POST, 'versao'), (int)(auth_usuario()['id'] ?? 0) ?: null);
+            if ($verificadoAntes && !db_query('SELECT dados_verificados_em IS NOT NULL FROM livros WHERE id = ?', [$id])->fetchColumn()) {
+                admin_flash('aviso', 'A obra voltou para "Dados não verificados".', 'Título, autor, ISBN, editora, ano ou edição mudaram. Confira com o livro em mãos e verifique de novo no Inventário.');
+            }
             if ($alteracoes) {
                 $detalhes = [];
                 foreach ($alteracoes as $campo => [$antes, $depois]) {

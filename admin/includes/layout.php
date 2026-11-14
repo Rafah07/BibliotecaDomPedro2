@@ -63,7 +63,7 @@ function admin_page_end(array $scripts = []): void
 <div class="adm-toasts" aria-live="polite" aria-atomic="false"></div>
 <div class="adm-tooltip" role="tooltip" hidden></div>
 <script src="<?= htmlspecialchars(admin_asset('assets/js/admin.js?v=20261102e9')) ?>"></script>
-<script src="<?= htmlspecialchars(admin_asset('assets/js/sugestoes.js?v=20261114')) ?>"></script>
+<script src="<?= htmlspecialchars(admin_asset('assets/js/sugestoes.js?v=20261114b')) ?>"></script>
 <?php foreach ($scripts as $script): ?>
 <script src="<?= htmlspecialchars(admin_asset($script)) ?>"></script>
 <?php endforeach; ?>
