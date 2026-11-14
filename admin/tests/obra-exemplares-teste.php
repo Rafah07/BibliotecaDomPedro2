@@ -164,11 +164,12 @@ confere('o histórico de verificação não pode ser apagado nem alterado', $rec
 // ---------------------------------------------------------------
 echo "\n3. Gerador de código BDP\n";
 $seq = $num('SELECT ultimo FROM exemplar_codigo_seq');
-$g1 = $codigos->reservar($bibId, $principe);
+$proc1 = CodigoBdpService::novoProcesso();
+$g1 = $codigos->reservar($bibId, $principe, $proc1);
 confere('gera o próximo número no formato dos carimbos (BDP-000001)', $g1['nova'] && $g1['codigo'] === sprintf('BDP-%06d', $seq + 1) && $num('SELECT ultimo FROM exemplar_codigo_seq') === $seq + 1);
-$g2 = $codigos->reservar($bibId, $principe);
-confere('clicar de novo sem usar devolve a MESMA reserva (não gasta números)', !$g2['nova'] && $g2['codigo'] === $g1['codigo'] && $num('SELECT ultimo FROM exemplar_codigo_seq') === $seq + 1);
-$g3 = $codigos->reservar($auxId, $principe);
+$g2 = $codigos->reservar($bibId, $principe, $proc1);
+confere('clicar de novo NO MESMO formulário devolve a MESMA reserva (não gasta números)', !$g2['nova'] && $g2['codigo'] === $g1['codigo'] && $num('SELECT ultimo FROM exemplar_codigo_seq') === $seq + 1);
+$g3 = $codigos->reservar($auxId, $principe, CodigoBdpService::novoProcesso());
 confere('outra pessoa recebe outro código', $g3['codigo'] !== $g1['codigo'] && $g3['codigo'] === sprintf('BDP-%06d', $seq + 2));
 $msg = $recusa(fn () => $codigos->validarDisponivel($g1['codigo'], $auxId));
 confere('código gerado para outra pessoa é recusado (pode já estar no carimbo dela)', $msg !== null && str_contains($msg, 'outra pessoa'));
@@ -186,7 +187,7 @@ confere('salvar com o código reservado por outra pessoa é recusado', $msg !== 
 $msg = $recusa(fn () => $invServ->registrarExemplar($inv, $principe, ['codigo' => $g1['codigo'], 'item_id' => (int)$invRepo->registrosSemExemplar($inv, $contos)[0]['id']], $bibId));
 confere('não liga o exemplar à linha da planilha de outra obra', $msg !== null && str_contains($msg, 'não pertence'));
 $e1 = $invServ->registrarExemplar($inv, $principe, ['codigo' => $g1['codigo'], 'estado_conservacao' => 'bom', 'localizacao_id' => $local, 'situacao_inventario' => 'encontrado',
-    'item_id' => (int)$regPrincipe[0]['id'], 'observacoes' => 'Carimbo novo'], $bibId);
+    'item_id' => (int)$regPrincipe[0]['id'], 'observacoes' => 'Carimbo novo', 'processo_bdp' => $proc1], $bibId);
 $it1 = $invRepo->item($e1['item_id']);
 confere('exemplar 1: ligado à linha 2 da planilha, Encontrado, com localização', $e1['codigo'] === $g1['codigo'] && (int)$it1['id'] === (int)$regPrincipe[0]['id']
     && $it1['codigo_individual'] === $g1['codigo'] && $it1['conferido_em'] !== null && (int)$it1['importacao_item_id'] > 0 && (int)$it1['localizacao_encontrada_id'] === $local);
@@ -262,29 +263,30 @@ confere('contas entram no painel', $bib->entrar('bib@teste.br', $senha) === 200 
 $tk = $bib->csrf('admin/perfil.php');
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv . '&obra=' . $principe);
 confere('ficha da obra: título, "Dados verificados", exemplares com códigos e situações', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'O Pequeno Príncipe (Fictício)')
-    && str_contains($html, 'Dados verificados') && str_contains($html, $g1['codigo']) && str_contains($html, 'BDP-000900') && str_contains($html, 'Registrar exemplar') && str_contains($html, 'Histórico da verificação'));
+    && str_contains($html, 'Dados verificados') && str_contains($html, $g1['codigo']) && str_contains($html, 'BDP-000900') && str_contains($html, 'Registrar exemplar') && str_contains($html, 'Histórico ('));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv . '&obra=' . $principe2);
 confere('obra não verificada: botão de registro bloqueado e orientação para verificar', $s === 200 && str_contains($html, 'Dados não verificados') && str_contains($html, 'Primeiro, verifique os dados da obra')
     && !str_contains($html, 'id="painel-registrar"') && str_contains($html, 'Linha 3 da planilha'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv . '&q=' . rawurlencode('Pequeno Príncipe'));
-confere('pesquisa mostra as duas edições separadas, cada uma com o seu status', $s === 200 && substr_count($html, 'Abrir obra') >= 2 && str_contains($html, 'Dados verificados') && str_contains($html, 'Dados não verificados'));
-[$s, $json] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $principe]);
+confere('pesquisa mostra as duas edições separadas, cada uma com o seu status', $s === 200 && substr_count($html, '#obra">Abrir</a>') >= 2 && str_contains($html, 'Dados verificados') && str_contains($html, 'Dados não verificados'));
+$procApi = CodigoBdpService::novoProcesso();
+[$s, $json] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $principe, 'processo' => $procApi]);
 $j = json_decode($json, true) ?: [];
 confere('API "Gerar código BDP" reserva no servidor', $s === 200 && ($j['ok'] ?? false) && preg_match('/^BDP-\d{6}$/', $j['codigo'] ?? '') === 1 && $num('SELECT COUNT(*) FROM exemplar_codigo_reservas WHERE codigo = ? AND reservado_por = ?', [$j['codigo'] ?? '', $bibId]) === 1, $json);
-[$s2, $json2] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $principe]);
-confere('API: clicar de novo devolve o mesmo código ainda não usado', $s2 === 200 && (json_decode($json2, true)['codigo'] ?? '') === ($j['codigo'] ?? 'x'));
+[$s2, $json2] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $principe, 'processo' => $procApi]);
+confere('API: clicar de novo no mesmo formulário devolve o mesmo código ainda não usado', $s2 === 200 && (json_decode($json2, true)['codigo'] ?? '') === ($j['codigo'] ?? 'x'));
 [$s] = (new TesteNavegador($base))->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => 'x']);
 [$s2] = $cons->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $cons->csrf('admin/perfil.php')]);
 [$s3] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => 'falso']);
 [$s4] = $bib->ir('admin/api/inventario/gerar-codigo.php');
 confere('API exige login (401), permissão (403), CSRF (419) e POST (405)', $s === 401 && $s2 === 403 && $s3 === 419 && $s4 === 405, "$s/$s2/$s3/$s4");
-$postReg = ['csrf' => $tk, 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $principe, 'codigo_bdp' => $j['codigo'] ?? '', 'estado_conservacao' => 'regular', 'situacao_inventario' => 'encontrado'];
+$postReg = ['csrf' => $tk, 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $principe, 'codigo_bdp' => $j['codigo'] ?? '', 'estado_conservacao' => 'regular', 'situacao_inventario' => 'encontrado', 'processo_bdp' => $procApi, 'vinculo' => 'adicional'];
 [$s, , $loc] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv, $postReg);
 confere('"Salvar exemplar" pela página grava e volta para a ficha com o código em destaque', $s === 303 && str_contains((string)$loc, 'criados=') && $num('SELECT COUNT(*) FROM exemplares WHERE codigo_individual = ?', [$j['codigo'] ?? '']) === 1);
 [$s, $html] = $bib->ir(ltrim((string)parse_url((string)$loc, PHP_URL_PATH), '/') . '?' . parse_url((string)$loc, PHP_URL_QUERY));
-confere('mensagem orienta a conferir o carimbo e oferece "Registrar outro exemplar desta obra"', $s === 200 && str_contains($html, 'Exemplar registrado') && str_contains($html, 'Registrar outro exemplar desta obra') && str_contains($html, 'adm-code--grande'));
-[$s] = $cons->ir('admin/inventario-conferencia.php?id=' . $inv, ['csrf' => $cons->csrf('admin/perfil.php'), 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $principe, 'codigo_bdp' => 'BDP-000950']);
-confere('perfil consulta não registra exemplar (403)', $s === 403 && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-000950'") === 0);
+confere('mensagem orienta a conferir o carimbo e oferece "Registrar outra cópia" e "Próximo livro"', $s === 200 && str_contains($html, 'Exemplar registrado') && str_contains($html, 'Registrar outra cópia') && str_contains($html, 'Próximo livro') && str_contains($html, 'adm-code--grande'));
+[$s] = $cons->ir('admin/inventario-conferencia.php?id=' . $inv, ['csrf' => $cons->csrf('admin/perfil.php'), 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $principe, 'codigo_bdp' => 'BDP-099950']);
+confere('perfil consulta não registra exemplar (403)', $s === 403 && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-099950'") === 0, "status $s");
 
 teste_resultado();
 

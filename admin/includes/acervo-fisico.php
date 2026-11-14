@@ -22,9 +22,10 @@ use Biblioteca\Services\ExemplarService;
 use Biblioteca\Services\InventarioService;
 use Biblioteca\Services\LocalizacaoService;
 use Biblioteca\Services\ObraVerificacaoService;
+use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114d'];
-const FISICO_JS = ['assets/js/inventario.js?v=20261114c'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114e'];
+const FISICO_JS = ['assets/js/inventario.js?v=20261114d'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
 
@@ -74,6 +75,12 @@ function obra_verificacao_servico(): ObraVerificacaoService
 {
     static $s = null;
     return $s ??= new ObraVerificacaoService(db());
+}
+
+function vinculo_obra_servico(): VinculoObraService
+{
+    static $s = null;
+    return $s ??= new VinculoObraService(db());
 }
 
 /** Selo do status dos dados da obra: "Dados verificados" ou "Dados não verificados". */

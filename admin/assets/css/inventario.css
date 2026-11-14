@@ -225,3 +225,78 @@
     .adm-obra-resumo .adm-button, .adm-exemplares-obra .adm-actions-inline, .adm-registros-obra .adm-actions-inline { margin-left: 0; }
     .adm-painel-lateral .adm-modal__footer .adm-button { flex: 1 1 100%; justify-content: center; }
 }
+
+/* =========================================================
+   Conferência contínua (migração 130)
+   ========================================================= */
+[data-regiao].is-loading { opacity: .6; transition: opacity .15s ease; }
+.adm-conferencia__area { display: flex; flex-direction: column; gap: var(--adm-gap); min-width: 0; }
+.adm-conferencia__mensagens:empty { display: none; }
+kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--adm-white); font: 600 .75rem/1.5 ui-monospace, monospace; color: var(--adm-text); }
+
+/* Indicadores: obras, exemplares e linhas separados */
+.adm-indicadores-inv { margin-bottom: var(--adm-gap); }
+.adm-indicadores-inv__topo { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.adm-indicadores-inv__progresso p { margin: 6px 0; }
+.adm-indicadores-inv__grupo { margin: 14px 0 8px; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--adm-muted); }
+.adm-stats--indicadores { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+/* Resultados compactos da pesquisa */
+.adm-resultados-compactos { list-style: none; margin: 0; padding: 0; }
+.adm-resultados-compactos li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 8px; border-bottom: 1px solid var(--adm-border); border-left: 3px solid transparent; }
+.adm-resultados-compactos li.is-verificada { border-left-color: var(--adm-green); }
+.adm-resultados-compactos li.is-nao-verificada { border-left-color: var(--adm-amber); }
+.adm-resultados-compactos li:last-child { border-bottom: 0; }
+.adm-resultado__principal { color: inherit; text-decoration: none; min-width: 0; }
+.adm-resultado__principal strong { display: block; }
+.adm-resultado__principal small { color: var(--adm-muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-resultado__principal:focus-visible { outline: none; box-shadow: var(--adm-focus-ring); border-radius: 6px; }
+.adm-resultado__info { grid-column: 1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.adm-resultado__info .adm-chip .icon { width: 14px; height: 14px; vertical-align: -2px; }
+.adm-resultado__acoes { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.adm-busca-conf__paginas { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 12px; }
+
+/* Exemplar registrado: Registrar outra cópia / Próximo livro */
+.adm-registrado { border: 2px solid var(--adm-green); background: var(--adm-green-50); }
+.adm-registrado h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; flex-basis: 100%; }
+.adm-registrado h2 .icon { color: var(--adm-green); }
+.adm-registrado > p { flex-basis: 100%; margin: 0; }
+.adm-registrado__acoes { flex-basis: 100%; }
+.adm-registrado:focus { outline: none; box-shadow: var(--adm-focus-ring); }
+
+/* Linhas da planilha no registro do exemplar */
+.adm-linhas-planilha { max-height: 340px; overflow-y: auto; }
+.adm-linha-planilha { align-items: flex-start; }
+.adm-linha-planilha.is-ligada { opacity: .65; }
+.adm-linha-planilha .adm-status { margin-left: 6px; }
+.adm-linha-planilha--adicional { border-top: 1px dashed var(--adm-border-strong); padding-top: 10px; margin-top: 4px; }
+
+/* Vincular a uma obra já verificada */
+.adm-sugestoes-vinculo { list-style: none; margin: 0 0 12px; padding: 0; }
+.adm-sugestoes-vinculo > li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--adm-border); }
+.adm-sugestoes-vinculo > li > div { min-width: 0; flex: 1 1 320px; }
+.adm-vincular__motivos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.adm-vincular__motivos .icon { width: 13px; height: 13px; vertical-align: -2px; }
+.adm-vincular__procurar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Estante atual */
+.adm-estante__form { display: flex; flex-direction: column; gap: 8px; }
+.adm-estante__nome { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 6px; }
+.adm-estante__numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.adm-estante__numeros div { background: var(--adm-bg); border-radius: var(--adm-radius-sm); padding: 8px 10px; }
+.adm-estante__numeros dt { font-size: .75rem; color: var(--adm-muted); }
+.adm-estante__numeros dd { margin: 0; font-size: 1.25rem; font-weight: 700; }
+.adm-finalizar-lista { list-style: none; margin: 8px 0; padding: 0; max-height: 46vh; overflow-y: auto; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); }
+.adm-finalizar-lista li { padding: 8px 10px; border-bottom: 1px solid var(--adm-border); }
+.adm-finalizar-lista li:last-child { border-bottom: 0; }
+.adm-finalizar-lista label { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; cursor: pointer; }
+
+.adm-passos-conf { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+
+@media (max-width: 720px) {
+    .adm-resultados-compactos li { grid-template-columns: 1fr; }
+    .adm-resultado__acoes { grid-column: 1; grid-row: auto; justify-content: flex-start; }
+    .adm-resultado__principal small { white-space: normal; }
+    .adm-registrado__acoes .adm-button { flex: 1 1 100%; justify-content: center; }
+    .adm-stats--indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

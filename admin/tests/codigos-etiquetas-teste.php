@@ -280,7 +280,7 @@ confere('8. cadastro pela página gera o próximo código (BDP-000007) e nada ma
 $inv = $invServ->criar(['titulo' => 'Inventário Fictício dos Códigos', 'data_inicio' => $hoje, 'responsavel_id' => $bibId], $bibId);
 $invServ->iniciar($inv, $bibId);
 [$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv);
-confere('9. tela de conferência pede para digitar o código (sem leitor ou câmera)', $s === 200 && str_contains($html, 'Pesquisar livro: código BDP')
+confere('9. tela de conferência pede para digitar o código (sem leitor ou câmera)', $s === 200 && str_contains($html, 'Pesquisar livro: título, autor, ISBN ou código BDP')
     && !preg_match('/c[óo]digo de barras|leitor|escane|QR ?Code|c[âa]mera/iu', strip_tags($html)));
 [$s, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv, ['csrf' => $tk, 'id' => $inv, 'acao' => 'ler', 'leitura' => '  bdp-000002  ']);
 [, $html] = $bib->ir($destino($loc));
@@ -299,7 +299,7 @@ confere('9. código incompleto: mensagem clara e nada gravado', $s === 200 && st
 confere('9. código inexistente: "não encontrado", nada criado', str_contains($html, 'BDP-888888 não encontrado') && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-888888'") === 0);
 [, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv, ['csrf' => $tk, 'id' => $inv, 'acao' => 'ler', 'leitura' => 'Sem Exemplar']);
 [, $html] = $bib->ir($destino($loc));
-confere('9. pesquisa alternativa por título localiza o registro bibliográfico', str_contains($html, 'Obras encontradas') && str_contains($html, 'Livro Fictício Sem Exemplar'));
+confere('9. pesquisa alternativa por título localiza o registro bibliográfico', str_contains($html, 'Obras para') && str_contains($html, 'Livro Fictício Sem Exemplar'));
 
 // 10. Empréstimo: aluno → código → conferir → confirmar
 [$s, $html] = $bib->ir('novo-emprestimo.php?aluno=' . $alunoId);

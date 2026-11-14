@@ -109,25 +109,28 @@ Status da obra: **Dados não verificados** ou **Dados verificados**. Status do e
 
 Fluxo:
 
-1. Na página do inventário, clique em **Conferir e corrigir livros**.
-2. Pesquise a obra em **Pesquisar livro: código BDP, título, autor ou ISBN** e clique em **Abrir obra**.
-3. Se a obra estiver como **Dados não verificados**, clique em **Verificar e corrigir dados**. Confira com o livro em mãos, corrija o que for preciso (nada é obrigatório, nem o ISBN) e clique em **Salvar e marcar dados como verificados**. Só esse botão marca a obra como verificada; **Salvar alterações** guarda as correções sem verificar.
-4. Com a obra verificada, clique em **+ Registrar exemplar**.
-5. Livro já carimbado: digite o código. Sem carimbo: clique em **Gerar código BDP**. O sistema reserva o próximo número só para você e mostra o código antes de salvar.
-6. Escreva o código no carimbo do livro.
-7. Escolha a situação (**Encontrado** quando o livro está em mãos), a localização e o estado, e, se houver, a **linha da planilha** que corresponde a este exemplar.
-8. Clique em **Salvar exemplar**. O código fica definitivo e nunca será repetido.
-9. Outro exemplar da mesma obra: **Registrar outro exemplar desta obra**. Não precisa verificar de novo.
-10. Livro em mãos que não aparece na pesquisa: **+ Cadastrar livro não listado**. Num só formulário você cadastra a obra, marca os dados como verificados e registra o primeiro exemplar. O sistema mostra antes as obras parecidas; se for uma delas, abra-a e registre o exemplar nela.
+Tudo acontece numa página só, sem recarregar: a pesquisa, os painéis e os indicadores se atualizam no lugar.
 
-Ao terminar uma estante ou setor, em **Finalizar estante ou setor**, selecione os livros que realmente não estão lá e clique em **Marcar selecionados como não localizados** (há confirmação). Nada vira "Não localizado" sozinho, e a marcação pode ser desfeita com **Voltar para pendente**. Quando terminar, clique em **Concluir inventário**; o relatório fica em **Relatório do inventário**.
+1. Na página do inventário, clique em **Conferir e corrigir livros**.
+2. Em **Estante atual**, escolha a prateleira em que está trabalhando. Ela vem preenchida em cada livro até você trocar.
+3. Em **Pesquisar livro: título, autor, ISBN ou código BDP**, digite. Os resultados aparecem enquanto você digita, com o status da obra e quantos exemplares ela tem. Clique em **Verificar dados**, **Registrar exemplar** ou **Abrir**.
+4. Se a obra estiver como **Dados não verificados**, clique em **Verificar e corrigir dados**. Confira com o livro em mãos, corrija o que for preciso (nada é obrigatório, nem o ISBN) e clique em **Salvar e marcar dados como verificados**. Só esse botão marca a obra como verificada, e logo depois o painel **Registrar exemplar** abre sozinho. **Salvar alterações** guarda as correções sem verificar.
+5. Livro já carimbado: digite o código. Sem carimbo: clique em **Gerar código BDP**. O sistema reserva o próximo número só para **este formulário** e mostra o código antes de salvar. Outra aba ou outra pessoa recebem sempre outro número.
+6. Escreva o código no carimbo do livro.
+7. Escolha a situação (**Encontrado** quando o livro está em mãos), a localização e o estado. Se a obra tiver linhas da planilha, escolha a linha que corresponde a este livro ou **Exemplar adicional, sem linha correspondente**. Nada vem escolhido sozinho.
+8. Clique em **Salvar exemplar**. O código fica definitivo e nunca será repetido. Desistiu? **Cancelar** cancela o código gerado.
+9. Outra cópia da mesma obra: **Registrar outra cópia** (mesma obra, localização e estado; código novo). Terminou a obra: **Próximo livro** volta para a pesquisa.
+10. Livro em mãos que não aparece na pesquisa: **+ Cadastrar livro não listado**. Num só formulário você cadastra a obra, marca os dados como verificados e registra o primeiro exemplar. O sistema mostra antes as obras parecidas; se for uma delas, abra-a e registre o exemplar nela.
+11. Obra repetida pela planilha (mesma edição de uma obra já verificada): use **Vincular a uma obra já verificada** na ficha. Há confirmação, a linha original é preservada e dá para desfazer.
+
+Ao terminar a estante atual, clique em **Finalizar estante** no próprio quadro da estante: aparecem os exemplares dali que continuam pendentes; marque só os que procurou e não achou, confirme e finalize (**Reabrir estante** desfaz). Na página do inventário, em **Finalizar estante ou setor**, também dá para escolher um setor inteiro ou a localização antiga da planilha: selecione os livros que realmente não estão lá e clique em **Marcar selecionados como não localizados** (há confirmação). Nada vira "Não localizado" sozinho, e a marcação pode ser desfeita com **Voltar para pendente**. Quando terminar, clique em **Concluir inventário**; o relatório fica em **Relatório do inventário**.
 
 Regras importantes:
 
 - Linhas importadas da planilha sem exemplar continuam pesquisáveis e verificáveis, mas **não contam como encontradas** até que um exemplar seja registrado para elas. O sistema nunca cria exemplares nem códigos BDP sozinho para essas linhas.
 - Obras com o mesmo título ou ISBN **não são unidas** automaticamente.
-- Uma obra verificada pode ser corrigida depois. Toda mudança fica no **Histórico da verificação**. Se mudar título, subtítulo, autor, ISBN, editora, ano ou edição, a obra volta para **Dados não verificados** e pode ser verificada de novo.
-- Um código digitado à mão é aceito só se não pertencer a nenhum exemplar (nem baixado) e não tiver sido gerado para outra pessoa.
+- Uma obra verificada pode ser corrigida depois. Toda mudança fica no **Histórico** da obra. Se mudar título, subtítulo, autor, ISBN, editora, ano ou edição, a obra volta para **Dados não verificados** e pode ser verificada de novo.
+- Um código digitado à mão é aceito só se não pertencer a nenhum exemplar (nem baixado) e não tiver sido gerado para outra pessoa ou em outro formulário.
 
 ## 10. Como registrar empréstimos
 

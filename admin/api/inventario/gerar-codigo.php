@@ -1,11 +1,13 @@
 <?php
 /**
  * "Gerar código BDP" no formulário "+ Registrar exemplar" do Inventário.
- * POST csrf, livro_id → {"ok": true, "codigo": "BDP-000123", "nova": true}
+ * POST csrf, livro_id, processo → {"ok": true, "codigo": "BDP-000123", "nova": true}
  *
  * O número é calculado e reservado no SERVIDOR (CodigoBdpService::reservar), com a sequência
  * bloqueada: cliques simultâneos recebem códigos diferentes e nenhum código é repetido ou
- * reaproveitado. A reserva é de quem clicou; o código só fica definitivo quando o exemplar é salvo.
+ * reaproveitado. A reserva é de quem clicou E do formulário que pediu (processo): clicar de novo
+ * no mesmo formulário devolve o mesmo código; outra aba ou outro livro recebe outro número.
+ * O código só fica definitivo quando o exemplar é salvo.
  * Exige login, a permissão exemplares.gerenciar e o token CSRF.
  */
 require_once __DIR__ . '/../../includes/menu.php';
@@ -28,7 +30,11 @@ try {
     if ($livroId !== null && !db_query('SELECT 1 FROM livros WHERE id = ? AND arquivado_em IS NULL', [$livroId])->fetchColumn()) {
         api_resposta(['ok' => false, 'erro' => 'Obra não encontrada.'], 404);
     }
-    $r = codigo_bdp_servico()->reservar((int)$usuario['id'], $livroId);
+    $processo = Biblioteca\Services\CodigoBdpService::processoValido((string)($_POST['processo'] ?? ''));
+    if ($processo === null) {
+        api_resposta(['ok' => false, 'erro' => 'Formulário sem identificação. Atualize a página e tente de novo.'], 422);
+    }
+    $r = codigo_bdp_servico()->reservar((int)$usuario['id'], $livroId, $processo);
     api_resposta(['ok' => true, 'codigo' => $r['codigo'], 'nova' => $r['nova']]);
 } catch (AcervoException $e) {
     api_resposta(['ok' => false, 'erro' => $e->getMessage()], 422);

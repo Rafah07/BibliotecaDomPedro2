@@ -71,6 +71,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 admin_flash('sucesso', fisico_numero($n) . ' item(ns) marcado(s) como não localizado(s).', 'A situação dos exemplares não mudou. Se algum livro aparecer, pesquise-o na conferência e marque como encontrado.');
                 $volta = admin_url_filtros(admin_url('inventario-detalhes'), ['id' => $id, 'fechar' => admin_param($_POST, 'fechar')]) . '#fechar';
                 break;
+            case 'incluir_registros':
+                $n = $s->completarRegistrosSemExemplar($id, $usuario['id']);
+                admin_flash('sucesso', fisico_numero($n) . ' linha(s) da planilha incluída(s) como Pendente.', 'Elas aparecem na conferência como "Sem exemplar". Nenhuma vira exemplar sozinha: registre o exemplar quando o livro estiver em mãos.');
+                break;
             case 'voltar_pendente':
                 $s->voltarPendente((int)admin_param($_POST, 'item_id'), $usuario['id'], admin_param($_POST, 'motivo'));
                 admin_flash('sucesso', 'O item voltou para Pendente.');
@@ -124,6 +128,7 @@ try {
     $fecharItens = $fecharLocal && $emCurso ? inventario_repo()->itens($id, 'a_conferir', '', 1, 500, $fecharLocal) : null;
     $setores = $emCurso ? localizacoes_servico()->setores() : [];
     $locaisAntigos = $emCurso ? inventario_repo()->locaisAntigosPendentes($id) : [];
+    $linhasDeFora = $emCurso && ($inv['setor'] === null || $inv['setor'] === '') ? inventario_servico()->registrosSemExemplarFaltando($id) : 0;
 } catch (PDOException $e) {
     http_response_code(500);
     admin_pagina_erro('Não foi possível carregar o inventário', fisico_erro_tecnico($e, 'detalhes do inventário'));
@@ -200,6 +205,17 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
             <?= fisico_stat('Com alertas cadastrais', $resumo['com_alertas'], 'Dados a completar ou conferir', 'triangle-alert', 'indigo', $det('com_alertas')) ?>
             <?= fisico_stat('Sem código BDP', $resumo['sem_codigo'], 'Registros importados a conferir', 'tag', 'teal', $det('sem_codigo')) ?>
         </div>
+    </section>
+<?php endif; ?>
+
+<?php if ($linhasDeFora > 0 && $pode): ?>
+    <section class="adm-card adm-panel" aria-labelledby="titulo-linhas-fora">
+        <div class="adm-panel__header"><div><h2 id="titulo-linhas-fora">Linhas da planilha que ficaram de fora</h2>
+            <p><?= fisico_numero($linhasDeFora) ?> linha(s) importada(s) ainda sem exemplar não estão neste inventário (por exemplo, linhas de obras que já tinham outra cópia registrada quando ele começou). Inclua-as para conferir como Pendente. Nada vira exemplar sozinho.</p></div></div>
+        <form method="post" class="adm-inline-form" data-confirm="Incluir <?= (int)$linhasDeFora ?> linha(s) da planilha como Pendente neste inventário?">
+            <?= csrf_campo() ?><?= $campoVolta() ?><input type="hidden" name="acao" value="incluir_registros">
+            <button class="adm-button adm-button--ghost" type="submit"><?= icon('plus') ?> Incluir linhas da planilha que ficaram de fora</button>
+        </form>
     </section>
 <?php endif; ?>
 
