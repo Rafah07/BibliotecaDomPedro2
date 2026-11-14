@@ -308,6 +308,19 @@ confere('importação repetida: aviso e botão "Importar todos e revisar no inve
 confere('API: repetida sem confirmação devolve aviso (409) e não grava', $s === 409 && (json_decode($json, true)['repetida'] ?? false) && $repo->buscar($imp4)['status'] !== 'concluida');
 [$s, $json] = $bib->ir('admin/api/importacoes/confirmar.php', ['acao' => 'importar_todos', 'id' => $imp4, 'confirmar_repeticao' => '1'], ['X-CSRF-Token' => $tk]);
 confere('API: com confirmação importa e entra no inventário', $s === 200 && (json_decode($json, true)['resultado']['criados'] ?? 0) === 1 && $num('SELECT COUNT(*) FROM inventario_itens WHERE importacao_item_id IN (SELECT id FROM importacao_itens WHERE importacao_id = ?)', [$imp4]) === 1);
+// Revisão geral (2026-11-14): páginas que quebravam com livro importado sem título.
+$pdo->exec("INSERT INTO livros (titulo, isbn, idioma) VALUES (NULL, NULL, NULL)"); // como uma linha só com a localização
+$semTitulo = (int)$pdo->lastInsertId();
+$exSemTitulo = $exServ->cadastrar($semTitulo, ['estado_conservacao' => 'bom', 'situacao' => 'disponivel'], $bibId)[0]['id'];
+foreach (['admin/classificacao.php', 'admin/classificar-livro.php?id=' . $semTitulo, 'admin/detalhes-livro.php?id=' . $semTitulo, 'admin/livros.php',
+    'admin/etiquetas.php?ids=' . $exSemTitulo, 'admin/detalhes-exemplar.php?id=' . $exSemTitulo] as $pagina) {
+    [$s, $html] = $bib->ir($pagina);
+    confere("livro sem título: $pagina abre sem erro técnico", $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, "</html>"), 'HTTP ' . $s);
+}
+[$s, $html] = $bib->ir('admin/classificacao.php');
+confere('livro sem título e sem autor aparece na lista da Classificação CDD (antes a lista parava vazia)', str_contains($html, 'data-id="' . $semTitulo . '"') && str_contains($html, 'Sem título (a conferir)'));
+[$s, $xlsx, , $tipo] = $bib->ir('admin/api/importacoes/relatorio.php?tipo=modelo');
+confere('modelo de planilha baixa como .xlsx sem depender do PhpSpreadsheet', $s === 200 && str_starts_with($xlsx, 'PK') && str_contains((string)$tipo, 'spreadsheetml'), 'HTTP ' . $s . ' ' . $tipo);
 [$s, $html] = $bib->ir('biblioteca_php/catalogo.php');
 confere('catálogo público não mostra livros sem título', $s === 200 && !str_contains($html, 'Sem título (a conferir)'));
 $log = $GLOBALS['teste_temporarios'][array_key_last($GLOBALS['teste_temporarios'])] ?? '';

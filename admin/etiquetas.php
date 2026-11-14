@@ -187,7 +187,7 @@ admin_page_start('etiquetas', 'Etiquetas', 'Etiquetas', 'Impressão das etiqueta
                 <summary>Ver os <?= count($exemplares) ?> exemplares</summary>
                 <ol>
                     <?php foreach ($exemplares as $ex): ?>
-                        <li><span class="adm-code"><?= e($ex['codigo_individual']) ?></span> <?= e(mb_strimwidth($ex['titulo'], 0, 60, '…')) ?><?= $ex['etiqueta_gerada_em'] ? ' <small class="adm-table__muted">(etiqueta já gerada em ' . admin_data_hora($ex['etiqueta_gerada_em'], false) . ')</small>' : '' ?></li>
+                        <li><span class="adm-code"><?= e($ex['codigo_individual']) ?></span> <?= e(mb_strimwidth($ex['titulo'] ?? 'Sem título (a conferir)', 0, 60, '…')) ?><?= $ex['etiqueta_gerada_em'] ? ' <small class="adm-table__muted">(etiqueta já gerada em ' . admin_data_hora($ex['etiqueta_gerada_em'], false) . ')</small>' : '' ?></li>
                     <?php endforeach; ?>
                 </ol>
             </details>

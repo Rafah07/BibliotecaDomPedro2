@@ -88,7 +88,7 @@ $erro = fn (string $campo) => isset($erros[$campo]) ? '<span class="adm-field__e
 $inv = fn (string $campo) => isset($erros[$campo]) ? ' is-invalid' : '';
 $titulo = $conta ? 'Editar conta' : 'Nova conta de acesso';
 
-admin_page_start('administradores', $titulo, 'Administradores', 'Contas de acesso ao painel', ['assets/css/acervo.css?v=20261113']);
+admin_page_start('administradores', $titulo, 'Administradores', 'Contas de acesso ao painel', ['assets/css/acervo.css?v=20261114']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Administradores', admin_url('administradores')], [$titulo]]) ?>

@@ -36,7 +36,7 @@ $cards = [
     ['titulo' => 'Aguardando CDD', 'valor' => $resumo['aguardando_cdd'], 'descricao' => 'Sem classificação aprovada', 'icone' => 'list-tree', 'tom' => 'amber', 'href' => admin_url_filtros($base, ['cdd' => 'aguardando'])],
 ];
 
-admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261113', 'assets/css/classificacao.css?v=20261102e9']);
+admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261114', 'assets/css/classificacao.css?v=20261102e9']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Acervo', admin_url('acervo')], [$arquivados ? 'Livros arquivados' : 'Livros']]) ?>

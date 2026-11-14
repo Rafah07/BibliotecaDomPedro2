@@ -590,7 +590,7 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
 .adm-meta--two { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0; flex: 1; }
 .adm-meta__full { grid-column: 1 / -1; }
 .adm-meta__full dd { font-weight: 400; }
-.adm-meta--stack { grid-template-columns: 1fr; gap: 10px; margin-top: 16px; }
+.adm-meta--stack, .adm-meta.adm-meta--stack { grid-template-columns: 1fr; gap: 10px; margin-top: 16px; } /* lista em uma coluna também no tablet e no celular */
 .adm-meta--stack div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--adm-border); }
 .adm-meta--stack div:last-child { border-bottom: 0; padding-bottom: 0; }
 .adm-meta--stack dd { text-align: right; margin: 0; }

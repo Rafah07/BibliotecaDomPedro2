@@ -86,7 +86,7 @@ $aptoExemplar = $exemplar && $exemplar['situacao'] === 'disponivel' && $exemplar
 $passo = !$aluno ? 1 : (!$exemplar ? 2 : 3);
 $estado = ['aluno' => $aluno['id'] ?? null, 'exemplar' => $exemplar['id'] ?? null];
 
-admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261113', 'assets/css/emprestimos.css?v=20261113']);
+admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Empréstimos', admin_url('emprestimos')], ['Novo empréstimo']]) ?>

@@ -5,13 +5,11 @@
  * GET tipo=inconsistencias&id=  CSV com o número da linha e cada problema encontrado
  * GET tipo=completo&id=         CSV com todas as linhas, situação, decisão e resultado
  * GET tipo=importados&id=       CSV com as linhas gravadas e o livro correspondente
- * GET tipo=modelo               planilha-modelo (.xlsx; .csv se o PhpSpreadsheet não estiver instalado)
+ * GET tipo=modelo               planilha-modelo (.xlsx; .csv se a extensão zip do PHP não estiver ativa)
  *
  * Os CSV usam ";" e UTF-8 com BOM para abrir corretamente no Excel em português.
  */
 require_once __DIR__ . '/../../includes/importacao.php';
-
-use Biblioteca\Services\ExcelImportService;
 
 $tipo = is_string($_GET['tipo'] ?? null) ? $_GET['tipo'] : '';
 
@@ -109,28 +107,26 @@ function relatorio_modelo(): never
 {
     $cabecalhos = ['Localização na Estante', 'Cód. Autor', 'CDD', 'Sobrenome/Prenome do Autor', 'Título', 'Subtítulo', 'Assunto', 'ISBN', 'Editora', 'Ano', 'Edição', 'Quantidade', 'Observações'];
     $exemplo = ['A-01-03', 'A848d', '869.3', 'ASSIS, Machado de', 'Dom Casmurro', '', 'Literatura brasileira', '9788594452603', 'Editora Aurora', '2019', '1ª edição', '5', 'Exemplo: apague esta linha'];
-    if (ExcelImportService::xlsxDisponivel()) {
-        $planilha = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $folha = $planilha->getActiveSheet();
-        $folha->setTitle('Acervo');
-        $folha->fromArray([$cabecalhos], null, 'A1');
-        $folha->fromArray([$exemplo], null, 'A2', true);
-        // ISBN e CDD como texto, para não perder zeros nem virar notação científica.
-        $folha->getStyle('B:C')->getNumberFormat()->setFormatCode('@');
-        $folha->getStyle('H:H')->getNumberFormat()->setFormatCode('@');
-        $folha->setCellValueExplicit('H2', $exemplo[7], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-        $folha->setCellValueExplicit('C2', $exemplo[2], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-        $folha->getStyle('A1:M1')->getFont()->setBold(true);
-        $folha->getStyle('A1:M1')->getFill()->setFillType('solid')->getStartColor()->setRGB('E8EEFB');
-        foreach (range('A', 'M') as $col) {
-            $folha->getColumnDimension($col)->setAutoSize(true);
+    // Planilha .xlsx montada pelo próprio sistema (não depende do Composer/PhpSpreadsheet).
+    if (class_exists(\ZipArchive::class)) {
+        $chaves = ['localizacao', 'cod_autor', 'cdd', 'autor', 'titulo', 'subtitulo', 'assunto', 'isbn', 'editora', 'ano', 'edicao', 'quantidade', 'observacoes'];
+        // ISBN, CDD e código do autor como texto, para não perder zeros nem virar notação científica.
+        $tipos = ['cod_autor' => 'codigo', 'cdd' => 'codigo', 'isbn' => 'codigo'];
+        $exportador = new \Biblioteca\Support\ExportadorTabela(array_combine($chaves, $cabecalhos), $tipos);
+        try {
+            [$arquivo] = $exportador->gerarXlsx([array_combine($chaves, $exemplo)], 'Acervo');
+        } catch (\RuntimeException) {
+            $arquivo = null;
         }
-        $folha->freezePane('A2');
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="modelo-importacao-acervo.xlsx"');
-        header('Cache-Control: no-store');
-        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($planilha))->save('php://output');
-        exit;
+        if ($arquivo) {
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="modelo-importacao-acervo.xlsx"');
+            header('Content-Length: ' . filesize($arquivo));
+            header('Cache-Control: no-store');
+            readfile($arquivo);
+            @unlink($arquivo);
+            exit;
+        }
     }
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="modelo-importacao-acervo.csv"');

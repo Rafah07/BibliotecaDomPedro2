@@ -22,7 +22,7 @@ require_once __DIR__ . '/alunos-importacao.php'; // alunos_repo, alunos_importac
 use Biblioteca\Services\AlunoCadastroService;
 use Biblioteca\Services\AlunoImportService;
 
-const ALUNOS_CSS = ['assets/css/acervo.css?v=20261113', 'assets/css/emprestimos.css?v=20261113'];
+const ALUNOS_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113'];
 
 /** Rótulos das ações registradas para um aluno (Histórico de alterações). */
 const ALUNOS_ACOES = [
