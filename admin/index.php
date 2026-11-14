@@ -365,6 +365,11 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
 
             <p class="adm-inventory__message"><?= icon('info') ?> <?= $dados['demo'] ? 'Continue a conferência física para validar os exemplares existentes na biblioteca.' : (isset($inventario['titulo']) ? 'Inventário em andamento: ' . htmlspecialchars($inventario['titulo']) . '.' : 'Nenhum inventário em andamento. Os números mostram os exemplares que já passaram por alguma conferência.') ?></p>
             <a class="adm-button adm-button--primary adm-button--block" href="<?= htmlspecialchars(admin_url('inventario')) ?>"><?= icon('clipboard-check') ?> Continuar inventário</a>
+            <?php if (!empty($dados['organizacao'])): $org = $dados['organizacao']; $semLocal = max(0, $org['total'] - $org['com_localizacao']); ?>
+                <p class="adm-inventory__message"><?= icon('columns-3') ?> Organização física: <strong><?= numero_br($org['com_localizacao']) ?></strong> exemplar(es) com localização definida
+                    (<?= numero_br($org['total'] > 0 ? $org['com_localizacao'] / $org['total'] * 100 : 0, 1) ?>%), <?= numero_br($semLocal) ?> sem localização, <?= numero_br($org['estantes']) ?> estante(s) ativa(s).</p>
+                <a class="adm-button adm-button--ghost adm-button--block" href="<?= htmlspecialchars(admin_url('organizacao-fisica')) ?>"><?= icon('columns-3') ?> Organização Física</a>
+            <?php endif; ?>
         </section>
     </aside>
 </div>

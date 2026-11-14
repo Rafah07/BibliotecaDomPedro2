@@ -356,7 +356,7 @@ $livroMem = (int)$val('SELECT livro_id FROM exemplares WHERE codigo_individual =
 confere('"obra diferente" cadastra a obra verificada e o 1º exemplar; o clique duplo não cria outro', $s === 303 && $s2 === 303 && $num('SELECT COUNT(*) FROM livros') === $antes + 1
     && $livroMem > 0 && $val('SELECT dados_verificados_em FROM livros WHERE id = ?', [$livroMem]) !== null && $val('SELECT usado_em FROM exemplar_codigo_reservas WHERE codigo = ?', [$codigoNovo]) !== null);
 [$s, $html] = $bib->ir('admin/inventario-detalhes.php?id=' . $inv2 . '&fechar=' . rawurlencode('antiga:A-03'));
-confere('detalhes: progresso, abas novas e "Finalizar estante ou setor"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'Finalizar estante ou setor')
+confere('detalhes: progresso, abas novas e "Marcar não localizados por local (opcional)"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'Marcar não localizados por local (opcional)')
     && str_contains($html, 'Marcar selecionados como não localizados') && str_contains($html, 'data-confirm='));
 $pend = array_map(fn ($i) => (string)$i['id'], $invRepo->itens($inv2, 'a_conferir', '', 1, 0, ['antiga' => 'A-03'])['itens']);
 [$s] = $bib->ir('admin/inventario-detalhes.php?id=' . $inv2, ['csrf' => $tk, 'id' => $inv2, 'acao' => 'marcar_nao_localizados', 'fechar' => 'antiga:A-03', 'itens' => $pend]);

@@ -212,9 +212,9 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
                     <summary><?= icon('map-pin') ?> Transferir de localização</summary>
                     <form method="post" data-loading-form>
                         <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="transferir">
-                        <label class="adm-field"><span class="adm-field__label">Nova localização</span><?= fisico_select_local('localizacao_id', $ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null, 'Sem localização', '', $locais) ?></label>
+                        <fieldset class="adm-field"><legend class="adm-field__label">Nova localização (estante e prateleira)</legend><?= fisico_campo_local('localizacao_id', $ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null, 'Sem localização', 'transferir-local') ?></fieldset>
                         <label class="adm-field"><span class="adm-field__label">Motivo <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="motivo" maxlength="300" placeholder="Ex.: reorganização da estante"></label>
-                        <?php if (!$locais): ?><p class="adm-field__hint">Nenhuma localização cadastrada. <a href="<?= e(admin_url('localizacoes')) ?>">Cadastrar localizações</a>.</p><?php endif; ?>
+                        
                         <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('check') ?> Salvar localização</button>
                     </form>
                 </details>

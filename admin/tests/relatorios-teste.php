@@ -177,7 +177,8 @@ $exec("INSERT INTO classificacoes_cdd (livro_id, status, cdd_proposta) VALUES (?
 $exec("INSERT INTO classificacoes_cdd (livro_id, status, precisa_revisao) VALUES (?, 'em_revisao', 1)", [$livro['acento']]);
 $exec("INSERT INTO classificacoes_cdd (livro_id, status, cdd_original) VALUES (?, 'pendente', '028.5')", [$livro['planilha']]);
 
-// Inventário real pelo serviço existente: 3 conferências (uma sem divergência, uma de conservação, uma de localização).
+// Inventário real pelo serviço existente: 3 conferências. Desde a migração 140, a localização e a conservação
+// escolhidas na conferência são aplicadas ao exemplar (com histórico) e não ficam como divergência.
 $invServ = new InventarioService($pdo, new ExemplarService($pdo), new InventarioRepository($pdo));
 $inv = $invServ->criar(['titulo' => 'Inventário fictício de teste', 'data_inicio' => $hoje, 'responsavel_id' => $bibId], $bibId);
 $previstosInv = $invServ->iniciar($inv, $bibId);
@@ -304,7 +305,7 @@ confere('1 inventário em andamento', $ri['total'] === 1 && $ri['em_andamento'] 
 $li = $servico->linhas('inventarios', $ctx(), 0, 10)[0];
 confere('previstos 9 = exemplares no acervo no início', $previstosInv === 9 && $li['previstos'] === 9);
 confere('progresso: "3 de 9 exemplares conferidos — 33,3%"', $li['progresso'] === '3 de 9 exemplares conferidos — 33,3%', $li['progresso']);
-confere('não conferidos 2, emprestados fora da estante 4, divergência de local 1, de conservação 1', $li['nao_conferidos'] === 2 && $li['em_circulacao'] === 4 && $li['local'] === 1 && $li['estado'] === 1, json_encode($li));
+confere('não conferidos 2, emprestados fora da estante 4; local e conservação aplicados (sem divergência)', $li['nao_conferidos'] === 2 && $li['em_circulacao'] === 4 && $li['local'] === 0 && $li['estado'] === 0, json_encode($li));
 $oficial = (new InventarioRepository($pdo))->resumo($inv);
 confere('mesmos números do módulo de inventário (InventarioRepository::resumo)', $oficial['previstos_conferidos'] === $li['conferidos'] && $oficial['nao_conferidos'] === $li['nao_conferidos'] && $oficial['local_diferente'] === $li['local']);
 confere('nenhum exemplar não conferido virou extraviado', $num("SELECT COUNT(*) FROM exemplares WHERE situacao = 'extraviado'") === 1 && $num("SELECT status FROM inventarios WHERE id = ?", [$inv]) === 0 && db_query('SELECT status FROM inventarios WHERE id = ?', [$inv])->fetchColumn() === 'em_andamento');

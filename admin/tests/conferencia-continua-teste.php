@@ -18,7 +18,7 @@
  *   10. desfazer vínculo linha × exemplar feito por engano;
  *   11. estante atual: finalizar (só os escolhidos, com confirmação) e reabrir;
  *   12. livro não listado com código do formulário;
- *   13. registros seguidos pela página (outra cópia mantém local e estado; clique duplo não duplica);
+ *   13. registros seguidos pela página (outra cópia mantém a localização, não a conservação; clique duplo não duplica);
  *   14. indicadores separados, pesquisa paginada e resposta parcial (X-Conferencia) sem erros.
  */
 
@@ -364,8 +364,8 @@ $antes = $num('SELECT COUNT(*) FROM exemplares');
 confere('clique duplo (mesmo formulário de novo): nada duplicado, aviso claro', $s === 303 && $num('SELECT COUNT(*) FROM exemplares') === $antes && str_contains($html, 'Nada foi gravado de novo'));
 [$s, $html] = $bib->ir($pg . '&obra=' . $mar . '&painel=registrar&copia=1');
 preg_match('/name="processo_bdp" value="([a-f0-9]{32})"/', $html, $mm);
-confere('"Registrar outra cópia" mantém obra, localização e estado, com formulário novo', $s === 200 && str_contains($html, 'outra cópia') && ($mm[1] ?? '') !== $procPg
-    && preg_match('/name="localizacao_id".*?<option value="' . $loc2 . '" selected/s', $html) === 1 && preg_match('/name="estado_conservacao".*?value="regular" selected/s', $html) === 1);
+confere('"Registrar outra cópia" mantém obra e localização (a conservação não é copiada), com formulário novo', $s === 200 && str_contains($html, 'outra cópia') && ($mm[1] ?? '') !== $procPg
+    && preg_match('/name="localizacao_id".*?<option value="' . $loc2 . '" selected/s', $html) === 1 && preg_match('/name="estado_conservacao"[^>]*>(?:(?!<\/select>).)*value="nao_avaliado" selected/s', $html) === 1);
 [$s, $json] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $mar, 'processo' => $mm[1] ?? '']);
 confere('a outra cópia recebe um código novo', (json_decode($json, true)['codigo'] ?? $codPg) !== $codPg, $json);
 [$s, , $l] = $bib->ir($pg, ['csrf' => $tk, 'id' => $inv, 'acao' => 'cancelar_registro', 'livro_id' => $mar, 'codigo_bdp' => json_decode($json, true)['codigo'] ?? '', 'processo_bdp' => $mm[1] ?? '']);

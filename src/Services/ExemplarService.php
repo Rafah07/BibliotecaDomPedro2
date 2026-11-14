@@ -27,7 +27,17 @@ final class ExemplarService
 {
     use ConsultasPdo;
 
-    public const CONSERVACAO = ['bom', 'regular', 'danificado', 'necessita_reparo'];
+    /**
+     * Estados de conservação aceitos. "nao_avaliado" é o inicial (ninguém avaliou ainda); os demais
+     * são avaliações feitas por uma pessoa (gravam conservacao_avaliada_em/por, migração 140).
+     * "danificado" e "necessita_reparo" continuam aceitos para os dados antigos.
+     */
+    public const CONSERVACAO = ['nao_avaliado', 'excelente', 'bom', 'regular', 'ruim', 'danificado', 'necessita_reparo'];
+
+    /** Opções oferecidas nos formulários (as antigas só aparecem quando já estão gravadas). */
+    public const CONSERVACAO_OPCOES = ['nao_avaliado', 'excelente', 'bom', 'regular', 'ruim'];
+
+    public const NAO_AVALIADO = 'nao_avaliado';
 
     /** Situações que podem ser escolhidas no cadastro e na alteração manual. */
     public const SITUACOES_MANUAIS = ['disponivel', 'aguardando', 'manutencao', 'danificado'];
@@ -50,7 +60,7 @@ final class ExemplarService
         if ($quantidade < 1 || $quantidade > self::LIMITE_POR_CADASTRO) {
             throw new AcervoException('Informe de 1 a ' . self::LIMITE_POR_CADASTRO . ' exemplares por cadastro.');
         }
-        $estado = (string)($dados['estado_conservacao'] ?? '');
+        $estado = (string)($dados['estado_conservacao'] ?? '') ?: self::NAO_AVALIADO; // sem avaliação: "Não avaliado"
         $situacao = (string)($dados['situacao'] ?? '');
         if (!in_array($estado, self::CONSERVACAO, true)) {
             throw new AcervoException('Escolha o estado de conservação do exemplar.');
@@ -79,8 +89,9 @@ final class ExemplarService
             $criados = [];
             for ($i = 1; $i <= $quantidade; $i++) {
                 $codigo = CodigoBdp::formatar($ultimo + $i);
-                $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, situacao, observacoes, cadastrado_por, inventario_id)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$livroId, $codigo, $localId, $estado, $situacao, $obs, $responsavelId, $inventarioId]);
+                $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, conservacao_avaliada_em, conservacao_avaliada_por, situacao, observacoes, cadastrado_por, inventario_id)
+                                 VALUES (?, ?, ?, ?, ' . ($estado === self::NAO_AVALIADO ? 'NULL, NULL' : 'NOW(), ?') . ', ?, ?, ?, ?)',
+                    array_merge([$livroId, $codigo, $localId, $estado], $estado === self::NAO_AVALIADO ? [] : [$responsavelId], [$situacao, $obs, $responsavelId, $inventarioId]));
                 $id = (int)$this->pdo->lastInsertId();
                 $this->movimentacao($id, 'cadastro', $inventarioId ? 'Exemplar cadastrado durante a conferência do inventário nº ' . $inventarioId : 'Exemplar físico cadastrado',
                     $responsavelId, $inventarioId, ['estado' => $estado, 'situacao' => $situacao, 'localizacao_id' => $localId]);
@@ -111,7 +122,7 @@ final class ExemplarService
         if ($normal === null) {
             throw new AcervoException(CodigoBdp::mensagemInvalido($texto));
         }
-        $estado = (string)($dados['estado_conservacao'] ?? '');
+        $estado = (string)($dados['estado_conservacao'] ?? '') ?: self::NAO_AVALIADO;
         $situacao = (string)($dados['situacao'] ?? 'disponivel');
         if (!in_array($estado, self::CONSERVACAO, true)) {
             throw new AcervoException('Escolha o estado de conservação do exemplar.');
@@ -146,8 +157,9 @@ final class ExemplarService
                 throw new AcervoException($motivo);
             }
             try {
-                $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, situacao, observacoes, cadastrado_por, inventario_id)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$livroId, $normal, $localId, $estado, $situacao, $obs, $responsavelId, $inventarioId]);
+                $this->executar('INSERT INTO exemplares (livro_id, codigo_individual, localizacao_id, estado_conservacao, conservacao_avaliada_em, conservacao_avaliada_por, situacao, observacoes, cadastrado_por, inventario_id)
+                                 VALUES (?, ?, ?, ?, ' . ($estado === self::NAO_AVALIADO ? 'NULL, NULL' : 'NOW(), ?') . ', ?, ?, ?, ?)',
+                    array_merge([$livroId, $normal, $localId, $estado], $estado === self::NAO_AVALIADO ? [] : [$responsavelId], [$situacao, $obs, $responsavelId, $inventarioId]));
             } catch (\PDOException $e) {
                 if (($e->errorInfo[1] ?? 0) === 1062) {
                     throw new AcervoException('O código ' . $normal . ' acabou de ser usado em outro exemplar. Confira o carimbo.');
@@ -183,6 +195,9 @@ final class ExemplarService
             }
             $this->executar('UPDATE exemplares SET estado_conservacao = ?, observacoes = ? WHERE id = ?', [$estado, $obs, $id]);
             if ($ex['estado_conservacao'] !== $estado) {
+                $this->marcarAvaliacao($id, $estado, $responsavelId);
+            }
+            if ($ex['estado_conservacao'] !== $estado) {
                 $this->movimentacao($id, 'conservacao', 'Estado de conservação: ' . self::rotuloConservacao($ex['estado_conservacao']) . ' → ' . self::rotuloConservacao($estado),
                     $responsavelId, null, ['de' => $ex['estado_conservacao'], 'para' => $estado]);
             }
@@ -198,10 +213,19 @@ final class ExemplarService
         }
         $this->transacao(function () use ($id, $estado, $responsavelId, $inventarioId) {
             $ex = $this->bloquear($id);
-            if ($ex['situacao'] === 'baixado' || $ex['estado_conservacao'] === $estado) {
+            if ($ex['situacao'] === 'baixado') {
+                return;
+            }
+            if ($ex['estado_conservacao'] === $estado) {
+                // Mesma classificação, mas avaliada agora por uma pessoa: fica registrada a avaliação.
+                if ($estado !== self::NAO_AVALIADO && $ex['conservacao_avaliada_em'] === null) {
+                    $this->marcarAvaliacao($id, $estado, $responsavelId);
+                    $this->movimentacao($id, 'conservacao', 'Conservação avaliada: ' . self::rotuloConservacao($estado), $responsavelId, $inventarioId, ['de' => $estado, 'para' => $estado]);
+                }
                 return;
             }
             $this->executar('UPDATE exemplares SET estado_conservacao = ? WHERE id = ?', [$estado, $id]);
+            $this->marcarAvaliacao($id, $estado, $responsavelId);
             $this->movimentacao($id, 'conservacao', 'Estado de conservação: ' . self::rotuloConservacao($ex['estado_conservacao']) . ' → ' . self::rotuloConservacao($estado),
                 $responsavelId, $inventarioId, ['de' => $ex['estado_conservacao'], 'para' => $estado]);
         });
@@ -333,20 +357,34 @@ final class ExemplarService
         }
     }
 
-    /** Confere se a localização existe e está ativa. Vazio = sem localização. */
+    /** Confere se a localização existe e está ativa (a prateleira, a estante e o setor dela). Vazio = sem localização. */
     public function localizacaoValida(mixed $id): ?int
     {
         if ($id === null || $id === '' || (int)$id === 0) {
             return null;
         }
-        $local = $this->linha('SELECT id, ativa FROM localizacoes WHERE id = ?', [(int)$id]);
+        $local = $this->linha('SELECT l.id, l.ativa, l.estante_id, e.ativa AS estante_ativa, s.ativo AS setor_ativo
+                               FROM localizacoes l LEFT JOIN estantes e ON e.id = l.estante_id LEFT JOIN setores s ON s.id = e.setor_id WHERE l.id = ?', [(int)$id]);
         if (!$local) {
             throw new AcervoException('Localização não encontrada.');
         }
         if (!(int)$local['ativa']) {
-            throw new AcervoException('Esta localização está desativada. Escolha outra ou reative-a em Localizações.');
+            throw new AcervoException('Esta prateleira (localização) está desativada. Escolha outra ou reative-a em Organização Física.');
+        }
+        if ($local['estante_id'] !== null && (!(int)$local['estante_ativa'] || ($local['setor_ativo'] !== null && !(int)$local['setor_ativo']))) {
+            throw new AcervoException('Esta estante (ou o setor dela) está desativada. Escolha outra prateleira ou reative-a em Organização Física.');
         }
         return (int)$local['id'];
+    }
+
+    /** Registra quem avaliou a conservação e quando ("Não avaliado" apaga a avaliação). Dentro de uma transação. */
+    private function marcarAvaliacao(int $id, string $estado, int $responsavelId): void
+    {
+        if ($estado === self::NAO_AVALIADO) {
+            $this->executar('UPDATE exemplares SET conservacao_avaliada_em = NULL, conservacao_avaliada_por = NULL WHERE id = ?', [$id]);
+        } else {
+            $this->executar('UPDATE exemplares SET conservacao_avaliada_em = NOW(), conservacao_avaliada_por = ? WHERE id = ?', [$responsavelId, $id]);
+        }
     }
 
     public function movimentacao(int $exemplarId, string $tipo, string $descricao, ?int $responsavelId, ?int $inventarioId = null, array $detalhes = []): void
@@ -371,7 +409,8 @@ final class ExemplarService
         if (!$l || ($l['setor'] ?? null) === null) {
             return 'Sem localização';
         }
-        $partes = [$l['setor']];
+        // Prateleiras da Organização Física sem setor guardam setor vazio.
+        $partes = $l['setor'] !== '' ? [$l['setor']] : [];
         if (($l['estante'] ?? '') !== '') {
             $partes[] = 'Estante ' . $l['estante'];
         }
@@ -394,6 +433,7 @@ final class ExemplarService
 
     public static function rotuloConservacao(string $e): string
     {
-        return ['bom' => 'Bom', 'regular' => 'Regular', 'danificado' => 'Danificado', 'necessita_reparo' => 'Necessita reparo'][$e] ?? $e;
+        return ['nao_avaliado' => 'Não avaliado', 'excelente' => 'Excelente', 'bom' => 'Bom', 'regular' => 'Regular', 'ruim' => 'Ruim',
+            'danificado' => 'Danificado', 'necessita_reparo' => 'Necessita reparo'][$e] ?? $e;
     }
 }

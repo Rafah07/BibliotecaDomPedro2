@@ -127,7 +127,6 @@ try {
     }
     $fecharItens = $fecharLocal && $emCurso ? inventario_repo()->itens($id, 'a_conferir', '', 1, 500, $fecharLocal) : null;
     $setores = $emCurso ? localizacoes_servico()->setores() : [];
-    $locaisAntigos = $emCurso ? inventario_repo()->locaisAntigosPendentes($id) : [];
     $linhasDeFora = $emCurso && ($inv['setor'] === null || $inv['setor'] === '') ? inventario_servico()->registrosSemExemplarFaltando($id) : 0;
 } catch (PDOException $e) {
     http_response_code(500);
@@ -221,22 +220,22 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
 
 <?php if ($emCurso && $pode): ?>
     <section class="adm-card adm-panel" id="fechar" aria-labelledby="titulo-fechar">
-        <div class="adm-panel__header"><div><h2 id="titulo-fechar">Finalizar estante ou setor</h2>
-            <p>Terminou de conferir uma estante ou setor? Escolha o local para ver os livros que continuam pendentes ali. Marque como não localizados só os que você confirmou que não estão lá. Nada muda sem a sua confirmação, e a marcação pode ser desfeita.</p></div></div>
+        <div class="adm-panel__header"><div><h2 id="titulo-fechar">Marcar não localizados por local (opcional)</h2>
+            <p><strong>Não é preciso finalizar estantes</strong>: cada exemplar fica registrado assim que é salvo na conferência, e nada vira “Não localizado” sozinho. Use isto só se quiser, ao terminar um local, marcar de uma vez os livros que você procurou e confirmou que não estão lá. A marcação pode ser desfeita.</p></div></div>
         <form method="get" action="<?= e(admin_url('inventario-detalhes')) ?>#fechar" class="adm-inline-form">
             <input type="hidden" name="id" value="<?= $id ?>">
             <label class="adm-field"><span class="adm-field__sublabel">Local conferido</span>
                 <select class="adm-select" name="fechar" required>
-                    <option value="">Escolha a estante, o setor ou o local antigo...</option>
+                    <option value="">Escolha a prateleira ou o setor...</option>
                     <?php if ($locais): ?><optgroup label="Estantes e prateleiras cadastradas">
                         <?php foreach ($locais as $lo): ?><option value="local:<?= (int)$lo['id'] ?>"<?= $fechar === 'local:' . $lo['id'] ? ' selected' : '' ?>><?= e(Biblioteca\Services\ExemplarService::localizacaoTexto($lo)) ?></option><?php endforeach; ?>
                     </optgroup><?php endif; ?>
                     <?php if ($setores): ?><optgroup label="Setores inteiros">
                         <?php foreach ($setores as $st): ?><option value="setor:<?= e($st) ?>"<?= $fechar === 'setor:' . $st ? ' selected' : '' ?>>Setor <?= e($st) ?></option><?php endforeach; ?>
                     </optgroup><?php endif; ?>
-                    <?php if ($locaisAntigos): ?><optgroup label="Localização antiga (da planilha)">
-                        <?php foreach ($locaisAntigos as $ant => $n): ?><option value="antiga:<?= e((string)$ant) ?>"<?= $fechar === 'antiga:' . $ant ? ' selected' : '' ?>><?= e((string)$ant) ?> (<?= (int)$n ?> pendente(s))</option><?php endforeach; ?>
-                    </optgroup><?php endif; ?>
+                    <?php if (str_starts_with($fechar, 'antiga:')): // endereço antigo: continua abrindo, mas a localização da planilha não é mais oferecida ?>
+                        <option value="<?= e($fechar) ?>" selected><?= e(substr($fechar, 7)) ?> (localização antiga da planilha, só referência)</option>
+                    <?php endif; ?>
                 </select></label>
             <button class="adm-button adm-button--ghost" type="submit"><?= icon('list-checks') ?> Ver pendentes deste local</button>
         </form>
@@ -424,7 +423,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                                         <form method="post" class="adm-acao__form">
                                             <?= csrf_campo() ?><?= $campoVolta() ?><input type="hidden" name="acao" value="corrigir"><input type="hidden" name="item_id" value="<?= (int)$it['id'] ?>">
                                             <label class="adm-field"><span class="adm-field__sublabel">Estado encontrado</span><?= fisico_select_conservacao('estado_conservacao', (string)$it['estado_encontrado']) ?></label>
-                                            <label class="adm-field"><span class="adm-field__sublabel">Localização encontrada</span><?= fisico_select_local('localizacao_id', $it['localizacao_encontrada_id'] !== null ? (int)$it['localizacao_encontrada_id'] : null, 'Manter a registrada', '', $locais) ?></label>
+                                            <fieldset class="adm-field adm-field--full"><legend class="adm-field__sublabel">Localização encontrada</legend><?= fisico_campo_local('localizacao_id', $it['localizacao_encontrada_id'] !== null ? (int)$it['localizacao_encontrada_id'] : null, 'Manter a registrada', 'corrigir-local-' . (int)$it['id']) ?></fieldset>
                                             <label class="adm-field"><span class="adm-field__sublabel">Observação</span><input class="adm-input" name="observacao" maxlength="500" value="<?= e((string)$it['observacao']) ?>"></label>
                                             <label class="adm-field"><span class="adm-field__sublabel">Motivo da correção *</span><input class="adm-input" name="motivo" maxlength="500" required></label>
                                             <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('save') ?> Salvar correção</button>

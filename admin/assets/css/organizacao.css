@@ -1,0 +1,117 @@
+/* =========================================================
+   Organização Física (estantes, prateleiras e setores),
+   campos dependentes de localização e Pendências de conferência.
+   ========================================================= */
+
+/* ---------- Campos dependentes Setor → Estante → Prateleira ---------- */
+.adm-local-dep { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px 12px; align-items: end; }
+.adm-local-dep .adm-field { margin: 0; min-width: 0; }
+.adm-local-dep .adm-select { width: 100%; }
+.adm-local-dep > .adm-field__hint { grid-column: 1 / -1; margin: 0; }
+.adm-local-sugestao { margin: 6px 0 0; font-size: 12.5px; color: var(--adm-muted); }
+
+/* ---------- Página Organização Física ---------- */
+.adm-org__progresso { margin: 0 0 var(--adm-gap); }
+.adm-org__subtitulo { margin: 18px 0 8px; font-size: 14px; color: var(--adm-navy); }
+
+.adm-org-estante { border-left: 4px solid var(--adm-blue-accent); }
+.adm-org-estante__id,
+.adm-org-cartao__id {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 8px;
+    border-radius: var(--adm-radius-sm); background: var(--adm-navy); color: var(--adm-white);
+    font-weight: 700; font-size: 16px; letter-spacing: .02em; flex: none;
+}
+.adm-org-estante__rodape { margin-top: 14px; flex-wrap: wrap; }
+.adm-org-estante tr.is-selecionada td { background: var(--adm-blue-50); }
+
+.adm-org-grade { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.adm-org-cartao {
+    display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; min-width: 0;
+    border: 1px solid var(--adm-border); border-radius: var(--adm-radius); background: var(--adm-white);
+    transition: border-color var(--adm-duration) var(--adm-ease), box-shadow var(--adm-duration) var(--adm-ease);
+}
+.adm-org-cartao:hover, .adm-org-cartao:focus-within { border-color: var(--adm-blue-accent); box-shadow: var(--adm-shadow-hover); }
+.adm-org-cartao.is-inativa { opacity: .65; background: var(--adm-bg); }
+.adm-org-cartao__link { display: flex; gap: 10px; align-items: center; text-decoration: none; color: var(--adm-text); min-width: 0; }
+.adm-org-cartao__texto { display: flex; flex-direction: column; min-width: 0; }
+.adm-org-cartao__texto strong { overflow-wrap: anywhere; }
+.adm-org-cartao__texto small { color: var(--adm-muted); font-size: 12.5px; }
+.adm-org-cartao__numero, .adm-org-cartao__resp { margin: 0; font-size: 13px; color: var(--adm-muted); display: flex; gap: 6px; align-items: center; }
+.adm-org-cartao__numero strong { color: var(--adm-navy); font-size: 18px; }
+.adm-org-cartao__resp .icon { width: 14px; height: 14px; flex: none; }
+
+.adm-org-colunas > * { min-width: 0; overflow-x: auto; }
+.adm-org-colunas { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--adm-gap); align-items: start; margin-bottom: var(--adm-gap); }
+.adm-table--compacta th, .adm-table--compacta td { padding-top: 6px; padding-bottom: 6px; font-size: 13px; }
+
+.adm-org-pessoas, .adm-org-setores, .adm-org-movs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.adm-org-pessoas li { display: flex; justify-content: space-between; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--adm-border); font-size: 13px; }
+.adm-org-setores li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--adm-border); }
+.adm-org-movs li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--adm-border); }
+.adm-org-movs li > small { flex-basis: 100%; }
+
+/* ---------- Pendências de conferência (Inventário) ---------- */
+.adm-pendencias-tipos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.adm-pendencias-tipos a {
+    display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 6px 8px;
+    border-radius: var(--adm-radius-sm); text-decoration: none; color: var(--adm-text); font-size: 13px;
+}
+.adm-pendencias-tipos a:hover, .adm-pendencias-tipos a:focus-visible, .adm-pendencias-tipos a.is-ativo { background: var(--adm-blue-50); }
+.adm-pendencias-tipos a .icon { width: 15px; height: 15px; flex: none; color: var(--adm-muted); }
+.adm-pendencias-tipos a span { display: inline-flex; gap: 6px; align-items: center; min-width: 0; }
+.adm-pendencias-tipos strong { color: var(--adm-navy); }
+.adm-pendencias-abas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.adm-pendencias-abas a.is-ativo { background: var(--adm-navy); color: var(--adm-white); border-color: var(--adm-navy); }
+
+.adm-quantidade { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-bg); font-size: 13.5px; }
+.adm-quantidade.is-divergente { border-color: var(--adm-amber); background: var(--adm-amber-50); }
+.adm-quantidade dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px 14px; margin: 8px 0 0; }
+.adm-quantidade dt { color: var(--adm-muted); font-size: 12px; }
+.adm-quantidade dd { margin: 0; font-weight: 700; color: var(--adm-navy); }
+.adm-quantidade p { margin: 0; }
+
+.adm-indicadores-grupos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 0 0 var(--adm-gap); }
+.adm-indicadores-grupo { padding: 12px 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius); background: var(--adm-white); }
+.adm-indicadores-grupo h3 { margin: 0 0 8px; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--adm-muted); }
+.adm-indicadores-grupo dl { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.adm-indicadores-grupo div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.adm-indicadores-grupo dd { margin: 0; font-weight: 700; color: var(--adm-navy); }
+.adm-indicadores-grupo a { color: inherit; }
+
+@media (max-width: 640px) {
+    .adm-org-grade { grid-template-columns: 1fr; }
+    .adm-org-colunas { grid-template-columns: 1fr; }
+}
+
+/* ---------- Etiquetas de estantes e prateleiras (A4) ---------- */
+.adm-org-folha {
+    width: 210mm; min-height: 297mm; padding: 10mm; background: #fff; color: #000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .15); display: grid; gap: 4mm; align-content: start;
+}
+.adm-org-folha--tamanho-g { grid-template-columns: 1fr; }
+.adm-org-folha--tamanho-m { grid-template-columns: 1fr 1fr; }
+.adm-org-folha--tamanho-p { grid-template-columns: 1fr 1fr 1fr; }
+.adm-org-etq {
+    border: 1.5px solid #000; border-radius: 3mm; padding: 5mm; text-align: center;
+    display: flex; flex-direction: column; justify-content: center; gap: 1.5mm; break-inside: avoid; page-break-inside: avoid;
+}
+.adm-org-folha--tamanho-g .adm-org-etq { min-height: 60mm; }
+.adm-org-folha--tamanho-m .adm-org-etq { min-height: 45mm; }
+.adm-org-folha--tamanho-p .adm-org-etq { min-height: 32mm; padding: 3mm; }
+.adm-org-etq__tipo { font-size: 10pt; letter-spacing: .12em; text-transform: uppercase; }
+.adm-org-etq__nome { font-size: 30pt; font-weight: 800; line-height: 1.05; overflow-wrap: anywhere; }
+.adm-org-folha--tamanho-m .adm-org-etq__nome { font-size: 22pt; }
+.adm-org-folha--tamanho-p .adm-org-etq__nome { font-size: 15pt; }
+.adm-org-etq__sub { font-size: 12pt; overflow-wrap: anywhere; }
+.adm-org-folha--tamanho-p .adm-org-etq__sub { font-size: 9pt; }
+.adm-org-etq__rodape { font-size: 8pt; color: #333; }
+.adm-org-previa { overflow: auto; padding: 16px; background: #e5e9f0; border-radius: var(--adm-radius-sm); display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+
+@media print {
+    @page { size: A4; margin: 0; }
+    body.adm-body { background: #fff !important; }
+    .adm-body .adm-sidebar, .adm-body .adm-header, .adm-body .adm-footer, .adm-body .adm-breadcrumb, .adm-body .adm-toasts, .adm-nao-imprimir, .adm-flash { display: none !important; }
+    .adm-body .adm-main, .adm-body .adm-content, .adm-org-previa { margin: 0 !important; padding: 0 !important; background: #fff !important; overflow: visible !important; display: block !important; }
+    .adm-org-folha { box-shadow: none; margin: 0; page-break-after: always; break-after: page; }
+    .adm-org-folha:last-child { page-break-after: auto; break-after: auto; }
+}

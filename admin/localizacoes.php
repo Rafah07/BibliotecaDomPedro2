@@ -45,7 +45,8 @@ try {
     if ($aba === 'antigas') {
         $antigas = localizacoes_servico()->antigas($filtros['q']);
     } else {
-        $resultado = localizacoes_servico()->listar(['q' => $filtros['q'], 'setor' => $filtros['setor'], 'situacao' => $filtros['situacao'] ?: 'ativas'],
+        // Só as localizações anteriores (avulsas): as prateleiras das estantes ficam em Organização Física.
+        $resultado = localizacoes_servico()->listar(['q' => $filtros['q'], 'setor' => $filtros['setor'], 'situacao' => $filtros['situacao'] ?: 'ativas', 'avulsas' => true],
             max(1, (int)admin_param($_GET, 'pagina', '1')), (int)$filtros['por_pagina']);
     }
 } catch (PDOException $e) {
@@ -54,15 +55,15 @@ try {
     exit;
 }
 
-admin_page_start('localizacoes', 'Localizações', 'Exemplares', 'Localizações físicas', FISICO_CSS);
+admin_page_start('localizacoes', 'Localizações anteriores', 'Organização Física', 'Localizações anteriores (sem estante cadastrada)', FISICO_CSS);
 ?>
 
-<?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Exemplares', admin_url('exemplares')], ['Localizações']]) ?>
+<?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Organização Física', admin_url('organizacao-fisica')], ['Localizações anteriores']]) ?>
 
 <section class="adm-page-head">
     <div>
-        <h1>Localizações físicas</h1>
-        <p>Setor, estante, prateleira e complemento onde cada exemplar fica. Nenhum exemplar é distribuído automaticamente: a organização é definida pela biblioteca.</p>
+        <h1>Localizações anteriores</h1>
+        <p>Localizações cadastradas antes da Organização Física (texto livre, sem estante cadastrada). Elas continuam valendo para os exemplares que estão nelas. A estrutura nova (setores, estantes e prateleiras) é montada em <a class="adm-link" href="<?= e(admin_url('organizacao-fisica')) ?>">Organização Física</a>.</p>
     </div>
     <div class="adm-page-head__actions">
         <?php if ($podeGerenciar): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('localizacao')) ?>"><?= icon('plus') ?> Nova localização</a><?php endif; ?>

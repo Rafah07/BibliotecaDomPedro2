@@ -250,6 +250,13 @@ final class InventarioRepository
      * (qual), ou ainda sem exemplar (e a situação neste inventário). Dados importados relevantes
      * vêm junto (título, autor, local antigo, quantidade) para a escolha consciente da linha.
      */
+    /** Total de linhas da planilha da obra e quantas ainda não têm exemplar (para mostrar "N de M"). */
+    public function contarRegistrosDaObra(int $livroId): array
+    {
+        $r = $this->linha('SELECT COUNT(*) AS total, COALESCE(SUM(exemplar_id IS NULL), 0) AS livres FROM registros_legados WHERE livro_id = ?', [$livroId]) ?? [];
+        return ['total' => (int)($r['total'] ?? 0), 'livres' => (int)($r['livres'] ?? 0)];
+    }
+
     public function registrosDaObra(int $inventarioId, int $livroId, int $limite = 100): array
     {
         $linhas = $this->todas('SELECT r.id, r.importacao_item_id, r.arquivo, r.linha, r.titulo_original, r.autor_original, r.localizacao_antiga, r.quantidade_informada,
