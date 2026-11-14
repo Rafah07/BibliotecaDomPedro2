@@ -246,7 +246,9 @@ confere('em preparação ainda não tem lista prevista', $num('SELECT COUNT(*) F
 confere('não pode ser concluído sem ter começado', recusa(fn () => $invServ->concluir($inv, $bibId)) !== null);
 $ativosAntes = $num("SELECT COUNT(*) FROM exemplares WHERE situacao NOT IN ('baixado', 'extraviado')");
 $previstos = $invServ->iniciar($inv, $bibId);
-confere('ao iniciar, a lista prevista é congelada (exemplares ativos)', $previstos === $ativosAntes && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND previsto = 1', [$inv]) === $ativosAntes);
+$linhasSemVinculo = $num('SELECT COUNT(*) FROM registros_legados WHERE exemplar_id IS NULL');
+confere('ao iniciar, a lista prevista é congelada (exemplares ativos + linhas da planilha sem exemplar)', $previstos === $ativosAntes + $linhasSemVinculo
+    && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND previsto = 1 AND exemplar_id IS NOT NULL', [$inv]) === $ativosAntes, "$previstos / $ativosAntes + $linhasSemVinculo");
 $inv2 = $invServ->criar(['titulo' => 'Segundo inventário', 'data_inicio' => $hoje, 'responsavel_id' => $bibId, 'setor' => 'Literatura'], $bibId);
 confere('só um inventário em andamento por vez', recusa(fn () => $invServ->iniciar($inv2, $bibId)) !== null);
 $invServ->pausar($inv, $bibId);
@@ -547,7 +549,7 @@ confere('conferência repetida pelo formulário: aviso com dados anteriores, nad
 confere('código inexistente: aviso, nada criado', str_contains($html, 'não encontrado') && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-777777'") === 0);
 [$s, , $loc] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['csrf' => $tk, 'id' => $inv3, 'acao' => 'ler', 'leitura' => 'Dom Casmurro']);
 [, $html] = $bib->ir($loc ? ltrim(str_replace('/admin/', '', parse_url($loc, PHP_URL_PATH)) . '?' . parse_url($loc, PHP_URL_QUERY), '/') : 'inventario-conferencia.php?id=' . $inv3);
-confere('texto lido pesquisa obras (título) com "Abrir obra"', str_contains($html, 'Obras encontradas') && str_contains($html, 'Abrir obra'));
+confere('texto lido pesquisa obras (título) com "Abrir"', str_contains($html, 'Obras para') && str_contains($html, '#obra">Abrir</a>'));
 $antesForm = $num('SELECT COUNT(*) FROM exemplares');
 $regSemex = ['csrf' => $tk, 'id' => $inv3, 'acao' => 'registrar_exemplar', 'livro_id' => $livro['semex'], 'estado_conservacao' => 'bom', 'situacao_inventario' => 'encontrado', 'codigo_bdp' => 'BDP-000050'];
 [$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3, $regSemex);
@@ -556,9 +558,13 @@ confere('registrar exemplar de obra com dados não verificados não grava', $s =
 [$s, $html] = $bib->ir('inventario-conferencia.php?id=' . $inv3, ['codigo_bdp' => ''] + $regSemex);
 confere('registrar exemplar sem código BDP não grava', $s === 200 && str_contains($html, 'Gerar código BDP') && $num('SELECT COUNT(*) FROM exemplares') === $antesForm);
 [$s, $json] = $bib->ir('api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $livro['semex']]);
+confere('"Gerar código BDP" (API) sem identificação do formulário é recusado', $s === 422, $json);
+$procForm = Biblioteca\Services\CodigoBdpService::novoProcesso();
+[$s, $json] = $bib->ir('api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $livro['semex'], 'processo' => $procForm]);
 $gerado = json_decode($json, true)['codigo'] ?? '';
 confere('"Gerar código BDP" (API) devolve o próximo código da sequência', $s === 200 && preg_match('/^BDP-\d{6}$/', $gerado) === 1, $json);
 $regSemex['codigo_bdp'] = $gerado;
+$regSemex['processo_bdp'] = $procForm;
 [$s] = $bib->ir('inventario-conferencia.php?id=' . $inv3, $regSemex);
 confere('obra verificada: registrar exemplar grava 1 exemplar encontrado', $s === 303 && $num('SELECT COUNT(*) FROM exemplares') === $antesForm + 1
     && $num("SELECT COUNT(*) FROM inventario_itens i JOIN exemplares e ON e.id = i.exemplar_id WHERE e.codigo_individual = ? AND i.conferido_em IS NOT NULL", [$gerado]) === 1);
