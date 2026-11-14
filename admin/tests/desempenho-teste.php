@@ -115,7 +115,7 @@ $pdo->exec('UPDATE emprestimos SET data_prevista = CURDATE() - INTERVAL 5 DAY WH
 $inv = new InventarioService($pdo, new ExemplarService($pdo), new InventarioRepository($pdo));
 $invId = $inv->criar(['titulo' => 'Inventário fictício de desempenho', 'data_inicio' => date('Y-m-d'), 'responsavel_id' => $contas['bibliotecaria']], $contas['bibliotecaria']);
 $inv->iniciar($invId, $contas['bibliotecaria']);
-for ($k = 1000; $k < 1300; $k++) {
+for ($k = 1000; $k < min(1300, count($exemplares)); $k++) {
     $inv->conferir($invId, $exemplares[$k], ['estado_conservacao' => 'bom'], $contas['bibliotecaria']);
 }
 $totais = $pdo->query("SELECT (SELECT COUNT(*) FROM livros) l, (SELECT COUNT(*) FROM exemplares) e, (SELECT COUNT(*) FROM emprestimos) m, (SELECT COUNT(*) FROM alunos) a")->fetch();

@@ -227,6 +227,12 @@ final class InventarioRepository
         return $this->linha(self::ITEM_SQL . ' WHERE i.id = ?', [$itemId]);
     }
 
+    /** Itens (exemplares e registros da planilha) de um livro neste inventário: usado ao corrigir os dados do livro. */
+    public function itensDoLivro(int $inventarioId, int $livroId, int $limite = 50): array
+    {
+        return $this->todas(self::ITEM_SQL . ' WHERE i.inventario_id = ? AND i.livro_id = ? ORDER BY i.conferido_em IS NOT NULL, e.codigo_individual IS NULL, e.codigo_individual, i.id LIMIT ' . max(1, $limite), [$inventarioId, $livroId]);
+    }
+
     /** Localizações antigas (texto da planilha) dos itens ainda pendentes: para conferir por estante. */
     public function locaisAntigosPendentes(int $inventarioId): array
     {

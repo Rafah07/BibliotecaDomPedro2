@@ -107,7 +107,8 @@ Fluxo: **Importar planilha → Organizar estantes → Pesquisar livro → Corrig
 1. Na página do inventário, clique em **Conferir e corrigir livros**.
 2. Pegue o livro na prateleira e use **Pesquisar livro: código BDP, título, autor ou ISBN**. Com etiqueta, digite o código (ex.: `BDP-000121`); sem etiqueta, digite o título ou o autor.
 3. Nos resultados, as linhas vindas da planilha aparecem como **Linha N da planilha · Pendente**. Clique em **Conferir**.
-4. Corrija o que estiver errado em **Corrigir informações do livro** (todos os campos são opcionais) e escreva o **Código BDP do carimbo**, se o livro tiver.
+4. Corrija o que estiver errado em **Informações do livro** (título, autor, ISBN, editora, ano, categoria...; todos os campos são opcionais) e escreva o **Código BDP do carimbo**, se o livro tiver. A ficha aparece aberta tanto nos registros da planilha quanto nos exemplares que já têm código.
+   Para corrigir só os dados, sem marcar como encontrado, use o botão **Corrigir dados** ao lado do livro nos resultados (ou **Corrigir dados do livro** na lista de itens do inventário) e clique em **Salvar correções**.
 5. Clique em **Salvar e marcar como encontrado**. O cadastro e o inventário são atualizados juntos.
 6. Livro em mãos que não aparece na pesquisa: use **+ Cadastrar livro não listado**. O sistema mostra antes os livros parecidos; se for outro exemplar de uma obra já cadastrada, escolha-a.
 7. Ao terminar uma estante ou setor, em **Finalizar estante ou setor**, selecione os livros que realmente não estão lá e clique em **Marcar selecionados como não localizados** (há confirmação). Nada vira "Não localizado" sozinho, e a marcação pode ser desfeita com **Voltar para pendente**.

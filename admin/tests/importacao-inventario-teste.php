@@ -273,6 +273,20 @@ $post = ['csrf' => $tk, 'id' => $inv2, 'acao' => 'encontrar', 'item_id' => $itPo
 [$s2] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, $post);
 confere('formulário grava livro + exemplar + encontrado; o segundo envio não duplica', $s === 303 && $s2 === 303 && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-000300'") === 1
     && (int)$val('SELECT ano_publicacao FROM livros WHERE id = ?', [$livroPoema]) === 2001 && !in_array('ano_invalido', $alertas($livroPoema), true));
+// Correção dos dados do livro direto no Inventário (título, autor, ISBN...), sem outra página.
+[$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&q=' . rawurlencode('Poemas de Teste'));
+confere('resultado da pesquisa tem o botão "Corrigir dados"', $s === 200 && str_contains($html, '&amp;corrigir=' . $livroPoema . '&amp;'));
+[$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&corrigir=' . $livroPoema . '&q=Poemas');
+confere('"Corrigir dados" abre a ficha do livro no Inventário com os exemplares dele', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'id="corrigir-livro"')
+    && str_contains($html, 'Salvar correções') && str_contains($html, 'name="titulo"') && str_contains($html, 'BDP-000300'));
+[$s, , $locCorr] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, ['csrf' => $tk, 'id' => $inv2, 'acao' => 'salvar_livro', 'livro_id' => $livroPoema, 'voltar' => 'corrigir', 'q' => 'Poemas',
+    'editar_livro' => '1', 'titulo' => 'Poemas de Teste Corrigido', 'autores' => 'Lima, Carla Fictícia', 'editora' => 'Editora Fictícia', 'ano_publicacao' => '2001', 'isbn' => '']);
+confere('"Salvar correções" grava o título e volta para a ficha', $s === 303 && str_contains((string)$locCorr, 'corrigir=' . $livroPoema)
+    && $val('SELECT titulo FROM livros WHERE id = ?', [$livroPoema]) === 'Poemas de Teste Corrigido' && $val('SELECT editora FROM livros WHERE id = ?', [$livroPoema]) === 'Editora Fictícia');
+[$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&codigo=BDP-000300');
+confere('exemplar já encontrado ainda permite "Corrigir dados do livro"', $s === 200 && str_contains($html, 'Corrigir dados do livro') && str_contains($html, '&amp;corrigir=' . $livroPoema));
+[$s, $html] = $bib->ir('admin/inventario-detalhes.php?id=' . $inv2 . '&filtro=encontrados');
+confere('lista de itens do inventário tem "Corrigir dados do livro"', $s === 200 && str_contains($html, 'Corrigir dados do livro'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&novo=1');
 $token = preg_match('/name="token" value="([a-f0-9]+)"/', $html, $m) ? $m[1] : '';
 confere('formulário de livro não listado com token de uso único', $s === 200 && $token !== '' && teste_sem_erro_tecnico($html));
@@ -312,6 +326,10 @@ confere('API: com confirmação importa e entra no inventário', $s === 200 && (
 $pdo->exec("INSERT INTO livros (titulo, isbn, idioma) VALUES (NULL, NULL, NULL)"); // como uma linha só com a localização
 $semTitulo = (int)$pdo->lastInsertId();
 $exSemTitulo = $exServ->cadastrar($semTitulo, ['estado_conservacao' => 'bom', 'situacao' => 'disponivel'], $bibId)[0]['id'];
+$codSemTitulo = (string)$val('SELECT codigo_individual FROM exemplares WHERE id = ?', [$exSemTitulo]);
+[$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&codigo=' . rawurlencode($codSemTitulo));
+confere('exemplar com código abre com "Informações do livro" já visível e "Salvar só as correções"', $s === 200 && teste_sem_erro_tecnico($html)
+    && str_contains($html, 'Informações do livro') && str_contains($html, 'name="titulo"') && str_contains($html, 'Salvar só as correções'));
 foreach (['admin/classificacao.php', 'admin/classificar-livro.php?id=' . $semTitulo, 'admin/detalhes-livro.php?id=' . $semTitulo, 'admin/livros.php',
     'admin/etiquetas.php?ids=' . $exSemTitulo, 'admin/detalhes-exemplar.php?id=' . $exSemTitulo] as $pagina) {
     [$s, $html] = $bib->ir($pagina);

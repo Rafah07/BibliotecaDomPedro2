@@ -132,6 +132,7 @@ try {
 $filtros = ['id' => $id, 'filtro' => $filtro, 'q' => $q];
 $aberto = in_array($inv['status'], ['em_andamento', 'pausado'], true);
 $pode = auth_pode('inventario.gerenciar');
+$podeEditarLivro = $inv['status'] === 'em_andamento' && auth_pode('inventario.conferir') && auth_pode('livros.editar');
 $transicoes = InventarioService::TRANSICOES[$inv['status']];
 $pendentes = $resumo['divergencias_pendentes'] + $resumo['ausentes_pendentes'];
 $contagens = [
@@ -348,6 +349,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                         <td class="adm-td-title"><?php if ($it['exemplar_id'] !== null): ?><a class="adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$it['exemplar_id']) ?>"><?= e($it['codigo_individual']) ?></a>
                             <?php else: ?><a class="adm-link" href="<?= e(admin_url('inventario-conferencia') . '?id=' . $id . '&item=' . (int)$it['id']) ?>#registro"><?= icon('file-spreadsheet') ?> <?= $it['origem_linha'] ? 'Linha ' . (int)$it['origem_linha'] . ' da planilha' : 'Sem código BDP' ?></a><?php endif; ?>
                             <small class="adm-block-muted adm-td-livro"><strong><?= e($it['titulo']) ?></strong> · <?= e($it['autores'] ?: 'Autor não informado') ?><?= (int)$it['alertas'] ? ' · <span class="adm-status adm-tone--indigo">' . (int)$it['alertas'] . ' alerta(s)</span>' : '' ?></small>
+                            <?php if ($podeEditarLivro): ?><a class="adm-link adm-block-muted" href="<?= e(admin_url('inventario-conferencia') . '?id=' . $id . '&corrigir=' . (int)$it['livro_id']) ?>#corrigir-livro"><?= icon('pencil') ?> Corrigir dados do livro</a><?php endif; ?>
                             <?php if ($it['localizacao_antiga']): ?><small class="adm-table__muted">Local antigo: <?= e($it['localizacao_antiga']) ?></small><?php endif; ?>
                             <?php if (!(int)$it['previsto']): ?><small class="adm-table__muted"><?= (int)$it['cadastrado_no_inventario'] ? 'cadastrado na conferência' : 'fora da lista prevista' ?></small><?php endif; ?></td>
                         <td data-label="Cadastro"><?php if ($it['exemplar_id'] !== null): ?><?= e(fisico_local($it, 'atual_')) ?><small class="adm-block-muted"><?= e(ACERVO_CONSERVACAO[$it['estado_conservacao']] ?? $it['estado_conservacao']) ?> · <?= e(Biblioteca\Services\ExemplarService::rotuloSituacao($it['situacao'])) ?></small><?php else: ?><span class="adm-missing">Ainda sem exemplar</span><?php endif; ?></td>
