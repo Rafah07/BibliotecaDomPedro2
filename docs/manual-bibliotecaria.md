@@ -105,7 +105,7 @@ Toda a conferência e a correção acontecem na página **Conferir e corrigir li
 Fluxo: **Importar planilha → Organizar estantes → Pesquisar livro → Corrigir informações → Registrar código BDP → Marcar como encontrado.**
 
 1. Na página do inventário, clique em **Conferir e corrigir livros**.
-2. Pegue o livro na prateleira e use **Pesquisar livro: código BDP, título, autor ou ISBN**. Com etiqueta, digite o código (ex.: `BDP-000121`); sem etiqueta, digite o título ou o autor.
+2. Pegue o livro na prateleira e use **Pesquisar livro: código BDP, título, autor ou ISBN**. Com etiqueta, digite o código (ex.: `BDP-000121`); sem etiqueta, digite o título ou o autor. Enquanto você digita, o sistema sugere códigos BDP e livros (título, autor, ISBN ou editora); clique na sugestão ou use as setas e Enter.
 3. Nos resultados, as linhas vindas da planilha aparecem como **Linha N da planilha · Pendente**. Clique em **Conferir**.
 4. Corrija o que estiver errado em **Informações do livro** (título, autor, ISBN, editora, ano, categoria...; todos os campos são opcionais) e escreva o **Código BDP do carimbo**, se o livro tiver. A ficha aparece aberta tanto nos registros da planilha quanto nos exemplares que já têm código.
    Para corrigir só os dados, sem marcar como encontrado, use o botão **Corrigir dados** ao lado do livro nos resultados (ou **Corrigir dados do livro** na lista de itens do inventário) e clique em **Salvar correções**.
