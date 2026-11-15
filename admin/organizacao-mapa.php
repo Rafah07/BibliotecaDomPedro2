@@ -138,9 +138,22 @@ admin_page_start('organizacao-mapa', 'Mapa das estantes', 'Organização Física
             <?php endif; ?>
         </div>
         <?php if ($podeEditar): ?>
-            <p class="adm-field__hint adm-mapa__dica"><?= icon('info') ?> Arraste um bloco para mudar o lugar. Com o bloco selecionado (Tab), use as <kbd>setas</kbd> para mover e <kbd>Shift</kbd> + <kbd>setas</kbd> para mudar o tamanho. No celular, o mapa aparece como lista.</p>
+            <p class="adm-field__hint adm-mapa__dica"><?= icon('info') ?> Arraste um bloco para mudar o lugar. Com o bloco selecionado (Tab), use as <kbd>setas</kbd> para mover e <kbd>Shift</kbd> + <kbd>setas</kbd> para mudar o tamanho. No celular, as estantes aparecem em lista; toque em <strong>Mapa</strong> para ver a disposição, com zoom (para mudar as posições, use um computador ou os números abaixo).</p>
         <?php endif; ?>
 
+        <?php // Celular: lista (padrão) ou mapa com zoom e rolagem própria (a página nunca rola para o lado). ?>
+        <div class="adm-mapa-vista" data-mapa-vista>
+            <div class="adm-segmented" role="group" aria-label="Forma de ver as estantes">
+                <button type="button" class="is-active" data-vista="lista" aria-pressed="true"><?= icon('list') ?> Lista</button>
+                <button type="button" data-vista="mapa" aria-pressed="false"><?= icon('map') ?> Mapa</button>
+            </div>
+            <div class="adm-mapa-zoom" data-mapa-zoom hidden>
+                <button type="button" class="adm-icon-button" data-zoom="-1" aria-label="Diminuir o mapa"><?= icon('zoom-out') ?></button>
+                <output class="adm-mapa-zoom__valor" data-zoom-valor aria-live="polite">100%</output>
+                <button type="button" class="adm-icon-button" data-zoom="1" aria-label="Aumentar o mapa"><?= icon('zoom-in') ?></button>
+            </div>
+        </div>
+        <div class="adm-mapa-area" data-mapa-area>
         <div class="adm-mapa" style="--mapa-colunas: <?= $cols ?>; --mapa-linha: <?= MAPA_LINHA_PX ?>px; --mapa-linhas: <?= $linhas ?>;" data-mapa data-colunas="<?= $cols ?>" data-linha="<?= MAPA_LINHA_PX ?>"<?= $podeEditar ? ' data-mapa-editavel' : '' ?>
              role="list" aria-label="Estantes de <?= e($nomeSetor) ?>">
             <?php foreach ($estantes as $e): $eid = (int)$e['id']; ?>
@@ -153,6 +166,7 @@ admin_page_start('organizacao-mapa', 'Mapa das estantes', 'Organização Física
                     <a class="adm-mapa__abrir" href="<?= e(admin_url('organizacao-fisica') . '?estante=' . $eid) ?>" draggable="false"><?= icon('eye') ?> Abrir</a>
                 </div>
             <?php endforeach; ?>
+        </div>
         </div>
 
         <?php if ($podeEditar): ?>
@@ -185,4 +199,4 @@ admin_page_start('organizacao-mapa', 'Mapa das estantes', 'Organização Física
 <?php endif; ?>
 
 <?php
-admin_page_end(array_merge(FISICO_JS, ['assets/js/organizacao-mapa.js?v=20261114a']));
+admin_page_end(array_merge(FISICO_JS, ['assets/js/organizacao-mapa.js?v=20261115mob']));

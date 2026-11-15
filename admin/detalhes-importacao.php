@@ -111,7 +111,7 @@ function detalhes_decisao(array $item): string
     return '<span class="adm-status adm-status--soft adm-tone--' . $a['tom'] . '">' . htmlspecialchars($a['label']) . '</span>';
 }
 
-admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261115des', 'assets/css/importacao.css?v=20261114']);
+admin_page_start('importar', $imp['nome_arquivo'], 'Importação de Planilhas', 'Acervo · Planilhas antigas da biblioteca', ['assets/css/acervo.css?v=20261115mob', 'assets/css/importacao.css?v=20261115mob']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Importação', admin_url('importar')], ['Histórico', admin_url('historico-importacoes')], ['Importação nº ' . $id]]) ?>

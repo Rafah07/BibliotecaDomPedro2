@@ -425,14 +425,14 @@ admin_page_start('planilha-bdp', 'Planilha de Códigos BDP', 'Exemplares', 'Cód
                     <?php foreach ($resultado['itens'] as $x): ?>
                         <tr>
                             <td class="adm-check-col"><input type="checkbox" name="ids[]" value="<?= (int)$x['id'] ?>" data-selecao-item aria-label="Selecionar <?= e($x['codigo_individual']) ?>"></td>
-                            <td data-label="Lote · ordem"><?= $x['lote_numero'] !== null ? '<strong>' . e(str_pad((string)$x['lote_numero'], 3, '0', STR_PAD_LEFT)) . '</strong> · nº ' . (int)$x['lote_ordem'] : '<span class="adm-table__muted">Sem lote</span>' ?></td>
-                            <td data-label="Código BDP"><a class="adm-link adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$x['id']) ?>"><?= e($x['codigo_individual']) ?></a><small class="adm-block-muted">ID <?= (int)$x['id'] ?></small></td>
-                            <td class="adm-td-title" data-label="Obra"><strong><?= e($x['titulo'] ?? 'Sem título') ?></strong><small class="adm-block-muted"><?= e($x['autores'] ?: 'Autor não informado') ?></small></td>
-                            <td data-label="Cadastro"><?= e(admin_data_hora($x['criado_em'])) ?><small class="adm-block-muted"><?= e((string)$x['cadastrado_por_nome']) ?></small></td>
-                            <td data-label="Carimbo"><?= fisico_badge_carimbo($x['carimbo_status']) ?><?= $x['carimbado_em'] ? '<small class="adm-block-muted">' . e(admin_data_hora($x['carimbado_em'])) . ($x['carimbado_por_nome'] ? ' · ' . e($x['carimbado_por_nome']) : '') . '</small>' : '' ?></td>
-                            <td data-label="Localização"><?= $x['localizacao_id'] === null ? '<span class="adm-status adm-tone--amber">' . icon('inbox') . ' Aguardando organização</span>' : e(fisico_local($x)) ?>
+                            <td class="adm-pl-lote"><?= $x['lote_numero'] !== null ? '<strong>' . e(str_pad((string)$x['lote_numero'], 3, '0', STR_PAD_LEFT)) . '</strong> · nº ' . (int)$x['lote_ordem'] : '<span class="adm-table__muted">Sem lote</span>' ?></td>
+                            <td class="adm-pl-codigo"><a class="adm-link adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$x['id']) ?>"><?= e($x['codigo_individual']) ?></a><small class="adm-block-muted">ID <?= (int)$x['id'] ?></small></td>
+                            <td class="adm-td-title adm-pl-obra"><strong><?= e($x['titulo'] ?? 'Sem título') ?></strong><small class="adm-block-muted"><?= e($x['autores'] ?: 'Autor não informado') ?></small></td>
+                            <td data-label="Cadastro" class="adm-td-sec"><?= e(admin_data_hora($x['criado_em'])) ?><small class="adm-block-muted"><?= e((string)$x['cadastrado_por_nome']) ?></small></td>
+                            <td class="adm-pl-status" data-rotulo="Carimbo"><?= fisico_badge_carimbo($x['carimbo_status']) ?><?= $x['carimbado_em'] ? '<small class="adm-block-muted">' . e(admin_data_hora($x['carimbado_em'])) . ($x['carimbado_por_nome'] ? ' · ' . e($x['carimbado_por_nome']) : '') . '</small>' : '' ?></td>
+                            <td class="adm-pl-status" data-rotulo="Localização"><?= $x['localizacao_id'] === null ? '<span class="adm-status adm-tone--amber">' . icon('inbox') . ' Aguardando organização</span>' : e(fisico_local($x)) ?>
                                 <?= (int)$x['ocorrencias_abertas'] ? '<a class="adm-status adm-tone--red" href="' . e(admin_url('ocorrencias') . '?exemplar=' . (int)$x['id']) . '">' . icon('triangle-alert') . ' ocorrência</a>' : '' ?></td>
-                            <td data-label="Observações"><?= e((string)$x['carimbo_observacao']) ?></td>
+                            <td data-label="Observações" class="adm-td-sec"><?= $x['carimbo_observacao'] !== null && $x['carimbo_observacao'] !== '' ? e((string)$x['carimbo_observacao']) : '<span class="adm-table__muted">—</span>' ?></td>
                             <td class="adm-td-actions">
                                 <?php if ($podeGerenciar && $x['carimbo_status'] === 'aguardando'): ?>
                                     <button type="submit" name="unico" value="carimbar:<?= (int)$x['id'] ?>" class="adm-button adm-button--ghost adm-button--sm"><?= icon('stamp') ?> Marcar como carimbado</button>

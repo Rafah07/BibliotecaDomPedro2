@@ -217,6 +217,8 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
 
 <?= admin_flash_html() ?>
 
+<?= lote_etapas_html($lote) ?>
+
 <div class="adm-lote-grid">
 <section class="adm-card adm-panel" aria-labelledby="titulo-info">
     <h2 id="titulo-info" class="adm-panel__title"><?= icon('layers') ?> Informações gerais</h2>
@@ -271,17 +273,17 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
         <form method="post" action="<?= e($base) ?>" data-enviar-uma-vez data-confirm="Confirmar o carimbo dos exemplares selecionados? Confira se cada código foi escrito no livro certo.">
             <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="carimbar"><input type="hidden" name="chave" value="<?= e($chave) ?>">
             <div class="adm-table-wrap">
-                <table class="adm-table adm-table--responsive">
+                <table class="adm-table adm-table--cards">
                     <thead><tr><th scope="col"><label class="adm-check"><input type="checkbox" data-marcar-todos="ids[]"> <span class="adm-visually-hidden">Selecionar todos</span></label></th><th scope="col">Ordem</th><th scope="col">Código BDP</th><th scope="col">Obra</th><th scope="col">Cadastro</th><th scope="col"><span class="adm-visually-hidden">Ação</span></th></tr></thead>
                     <tbody>
                     <?php foreach ($pendCarimbo as $x): ?>
                         <tr>
-                            <td><label class="adm-check"><input type="checkbox" name="ids[]" value="<?= (int)$x['id'] ?>"> <span class="adm-visually-hidden">Selecionar <?= e($x['codigo_individual']) ?></span></label></td>
+                            <td class="adm-check-col"><label class="adm-check"><input type="checkbox" name="ids[]" value="<?= (int)$x['id'] ?>"> <span class="adm-visually-hidden">Selecionar <?= e($x['codigo_individual']) ?></span></label></td>
                             <td data-label="Ordem"><strong><?= (int)$x['lote_ordem'] ?></strong></td>
                             <td data-label="Código BDP"><span class="adm-code"><?= e($x['codigo_individual']) ?></span><?= (int)$x['duvidas_abertas'] ? ' <span class="adm-status adm-tone--amber">' . icon('circle-help') . ' dúvida</span>' : '' ?></td>
-                            <td data-label="Obra" class="adm-td-title"><?= e($x['titulo'] ?? 'Sem título') ?><small class="adm-block-muted"><?= e($x['autores'] ?: 'Autor não informado') ?></small></td>
-                            <td data-label="Cadastro"><?= e((string)$x['cadastrado_por_nome']) ?><small class="adm-block-muted"><?= e(admin_data_hora($x['criado_em'])) ?></small></td>
-                            <td class="adm-table__actions"><button class="adm-button adm-button--ghost adm-button--sm" type="submit" name="unico" value="carimbar:<?= (int)$x['id'] ?>" formnovalidate><?= icon('check') ?> Carimbado</button></td>
+                            <td class="adm-td-title"><?= e($x['titulo'] ?? 'Sem título') ?><small class="adm-block-muted"><?= e($x['autores'] ?: 'Autor não informado') ?></small></td>
+                            <td data-label="Cadastro" class="adm-td-sec"><?= e((string)$x['cadastrado_por_nome']) ?><small class="adm-block-muted"><?= e(admin_data_hora($x['criado_em'])) ?></small></td>
+                            <td class="adm-table__actions adm-actions-col"><button class="adm-button adm-button--ghost adm-button--sm" type="submit" name="unico" value="carimbar:<?= (int)$x['id'] ?>" formnovalidate><?= icon('check') ?> Carimbado</button></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -315,16 +317,16 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
                 <?= fisico_campo_local('localizacao_id', $sugestao['id'], 'Escolha a prateleira', 'org-lote', array_values(array_filter(organizacao_repo()->opcoesLocal($sugestao['id']), fn ($o) => $o['estante_id'] !== null))) ?>
                 <?= fisico_sugestao_html($sugestao, $sugestao['id']) ?></fieldset>
             <div class="adm-table-wrap">
-                <table class="adm-table adm-table--responsive">
+                <table class="adm-table adm-table--cards">
                     <thead><tr><th scope="col"><label class="adm-check"><input type="checkbox" data-marcar-todos="ids[]"> <span class="adm-visually-hidden">Selecionar todos</span></label></th><th scope="col">Ordem</th><th scope="col">Código BDP</th><th scope="col">Obra</th><th scope="col">Carimbado por</th></tr></thead>
                     <tbody>
                     <?php foreach ($pendOrganizacao as $x): ?>
                         <tr>
-                            <td><label class="adm-check"><input type="checkbox" name="ids[]" value="<?= (int)$x['id'] ?>"> <span class="adm-visually-hidden">Selecionar <?= e($x['codigo_individual']) ?></span></label></td>
+                            <td class="adm-check-col"><label class="adm-check"><input type="checkbox" name="ids[]" value="<?= (int)$x['id'] ?>"> <span class="adm-visually-hidden">Selecionar <?= e($x['codigo_individual']) ?></span></label></td>
                             <td data-label="Ordem"><?= (int)$x['lote_ordem'] ?></td>
                             <td data-label="Código BDP"><span class="adm-code"><?= e($x['codigo_individual']) ?></span></td>
-                            <td data-label="Obra" class="adm-td-title"><?= e($x['titulo'] ?? 'Sem título') ?><small class="adm-block-muted"><?= e($x['autores'] ?: 'Autor não informado') ?></small></td>
-                            <td data-label="Carimbado por"><?= e((string)$x['carimbado_por_nome']) ?><small class="adm-block-muted"><?= e(admin_data_hora($x['carimbado_em'])) ?></small></td>
+                            <td class="adm-td-title"><?= e($x['titulo'] ?? 'Sem título') ?><small class="adm-block-muted"><?= e($x['autores'] ?: 'Autor não informado') ?></small></td>
+                            <td data-label="Carimbado por" class="adm-td-sec"><?= e((string)$x['carimbado_por_nome']) ?><small class="adm-block-muted"><?= e(admin_data_hora($x['carimbado_em'])) ?></small></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -356,7 +358,7 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
 <section class="adm-card adm-panel" aria-labelledby="titulo-exemplares">
     <div class="adm-panel__header"><div><h2 id="titulo-exemplares"><?= icon('book-copy') ?> Exemplares</h2><p><?= fisico_numero(count($exemplares)) ?> exemplar(es) na ordem de cadastro<?= $resumo['baixados'] ? ' · ' . $resumo['baixados'] . ' baixado(s) não aparecem' : '' ?></p></div></div>
     <div class="adm-table-wrap">
-        <table class="adm-table adm-table--responsive">
+        <table class="adm-table adm-table--cards">
             <thead><tr><th scope="col">Ordem</th><th scope="col">Código BDP</th><th scope="col">Título</th><th scope="col">Autor</th><th scope="col">Cadastrado por</th><th scope="col">Carimbagem</th><th scope="col">Localização definitiva</th><th scope="col">Organização</th></tr></thead>
             <tbody>
             <?php foreach ($exemplares as $x): ?>
@@ -365,9 +367,9 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
                     <td data-label="Código BDP"><a class="adm-link adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$x['id']) ?>"><?= e($x['codigo_individual']) ?></a>
                         <?php if ((int)$x['duvidas_abertas']): ?><span class="adm-status adm-tone--amber"><?= icon('circle-help') ?> <?= (int)$x['duvidas_abertas'] ?> dúvida(s)</span><?php endif; ?>
                         <?php if ((int)$x['ocorrencias_abertas']): ?><span class="adm-status adm-tone--red"><?= icon('triangle-alert') ?> ocorrência</span><?php endif; ?></td>
-                    <td data-label="Título" class="adm-td-title"><?= e($x['titulo'] ?? 'Sem título') ?></td>
+                    <td class="adm-td-title"><?= e($x['titulo'] ?? 'Sem título') ?></td>
                     <td data-label="Autor"><?= e($x['autores'] ?: '—') ?></td>
-                    <td data-label="Cadastrado por"><?= e((string)$x['cadastrado_por_nome']) ?><small class="adm-block-muted"><?= e(admin_data_hora($x['criado_em'])) ?></small></td>
+                    <td data-label="Cadastrado por" class="adm-td-sec"><?= e((string)$x['cadastrado_por_nome']) ?><small class="adm-block-muted"><?= e(admin_data_hora($x['criado_em'])) ?></small></td>
                     <td data-label="Carimbagem"><?= fisico_badge_carimbo($x['carimbo_status']) ?><?= $x['carimbado_por_nome'] ? '<small class="adm-block-muted">' . e($x['carimbado_por_nome']) . ' · ' . e(admin_data_hora($x['carimbado_em'])) . '</small>' : '' ?></td>
                     <td data-label="Localização definitiva"><?= e(fisico_local_ou_triagem($x)) ?></td>
                     <td data-label="Organização"><?= $x['localizacao_id'] !== null ? '<span class="adm-status adm-tone--green">Organizado</span>' : '<span class="adm-status adm-tone--amber">Aguardando organização</span>' ?>

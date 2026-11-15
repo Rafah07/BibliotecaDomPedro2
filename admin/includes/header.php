@@ -15,9 +15,13 @@ $alertasHeader = dashboard_alertas();
     </div>
 
     <div class="adm-header__actions">
-        <form class="adm-search" role="search" method="get" action="<?= htmlspecialchars(admin_url('acervo')) ?>">
+        <?php // Celular: a pesquisa do acervo fica recolhida num botão e abre numa linha própria do cabeçalho. ?>
+        <button class="adm-icon-button adm-header__busca" type="button" data-busca-topo aria-controls="topo-pesquisa" aria-expanded="false" aria-label="Pesquisar no acervo">
+            <?= icon('search') ?>
+        </button>
+        <form class="adm-search" id="topo-pesquisa" role="search" method="get" action="<?= htmlspecialchars(admin_url('acervo')) ?>">
             <?= icon('search', 'adm-search__icon') ?>
-            <input type="search" name="q" placeholder="Pesquisar livros, autores ou ISBN..." aria-label="Pesquisar no acervo" autocomplete="off"
+            <input type="search" name="q" enterkeyhint="search" placeholder="Pesquisar livros, autores ou ISBN..." aria-label="Pesquisar no acervo" autocomplete="off"
                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="topo-sugestoes"
                 data-sugestoes="<?= htmlspecialchars(admin_asset('api/acervo/sugestoes.php') . '?id=0') ?>" data-sugestoes-modo="abrir"
                 data-sugestoes-livro="<?= htmlspecialchars(admin_url('detalhes-livro') . '?id=') ?>">

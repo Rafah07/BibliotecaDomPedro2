@@ -141,6 +141,7 @@
         const link = e.target.closest('a[href]');
         if (!link || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || link.target) return;
         if (link.closest('[data-painel-fechar], .adm-pagination') || link.hasAttribute('data-painel-abrir')) return;
+        if ((link.getAttribute('href') || '').startsWith('#')) return; // âncora na própria página (ex.: "Trocar" lote → Meus lotes)
         if (!link.closest('[data-regiao]') && !link.hasAttribute('data-pjax')) return;
         if (!mesmaPagina(link.href)) return;
         e.preventDefault();

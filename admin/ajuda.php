@@ -66,7 +66,7 @@ if ($tutorial) {
     $migalhas[] = [$tutorial['titulo']];
 }
 
-admin_page_start('ajuda', $tituloPagina . ' — Central de Ajuda', 'Central de Ajuda', 'Tutorial do Sistema', ['assets/css/acervo.css?v=20261115des', 'assets/css/ajuda.css?v=20261103e11']);
+admin_page_start('ajuda', $tituloPagina . ' — Central de Ajuda', 'Central de Ajuda', 'Tutorial do Sistema', ['assets/css/acervo.css?v=20261115mob', 'assets/css/ajuda.css?v=20261115mob']);
 ?>
 
 <?= acervo_breadcrumb($migalhas) ?>

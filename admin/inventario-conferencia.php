@@ -628,6 +628,37 @@ $voltarConf = $base . ($obra ? '&obra=' . (int)$obra['id'] : '');
 <?php
 $htmlLotes = ob_get_clean();
 
+// ---------- Faixa do lote ativo (celular e tablet: aparece logo acima da pesquisa) ----------
+ob_start();
+if ($loteAtivo || $lotesEmUso):
+    $faixaCap = $loteAtivo && $loteAtivo['capacidade'] !== null ? (int)$loteAtivo['capacidade'] : null;
+    $faixaTotal = $loteAtivo ? (int)($loteAtivo['total'] ?? 0) : 0;
+    $faixaPct = $faixaCap ? min(100, (int)round($faixaTotal * 100 / max(1, $faixaCap))) : 0;
+?>
+<div class="adm-lote-faixa<?= $loteAtivo && $loteAtivo['status'] === 'aberto' ? '' : ' is-alerta' ?>">
+    <?php if ($loteAtivo): ?>
+        <span class="adm-lote-faixa__icone" aria-hidden="true"><?= icon('layers') ?></span>
+        <div class="adm-lote-faixa__corpo">
+            <p><span class="adm-lote-faixa__rotulo">Lote ativo</span> <strong><?= e(\Biblioteca\Repositories\LoteRepository::nome($loteAtivo)) ?></strong> <?= lote_badge($loteAtivo['status']) ?></p>
+            <?php if ($faixaCap !== null): ?>
+                <span class="adm-lote-mini"><span class="adm-lote-mini__barra" aria-hidden="true"><span style="width: <?= $faixaPct ?>%"></span></span>
+                    <span><?= fisico_numero($faixaTotal) ?> de <?= fisico_numero($faixaCap) ?> · <?= fisico_numero(max(0, $faixaCap - $faixaTotal)) ?> vaga(s)</span></span>
+            <?php else: ?>
+                <span class="adm-lote-mini"><span><?= fisico_numero($faixaTotal) ?> exemplar(es)</span></span>
+            <?php endif; ?>
+        </div>
+        <a class="adm-button adm-button--ghost adm-button--sm" href="#meus-lotes"><?= $loteAtivo['status'] === 'aberto' ? 'Trocar' : 'Escolher' ?></a>
+    <?php else: ?>
+        <span class="adm-lote-faixa__icone" aria-hidden="true"><?= icon('triangle-alert') ?></span>
+        <div class="adm-lote-faixa__corpo"><p><strong>Escolha o lote em que vai trabalhar</strong></p>
+            <span class="adm-lote-mini"><span>Sem lote ativo, os exemplares não podem ser registrados.</span></span></div>
+        <a class="adm-button adm-button--primary adm-button--sm" href="#meus-lotes">Escolher</a>
+    <?php endif; ?>
+</div>
+<?php
+endif;
+$htmlFaixaLote = ob_get_clean();
+
 // ---------- Estante atual ----------
 ob_start();
 ?>
@@ -1308,6 +1339,7 @@ if ($fragmento) {
     header('Cache-Control: no-store');
     echo '<!doctype html><html lang="pt-BR"><body>';
     echo '<div data-regiao="indicadores">' . $htmlIndicadores . '</div>';
+    echo '<div data-regiao="lote">' . $htmlFaixaLote . '</div>';
     echo '<div data-regiao="area">' . $htmlArea . '</div>';
     echo '<div data-regiao="estante">' . $htmlEstante . '</div>';
     echo '<div data-regiao="recentes">' . $htmlRecentes . '</div>';
@@ -1325,7 +1357,7 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
         <h1>Conferência <?= fisico_badge_inventario($inv['status']) ?></h1>
         <p><?= e($inv['titulo']) ?> · pesquise, verifique a obra uma vez e registre cada exemplar com o seu código BDP, sem sair desta página</p>
     </div>
-    <div class="adm-page-head__actions">
+    <div class="adm-page-head__actions" data-acoes-visiveis="0">
         <?php if ($podeLotes): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&abrir_lote=1') ?>#abrir-lote-det"><?= icon('plus') ?> Abrir novo lote</a><?php endif; ?>
         <?php if ($podeCadastrar && $emAndamento): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&novo=1') ?>#nao-listado" data-pjax><?= icon('plus') ?> Cadastrar livro não listado</a><?php endif; ?>
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('lotes')) ?>"><?= icon('layers') ?> Histórico de Lotes</a>
@@ -1334,10 +1366,11 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
     </div>
 </section>
 
-<div data-regiao="indicadores"><?= $htmlIndicadores ?></div>
+<div class="adm-conferencia__indicadores" data-regiao="indicadores"><?= $htmlIndicadores ?></div>
 
 <div class="adm-conferencia" data-conferencia data-base="<?= e($base) ?>">
     <div class="adm-conferencia__main">
+        <div class="adm-conferencia__lote" data-regiao="lote"><?= $htmlFaixaLote ?></div>
         <?php if ($emAndamento): ?>
         <section class="adm-card adm-panel adm-leitura" aria-labelledby="titulo-leitura">
             <form method="post" action="<?= e($base) ?>" class="adm-leitura__form" autocomplete="off" data-pesquisa>
@@ -1346,8 +1379,8 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                 <label for="leitura" id="titulo-leitura" class="adm-leitura__label"><?= icon('keyboard') ?> Pesquisar livro: título, autor, ISBN ou código BDP</label>
                 <div class="adm-leitura__linha">
                     <input class="adm-input adm-leitura__campo" type="search" id="leitura" name="leitura" maxlength="100" value="<?= e($q) ?>" placeholder="Ex.: Dom Casmurro, Machado, 978… ou BDP-000001"<?= $obra || $mostrarNovo || $codigoLido ? '' : ' autofocus' ?> data-campo-codigo autocapitalize="off" autocomplete="off" spellcheck="false" aria-describedby="leitura-dica"
-                        data-busca-viva="<?= e($base) ?>" aria-controls="conferencia-area">
-                    <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> Pesquisar</button>
+                        data-busca-viva="<?= e($base) ?>" aria-controls="conferencia-area" enterkeyhint="search">
+                    <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> <span class="adm-leitura__btn-texto">Pesquisar</span></button>
                 </div>
                 <p class="adm-field__hint adm-leitura__dica" id="leitura-dica">
                     <span>Resultados aparecem enquanto você digita; código BDP + Enter abre o exemplar.</span>
@@ -1366,4 +1399,4 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
 </div>
 
 <?php
-admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261114b', 'assets/js/rascunhos.js?v=20261115']));
+admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261115mob', 'assets/js/rascunhos.js?v=20261115']));

@@ -24,12 +24,20 @@ $proximoNumero = (int)db_query('SELECT COALESCE(MAX(numero), 0) + 1 FROM cadastr
                 <p class="adm-lote-numero">Lote <?= e(str_pad((string)$proximoNumero, 3, '0', STR_PAD_LEFT)) ?> <small class="adm-table__muted">(gerado automaticamente ao abrir; se outra pessoa abrir um lote antes, você recebe o seguinte)</small></p></div>
             <div class="adm-field"><span class="adm-field__sublabel">Data de criação</span><p class="adm-lote-numero"><?= e(date('d/m/Y')) ?> <small class="adm-table__muted">(registrada no momento da abertura)</small></p></div>
             <label class="adm-field"><span class="adm-field__sublabel">Quantidade máxima de exemplares *</span>
-                <input class="adm-input" type="number" name="capacidade" min="1" max="<?= LoteService::CAPACIDADE_MAXIMA ?>" required value="<?= e((string)($formAbrir['capacidade'] ?? '30')) ?>">
+                <input class="adm-input" type="number" inputmode="numeric" name="capacidade" min="1" max="<?= LoteService::CAPACIDADE_MAXIMA ?>" required value="<?= e((string)($formAbrir['capacidade'] ?? '30')) ?>">
                 <span class="adm-field__hint">Contada por exemplar físico: 3 exemplares de Dom Casmurro ocupam 3 vagas. Ao completar, o lote fecha sozinho.</span></label>
             <label class="adm-field"><span class="adm-field__sublabel">Nome ou observação <span class="adm-optional">(opcional)</span></span>
                 <input class="adm-input" name="descricao" maxlength="255" value="<?= e((string)($formAbrir['descricao'] ?? '')) ?>" placeholder="Ex.: Literatura brasileira — estante A"></label>
             <fieldset class="adm-field adm-field--full"><legend class="adm-field__sublabel">Usuários responsáveis pelo cadastro *</legend>
-                <div class="adm-lote-usuarios">
+                <?php $idLista = 'lote-usuarios-' . substr(md5($voltarAbrir . count($atribuiveis)), 0, 6); ?>
+                <?php if (count($atribuiveis) > 8): // muitos usuários: filtro por nome, sem perder os já marcados ?>
+                    <div class="adm-lote-usuarios__busca">
+                        <label class="adm-field-search"><?= icon('search') ?><span class="adm-visually-hidden">Filtrar usuários</span>
+                            <input type="search" placeholder="Filtrar por nome..." autocomplete="off" enterkeyhint="search" data-filtro-lista="#<?= $idLista ?>" data-filtro-contador="#<?= $idLista ?>-n"></label>
+                        <span class="adm-field__hint"><strong id="<?= $idLista ?>-n"><?= count($selUsuarios) ?></strong> selecionado(s)</span>
+                    </div>
+                <?php endif; ?>
+                <div class="adm-lote-usuarios" id="<?= $idLista ?>">
                     <?php foreach ($atribuiveis as $a): ?>
                         <label class="adm-check"><input type="checkbox" name="usuarios[]" value="<?= (int)$a['id'] ?>"<?= in_array((int)$a['id'], $selUsuarios, true) ? ' checked' : '' ?>> <span><?= e($a['nome']) ?> <small class="adm-table__muted"><?= e(AUTH_PERFIS[$a['perfil']] ?? $a['perfil']) ?></small></span></label>
                     <?php endforeach; ?>

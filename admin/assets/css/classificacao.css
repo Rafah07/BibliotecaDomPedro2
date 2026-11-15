@@ -271,7 +271,7 @@ button.adm-quick__item { font: inherit; text-align: left; cursor: pointer; color
     .adm-filters--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .adm-cdd-section__grid { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
     .adm-filters--3, .adm-filters--5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-toolbar--form { grid-template-columns: 1fr 1fr; }
     .adm-toolbar--form .adm-filters { grid-column: 1 / -1; }
@@ -280,7 +280,7 @@ button.adm-quick__item { font: inherit; text-align: left; cursor: pointer; color
     .adm-result__cdd { flex-direction: row; align-items: center; flex-wrap: wrap; }
     .adm-result__actions { flex-direction: row; flex-wrap: wrap; }
 }
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-stats--6, .adm-kpis--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-table--cdd .adm-td-cover { display: none; }
     .adm-table--cdd .adm-check-col { grid-column: 1; grid-row: 1; align-self: center; padding: 0 !important; width: auto; }
@@ -293,7 +293,7 @@ button.adm-quick__item { font: inherit; text-align: left; cursor: pointer; color
     .adm-class-bars li { grid-template-columns: minmax(0, 1fr) 70px 30px; }
     .adm-compare { flex-wrap: wrap; }
 }
-@media (max-width: 420px) {
+@media screen and (max-width: 420px) {
     .adm-filters--3, .adm-filters--5 { grid-template-columns: 1fr; }
     .adm-cdd-actions .adm-button { flex-basis: 100%; }
 }

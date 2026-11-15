@@ -77,7 +77,8 @@
 }
 
 .adm-body a { color: inherit; text-decoration: none; }
-.adm-body button, .adm-body input { font: inherit; color: inherit; }
+/* :where() sem especificidade extra: as classes dos campos (.adm-input, .adm-select…) definem o tamanho da fonte. */
+.adm-body :where(button, input) { font: inherit; color: inherit; }
 .adm-body button { cursor: pointer; }
 .adm-body h1, .adm-body h2, .adm-body p { margin: 0; }
 
@@ -323,7 +324,7 @@
 }
 .adm-nav__sub .adm-nav__icon { width: 17px; height: 17px; }
 
-@media (min-width: 901px) {
+@media print, (min-width: 901px) {
     /* Recolhido (computador/tablet): somente ícones, centralizados. */
     html:not(.adm-sidebar-expanded) .adm-sidebar__top { flex-direction: column; padding: 12px 0 10px; gap: 10px; }
     html:not(.adm-sidebar-expanded) .adm-brand { flex: none; }
@@ -946,7 +947,7 @@
 .adm-empty .icon { width: 28px; height: 28px; margin-bottom: 6px; color: #94a3b8; }
 .adm-empty strong { color: var(--adm-text); }
 /* Tabela larga que rola de lado: a mensagem de vazio fica presa na parte visível. */
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-table-wrap td[colspan] > .adm-empty { position: sticky; left: 0; max-width: calc(100vw - 72px); }
 }
 
@@ -1034,6 +1035,7 @@
     color: #2c4374;
 }
 .adm-inventory__message .icon { width: 16px; height: 16px; margin-top: 2px; color: var(--adm-blue-accent); }
+.adm-inventory__message--org { margin-top: var(--adm-space-4) !important; }
 
 /* ---------- Em desenvolvimento ---------- */
 .adm-wip {
@@ -1116,7 +1118,7 @@
 }
 
 /* Celulares e tablets pequenos: menu lateral sobreposto */
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
     :root { --adm-header-height: 60px; }
     .adm-main { margin-left: 0; }
 
@@ -1158,7 +1160,7 @@
     .adm-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 640px) {
+@media screen and (max-width: 640px) {
     .adm-welcome { align-items: stretch; }
     .adm-welcome__aside { width: 100%; justify-content: space-between; }
     .adm-panel { padding: 16px; }
@@ -1174,7 +1176,7 @@
     .adm-panel__header .adm-button--ghost { width: 100%; }
 }
 
-@media (max-width: 420px) {
+@media screen and (max-width: 420px) {
     /* Botões com texto longo quebram a linha em vez de empurrar a página para o lado. */
     .adm-button { max-width: 100%; white-space: normal; text-align: center; line-height: 1.25; padding-top: 8px; padding-bottom: 8px; }
     .adm-stats:not(.adm-stats--small) { grid-template-columns: 1fr; }
@@ -1255,7 +1257,7 @@
 .adm-table tfoot th, .adm-table tfoot td { background: #f7f9fc; border-top: 1px solid var(--adm-border); color: var(--adm-text); }
 .adm-table tfoot th { text-transform: none; letter-spacing: 0; font-size: 13px; }
 /* Tabelas do dashboard: textos longos quebram linha para caber no cartão (antes a última coluna ficava cortada). */
-@media (min-width: 721px) {
+@media print, (min-width: 721px) {
     .adm-table--dash th, .adm-table--dash td { padding-left: 14px; padding-right: 14px; }
     .adm-table--dash th:first-child, .adm-table--dash td:first-child { padding-left: 20px; }
     .adm-table--dash td { white-space: normal; }

@@ -167,27 +167,31 @@ admin_page_start('lotes', 'Histórico de Lotes', 'Inventário', 'Lotes de cadast
         <?php if (array_filter($filtros)): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base) ?>">Limpar</a><?php endif; ?>
     </form>
     <div class="adm-table-wrap">
-        <table class="adm-table adm-table--responsive">
+        <table class="adm-table adm-table--cards">
             <thead><tr><th scope="col">Lote</th><th scope="col">Aberto em</th><th scope="col">Capacidade</th><th scope="col">Exemplares</th><th scope="col">Usuários participantes</th>
                 <th scope="col">Status</th><th scope="col">Carimbados</th><th scope="col">Organizados</th><th scope="col">Encerrado em</th><th scope="col"><span class="adm-visually-hidden">Ações</span></th></tr></thead>
             <tbody>
             <?php foreach ($lista['itens'] as $l): ?>
                 <tr>
-                    <td data-label="Lote" class="adm-td-title"><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$l['id']) ?>"><strong><?= e(LoteRepository::nome($l)) ?></strong></a>
+                    <td class="adm-td-title"><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$l['id']) ?>"><strong><?= e(LoteRepository::nome($l)) ?></strong></a>
                         <?php if ($l['descricao']): ?><small class="adm-block-muted"><?= e($l['descricao']) ?></small><?php endif; ?>
-                        <?php if ($l['modo'] === 'automatico'): ?><small class="adm-block-muted">Lote automático (antes do gerenciamento)</small><?php endif; ?></td>
-                    <td data-label="Aberto em"><?= e(admin_data_hora($l['criado_em'])) ?></td>
-                    <td data-label="Capacidade"><?= $l['capacidade'] !== null ? fisico_numero((int)$l['capacidade']) : '<span class="adm-table__muted">sem limite</span>' ?></td>
-                    <td data-label="Exemplares"><?= fisico_numero((int)$l['exemplares']) ?></td>
-                    <td data-label="Usuários participantes"><?= $l['participantes'] ? e($l['participantes']) : '—' ?></td>
+                        <?php if ($l['modo'] === 'automatico'): ?><small class="adm-block-muted">Lote automático (antes do gerenciamento)</small><?php endif; ?>
+                        <?php if ($l['capacidade'] !== null): $pctLote = (int)$l['capacidade'] > 0 ? min(100, (int)round((int)$l['exemplares'] * 100 / (int)$l['capacidade'])) : 0; ?>
+                            <span class="adm-lote-mini adm-so-celular"><span class="adm-lote-mini__barra" aria-hidden="true"><span style="width: <?= $pctLote ?>%"></span></span>
+                                <span><?= fisico_numero((int)$l['exemplares']) ?> de <?= fisico_numero((int)$l['capacidade']) ?> exemplares</span></span>
+                        <?php endif; ?></td>
+                    <td data-label="Aberto em" class="adm-td-sec"><?= e(admin_data_hora($l['criado_em'])) ?></td>
+                    <td data-label="Capacidade" class="adm-td-sec"><?= $l['capacidade'] !== null ? fisico_numero((int)$l['capacidade']) : '<span class="adm-table__muted">sem limite</span>' ?></td>
+                    <td data-label="Exemplares" class="adm-td-sec"><?= fisico_numero((int)$l['exemplares']) ?></td>
+                    <td data-label="Usuários participantes" class="adm-td-sec"><?= $l['participantes'] ? e($l['participantes']) : '—' ?></td>
                     <td data-label="Status"><?= lote_badge($l['status']) ?><?= (int)$l['duvidas_abertas'] ? '<small class="adm-block-muted">' . (int)$l['duvidas_abertas'] . ' dúvida(s) aberta(s)</small>' : '' ?></td>
-                    <td data-label="Carimbados"><?= fisico_numero((int)$l['carimbados']) ?></td>
-                    <td data-label="Organizados"><?= fisico_numero((int)$l['organizados']) ?></td>
-                    <td data-label="Encerrado em"><?= $l['encerrado_em'] ? e(admin_data_hora($l['encerrado_em'])) : '—' ?></td>
-                    <td class="adm-table__actions">
+                    <td data-label="Carimbados" class="adm-td-sec"><?= fisico_numero((int)$l['carimbados']) ?></td>
+                    <td data-label="Organizados" class="adm-td-sec"><?= fisico_numero((int)$l['organizados']) ?></td>
+                    <td data-label="Encerrado em" class="adm-td-sec"><?= $l['encerrado_em'] ? e(admin_data_hora($l['encerrado_em'])) : '—' ?></td>
+                    <td class="adm-table__actions adm-actions-col"><div class="adm-actions-inline">
                         <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lote') . '?id=' . (int)$l['id']) ?>"><?= icon('eye') ?> Relatório</a>
                         <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lote') . '?' . http_build_query(['id' => (int)$l['id'], 'saida' => 'planilha'])) ?>" target="_blank" rel="noopener"><?= icon('printer') ?> Planilha BDP</a>
-                    </td>
+                    </div></td>
                 </tr>
             <?php endforeach; ?>
             <?php if (!$lista['itens']): ?><tr><td colspan="10"><div class="adm-empty"><?= icon('layers') ?><strong>Nenhum lote<?= array_filter($filtros) ? ' com estes filtros' : ' ainda' ?>.</strong>

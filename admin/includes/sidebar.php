@@ -23,6 +23,25 @@ $paiAtual = admin_menu_item($paginaAtual)['pai'] ?? null;
     </div>
 
     <nav class="adm-nav" aria-label="Navegação administrativa">
+        <?php
+        // Celular: atalhos em blocos no topo do menu (o restante da lista continua logo abaixo).
+        // Conferência, Meus lotes, Planilha BDP e Organização ficam na barra inferior (navegacao-movel.php).
+        $rapidos = array_filter(['acervo', 'emprestimos', 'exemplares', 'ocorrencias'], static function (string $id): bool {
+            $it = admin_menu_item($id);
+            return $it !== null && (!isset($it['permissao']) || auth_pode($it['permissao']));
+        });
+        ?>
+        <?php if ($rapidos): ?>
+            <div class="adm-nav__group adm-nav__rapido">
+                <p class="adm-nav__title"><span>Mais usados</span></p>
+                <ul>
+                    <?php foreach ($rapidos as $id): $item = admin_menu_item($id); $ativo = $paginaAtual === $id || $paiAtual === $id; ?>
+                        <li><a href="<?= htmlspecialchars(admin_url($id)) ?>" class="adm-nav__rapido-link<?= $ativo ? ' is-active' : '' ?>">
+                            <?= icon($item['icon'], 'adm-nav__icon') ?><span><?= htmlspecialchars($item['label']) ?></span></a></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
         <?php foreach (ADMIN_MENU as $grupo => $itens): ?>
             <div class="adm-nav__group">
                 <p class="adm-nav__title"><span><?= htmlspecialchars($grupo) ?></span></p>

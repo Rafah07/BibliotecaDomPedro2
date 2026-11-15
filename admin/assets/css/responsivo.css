@@ -1,0 +1,418 @@
+/* =========================================================
+   Painel administrativo — camada responsiva central
+   Carregada por último em todas as páginas (includes/layout.php), depois de admin.css e das
+   folhas de cada módulo. Reúne os componentes que só existem por causa do tamanho da tela:
+   cabeçalho compacto, barra inferior do celular, menu "Mais ações", detalhes expansíveis
+   das tabelas, campos com 16 px, alvos de toque e o layout de impressão.
+
+   Faixas usadas em todo o painel (as medidas são do espaço disponível, não de aparelhos):
+     ≤ 1280 notebook · ≤ 1100 tablet horizontal · ≤ 900 menu sobreposto e barra inferior
+     ≤ 720 tabelas em cartões e formulários em uma coluna · ≤ 640 celular · ≤ 420 celular pequeno
+   As regras de tela usam "screen and": a impressão (A4, ~700 px úteis) mantém o layout de papel
+   e nunca recebe os cartões nem a navegação do celular.
+   ========================================================= */
+
+:root {
+    --adm-nav-movel-h: 60px;
+    --adm-safe-b: env(safe-area-inset-bottom, 0px);
+    --adm-safe-l: env(safe-area-inset-left, 0px);
+    --adm-safe-r: env(safe-area-inset-right, 0px);
+    --adm-toque: 44px;
+}
+
+/* ---------- Utilitários de visibilidade ---------- */
+.adm-body .adm-so-celular { display: none; }
+@media screen and (max-width: 720px) {
+    .adm-body .adm-so-celular { display: revert; }
+    .adm-body .adm-so-computador { display: none; }
+}
+
+/* ---------- Tipografia fluida dos títulos de página ---------- */
+.adm-page-head h1,
+.adm-welcome h1 { font-size: clamp(20px, 1.1vw + 15px, 24px); line-height: 1.25; }
+
+/* =========================================================
+   1. Cabeçalho
+   Até 900 px: uma linha só (menu, página atual, pesquisa, avisos e perfil). A pesquisa do
+   acervo abre numa segunda linha pelo botão da lupa, em vez de ocupar a tela o tempo todo.
+   ========================================================= */
+.adm-header__busca { display: none; }
+
+@media screen and (max-width: 900px) {
+    :root { --adm-header-height: 56px; }
+    .adm-header {
+        flex-wrap: nowrap;
+        gap: var(--adm-space-2);
+        min-height: 56px;
+        padding: 6px max(12px, var(--adm-safe-r)) 6px max(12px, var(--adm-safe-l));
+        padding-top: max(6px, env(safe-area-inset-top, 0px));
+    }
+    .adm-header .adm-icon-button { width: var(--adm-toque); height: var(--adm-toque); }
+    .adm-header__busca { display: grid; }
+    .adm-header .adm-search { display: none; }
+    .adm-header.is-busca-aberta { flex-wrap: wrap; }
+    .adm-header.is-busca-aberta .adm-search { display: flex; order: 10; width: 100%; height: var(--adm-toque); }
+    .adm-header.is-busca-aberta .adm-header__busca { background: var(--adm-blue-50); border-color: var(--adm-blue-100); color: var(--adm-navy); }
+    .adm-header__heading { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .adm-header__actions > .adm-dropdown:last-child { padding-left: 0; margin-left: 0; border-left: 0; }
+    .adm-profile { height: var(--adm-toque); padding: 0 2px; gap: 0; }
+    .adm-profile__chevron { display: none; }
+    /* Lista de sugestões da pesquisa: largura da tela, abaixo do campo. */
+    .adm-search .adm-sugestoes__lista { left: 0; right: 0; width: auto; max-height: min(360px, 55dvh); }
+}
+@media screen and (max-width: 380px) {
+    .adm-header__subtitle { display: none; }
+}
+
+/* =========================================================
+   2. Barra inferior do celular (includes/navegacao-movel.php)
+   Atalhos para Conferência, Meus lotes, Planilha BDP, Organização e o menu completo.
+   Some enquanto um campo está em foco (teclado virtual aberto) e na impressão.
+   ========================================================= */
+.adm-nav-movel { display: none; }
+
+@media screen and (max-width: 900px) {
+    .adm-nav-movel {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 32;
+        padding: 0 var(--adm-safe-r) var(--adm-safe-b) var(--adm-safe-l);
+        background: var(--adm-white);
+        border-top: 1px solid var(--adm-border);
+        box-shadow: 0 -2px 12px rgba(16, 32, 60, .06);
+        transition: transform var(--adm-duration) var(--adm-ease);
+    }
+    .adm-nav-movel ul {
+        list-style: none;
+        margin: 0 auto;
+        padding: 0 4px;
+        max-width: 560px;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+    }
+    .adm-nav-movel .adm-nav-movel__item {
+        position: relative;
+        width: 100%;
+        min-height: var(--adm-nav-movel-h);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        padding: 6px 2px;
+        border: 0;
+        background: none;
+        color: var(--adm-muted);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.15;
+        text-align: center;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .adm-nav-movel__item .icon { width: 22px; height: 22px; }
+    .adm-nav-movel__item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .adm-nav-movel__item:active { background: var(--adm-blue-50); }
+    .adm-nav-movel__item:focus-visible { outline-offset: -3px; border-radius: var(--adm-radius-sm); }
+    .adm-nav-movel__item.is-active { color: var(--adm-navy); }
+    .adm-nav-movel__item.is-active .icon { color: var(--adm-blue-accent); }
+    .adm-nav-movel__item.is-active::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 28%;
+        right: 28%;
+        height: 3px;
+        border-radius: 0 0 3px 3px;
+        background: var(--adm-gold);
+    }
+    .adm-main { padding-bottom: calc(var(--adm-nav-movel-h) + var(--adm-safe-b)); }
+    .adm-digitando .adm-nav-movel,
+    .adm-mobile-open .adm-nav-movel { transform: translateY(110%); }
+    .adm-digitando .adm-main { padding-bottom: 0; }
+    .adm-toasts { left: 16px; right: 16px; width: auto; bottom: calc(var(--adm-nav-movel-h) + var(--adm-safe-b) + 12px); }
+    /* Barras de ação fixas no fim dos formulários ficam acima da barra inferior (e descem com o teclado aberto). */
+    .adm-form-actions { bottom: calc(var(--adm-nav-movel-h) + var(--adm-safe-b)); }
+    .adm-digitando .adm-form-actions { bottom: 0; }
+}
+/* Celular deitado: pouca altura, então a barra fica mais baixa (ícone ao lado do nome). */
+@media screen and (max-width: 900px) and (orientation: landscape) and (max-height: 520px) {
+    :root { --adm-nav-movel-h: 46px; }
+    .adm-nav-movel .adm-nav-movel__item { flex-direction: row; gap: 6px; font-size: 12px; }
+    .adm-nav-movel__item .icon { width: 19px; height: 19px; }
+    .adm-header { min-height: 48px; padding-top: 4px; padding-bottom: 4px; }
+}
+
+/* =========================================================
+   3. Menu lateral sobreposto (celular e tablet)
+   ========================================================= */
+.adm-nav__rapido { display: none; }
+
+@media screen and (max-width: 900px) {
+    .adm-sidebar,
+    .adm-sidebar-expanded .adm-sidebar { width: min(304px, calc(100vw - 56px)); }
+    .adm-sidebar__top { padding-top: max(12px, env(safe-area-inset-top, 0px)); }
+    .adm-sidebar__close { width: var(--adm-toque); height: var(--adm-toque); }
+    .adm-nav { padding-bottom: calc(16px + var(--adm-safe-b)); }
+    .adm-nav__rapido { display: block; }
+    .adm-nav .adm-nav__rapido ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 2px 0 4px; }
+    .adm-nav__rapido-link {
+        min-height: 64px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 255, 255, .14);
+        border-radius: var(--adm-radius-sm);
+        background: rgba(255, 255, 255, .07);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+    .adm-nav__rapido-link .icon { color: var(--adm-gold); }
+    .adm-nav__rapido-link:active,
+    .adm-nav__rapido-link.is-active { background: rgba(255, 255, 255, .16); border-color: rgba(214, 174, 98, .7); }
+}
+
+/* =========================================================
+   4. Conteúdo, trilha e topo da página
+   ========================================================= */
+@media screen and (max-width: 900px) {
+    .adm-content { padding: var(--adm-space-4) max(16px, var(--adm-safe-r)) var(--adm-space-5) max(16px, var(--adm-safe-l)); gap: var(--adm-space-4); }
+}
+@media screen and (max-width: 640px) {
+    /* Trilha: só o nível anterior, como um "voltar" (a página atual já é o título logo abaixo). */
+    .adm-context-bar { flex-wrap: nowrap; }
+    .adm-breadcrumb li { display: none; }
+    .adm-breadcrumb li:nth-last-child(2),
+    .adm-breadcrumb li:only-child { display: inline-flex; min-width: 0; }
+    .adm-breadcrumb li:nth-last-child(2)::before { content: "‹"; font-size: 20px; line-height: 1; color: var(--adm-muted); }
+    .adm-breadcrumb li:nth-last-child(2) a { min-height: 36px; display: inline-flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .adm-context-bar--solo { margin-bottom: 0; }
+    .adm-help-link { min-height: 36px; }
+
+    .adm-page-head { gap: var(--adm-space-3); margin-top: 0; }
+    .adm-page-head p { font-size: 13.5px; }
+
+    /* "Mais ações" (admin.js): a primeira ação fica visível, as demais num menu. */
+    .adm-page-head__actions.has-mais { flex-wrap: nowrap; width: 100%; }
+    .adm-page-head__actions.has-mais > :first-child { flex: 1 1 auto; min-width: 0; }
+    .adm-page-head__actions .adm-acoes-mais > .adm-button { flex: none; }
+    .adm-page-head__actions.has-mais > .adm-acoes-mais:only-child > .adm-button { width: 100%; }
+    .adm-page-head__actions.has-mais > .adm-acoes-mais:only-child { flex: 1 1 auto; }
+}
+.adm-acoes-mais[hidden] { display: none; }
+.adm-acoes-mais .adm-dropdown__menu { display: grid; gap: 2px; min-width: 248px; max-width: calc(100vw - 32px); max-height: min(70dvh, 480px); overflow-y: auto; }
+.adm-acoes-mais .adm-dropdown__menu form { margin: 0; }
+/* Dentro do menu, as ações viram itens de lista (inclusive as que são botões principais na página). */
+.adm-acoes-mais .adm-dropdown__menu .adm-button {
+    width: 100%;
+    min-height: var(--adm-toque);
+    justify-content: flex-start;
+    padding: 8px 10px;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    font-weight: 500;
+    text-align: left;
+    white-space: normal;
+}
+.adm-acoes-mais .adm-dropdown__menu .adm-button--primary { color: var(--adm-navy) !important; /* vence o branco fixo do botão principal */ font-weight: 600; }
+.adm-acoes-mais .adm-dropdown__menu .adm-button:hover { background: var(--adm-bg); }
+.adm-acoes-mais .adm-dropdown__menu .adm-button .icon { color: var(--adm-blue-accent); }
+
+/* Bloco recolhível (details.adm-recolhivel): o título é o próprio resumo, com uma seta. */
+.adm-recolhivel > summary { display: flex; align-items: center; gap: var(--adm-space-2); list-style: none; cursor: pointer; }
+.adm-recolhivel > summary::-webkit-details-marker { display: none; }
+.adm-recolhivel > summary > * { margin: 0; }
+.adm-recolhivel > summary::after {
+    content: ""; width: 8px; height: 8px; margin: -3px 4px 0 auto; flex-shrink: 0;
+    border-right: 2px solid var(--adm-blue-accent); border-bottom: 2px solid var(--adm-blue-accent);
+    transform: rotate(45deg); transition: transform var(--adm-duration) var(--adm-ease);
+}
+.adm-recolhivel[open] > summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.adm-recolhivel > summary { min-height: var(--adm-toque); }
+.adm-recolhivel[open] > summary { margin-bottom: var(--adm-space-2); }
+@media print { .adm-recolhivel > summary::after { display: none; } }
+
+/* =========================================================
+   5. Formulários e toque
+   ========================================================= */
+/* 16 px nos campos: o Safari do iPhone não dá zoom automático ao tocar no campo. */
+@media screen and (max-width: 900px) {
+    .adm-input,
+    .adm-select,
+    .adm-textarea,
+    .adm-input--sm,
+    .adm-select--sm,
+    .adm-search input,
+    .adm-field-search input,
+    .adm-chips-input__field,
+    .ajd-busca__campo input { font-size: 16px; }
+    .adm-input,
+    .adm-select { min-height: var(--adm-toque); }
+    .adm-input--sm, .adm-select--sm { min-height: 40px; }
+    .adm-field-search { min-height: var(--adm-toque); }
+    .adm-textarea { min-height: 96px; }
+    /* Rótulos curtos acima de campos agrupados nunca somem por falta de espaço. */
+    .adm-field__sublabel, .adm-filter > span { overflow-wrap: anywhere; }
+}
+
+/* Barra de ações no fim do formulário: botões lado a lado (o principal mais largo), sem empilhar. */
+@media screen and (max-width: 720px) {
+    .adm-form-actions { gap: var(--adm-space-2); padding: 10px 16px; }
+    /* Só botões (e campos ocultos): uma linha. Com textos de ajuda, cada um ocupa a sua linha. */
+    .adm-form-actions:not(:has(> :not(.adm-button, input[type="hidden"]))) { flex-wrap: nowrap; }
+    .adm-form-actions:not(:has(> :not(.adm-button, input[type="hidden"]))) > .adm-button { flex: 1 1 0; min-width: 0; justify-content: center; }
+    .adm-form-actions:not(:has(> :not(.adm-button, input[type="hidden"]))) > .adm-button--primary { flex-grow: 1.6; }
+    .adm-form-actions > :not(.adm-button) { flex-basis: 100%; }
+    .adm-form-actions > .adm-button { justify-content: center; }
+    /* O título do cartão nunca vira uma linha "rótulo: valor" (mesmo com data-label na célula). */
+    .adm-table--cards td.adm-td-title[data-label] { display: block; grid-column: 1 / -1; text-align: left; font-size: inherit; border-top: 0 !important; padding: 0 0 6px !important; }
+    .adm-table--cards td.adm-td-title[data-label]::before { content: none; }
+    /* Cartões com caixa de seleção: a caixa fica ao lado do título, no topo do cartão. */
+    .adm-table--cards tbody tr:has(> td.adm-check-col) > td.adm-check-col { grid-column: 1; grid-row: 1; align-self: center; width: auto; }
+    .adm-table--cards tbody tr:has(> td.adm-check-col) > td.adm-td-title { grid-column: 2; grid-row: 1; }
+}
+
+/* Telas de toque: alvos de pelo menos ~44 px nas ações e controles de escolha maiores. */
+@media (pointer: coarse) {
+    .adm-button { min-height: var(--adm-toque); }
+    .adm-button--sm { min-height: 40px; }
+    .adm-actions-inline { gap: var(--adm-space-2); }
+    .adm-body input[type="checkbox"],
+    .adm-body input[type="radio"] { width: 20px; height: 20px; }
+    .adm-escolha__opcao { min-height: var(--adm-toque); padding: 10px 12px; }
+    .adm-pagination a, .adm-pagination span { min-width: 40px; min-height: 40px; }
+}
+
+/* =========================================================
+   6. Tabelas: detalhes expansíveis nos cartões do celular
+   Células com .adm-td-sec ficam escondidas no cartão; o botão "Mais detalhes" (admin.js)
+   mostra todas. No computador a tabela continua completa.
+   ========================================================= */
+.adm-table .adm-td-mais { display: none; }
+@media screen and (max-width: 720px) {
+    .adm-table--cards tbody tr:not(.is-expandida) > td.adm-td-sec { display: none; }
+    .adm-table--cards td.adm-td-mais { display: block; grid-column: 1 / -1; }
+    .adm-td-mais__botao {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 36px;
+        margin-top: 4px;
+        padding: 0 2px;
+        border: 0;
+        background: none;
+        color: var(--adm-blue-accent);
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .adm-td-mais__botao .icon { width: 16px; height: 16px; transition: transform var(--adm-duration) var(--adm-ease); }
+    .is-expandida .adm-td-mais__botao .icon { transform: rotate(180deg); }
+    /* Tabelas largas que continuam como tabela: rolagem só dentro do cartão, com indicação de mais conteúdo. */
+    .adm-table-wrap { scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+}
+
+/* =========================================================
+   6b. Dashboard no celular
+   Tabelas curtas viram listas (título na primeira linha; exemplar, aluno, data e situação na
+   segunda) e o acesso rápido vira uma grade de atalhos em duas colunas.
+   ========================================================= */
+@media screen and (max-width: 640px) {
+    .adm-table--dash { min-width: 0; }
+    .adm-table--dash thead { display: none; }
+    .adm-table--dash tbody tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 12px 16px; border-top: 1px solid #edf1f6; }
+    .adm-table--dash tbody tr:first-child { border-top: 0; }
+    .adm-table--dash td { display: block; padding: 0; border: 0; white-space: normal; font-size: 12.5px; color: var(--adm-muted); }
+    .adm-table--dash td.adm-table__strong { order: -1; flex: 1 1 100%; font-size: 14px; color: var(--adm-text); overflow-wrap: anywhere; }
+    .adm-table--dash td:not(.adm-table__strong):not(:last-child)::after { content: "·"; margin-left: 8px; color: #cbd5e1; }
+    .adm-table--dash td:last-child { margin-left: auto; }
+    .adm-table--dash td[colspan] { flex: 1 1 100%; }
+    .adm-table--dash .adm-type { gap: 6px; }
+    .adm-table--dash .adm-icon-box--xs { width: 22px; height: 22px; }
+
+    .adm-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .adm-quick__item { flex-direction: column; gap: 8px; padding: 12px; min-height: 92px; }
+    .adm-quick__item small { display: none; }
+    .adm-quick__item strong { font-size: 13.5px; line-height: 1.3; }
+}
+
+/* =========================================================
+   7. Celular pequeno (≤ 420 px): espaçamentos menores, nunca texto minúsculo
+   ========================================================= */
+@media screen and (max-width: 420px) {
+    .adm-content { padding-left: max(12px, var(--adm-safe-l)); padding-right: max(12px, var(--adm-safe-r)); }
+    .adm-panel { padding: 14px; }
+    .adm-table-wrap { margin: 0 -14px -14px; }
+    .adm-table--cards tbody { padding: 0 12px; }
+    .adm-header { gap: 6px; }
+    /* A barra de salvar do cadastro de livro encosta nas bordas da página (que aqui tem 12 px). */
+    .adm-book-form > .adm-form-actions { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; }
+    /* Indicadores em duas colunas (antes uma só): números legíveis sem rolar demais. */
+    .adm-stats:not(.adm-stats--small) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Indicadores compactos no celular: título curto, número grande, alturas parecidas. */
+@media screen and (max-width: 640px) {
+    .adm-stats { gap: 10px; }
+    .adm-stat { padding: 12px 14px; }
+    .adm-stat__top .adm-icon-box { display: none; }
+    .adm-stat__title { font-size: 12.5px; line-height: 1.3; padding-top: 0; }
+    .adm-stat__value { margin-top: 2px !important; font-size: 22px; }
+    .adm-stat__desc { font-size: 12px; line-height: 1.35; }
+}
+
+/* Cartões de ocorrência: a ação principal em cima, ocupando a linha; as outras lado a lado. */
+@media screen and (max-width: 640px) {
+    .adm-ocorrencia__acoes > .adm-button { flex: 1 1 130px; }
+    .adm-ocorrencia__acoes > .adm-button--primary { order: -1; flex-basis: 100%; }
+}
+
+/* =========================================================
+   8. Impressão: sempre o layout de papel (A4), em qualquer aparelho
+   Sem menu, cabeçalho, barra inferior, trilhas nem botões administrativos.
+   ========================================================= */
+@media print {
+    .adm-body { background: #fff; overflow: visible; }
+    .adm-sidebar,
+    .adm-backdrop,
+    .adm-header,
+    .adm-nav-movel,
+    .adm-footer,
+    .adm-toasts,
+    .adm-tooltip,
+    .adm-skip-link,
+    .adm-context-bar,
+    .adm-breadcrumb,
+    .adm-page-head__actions,
+    .adm-acoes-mais,
+    .adm-td-mais,
+    .adm-pagination,
+    .adm-filters-toggle,
+    .adm-selecao-barra,
+    .adm-tabs--links,
+    .adm-mapa-vista,
+    .adm-table .adm-check-col,
+    .adm-table .adm-actions-col,
+    .adm-table .adm-td-actions,
+    .adm-table .adm-table__actions,
+    .adm-table th:has(> .adm-visually-hidden:only-child),
+    .adm-no-print { display: none !important; }
+    /* No papel, os detalhes escondidos dos cartões voltam a aparecer. */
+    .adm-table td.adm-td-sec { display: table-cell; }
+    .adm-main { margin-left: 0 !important; padding: 0 !important; min-height: 0; }
+    .adm-content { max-width: none; padding: 0; gap: 12px; }
+    .adm-card { box-shadow: none; }
+    .adm-table-wrap { overflow: visible; margin: 0; }
+    .adm-table { min-width: 0; }
+    .adm-table th, .adm-table td { white-space: normal; }
+    .adm-table tr { break-inside: avoid; }
+    .adm-table thead { display: table-header-group; }
+    a[href] { color: inherit; }
+}
