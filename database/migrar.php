@@ -2,8 +2,10 @@
 /**
  * Aplica as migrações MySQL em ordem (database/migrations/NNN_nome.sql).
  *
- * Uso:  php database/migrar.php           aplica as pendentes
- *       php database/migrar.php --status  lista o que já foi aplicado
+ * Uso:  php database/migrar.php               aplica as pendentes (antes, faz uma cópia de segurança
+ *                                             conferida em storage/backups — ou BACKUP_DIR no .env)
+ *       php database/migrar.php --status      lista o que já foi aplicado
+ *       php database/migrar.php --sem-backup  aplica sem a cópia automática (use só se já fez uma)
  *
  * Cada arquivo roda uma única vez e fica registrado em "schema_migracoes".
  * As migrações só criam ou acrescentam estruturas: nenhuma apaga dados existentes.
@@ -50,6 +52,38 @@ $pendentes = array_filter($arquivos, fn ($a) => !in_array(basename($a), $aplicad
 if (!$pendentes) {
     echo "Nenhuma migração pendente.\n";
     exit(0);
+}
+
+// Cópia de segurança automática antes de mudar a estrutura do banco. Se ela falhar, nada é aplicado.
+if (!in_array('--sem-backup', $argv, true)) {
+    echo "Fazendo a cópia de segurança antes das migrações... ";
+    $pastaBackup = (env('BACKUP_DIR') !== null && trim((string)env('BACKUP_DIR')) !== '') ? rtrim(trim((string)env('BACKUP_DIR')), '/\\') : __DIR__ . '/../storage/backups';
+    try {
+        \Biblioteca\Services\BackupService::prepararPasta($pastaBackup);
+        $arquivoBackup = $pastaBackup . DIRECTORY_SEPARATOR . 'biblioteca-dom-pedro-ii-' . date('Y-m-d-His') . '-' . bin2hex(random_bytes(3)) . '.sql';
+        $fb = fopen($arquivoBackup, 'xb');
+        if ($fb === false) {
+            throw new RuntimeException('não foi possível criar o arquivo em ' . $pastaBackup);
+        }
+        $resumoBackup = (new \Biblioteca\Services\BackupService($pdo))->exportar($fb);
+        fclose($fb);
+        clearstatcache(true, $arquivoBackup);
+        if (!\Biblioteca\Services\BackupService::terminaCompleto($arquivoBackup)) {
+            @unlink($arquivoBackup);
+            throw new RuntimeException('a cópia ficou incompleta');
+        }
+        // O registro na tabela "backups" só existe depois da migração 150.
+        if ($pdo->query("SHOW TABLES LIKE 'backups'")->fetchColumn()) {
+            $pdo->prepare("INSERT INTO backups (arquivo, origem, motivo, tamanho, sha256, tabelas, linhas, verificado) VALUES (?, 'migracao', ?, ?, ?, ?, ?, 1)")
+                ->execute([basename($arquivoBackup), 'Antes de ' . count($pendentes) . ' migração(ões)', filesize($arquivoBackup), hash_file('sha256', $arquivoBackup), $resumoBackup['tabelas'], $resumoBackup['linhas']]);
+        }
+        echo "ok (" . basename($arquivoBackup) . ")\n";
+    } catch (Throwable $e) {
+        echo "ERRO\n";
+        fwrite(STDERR, 'A cópia de segurança falhou (' . $e->getMessage() . "). Nenhuma migração foi aplicada.\n"
+            . "Faça uma cópia pelo painel (Configurações → Manutenção) e rode de novo com --sem-backup.\n");
+        exit(1);
+    }
 }
 
 foreach ($pendentes as $arquivo) {

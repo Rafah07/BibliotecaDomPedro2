@@ -1,7 +1,8 @@
 <?php
 /**
  * Campos do cadastro de exemplar físico (página do livro e conferência do inventário).
- * Espera: $fx (valores atuais), $livroForm (livro escolhido). Localização: campos dependentes da Organização Física.
+ * Espera: $fx (valores atuais), $livroForm (livro escolhido), $fxSugestao (opcional, fisico_sugestao_local()).
+ * Localização: campos dependentes da Organização Física; vazio = "Aguardando organização" (área de triagem).
  * O formulário que inclui este arquivo cuida do <form>, do CSRF e do botão.
  */
 $fx += ['quantidade' => '1', 'estado_conservacao' => 'nao_avaliado', 'situacao' => 'disponivel', 'localizacao_id' => '', 'nova_setor' => '', 'nova_estante' => '', 'nova_prateleira' => '', 'nova_complemento' => '', 'observacoes' => ''];
@@ -15,12 +16,13 @@ $podeNovaLocal = auth_pode('localizacoes.gerenciar');
     <label class="adm-field">
         <span class="adm-field__label">Situação inicial <span class="adm-required" aria-hidden="true">*</span></span>
         <?= fisico_select_situacao('situacao', $fx['situacao']) ?>
-        <span class="adm-field__hint">Só "Disponível" aparece para empréstimo.</span>
+        <span class="adm-field__hint">Só "Disponível" aparece para empréstimo. Um exemplar novo fica “Aguardando” até ser carimbado e ganhar estante definitiva (regra em Configurações).</span>
     </label>
     <fieldset class="adm-field adm-field--full">
         <legend class="adm-field__label">Localização física (estante e prateleira)</legend>
-        <?= fisico_campo_local('localizacao_id', (int)$fx['localizacao_id'] ?: null, 'Ainda sem localização definida', 'fx-local') ?>
-        <span class="adm-field__hint">Escolha onde o exemplar está (ou ficará). Só este exemplar recebe a localização. As estantes e prateleiras são cadastradas em Organização Física.</span>
+        <?= fisico_campo_local('localizacao_id', (int)$fx['localizacao_id'] ?: null, 'Aguardando organização (área de triagem)', 'fx-local') ?>
+        <?= isset($fxSugestao) ? fisico_sugestao_html($fxSugestao, (int)$fx['localizacao_id'] ?: null) : '' ?>
+        <span class="adm-field__hint">Escolha onde o exemplar está (ou ficará), ou deixe em “Aguardando organização” para organizar depois. As estantes e prateleiras são cadastradas em Organização Física.</span>
     </fieldset>
     <?php if ($podeNovaLocal): ?>
         <details class="adm-field--full adm-nova-local"<?= $fx['nova_setor'] !== '' ? ' open' : '' ?>>

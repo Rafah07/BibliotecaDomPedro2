@@ -90,8 +90,8 @@ return [
         'requisitos' => ['As estantes e prateleiras cadastradas em Organização Física.'],
         'passos' => [
             ['titulo' => 'Escolha a estante e a prateleira', 'texto' => 'Em **Localização definitiva (setor, estante, prateleira)**, escolha a estante. A lista de prateleiras mostra só as dessa estante. Se houver setores, escolha o setor primeiro.'],
-            ['titulo' => 'Sugestão', 'texto' => 'A prateleira da **Estante atual** (ou a última usada) já vem escolhida, com a mensagem **Localização sugerida**. Pode trocar à vontade.'],
-            ['titulo' => 'Ainda não sabe?', 'texto' => 'Escolha **Sem localização definida agora**. O exemplar aparece depois em **Pendências de conferência → Exemplares sem localização definida**.'],
+            ['titulo' => 'Sugestão', 'texto' => 'A prateleira da **Estante atual** (ou a última usada) já vem escolhida, com a mensagem **Localização sugerida** (veja [[tutorial:localizacao-sugerida|Como aceitar ou alterar a localização sugerida]]). Pode trocar à vontade ou clicar em **Limpar seleção**.'],
+            ['titulo' => 'Ainda não sabe?', 'texto' => 'Escolha **Aguardando organização (área de triagem)**. O exemplar aparece depois na aba **Área de triagem** da Planilha de Códigos BDP e em **Pendências de conferência → Exemplares sem localização definida**.'],
             ['titulo' => 'Outra cópia', 'texto' => '**Registrar outra cópia** mantém a mesma prateleira. A conservação NÃO é copiada: avalie cada cópia.'],
         ],
         'exemplo' => 'A auxiliar registra três cópias fictícias na Estante B · Prateleira 2: na segunda e na terceira, a prateleira já vem sugerida.',
@@ -102,7 +102,7 @@ return [
         ],
         'cuidados' => ['A localização antiga da planilha nunca é usada para escolher a prateleira.', 'Mudar a localização de um exemplar não muda os outros exemplares da mesma obra.'],
         'relacionados' => ['registrar-exemplar', 'mover-exemplar', 'pendencias-conferencia'],
-        'confere' => ['includes/form-registrar-exemplar.php' => ['Localização definitiva (setor, estante, prateleira)', 'Sem localização definida agora', 'Localização sugerida'], 'inventario-conferencia.php' => ['Estante atual', 'A estante atual foi desativada.', 'Registrar outra cópia'], '../src/Repositories/PendenciasRepository.php' => ['Exemplares sem localização definida']],
+        'confere' => ['includes/form-registrar-exemplar.php' => ['Localização definitiva (setor, estante, prateleira)', 'Aguardando organização (área de triagem)'], 'includes/acervo-fisico.php' => ['Localização sugerida', 'Limpar seleção'], 'inventario-conferencia.php' => ['Estante atual', 'A estante atual foi desativada.', 'Registrar outra cópia'], '../src/Repositories/PendenciasRepository.php' => ['Exemplares sem localização definida']],
     ],
     [
         'id' => 'mover-exemplar',

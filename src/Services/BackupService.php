@@ -119,6 +119,100 @@ final class BackupService
         return $resumo;
     }
 
+    /**
+     * Gera a cópia num arquivo da pasta PROTEGIDA do servidor ($pasta, fora do acesso público) e
+     * CONFERE o arquivo depois de gravado: existe, não está vazio, termina com a linha de fim da
+     * cópia e tem a soma SHA-256 calculada. Só então registra na tabela "backups" (quem, quando,
+     * motivo). Se algo falhar, o arquivo incompleto é apagado e nada é registrado como sucesso.
+     * Senhas nunca aparecem em texto: o banco só guarda os hashes (password_hash).
+     * @return array{id: int, arquivo: string, caminho: string, tamanho: int, sha256: string, tabelas: int, linhas: int}
+     */
+    public function salvarNoServidor(string $pasta, ?int $administradorId, string $origem = 'servidor', string $motivo = ''): array
+    {
+        if (!in_array($origem, ['servidor', 'automatico', 'migracao'], true)) {
+            throw new \InvalidArgumentException('Origem de backup inválida.');
+        }
+        if ($this->pdo->inTransaction()) {
+            throw new \RuntimeException('A cópia de segurança precisa ser feita fora de uma transação.');
+        }
+        self::prepararPasta($pasta);
+        $arquivo = 'biblioteca-dom-pedro-ii-' . date('Y-m-d-His') . '-' . bin2hex(random_bytes(3)) . '.sql';
+        $caminho = rtrim($pasta, '/\\') . DIRECTORY_SEPARATOR . $arquivo;
+        $f = @fopen($caminho, 'xb');
+        if ($f === false) {
+            throw new \RuntimeException('Não foi possível criar o arquivo da cópia na pasta de backups (permissão de escrita?).');
+        }
+        try {
+            $resumo = $this->exportar($f);
+        } catch (\Throwable $e) {
+            fclose($f);
+            @unlink($caminho);
+            throw $e;
+        }
+        fclose($f);
+        clearstatcache(true, $caminho);
+        $tamanho = (int)@filesize($caminho);
+        if ($tamanho <= 0 || !self::terminaCompleto($caminho)) {
+            @unlink($caminho);
+            throw new \RuntimeException('A cópia foi gerada incompleta e foi descartada. Tente de novo.');
+        }
+        $sha = (string)hash_file('sha256', $caminho);
+        @chmod($caminho, 0600);
+        $stmt = $this->pdo->prepare('INSERT INTO backups (arquivo, origem, motivo, tamanho, sha256, tabelas, linhas, verificado, administrador_id) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)');
+        $stmt->execute([$arquivo, $origem, mb_substr($motivo, 0, 255) ?: null, $tamanho, $sha, $resumo['tabelas'], $resumo['linhas'], $administradorId]);
+        return ['id' => (int)$this->pdo->lastInsertId(), 'arquivo' => $arquivo, 'caminho' => $caminho, 'tamanho' => $tamanho, 'sha256' => $sha,
+            'tabelas' => $resumo['tabelas'], 'linhas' => $resumo['linhas']];
+    }
+
+    /** Registra uma cópia baixada pelo navegador (não dá para conferir o arquivo no computador de quem baixou). */
+    public function registrarDownload(string $arquivo, array $resumo, ?int $administradorId): void
+    {
+        $stmt = $this->pdo->prepare("INSERT INTO backups (arquivo, origem, tabelas, linhas, verificado, administrador_id) VALUES (?, 'download', ?, ?, 0, ?)");
+        $stmt->execute([$arquivo, $resumo['tabelas'] ?? null, $resumo['linhas'] ?? null, $administradorId]);
+    }
+
+    /** Última cópia registrada (qualquer origem) ou null. */
+    public function ultima(): ?array
+    {
+        $r = $this->pdo->query('SELECT b.*, a.nome AS administrador_nome FROM backups b LEFT JOIN administradores a ON a.id = b.administrador_id ORDER BY b.criado_em DESC, b.id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+        return $r ?: null;
+    }
+
+    /** Cópias registradas, das mais novas para as mais antigas. */
+    public function listar(int $limite = 20): array
+    {
+        return $this->pdo->query('SELECT b.*, a.nome AS administrador_nome FROM backups b LEFT JOIN administradores a ON a.id = b.administrador_id ORDER BY b.id DESC LIMIT ' . max(1, min(200, $limite)))->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Pasta de backups: criada se faltar, com .htaccess "Require all denied" e index.html vazio. */
+    public static function prepararPasta(string $pasta): void
+    {
+        if (!is_dir($pasta) && !@mkdir($pasta, 0700, true) && !is_dir($pasta)) {
+            throw new \RuntimeException('Não foi possível criar a pasta de backups.');
+        }
+        $ht = $pasta . DIRECTORY_SEPARATOR . '.htaccess';
+        if (!is_file($ht)) {
+            @file_put_contents($ht, "# Cópias de segurança: nunca podem ser baixadas diretamente pelo navegador.\nRequire all denied\n");
+        }
+        $idx = $pasta . DIRECTORY_SEPARATOR . 'index.html';
+        if (!is_file($idx)) {
+            @file_put_contents($idx, '');
+        }
+    }
+
+    /** O arquivo termina com "-- Fim da cópia de segurança." (a cópia não parou no meio). */
+    public static function terminaCompleto(string $caminho): bool
+    {
+        $f = @fopen($caminho, 'rb');
+        if (!$f) {
+            return false;
+        }
+        fseek($f, -200, SEEK_END);
+        $fim = (string)fread($f, 200);
+        fclose($f);
+        return str_contains($fim, '-- Fim da cópia de segurança.') && !str_contains($fim, '-- ERRO');
+    }
+
     /** INSERTs da tabela, em blocos. Devolve o número de linhas. */
     private function dados(string $tabela, string $banco, callable $w): int
     {

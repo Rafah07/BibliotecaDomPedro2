@@ -1,0 +1,127 @@
+/* Preparo dos exemplares (migração 150): Planilha de Códigos BDP, movimentação em lote, ocorrências,
+   ações recentes, relatório de atividades, sugestão de localização e cópias de segurança. */
+
+/* Selos de situação física (carimbo / organização / ocorrência) */
+.adm-selos-preparo { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+.adm-selos-preparo .adm-badge { font-size: 11.5px; }
+
+/* Indicadores separados (encontrados, aguardando carimbo, ...) */
+.adm-stats--preparo { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 var(--adm-gap); }
+.adm-stats--preparo .adm-stat { padding: 12px 14px; min-width: 0; }
+.adm-stat--compact .adm-stat__value, .adm-stats--preparo .adm-stat strong { font-size: 22px; }
+a.adm-stat--action { text-decoration: none; color: inherit; transition: border-color var(--adm-duration) var(--adm-ease), box-shadow var(--adm-duration) var(--adm-ease); }
+a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(--adm-blue-accent); box-shadow: var(--adm-shadow-hover); }
+
+/* Abas com contador */
+.adm-tab__count { display: inline-block; min-width: 20px; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--adm-bg); border: 1px solid var(--adm-border); font-size: 11.5px; font-weight: 700; line-height: 18px; text-align: center; color: var(--adm-navy); }
+.adm-tab.is-active .adm-tab__count { background: var(--adm-white); }
+
+/* Planilha de Códigos BDP */
+.adm-preparo-saidas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+.adm-planilha-bdp td:first-child, .adm-planilha-bdp th:first-child { width: 36px; }
+.adm-planilha-bdp .adm-code { white-space: nowrap; }
+.adm-td-actions { white-space: nowrap; }
+.adm-td-actions form { display: inline; }
+
+/* Passos (movimentação em lote) */
+.adm-passos { counter-reset: passo; }
+.adm-passos > li:not(:has(span))::before {
+    counter-increment: passo; content: counter(passo);
+    display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 999px;
+    border: 1px solid var(--adm-border); background: var(--adm-white); font-size: 12.5px;
+}
+.adm-passos .is-atual { color: var(--adm-blue-accent); }
+.adm-passos .is-atual::before { border-color: var(--adm-blue-accent) !important; background: var(--adm-blue-50) !important; }
+.adm-passos:not(:has(span)) { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; margin: 0 0 16px; padding: 0; color: var(--adm-muted); font-weight: 600; font-size: 13.5px; }
+.adm-passos:not(:has(span)) > li { display: inline-flex; align-items: center; gap: 8px; }
+
+.adm-mov-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-bg); }
+.adm-mov-resumo dt { font-size: 12px; color: var(--adm-muted); }
+.adm-mov-resumo dd { margin: 2px 0 0; color: var(--adm-navy); }
+.adm-mov-lista { max-height: 420px; overflow: auto; }
+
+/* Ocorrências e conservação */
+.adm-ocorrencias { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.adm-ocorrencia { padding: 12px 14px; border: 1px solid var(--adm-border); border-left: 4px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-white); }
+.adm-ocorrencia.is-aberta { border-left-color: var(--adm-amber); }
+.adm-ocorrencia.is-resolvida { border-left-color: var(--adm-green); }
+.adm-ocorrencia.is-cancelada { border-left-color: var(--adm-muted); opacity: .8; }
+.adm-ocorrencia__topo { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; }
+.adm-ocorrencia__desc { margin: 6px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.adm-ocorrencia__acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.adm-ocorrencia__form { display: grid; gap: 8px; margin-top: 8px; max-width: 560px; }
+
+/* Ações recentes / desfazer */
+.adm-desfazer { display: grid; gap: 10px; margin-top: 12px; max-width: 640px; }
+.adm-orientacao { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; padding: 10px 14px; border-radius: var(--adm-radius-sm); background: var(--adm-blue-50); font-size: 13.5px; }
+.adm-orientacao .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--adm-blue-accent); }
+
+/* Relatório de atividades */
+.adm-atividades-totais { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 0 0 var(--adm-gap); }
+.adm-atividades-totais > div { padding: 10px 12px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-white); }
+.adm-atividades-totais dt { font-size: 12px; color: var(--adm-muted); }
+.adm-atividades-totais dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; color: var(--adm-navy); }
+.adm-atividades-totais a { color: inherit; text-decoration: none; }
+.adm-atividades-totais a:hover, .adm-atividades-totais a:focus-visible { color: var(--adm-blue-accent); text-decoration: underline; }
+.adm-table--numeros td:not(:first-child), .adm-table--numeros th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Sugestão de localização */
+.adm-local-sugestao--aviso { display: flex; gap: 6px; align-items: flex-start; color: var(--adm-amber-700, #92400e); }
+.adm-local-sugestao--aviso .icon { flex: none; width: 14px; height: 14px; margin-top: 2px; }
+.adm-link-button { border: 0; padding: 0; background: none; color: var(--adm-blue-accent); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.adm-link-button:hover, .adm-link-button:focus-visible { color: var(--adm-navy); }
+
+/* Cópias de segurança */
+.adm-backup-aviso { margin: 0 0 14px; }
+.adm-backup-aviso p { margin: 4px 0 0; }
+.adm-backup-ultimo { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; font-size: 13.5px; }
+.adm-backup-ultimo .icon { width: 15px; height: 15px; color: var(--adm-muted); }
+.adm-backup-form { display: grid; gap: 8px; max-width: 560px; margin: 0 0 12px; }
+
+@media (max-width: 640px) {
+    .adm-preparo-saidas .adm-button { flex: 1 1 auto; justify-content: center; }
+    .adm-td-actions { white-space: normal; }
+}
+
+@media print {
+    .adm-nao-imprimir, .adm-sidebar, .adm-topbar, .adm-filters, .adm-toolbar, .adm-preparo-saidas, .adm-form-actions { display: none !important; }
+    .adm-relatorio-atividades, .adm-card { box-shadow: none !important; border-color: #999 !important; break-inside: avoid; }
+    .adm-atividades-totais > div { border-color: #999; }
+}
+
+/* Mapa das estantes */
+.adm-mapa {
+    position: relative; width: 100%; height: calc(var(--mapa-linhas) * var(--mapa-linha));
+    margin: 8px 0 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
+    background-color: var(--adm-bg);
+    background-image: linear-gradient(to right, rgba(15, 40, 80, .06) 1px, transparent 1px), linear-gradient(to bottom, rgba(15, 40, 80, .06) 1px, transparent 1px);
+    background-size: calc(100% / var(--mapa-colunas)) var(--mapa-linha);
+    overflow: hidden; touch-action: none;
+}
+.adm-mapa__bloco {
+    position: absolute; box-sizing: border-box;
+    left: calc(var(--x) * 100% / var(--mapa-colunas)); top: calc(var(--y) * var(--mapa-linha));
+    width: calc(var(--w) * 100% / var(--mapa-colunas)); height: calc(var(--h) * var(--mapa-linha));
+    padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; overflow: hidden;
+    border: 2px solid var(--adm-navy); border-radius: var(--adm-radius-sm); background: var(--adm-white);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08); font-size: 12.5px; line-height: 1.25;
+}
+[data-mapa-editavel] .adm-mapa__bloco { cursor: grab; user-select: none; }
+.adm-mapa__bloco:focus-visible { outline: 3px solid var(--adm-blue-accent); outline-offset: 2px; z-index: 2; }
+.adm-mapa__bloco.is-arrastando { cursor: grabbing; z-index: 3; box-shadow: var(--adm-shadow-hover); border-color: var(--adm-blue-accent); opacity: .92; }
+.adm-mapa__bloco.is-inativa { border-style: dashed; opacity: .6; }
+.adm-mapa__id { align-self: flex-start; padding: 0 6px; border-radius: 4px; background: var(--adm-navy); color: var(--adm-white); font-weight: 700; font-size: 11.5px; }
+.adm-mapa__nome { color: var(--adm-navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-mapa__info { color: var(--adm-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-mapa__abrir { margin-top: auto; display: inline-flex; gap: 4px; align-items: center; color: var(--adm-blue-accent); font-weight: 600; text-decoration: none; }
+.adm-mapa__abrir .icon { width: 13px; height: 13px; }
+.adm-mapa__abrir:hover, .adm-mapa__abrir:focus-visible { text-decoration: underline; }
+.adm-mapa__status { font-size: 12.5px; color: var(--adm-amber-700, #92400e); }
+.adm-mapa__numeros { margin-bottom: 12px; }
+.adm-mapa__numeros .adm-input { width: 80px; }
+
+@media (max-width: 640px) {
+    .adm-mapa { height: auto !important; display: grid; gap: 8px; padding: 8px; background-image: none; touch-action: auto; }
+    .adm-mapa__bloco { position: static; width: auto; height: auto; min-height: 70px; }
+    [data-mapa-editavel] .adm-mapa__bloco { cursor: default; }
+}

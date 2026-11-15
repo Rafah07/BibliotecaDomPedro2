@@ -17,6 +17,13 @@ use Biblioteca\Repositories\ExemplarRepository;
 use Biblioteca\Repositories\InventarioRepository;
 use Biblioteca\Repositories\OrganizacaoFisicaRepository;
 use Biblioteca\Repositories\PendenciasRepository;
+use Biblioteca\Repositories\PreparoRepository;
+use Biblioteca\Services\LoteService;
+use Biblioteca\Services\OcorrenciaService;
+use Biblioteca\Services\OperacaoService;
+use Biblioteca\Support\ExportadorTabela;
+use Biblioteca\Support\RelatorioPdf;
+use Biblioteca\Services\AcervoException;
 use Biblioteca\Services\CodigoBdpService;
 use Biblioteca\Services\ConferenciaCadastroService;
 use Biblioteca\Services\EtiquetaService;
@@ -27,8 +34,8 @@ use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114f', 'assets/css/organizacao.css?v=20261114b'];
-const FISICO_JS = ['assets/js/inventario.js?v=20261114g'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114f', 'assets/css/organizacao.css?v=20261114c', 'assets/css/preparo.css?v=20261114a'];
+const FISICO_JS = ['assets/js/inventario.js?v=20261114i'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
 
@@ -41,7 +48,11 @@ function exemplares_repo(): ExemplarRepository
 function exemplares_servico(): ExemplarService
 {
     static $s = null;
-    return $s ??= new ExemplarService(db());
+    if ($s === null) {
+        $s = new ExemplarService(db());
+        $s->definirRegrasPreparo(config_bool('EXEMPLAR_EMPRESTAR_SEM_CARIMBO', false), config_bool('EXEMPLAR_EMPRESTAR_SEM_ORGANIZACAO', false));
+    }
+    return $s;
 }
 
 function localizacoes_servico(): LocalizacaoService
@@ -134,6 +145,201 @@ function pendencias_repo(): PendenciasRepository
 }
 
 /** "Estante A" ou "Sala 1 · Estante A" (+ categoria). */
+function preparo_repo(): PreparoRepository
+{
+    static $r = null;
+    return $r ??= new PreparoRepository(db());
+}
+
+function lotes_servico(): LoteService
+{
+    static $s = null;
+    return $s ??= new LoteService(db());
+}
+
+function operacoes_servico(): OperacaoService
+{
+    static $s = null;
+    return $s ??= new OperacaoService(db(), exemplares_servico());
+}
+
+function ocorrencias_servico(): OcorrenciaService
+{
+    static $s = null;
+    return $s ??= new OcorrenciaService(db(), exemplares_servico());
+}
+
+/** Selo do carimbo: "Aguardando carimbo" (âmbar) ou "Carimbado" (verde). */
+function fisico_badge_carimbo(?string $status): string
+{
+    if ($status === null || $status === '') {
+        return '';
+    }
+    return '<span class="adm-status adm-tone--' . ($status === 'carimbado' ? 'green' : 'amber') . '">' . icon($status === 'carimbado' ? 'check' : 'stamp') . ' '
+        . e(ExemplarService::CARIMBO[$status] ?? $status) . '</span>';
+}
+
+/**
+ * Selos independentes do preparo de um exemplar: encontrado (conferência física), carimbo,
+ * organização (localização definitiva ou área de triagem) e ocorrências abertas.
+ */
+function fisico_selos_preparo(array $ex, int $ocorrencias = 0): string
+{
+    $html = '<span class="adm-selos-preparo">';
+    $html .= $ex['conferido_em'] ?? null
+        ? '<span class="adm-status adm-tone--green">' . icon('circle-check') . ' Encontrado</span>'
+        : '<span class="adm-status adm-tone--muted">Não conferido</span>';
+    $html .= fisico_badge_carimbo($ex['carimbo_status'] ?? null);
+    $html .= ($ex['localizacao_id'] ?? null) !== null
+        ? '<span class="adm-status adm-tone--blue">' . icon('map-pin') . ' Organizado</span>'
+        : '<span class="adm-status adm-tone--amber">' . icon('inbox') . ' Aguardando organização</span>';
+    if ($ocorrencias > 0) {
+        $html .= '<span class="adm-status adm-tone--red">' . icon('triangle-alert') . ' ' . $ocorrencias . ' ocorrência(s)</span>';
+    }
+    return $html . '</span>';
+}
+
+/** Localização para listas: a prateleira, ou "Aguardando organização (triagem)". */
+function fisico_local_ou_triagem(array $linha): string
+{
+    return ($linha['localizacao_id'] ?? null) === null ? 'Aguardando organização (triagem)' : fisico_local($linha);
+}
+
+/**
+ * Sugestão de localização para um novo registro: a "estante atual" da conferência (se houver) ou a
+ * última prateleira usada por esta pessoa. Prateleira desativada não é sugerida: devolve o aviso.
+ * Nunca usa a localização antiga das planilhas.
+ * @return array{id: ?int, origem: string, aviso: ?string}
+ */
+function fisico_sugestao_local(int $usuarioId, ?int $localConferencia = null): array
+{
+    $candidatos = [];
+    if ($localConferencia) {
+        $candidatos[] = [$localConferencia, 'estante atual da conferência'];
+    }
+    $ultima = (int)db_query('SELECT ultima_localizacao_id FROM administradores WHERE id = ?', [$usuarioId])->fetchColumn();
+    if ($ultima && $ultima !== $localConferencia) {
+        $candidatos[] = [$ultima, 'última utilizada'];
+    }
+    $aviso = null;
+    foreach ($candidatos as [$id, $origem]) {
+        try {
+            exemplares_servico()->localizacaoValida($id);
+            return ['id' => $id, 'origem' => $origem, 'aviso' => $aviso];
+        } catch (AcervoException) {
+            $aviso ??= 'A última localização usada (' . fisico_local_id($id) . ') foi desativada. Escolha uma nova estante e prateleira.';
+        }
+    }
+    return ['id' => null, 'origem' => '', 'aviso' => $aviso];
+}
+
+/** Mensagem discreta da sugestão, com o botão "Limpar seleção" (o JS limpa os seletores). */
+function fisico_sugestao_html(array $sugestao, ?int $selecionada): string
+{
+    $html = '';
+    if ($sugestao['aviso']) {
+        $html .= '<p class="adm-local-sugestao adm-local-sugestao--aviso" role="status">' . icon('triangle-alert') . ' ' . e($sugestao['aviso']) . '</p>';
+    }
+    if ($sugestao['id'] !== null && $sugestao['id'] === $selecionada) {
+        $html .= '<p class="adm-local-sugestao" data-local-sugestao>' . icon('map-pin') . ' Localização sugerida: ' . e(fisico_local_id($sugestao['id'])) . ' (' . e($sugestao['origem']) . ').'
+            . ' <button type="button" class="adm-link-button" data-local-limpar>Limpar seleção</button>'
+            . '<span class="adm-field__hint"> Pode trocar à vontade, ou deixar em “Aguardando organização”.</span></p>';
+    }
+    return $html;
+}
+
+/** Seletor dos tipos de ocorrência. */
+function fisico_select_ocorrencia(string $nome, string $selecionado = '', string $id = ''): string
+{
+    $html = '<select class="adm-select" name="' . e($nome) . '"' . ($id !== '' ? ' id="' . e($id) . '"' : '') . ' required><option value="">Escolha o problema</option>';
+    foreach (OcorrenciaService::TIPOS as $v => $r) {
+        $html .= '<option value="' . e($v) . '"' . ($v === $selecionado ? ' selected' : '') . '>' . e($r) . '</option>';
+    }
+    return $html . '</select>';
+}
+
+/** Campo "Deixar exemplar indisponível para empréstimo?" (Sim/Não, sem resposta pré-marcada). */
+function fisico_campo_bloqueio(string $idBase, string $marcado = ''): string
+{
+    return '<fieldset class="adm-field adm-escolha"><legend class="adm-field__sublabel">Deixar exemplar indisponível para empréstimo? <span class="adm-required" aria-hidden="true">*</span></legend>'
+        . '<label class="adm-escolha__opcao"><input type="radio" name="bloquear" value="1" required' . ($marcado === '1' ? ' checked' : '') . '> <span><strong>Sim, deixar indisponível</strong> <small>ex.: páginas faltando, livro molhado</small></span></label>'
+        . '<label class="adm-escolha__opcao"><input type="radio" name="bloquear" value="0" required' . ($marcado === '0' ? ' checked' : '') . '> <span><strong>Não, permitir empréstimos normalmente</strong> <small>ex.: capa levemente danificada</small></span></label>'
+        . '</fieldset>';
+}
+
+/** Indicadores separados do preparo (seção 11): conferência física × organização definitiva. */
+function fisico_indicadores_preparo_html(array $i, string $planilha): string
+{
+    $url = fn (array $f) => admin_url_filtros($planilha, $f);
+    return '<section class="adm-stats adm-stats--preparo" aria-label="Situação física dos exemplares">'
+        . fisico_stat('Encontrados', $i['encontrados'], 'Conferidos fisicamente', 'circle-check', 'green', $url(['carimbo' => 'todos', 'encontrado' => 'sim']))
+        . fisico_stat('Aguardando carimbo', $i['aguardando_carimbo'], 'Código BDP ainda não escrito', 'stamp', 'amber', $url(['carimbo' => 'aguardando']))
+        . fisico_stat('Carimbados', $i['carimbados'], 'Código escrito no livro', 'check-check', 'teal', $url(['carimbo' => 'carimbado']))
+        . fisico_stat('Aguardando organização', $i['aguardando_organizacao'], 'Na área de triagem', 'inbox', 'amber', $url(['carimbo' => 'todos', 'organizacao' => 'aguardando']))
+        . fisico_stat('Com localização definitiva', $i['com_localizacao'], 'Em estante e prateleira', 'map-pin', 'blue', $url(['carimbo' => 'todos', 'organizacao' => 'organizado']))
+        . fisico_stat('Com ocorrências', $i['com_ocorrencias'], 'Problemas físicos abertos', 'triangle-alert', 'red', admin_url('ocorrencias'))
+        . fisico_stat('Indisponíveis para empréstimo', $i['indisponiveis'], fisico_numero($i['aguardando_liberacao']) . ' aguardando liberação', 'ban', 'muted', null)
+        . '</section>';
+}
+
+/**
+ * Envia uma tabela como XLSX (padrão), CSV ou PDF e encerra. As linhas vêm do banco na hora.
+ * @param array<string, string> $colunas chave => rótulo
+ * @param array<string, string> $tipos chave => texto|codigo|numero
+ * @param iterable<array<string, mixed>> $linhas
+ * @param list<array{0: string, 1: int|string, 2?: string}> $indicadores (só PDF)
+ */
+function fisico_enviar_tabela(string $formato, string $nome, string $titulo, array $colunas, array $tipos, iterable $linhas, array $cabecalho, string $geradoPor, array $indicadores = [], array $filtros = []): never
+{
+    $nome = ExportadorTabela::nomeArquivo($nome);
+    @set_time_limit(300);
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    $exportador = new ExportadorTabela($colunas, $tipos);
+    if ($formato === 'pdf') {
+        $pdf = new RelatorioPdf(etiquetas_biblioteca(), $titulo, $cabecalho[1] ?? '', $filtros, $geradoPor, count($colunas) > 6);
+        if ($indicadores) {
+            $pdf->secao('Resumo');
+            $pdf->indicadores($indicadores);
+        }
+        $pdf->secao($titulo);
+        $larguras = [];
+        foreach ($colunas as $k => $rot) {
+            $t = $tipos[$k] ?? 'texto';
+            $larguras[$k] = [$rot, $t === 'numero' ? 0.9 : (in_array($k, ['titulo', 'descricao', 'rotulo'], true) ? 3 : ($t === 'codigo' ? 1.3 : 1.5)), $t === 'numero' ? 'direita' : 'esquerda'];
+        }
+        $pdf->tabela($larguras, $linhas, 3000);
+        $conteudo = $pdf->gerar();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $nome . '.pdf"');
+        header('Content-Length: ' . strlen($conteudo));
+        echo $conteudo;
+        exit;
+    }
+    if ($formato === 'xlsx') {
+        try {
+            [$arquivo] = $exportador->gerarXlsx($linhas, mb_substr($titulo, 0, 31), $cabecalho);
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $nome . '.xlsx"');
+            header('Content-Length: ' . filesize($arquivo));
+            readfile($arquivo);
+            @unlink($arquivo);
+            exit;
+        } catch (RuntimeException $e) {
+            error_log('[biblioteca] XLSX indisponível: ' . $e->getMessage()); // sem a extensão zip: CSV
+        }
+    }
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $nome . '.csv"');
+    $out = fopen('php://output', 'w');
+    $exportador->escreverCsv($out, $linhas);
+    fclose($out);
+    exit;
+}
+
 function fisico_rotulo_estante(array $e, bool $comCategoria = true): string
 {
     $nome = (string)($e['estante_nome'] ?? $e['nome'] ?? ('Estante ' . ($e['estante_identificacao'] ?? $e['identificacao'] ?? '')));

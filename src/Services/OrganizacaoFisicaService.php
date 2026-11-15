@@ -354,6 +354,60 @@ final class OrganizacaoFisicaService
      * Transfere TODOS os exemplares de uma localização para outra (ex.: antes de excluir uma
      * prateleira). Cada exemplar recebe a sua movimentação no histórico. @return int transferidos
      */
+    /** Grade do mapa visual: colunas e limites de cada bloco (unidades da grade). */
+    public const MAPA_COLUNAS = 24;
+    public const MAPA_LINHAS = 200;
+
+    /**
+     * Mapa visual das estantes: grava a posição e o tamanho de cada bloco (unidades da grade).
+     * Só o desenho muda: nenhum exemplar, prateleira ou localização é alterado. Tudo numa transação.
+     * @param array<int|string, array{x?: mixed, y?: mixed, w?: mixed, h?: mixed}> $posicoes estante_id => posição
+     * @return int estantes atualizadas
+     */
+    public function salvarMapa(array $posicoes, int $responsavelId): int
+    {
+        $limpas = [];
+        foreach ($posicoes as $id => $p) {
+            $id = (int)$id;
+            if ($id <= 0 || !is_array($p)) {
+                continue;
+            }
+            $w = max(1, min(self::MAPA_COLUNAS, (int)($p['w'] ?? 4)));
+            $h = max(1, min(20, (int)($p['h'] ?? 2)));
+            $x = max(0, min(self::MAPA_COLUNAS - $w, (int)($p['x'] ?? 0)));
+            $y = max(0, min(self::MAPA_LINHAS, (int)($p['y'] ?? 0)));
+            $limpas[$id] = [$x, $y, $w, $h];
+        }
+        if (!$limpas) {
+            throw new AcervoException('Nenhuma estante para salvar no mapa.');
+        }
+        if (count($limpas) > 500) {
+            throw new AcervoException('Estantes demais de uma vez. Salve o mapa de um setor por vez.');
+        }
+        return $this->transacao(function () use ($limpas, $responsavelId) {
+            ksort($limpas);
+            $n = 0;
+            foreach ($limpas as $id => [$x, $y, $w, $h]) {
+                if (!$this->linha('SELECT id FROM estantes WHERE id = ? FOR UPDATE', [$id])) {
+                    throw new AcervoException('Uma das estantes do mapa não existe mais. Recarregue a página.');
+                }
+                $n += $this->executar('UPDATE estantes SET mapa_x = ?, mapa_y = ?, mapa_largura = ?, mapa_altura = ? WHERE id = ?', [$x, $y, $w, $h, $id]);
+            }
+            $this->registrarAcao($responsavelId, 'organizacao.mapa', 'estante', null, ['estantes' => array_keys($limpas), 'alteradas' => $n]);
+            return count($limpas);
+        });
+    }
+
+    /** Volta as estantes do setor (null = sem setor) para a disposição automática do mapa. */
+    public function reiniciarMapa(?int $setorId, int $responsavelId): int
+    {
+        return $this->transacao(function () use ($setorId, $responsavelId) {
+            $n = $this->executar('UPDATE estantes SET mapa_x = NULL, mapa_y = NULL, mapa_largura = NULL, mapa_altura = NULL WHERE ' . ($setorId === null ? 'setor_id IS NULL' : 'setor_id = ?'), $setorId === null ? [] : [$setorId]);
+            $this->registrarAcao($responsavelId, 'organizacao.mapa_reiniciar', 'setor', $setorId, ['estantes' => $n]);
+            return $n;
+        });
+    }
+
     public function transferirExemplares(int $origemId, int $destinoId, int $responsavelId, string $motivo = ''): int
     {
         if ($origemId === $destinoId) {

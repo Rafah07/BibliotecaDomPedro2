@@ -101,6 +101,38 @@ final class OrganizacaoFisicaRepository
         return ['itens' => $itens, 'total' => $total, 'pagina' => $pagina, 'paginas' => $paginas];
     }
 
+    /**
+     * Estantes de um setor para o mapa visual ($setor: id, ou 'sem' para as estantes sem setor),
+     * com prateleiras e exemplares (números reais) e a posição salva (null = automática).
+     * @return list<array>
+     */
+    public function mapa(string $setor): array
+    {
+        $w = $setor === 'sem' ? 'e.setor_id IS NULL' : 'e.setor_id = ?';
+        return $this->todas("SELECT e.id, e.identificacao, e.nome, e.categoria, e.ativa, e.ordem, e.mapa_x, e.mapa_y, e.mapa_largura, e.mapa_altura,
+                                    COUNT(lo.id) AS prateleiras, COALESCE(SUM(x.n), 0) AS exemplares
+                             FROM estantes e
+                             LEFT JOIN localizacoes lo ON lo.estante_id = e.id
+                             LEFT JOIN (SELECT localizacao_id, COUNT(*) AS n FROM exemplares WHERE situacao <> 'baixado' AND localizacao_id IS NOT NULL GROUP BY localizacao_id) x ON x.localizacao_id = lo.id
+                             WHERE $w
+                             GROUP BY e.id
+                             ORDER BY e.ordem, e.identificacao, e.id", $setor === 'sem' ? [] : [(int)$setor]);
+    }
+
+    /** Setores que têm estantes, mais "sem setor" se houver estantes sem setor. @return list<array{chave: string, nome: string, estantes: int}> */
+    public function setoresDoMapa(): array
+    {
+        $lista = [];
+        foreach ($this->todas('SELECT s.id, s.nome, COUNT(e.id) AS n FROM setores s JOIN estantes e ON e.setor_id = s.id GROUP BY s.id ORDER BY s.ordem, s.nome') as $s) {
+            $lista[] = ['chave' => (string)$s['id'], 'nome' => $s['nome'], 'estantes' => (int)$s['n']];
+        }
+        $sem = (int)$this->valor('SELECT COUNT(*) FROM estantes WHERE setor_id IS NULL');
+        if ($sem) {
+            $lista[] = ['chave' => 'sem', 'nome' => $lista ? 'Sem setor' : 'Biblioteca', 'estantes' => $sem];
+        }
+        return $lista;
+    }
+
     public function estante(int $id): ?array
     {
         $e = $this->linha('SELECT e.*, s.nome AS setor_nome, s.ativo AS setor_ativo, a.nome AS responsavel_nome

@@ -38,6 +38,7 @@ require_once __DIR__ . '/includes/acervo-fisico.php';
 use Biblioteca\Repositories\EmprestimoRepository;
 use Biblioteca\Repositories\InventarioRepository;
 use Biblioteca\Repositories\PendenciasRepository;
+use Biblioteca\Repositories\PreparoRepository;
 use Biblioteca\Services\AcervoException;
 use Biblioteca\Services\CodigoBdpService;
 use Biblioteca\Services\ConferenciaDuplicadaException;
@@ -55,7 +56,7 @@ $fragmento = ($_SERVER['HTTP_X_CONFERENCIA'] ?? '') === '1';
 $podeGerenciar = auth_pode('inventario.gerenciar');
 $podeCadastrar = auth_pode('exemplares.gerenciar');
 $podeEditarLivro = auth_pode('livros.editar');
-$sessao = ($_SESSION['inventario_conferencia'][$id] ?? []) + ['local' => null, 'rapido' => false, 'ultimo' => null];
+$sessao = ($_SESSION['inventario_conferencia'][$id] ?? []) + ['local' => null, 'ultimo' => null];
 $erro = null;
 $novoForm = null;          // valores do formulário "livro não listado" após um erro ou na etapa de correspondências
 $correspondencias = null;  // livros parecidos encontrados antes de cadastrar
@@ -89,7 +90,22 @@ function conferencia_fisico(array $post, ?int $localPadrao): array
         'situacao_inventario' => admin_param($post, 'situacao_inventario', 'encontrado'),
         'vinculo' => isset($post['vinculo']) ? admin_param($post, 'vinculo') : (isset($post['tem_linhas']) ? '' : null),
         'processo_bdp' => admin_param($post, 'processo_bdp'),
+        // "Carimbar depois" (entra na Planilha de Códigos BDP) ou "O código já está no carimbo".
+        'carimbo' => in_array(admin_param($post, 'carimbo'), ['aguardando', 'carimbado'], true) ? admin_param($post, 'carimbo') : null,
     ];
+}
+
+/** Complemento da mensagem de registro: carimbo pendente, lote e liberação para empréstimo. */
+function conferencia_preparo_texto(array $c): string
+{
+    $partes = [];
+    if (($c['carimbo'] ?? '') === 'aguardando') {
+        $partes[] = 'Ficou em “Aguardando carimbo” na Planilha de Códigos BDP' . (!empty($c['lote_id']) ? ' (' . PreparoRepository::rotuloLote(preparo_repo()->lote((int)$c['lote_id']) ?? []) . ', nº ' . (int)$c['lote_ordem'] . ')' : '') . '.';
+    }
+    if (($c['situacao_exemplar'] ?? $c['situacao'] ?? '') === 'aguardando') {
+        $partes[] = 'Ainda não está liberado para empréstimo: falta o carimbo ou a estante definitiva.';
+    }
+    return $partes ? ' ' . implode(' ', $partes) : '';
 }
 
 /** Mensagem curta do resultado de uma conferência. */
@@ -127,7 +143,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 if ($local !== null && !db_query('SELECT 1 FROM localizacoes l LEFT JOIN estantes e ON e.id = l.estante_id WHERE l.id = ? AND l.ativa = 1 AND (e.id IS NULL OR e.ativa = 1)', [$local])->fetchColumn()) {
                     throw new AcervoException('Localização não encontrada ou desativada. Escolha outra prateleira.');
                 }
-                $_SESSION['inventario_conferencia'][$id] = ['local' => $local, 'rapido' => admin_param($_POST, 'rapido') === '1'] + $sessao;
+                $_SESSION['inventario_conferencia'][$id] = ['local' => $local] + $sessao;
                 admin_flash('sucesso', $local ? 'Estante atual escolhida.' : 'Nenhuma estante selecionada.', $local ? 'Ela vem sugerida em cada exemplar registrado e em cada conferência (pode ser trocada em cada um).' : 'Escolha a localização em cada registro.');
                 admin_redirecionar($base . (admin_param($_POST, 'voltar') !== '' ? '&' . http_build_query(['obra' => (int)admin_param($_POST, 'voltar')]) : ''));
             case 'ler':
@@ -141,23 +157,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     }
                     admin_redirecionar($base . '&q=' . rawurlencode($texto));
                 }
-                $ex = exemplares_repo()->porCodigo($texto);
-                if ($ex && $sessao['rapido']) {
-                    // Modo rápido: confirma a existência na estante atual; a conservação não é avaliada aqui.
-                    $item = inventario_servico()->conferir($id, (int)$ex['id'], ['estado_conservacao' => ExemplarService::NAO_AVALIADO, 'localizacao_id' => $sessao['local']], $usuario['id'], false);
-                    admin_flash(...conferencia_mensagem($item));
-                    admin_redirecionar($base);
-                }
                 admin_redirecionar($base . '&codigo=' . rawurlencode(EmprestimoRepository::codigoExemplar($texto)));
             case 'conferir':
                 // Exemplar já etiquetado em mãos: "Marcar como encontrado" (status do EXEMPLAR).
                 // A prateleira escolhida passa a ser a localização do exemplar (com histórico) e a
                 // conservação escolhida fica registrada como avaliação ("Não avaliado" não muda nada).
-                $item = inventario_servico()->conferir($id, (int)admin_param($_POST, 'exemplar_id'), [
-                    'estado_conservacao' => admin_param($_POST, 'estado_conservacao', ExemplarService::NAO_AVALIADO),
-                    'localizacao_id' => admin_param($_POST, 'localizacao_id'),
-                    'observacao' => admin_param($_POST, 'observacao'),
-                ], $usuario['id'], $podeGerenciar);
+                // Fica em Ações recentes: a mudança de prateleira feita aqui pode ser desfeita.
+                $item = operacoes_servico()->realizar('conferencia', 'Conferência no inventário nº ' . $id, $usuario['id'],
+                    fn () => inventario_servico()->conferir($id, (int)admin_param($_POST, 'exemplar_id'), [
+                        'estado_conservacao' => admin_param($_POST, 'estado_conservacao', ExemplarService::NAO_AVALIADO),
+                        'localizacao_id' => admin_param($_POST, 'localizacao_id'),
+                        'observacao' => admin_param($_POST, 'observacao'),
+                    ], $usuario['id'], $podeGerenciar), null, ['inventario_id' => $id])['resultado'];
                 conferencia_lembrar_ultimo($id, ['localizacao_id' => admin_param($_POST, 'localizacao_id')]);
                 admin_flash(...conferencia_mensagem($item));
                 admin_redirecionar($base . '&conferido=1');
@@ -234,11 +245,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     'codigo' => $f['codigo'], 'estado_conservacao' => $f['estado_conservacao'], 'localizacao_id' => $f['localizacao_id'],
                     'observacoes' => $f['observacao'], 'situacao_inventario' => $f['situacao_inventario'], 'vinculo' => $f['vinculo'], 'processo_bdp' => $f['processo_bdp'],
                     'item_id' => admin_param($_POST, 'item_id'), // endereço/formulário antigo (antes da escolha por linha)
+                    'carimbo' => $f['carimbo'],
                 ], $usuario['id']);
                 conferencia_lembrar_ultimo($id, $f);
                 admin_flash('sucesso', 'Exemplar ' . $c['codigo'] . ' registrado como ' . InventarioService::SITUACOES_REGISTRO[$c['situacao']] . '.',
                     'Confira se o carimbo do livro mostra exatamente este código. Localização: ' . fisico_local_id($f['localizacao_id'] !== null ? (int)$f['localizacao_id'] : null) . '.'
-                    . ($c['registro_id'] ? ' A linha da planilha escolhida ficou ligada a este exemplar.' : ''));
+                    . ($c['registro_id'] ? ' A linha da planilha escolhida ficou ligada a este exemplar.' : '') . conferencia_preparo_texto($c));
                 admin_redirecionar($base . '&obra=' . $livroAlvo . '&criados=' . (int)$c['id'] . '#registrado');
             case 'nao_localizado':
                 $n = inventario_servico()->marcarNaoLocalizados($id, [(int)admin_param($_POST, 'item_id')], admin_param($_POST, 'observacao'), $usuario['id']);
@@ -273,7 +285,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 fisico_exigir('exemplares.gerenciar');
                 $painel = 'mover';
                 $moverForm = $_POST;
-                $r = organizacao_servico()->moverExemplar(admin_param($_POST, 'codigo'), (int)admin_param($_POST, 'destino_id'), $usuario['id'], admin_param($_POST, 'motivo'), $id);
+                $r = operacoes_servico()->realizar('mover', 'Exemplar ' . CodigoBdp::normalizar(admin_param($_POST, 'codigo')) . ' movido na conferência', $usuario['id'],
+                    fn () => organizacao_servico()->moverExemplar(admin_param($_POST, 'codigo'), (int)admin_param($_POST, 'destino_id'), $usuario['id'], admin_param($_POST, 'motivo'), $id))['resultado'];
                 $_SESSION['inventario_conferencia'][$id]['local'] = $r['para'];
                 admin_flash('sucesso', 'Exemplar ' . $r['codigo'] . ' movido.', 'De ' . fisico_local_id($r['de']) . ' para ' . fisico_local_id($r['para']) . '. O histórico do exemplar registrou a mudança, com quem e quando.');
                 $voltaObra = (int)admin_param($_POST, 'voltar_obra');
@@ -449,6 +462,9 @@ try {
     $estante = $localSessao ? inventario_repo()->resumoEstante($id, $localSessao) : null;
     $estanteNome = $localSessao ? fisico_local_id($localSessao) : null;
     $estanteDados = $prateleiraAtual && $prateleiraAtual['estante_id'] !== null ? organizacao_repo()->estante((int)$prateleiraAtual['estante_id']) : null;
+    // Localização sugerida nos registros: a estante atual ou a última prateleira usada por esta pessoa.
+    $sugestaoLocal = fisico_sugestao_local($usuario['id'], $localSessao);
+    $localPadrao = $sugestaoLocal['id'] !== null ? (string)$sugestaoLocal['id'] : '';
 } catch (PDOException $e) {
     http_response_code(500);
     admin_pagina_erro('Não foi possível abrir a conferência', fisico_erro_tecnico($e, 'conferência do inventário'));
@@ -524,7 +540,6 @@ ob_start();
         <?php if ($obra): ?><input type="hidden" name="voltar" value="<?= (int)$obra['id'] ?>"><?php endif; ?>
         <fieldset class="adm-field"><legend class="adm-field__sublabel">Onde você está trabalhando agora</legend>
             <?= fisico_campo_local('local_conferencia', $localSessao, 'Nenhuma (escolher em cada registro)', 'local-conferencia') ?></fieldset>
-        <label class="adm-check-confirm"><input type="checkbox" name="rapido" value="1"<?= $sessao['rapido'] ? ' checked' : '' ?>> <span>Modo rápido: livro com etiqueta é conferido assim que o código é digitado</span></label>
         <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('save') ?> Aplicar</button>
     </form>
     <?php if ($estante && $prateleiraAtual): ?>
@@ -874,8 +889,9 @@ ob_start();
                     <li class="<?= in_array((int)$ex['id'], $criadosIds, true) ? 'is-novo' : '' ?>">
                         <span class="adm-code"><?= e($ex['codigo_individual']) ?></span>
                         <span class="adm-status adm-tone--<?= $tomEx ?>"><?= e($rotEx) ?></span>
+                        <?php if ($ex['situacao'] !== 'baixado'): ?><?= fisico_badge_carimbo($ex['carimbo_status']) ?><?= (int)$ex['ocorrencias_abertas'] ? '<span class="adm-status adm-tone--red">' . icon('triangle-alert') . ' ' . (int)$ex['ocorrencias_abertas'] . ' ocorrência(s)</span>' : '' ?><?php endif; ?>
                         <span class="adm-exemplares-obra__info">
-                            <?= e(fisico_local($ex)) ?> · <?= e(ACERVO_CONSERVACAO[$ex['estado_conservacao']] ?? $ex['estado_conservacao']) ?> · <?= e(ExemplarService::rotuloSituacao($ex['emprestimo_aberto'] ? 'emprestado' : $ex['situacao'])) ?>
+                            <?= e(fisico_local_ou_triagem($ex)) ?> · <?= e(ACERVO_CONSERVACAO[$ex['estado_conservacao']] ?? $ex['estado_conservacao']) ?> · <?= e(ExemplarService::rotuloSituacao($ex['emprestimo_aberto'] ? 'emprestado' : $ex['situacao'])) ?>
                             <?= $ex['origem_linha'] ? ' · linha ' . (int)$ex['origem_linha'] . ' da planilha' : '' ?><?= $ex['item_id'] === null && $ex['situacao'] !== 'baixado' ? ' · fora da lista deste inventário' : '' ?>
                         </span>
                         <span class="adm-actions-inline">
@@ -885,6 +901,7 @@ ob_start();
                                 <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&codigo=' . rawurlencode($ex['codigo_individual'])) ?>"><?= icon('pencil') ?> Corrigir</a>
                             <?php endif; ?>
                             <?php if ($podeCadastrar && $ex['situacao'] !== 'baixado'): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&mover=' . rawurlencode($ex['codigo_individual'])) ?>#exemplares"><?= icon('arrow-right-left') ?> Mover</a><?php endif; ?>
+                            <?php if ($podeCadastrar && $ex['situacao'] !== 'baixado'): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('ocorrencias') . '?' . http_build_query(['codigo' => $ex['codigo_individual'], 'inventario' => $id, 'voltar' => $base . '&obra=' . (int)$obra['id'] . '#exemplares'])) ?>#nova"><?= icon('triangle-alert') ?> Registrar ocorrência</a><?php endif; ?>
                             <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$ex['id']) ?>"><?= icon('eye') ?> Detalhes</a>
                         </span>
                     </li>
@@ -988,7 +1005,7 @@ ob_start();
             <?php endif; ?>
             <?php $lv = ['titulo' => $nv['titulo'] ?? '', 'subtitulo' => $nv['subtitulo'] ?? '', 'autores' => $nv['autores'] ?? '', 'isbn' => $nv['isbn'] ?? '', 'editora' => $nv['editora'] ?? '', 'ano_publicacao' => $nv['ano_publicacao'] ?? '', 'edicao' => $nv['edicao'] ?? '', 'idioma' => $nv['idioma'] ?? '', 'assunto' => $nv['assunto'] ?? '', 'categoria_id' => $nv['categoria_id'] ?? ''];
                   $alertasLv = []; $editavelLv = true; include __DIR__ . '/includes/form-conferencia-livro.php'; ?>
-            <?php $rx = $nv + ['localizacao_id' => (string)($localSessao ?? '')]; $rxSugestao = $localSessao; $rxLivroId = 0; $rxRegistros = []; $rxOrigem = 'nao_listado'; include __DIR__ . '/includes/form-registrar-exemplar.php'; ?>
+            <?php $rx = $nv + ['localizacao_id' => $localPadrao]; $rxSugestao = $sugestaoLocal; $rxLivroId = 0; $rxRegistros = []; $rxOrigem = 'nao_listado'; include __DIR__ . '/includes/form-registrar-exemplar.php'; ?>
             <p class="adm-field__hint">Ao clicar no botão principal, você confirma que conferiu os dados da obra com o livro em mãos: ela já fica com <strong>Dados verificados</strong> e o exemplar é registrado como Encontrado. Se ainda não conferiu, cadastre só a obra; o exemplar fica para depois.</p>
             <div class="adm-form-actions adm-form-actions--static">
                 <?php if ($podeEditarLivro): ?><button class="adm-button adm-button--primary" type="submit" name="marcar_verificado" value="1"><?= icon('square-check') ?> Salvar, marcar dados como verificados e registrar exemplar</button><?php endif; ?>
@@ -1152,11 +1169,11 @@ ob_start();
     // "Registrar outra cópia": só a localização vem do exemplar anterior (a conservação não é copiada).
     $ultimo = admin_param($_GET, 'copia') === '1' ? ($sessao['ultimo'] ?? null) : null;
     $ultimo = $ultimo ? ['localizacao_id' => (string)($ultimo['localizacao_id'] ?? '')] : null;
-    if ($ultimo && $ultimo['localizacao_id'] !== '' && (int)$ultimo['localizacao_id'] !== (int)$localSessao) {
-        $ultimo['localizacao_id'] = (string)($localSessao ?? ''); // a anterior foi desativada: pede nova escolha
+    if ($ultimo && $ultimo['localizacao_id'] !== '' && $ultimo['localizacao_id'] !== $localPadrao) {
+        $ultimo['localizacao_id'] = $localPadrao; // a anterior foi desativada: pede nova escolha
     }
-    $rx = ($registrarForm ?? []) + ($ultimo ?? []) + ['localizacao_id' => (string)($localSessao ?? '')];
-    $rxSugestao = $localSessao;
+    $rx = ($registrarForm ?? []) + ($ultimo ?? []) + ['localizacao_id' => $localPadrao];
+    $rxSugestao = $sugestaoLocal;
     $rxLivroId = (int)$obra['id']; $rxRegistros = $obraLinhas; $rxOrigem = 'registrar';
     ?>
     <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-registrar" aria-labelledby="painel-registrar-titulo"<?= $painel === 'registrar' ? ' open data-painel-auto' : '' ?>>
@@ -1230,8 +1247,7 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                     <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> Pesquisar</button>
                 </div>
                 <p class="adm-field__hint" id="leitura-dica">
-                    Os resultados aparecem enquanto você digita. Livro com etiqueta? Digite o código BDP e pressione Enter.
-                    <?= $sessao['rapido'] ? '<strong>Modo rápido ligado:</strong> o código digitado é conferido na hora, com a estante atual.' : '' ?>
+                    Os resultados aparecem enquanto você digita. Livro já carimbado? Digite o código BDP escrito no carimbo e pressione Enter.
                     Atalhos: <kbd>/</kbd> pesquisa · <kbd>N</kbd> próximo livro · <kbd>C</kbd> outra cópia · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> salva o formulário aberto.
                 </p>
             </form>

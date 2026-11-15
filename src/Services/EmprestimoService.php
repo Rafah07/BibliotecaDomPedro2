@@ -32,11 +32,11 @@ final class EmprestimoService
 {
     public const MOTIVOS_INDISPONIVEL = [
         'emprestado' => 'Este exemplar já está emprestado.',
-        'aguardando' => 'Este exemplar ainda aguarda a conferência física (inventário) e não foi liberado para empréstimo.',
+        'aguardando' => 'Este exemplar ainda não foi liberado para empréstimo (aguarda o carimbo, a estante definitiva ou a conferência física).',
         'manutencao' => 'Este exemplar está em manutenção.',
         'extraviado' => 'Este exemplar está registrado como extraviado.',
         'baixado' => 'Este exemplar foi baixado do acervo.',
-        'danificado' => 'Este exemplar está registrado como danificado e foi retirado de circulação.',
+        'danificado' => 'Este exemplar está registrado como danificado (veja as ocorrências do exemplar) e foi retirado de circulação.',
     ];
 
     public function __construct(private PDO $pdo, private RegrasCirculacao $regras, private string $ip = 'cli')
@@ -213,7 +213,8 @@ final class EmprestimoService
             // um exemplar da situação "emprestado" dentro deste fluxo.
             $situacao = $m['situacao'];
             if ($situacao === 'emprestado') {
-                $situacao = $manutencao ? 'manutencao' : 'disponivel';
+                // Ocorrência aberta que deixa o exemplar indisponível (Ocorrências e Conservação): volta "Danificado".
+                $situacao = $manutencao ? 'manutencao' : (OcorrenciaService::bloqueiaEmprestimo($this->pdo, (int)$m['exemplar_id']) ? 'danificado' : 'disponivel');
                 $this->pdo->exec("SET @biblioteca_fluxo = 'devolucao'");
                 try {
                     $this->executar("UPDATE exemplares SET situacao = ? WHERE id = ? AND situacao = 'emprestado'", [$situacao, $m['exemplar_id']]);

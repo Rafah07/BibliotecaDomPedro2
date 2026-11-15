@@ -76,6 +76,13 @@ return [
         'arquivo' => '17-organizacao-fisica.php',
         'palavras' => ['organizacao', 'estante', 'prateleira', 'setor', 'localizacao', 'mover', 'conservacao', 'pendencias'],
     ],
+    'preparo-exemplares' => [
+        'nome' => 'Preparo e controle dos exemplares',
+        'icone' => 'stamp',
+        'descricao' => 'Carimbar depois, Planilha de Códigos BDP, lotes, área de triagem, movimentação em lote, ocorrências, mapa, relatório de atividades, desfazer e backup.',
+        'arquivo' => '18-preparo-exemplares.php',
+        'palavras' => ['carimbo', 'planilha de codigos', 'lote', 'triagem', 'ocorrencia', 'danificado', 'mapa', 'desfazer', 'relatorio de atividades', 'movimentacao em lote'],
+    ],
     'etiquetas' => [
         'nome' => 'Etiquetas',
         'icone' => 'tag',

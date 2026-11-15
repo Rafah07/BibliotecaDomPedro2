@@ -28,8 +28,11 @@ try {
             $dados['localizacao_id'] = fisico_resolver_local($fx, $usuario['id']);
             $criados = exemplares_servico()->cadastrar($livroId, $dados, $usuario['id'], $quantidade);
             $codigos = array_column($criados, 'codigo');
+            $lote = !empty($criados[0]['lote_id']) ? preparo_repo()->lote((int)$criados[0]['lote_id']) : null;
             admin_flash('sucesso', count($criados) === 1 ? 'Exemplar cadastrado: ' . $codigos[0] . '.' : count($criados) . ' exemplares cadastrados: ' . implode(', ', $codigos) . '.',
-                'Escreva ou cole a etiqueta com o código no livro. Os códigos não se repetem e não serão reaproveitados.');
+                'Os códigos não se repetem e não serão reaproveitados. Eles entraram na Planilha de Códigos BDP como “Aguardando carimbo”'
+                . ($lote ? ' (' . Biblioteca\Repositories\PreparoRepository::rotuloLote($lote) . ')' : '') . ': escreva o código no carimbo de cada livro e marque como carimbado.'
+                . ($criados[0]['situacao'] === 'aguardando' && $fx['situacao'] === 'disponivel' ? ' Até lá o exemplar não é emprestado.' : ''));
             admin_redirecionar($base . '?livro=' . $livroId . '&criados=' . implode(',', array_column($criados, 'id')));
         } catch (AcervoException $e) {
             $erro = $e->getMessage();
@@ -40,6 +43,11 @@ try {
     $livro = $livroId ? livros_cadastro_resumo($livroId) : null;
     $busca = !$livro && $q !== '' ? inventario_repo()->pesquisarLivros(0, $q) : null;
     $locais = localizacoes_servico()->ativas();
+    // Localização sugerida: a última prateleira usada por esta pessoa (nunca a da planilha antiga).
+    $fxSugestao = fisico_sugestao_local((int)$usuario['id']);
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' && $fxSugestao['id'] !== null) {
+        $fx['localizacao_id'] = (string)$fxSugestao['id'];
+    }
     $criadosIds = array_filter(array_map('intval', explode(',', admin_param($_GET, 'criados'))));
     $criados = $criadosIds ? exemplares_repo()->paraEtiquetas($criadosIds) : [];
 } catch (PDOException $e) {
@@ -86,9 +94,12 @@ admin_page_start('exemplares', 'Cadastrar exemplar', 'Exemplares', 'Unidades fí
                 <li><a class="adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$c['id']) ?>"><?= e($c['codigo_individual']) ?></a></li>
             <?php endforeach; ?>
         </ul>
-        <?php if (auth_pode('etiquetas.gerar')): ?>
-            <a class="adm-button adm-button--primary" href="<?= e(admin_url('etiquetas') . '?ids=' . implode(',', array_column($criados, 'id'))) ?>"><?= icon('printer') ?> Imprimir etiqueta<?= count($criados) > 1 ? 's' : '' ?></a>
-        <?php endif; ?>
+        <div class="adm-actions-inline">
+            <a class="adm-button adm-button--primary" href="<?= e(admin_url('planilha-bdp')) ?>"><?= icon('stamp') ?> Planilha de Códigos BDP</a>
+            <?php if (auth_pode('etiquetas.gerar')): ?>
+                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('etiquetas') . '?ids=' . implode(',', array_column($criados, 'id'))) ?>"><?= icon('printer') ?> Imprimir etiqueta<?= count($criados) > 1 ? 's' : '' ?></a>
+            <?php endif; ?>
+        </div>
     </section>
 <?php endif; ?>
 

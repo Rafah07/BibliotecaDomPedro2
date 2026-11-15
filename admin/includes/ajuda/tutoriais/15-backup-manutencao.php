@@ -28,7 +28,7 @@ return [
         ],
         'cuidados' => ['A importação de planilhas não pode ser desfeita pelo painel: a cópia é a forma de voltar atrás.'],
         'relacionados' => ['gerar-backup', 'guardar-backup', 'restaurar-backup'],
-        'confere' => ['manutencao.php' => ['Baixa um arquivo .sql com todas as tabelas, dados, views e gatilhos.', 'Dados guardados no banco']],
+        'confere' => ['manutencao.php' => ['Gera um arquivo .sql com todas as tabelas, dados, views e gatilhos.', 'Dados guardados no banco']],
     ],
     [
         'id' => 'gerar-backup',

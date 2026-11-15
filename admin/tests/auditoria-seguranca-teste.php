@@ -101,6 +101,8 @@ $esperado = [
     'aluno-editar.php' => $gestao, 'aluno-editar.php?id=' . $aluno => $gestao, 'categoria.php' => $gestao,
     'arquivar-livro.php?id=' . $livro => $gestao, 'etiqueta-modelos.php' => $gestao, 'inventario-editar.php?id=' . $inv => $gestao,
     'localizacao.php?id=' . $loc => $gestao, 'importar-alunos.php' => $gestao, 'configuracoes.php' => $gestao, 'site-publico.php' => $gestao,
+    'planilha-bdp.php' => $todos, 'ocorrencias.php' => $todos, 'organizacao-mapa.php' => $todos, 'relatorio-atividades.php' => $todos,   // migração 150
+    'acoes-recentes.php' => $equipe, 'movimentacao-lote.php' => $equipe,
     'administradores.php' => $soAdmin, 'administrador.php?id=' . $contas['auxiliar'] => $soAdmin, 'manutencao.php' => $soAdmin,
 ];
 $paginasExistentes = array_map('basename', glob(__DIR__ . '/../*.php'));

@@ -696,20 +696,23 @@ final class InventarioService
             $local = $this->exemplares->localizacaoValida($dados['localizacao_id'] ?? null);
             $c = $this->exemplares->cadastrarComCodigo($livroId, $codigoTexto, [
                 'estado_conservacao' => $estado, 'situacao' => $encontrado ? 'disponivel' : 'aguardando', 'localizacao_id' => $local, 'observacoes' => $obs, 'processo_bdp' => $processo,
+                'carimbo' => $dados['carimbo'] ?? null,
             ], $responsavelId, $inventarioId);
+            // Situação real do exemplar (pode ficar "aguardando" até o carimbo e a estante definitiva).
+            $situacaoExemplar = (string)$c['situacao'];
 
             if ($item !== null) {
                 // O item da linha da planilha passa a ser este exemplar (o vínculo importacao_item_id continua).
                 $this->executar('UPDATE inventario_itens SET exemplar_id = ?, situacao_esperada = ?, estado_esperado = ?, localizacao_esperada_id = ?,
                                         conferido_em = ' . ($encontrado ? 'NOW()' : 'NULL') . ', conferido_por = ?, localizacao_encontrada_id = ?, estado_encontrado = ?, observacao = ?,
                                         nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?',
-                    [$c['id'], $encontrado ? 'disponivel' : 'aguardando', $estado, $local, $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs, $item['id']]);
+                    [$c['id'], $situacaoExemplar, $estado, $local, $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs, $item['id']]);
                 $novoItem = (int)$item['id'];
             } else {
                 $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, importacao_item_id, previsto, cadastrado_no_inventario, situacao_esperada, localizacao_esperada_id, estado_esperado,
                                                                conferido_em, conferido_por, localizacao_encontrada_id, estado_encontrado, observacao)
                                  VALUES (?, ?, ?, ?, 0, 1, ?, ?, ?, ' . ($encontrado ? 'NOW()' : 'NULL') . ', ?, ?, ?, ?)',
-                    [$inventarioId, $c['id'], $livroId, $registro['importacao_item_id'] ?? null, $encontrado ? 'disponivel' : 'aguardando', $local, $estado,
+                    [$inventarioId, $c['id'], $livroId, $registro['importacao_item_id'] ?? null, $situacaoExemplar, $local, $estado,
                         $encontrado ? $responsavelId : null, $encontrado ? $local : null, $encontrado ? $estado : null, $obs]);
                 $novoItem = (int)$this->pdo->lastInsertId();
             }
@@ -724,7 +727,7 @@ final class InventarioService
                 ['estado' => $estado, 'localizacao_id' => $local, 'item_id' => $novoItem, 'registro_id' => $registro['id'] ?? null]);
             $this->registrarAcao($responsavelId, 'inventario.registrar_exemplar', 'inventario', $inventarioId,
                 ['livro_id' => $livroId, 'codigo' => $c['codigo'], 'situacao' => $situacao, 'registro_planilha' => $registro['id'] ?? null, 'adicional' => $registro === null]);
-            return $c + ['item_id' => $novoItem, 'situacao' => $situacao, 'registro_id' => isset($registro['id']) ? (int)$registro['id'] : null];
+            return array_merge($c, ['situacao_exemplar' => $situacaoExemplar, 'item_id' => $novoItem, 'situacao' => $situacao, 'registro_id' => isset($registro['id']) ? (int)$registro['id'] : null]);
         });
     }
 
