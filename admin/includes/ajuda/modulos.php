@@ -69,6 +69,13 @@ return [
         'arquivo' => '09-inventario.php',
         'palavras' => ['inventario', 'conferencia', 'conferir', 'estante', 'divergencia'],
     ],
+    'organizacao-fisica' => [
+        'nome' => 'Organização física',
+        'icone' => 'columns-3',
+        'descricao' => 'Montar setores, estantes e prateleiras, escolher a localização dos exemplares, mover livros, avaliar a conservação e resolver pendências.',
+        'arquivo' => '17-organizacao-fisica.php',
+        'palavras' => ['organizacao', 'estante', 'prateleira', 'setor', 'localizacao', 'mover', 'conservacao', 'pendencias'],
+    ],
     'etiquetas' => [
         'nome' => 'Etiquetas',
         'icone' => 'tag',

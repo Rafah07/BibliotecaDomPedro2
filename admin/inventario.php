@@ -51,6 +51,8 @@ admin_page_start('inventario', 'Inventário', 'Inventário', 'Conferência digit
             <div class="adm-page-head__actions">
                 <?php if ($ativo['status'] === 'em_andamento' && auth_pode('inventario.conferir')): ?>
                     <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-conferencia') . '?id=' . (int)$ativo['id']) ?>"><?= icon('clipboard-check') ?> Continuar a conferência</a>
+                    <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-conferencia') . '?id=' . (int)$ativo['id'] . '&pendencias=nao_verificadas') ?>"><?= icon('list-checks') ?> Pendências de conferência</a>
+                    <a class="adm-button adm-button--ghost" href="<?= e(admin_url('organizacao-fisica')) ?>"><?= icon('columns-3') ?> Organização Física</a>
                 <?php endif; ?>
                 <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-detalhes') . '?id=' . (int)$ativo['id']) ?>"><?= icon('eye') ?> Ver detalhes</a>
             </div>

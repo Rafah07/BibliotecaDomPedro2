@@ -15,6 +15,8 @@ require_once __DIR__ . '/acervo.php'; // acervo_breadcrumb, ACERVO_SITUACOES, AC
 
 use Biblioteca\Repositories\ExemplarRepository;
 use Biblioteca\Repositories\InventarioRepository;
+use Biblioteca\Repositories\OrganizacaoFisicaRepository;
+use Biblioteca\Repositories\PendenciasRepository;
 use Biblioteca\Services\CodigoBdpService;
 use Biblioteca\Services\ConferenciaCadastroService;
 use Biblioteca\Services\EtiquetaService;
@@ -22,10 +24,11 @@ use Biblioteca\Services\ExemplarService;
 use Biblioteca\Services\InventarioService;
 use Biblioteca\Services\LocalizacaoService;
 use Biblioteca\Services\ObraVerificacaoService;
+use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114e'];
-const FISICO_JS = ['assets/js/inventario.js?v=20261114d'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114f', 'assets/css/organizacao.css?v=20261114b'];
+const FISICO_JS = ['assets/js/inventario.js?v=20261114g'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
 
@@ -112,6 +115,115 @@ function inventario_exemplar_status(array $ex): array
     return ['Pendente', 'amber'];
 }
 
+function organizacao_repo(): OrganizacaoFisicaRepository
+{
+    static $r = null;
+    return $r ??= new OrganizacaoFisicaRepository(db());
+}
+
+function organizacao_servico(): OrganizacaoFisicaService
+{
+    static $s = null;
+    return $s ??= new OrganizacaoFisicaService(db(), exemplares_servico());
+}
+
+function pendencias_repo(): PendenciasRepository
+{
+    static $r = null;
+    return $r ??= new PendenciasRepository(db());
+}
+
+/** "Estante A" ou "Sala 1 · Estante A" (+ categoria). */
+function fisico_rotulo_estante(array $e, bool $comCategoria = true): string
+{
+    $nome = (string)($e['estante_nome'] ?? $e['nome'] ?? ('Estante ' . ($e['estante_identificacao'] ?? $e['identificacao'] ?? '')));
+    $setor = (string)($e['setor_nome'] ?? '');
+    $cat = (string)($e['estante_categoria'] ?? $e['categoria'] ?? '');
+    return ($setor !== '' ? $setor . ' · ' : '') . $nome . ($comCategoria && $cat !== '' ? ' — ' . $cat : '');
+}
+
+/** Texto curto de uma localização pelo id: "Estante A · Prateleira 1" (ou a localização anterior). */
+function fisico_local_id(?int $id): string
+{
+    $p = $id ? organizacao_repo()->prateleira($id) : null;
+    if (!$p) {
+        return 'Sem localização';
+    }
+    return $p['estante_id'] !== null ? fisico_rotulo_estante($p, false) . ' · ' . fisico_rotulo_prateleira($p) : fisico_local($p) . ' (localização anterior)';
+}
+
+/** "Prateleira 3" (com a descrição, se houver). */
+function fisico_rotulo_prateleira(array $p): string
+{
+    return 'Prateleira ' . $p['prateleira'] . (!empty($p['descricao']) ? ' (' . $p['descricao'] . ')' : '');
+}
+
+/**
+ * Campo de localização com seletores DEPENDENTES: Setor (se houver) → Estante → Prateleira.
+ * Envia só o campo $nome (id da prateleira, em localizacoes). Sem JavaScript, o seletor de
+ * prateleiras funciona sozinho (agrupado por estante). Só aparecem prateleiras ativas de estantes
+ * ativas; a localização atual ($selecionada) aparece mesmo se for antiga ou desativada.
+ * Localizações antigas das planilhas nunca aparecem aqui.
+ */
+function fisico_campo_local(string $nome, ?int $selecionada, string $vazio = 'Não informar agora', string $idBase = 'local', ?array $opcoes = null): string
+{
+    $opcoes ??= organizacao_repo()->opcoesLocal($selecionada);
+    $setores = [];
+    $estantes = [];
+    $grupos = [];
+    $estanteSel = '';
+    foreach ($opcoes as $o) {
+        $chave = $o['estante_id'] !== null ? 'e' . (int)$o['estante_id'] : 'avulsa';
+        if ($o['estante_id'] !== null) {
+            $sid = $o['setor_id'] !== null ? (string)(int)$o['setor_id'] : '';
+            if ($sid !== '') {
+                $setores[$sid] = $o['setor_nome'];
+            }
+            $estantes[$chave] ??= ['setor' => $sid, 'rotulo' => fisico_rotulo_estante($o)];
+            $rotulo = fisico_rotulo_prateleira($o) . (!(int)$o['ativa'] || !(int)$o['estante_ativa'] ? ' — desativada' : '');
+        } else {
+            $rotulo = fisico_local($o) . ' (localização anterior, sem estante cadastrada)';
+        }
+        $grupos[$chave][] = ['id' => (int)$o['id'], 'rotulo' => $rotulo];
+        if ((int)$o['id'] === $selecionada) {
+            $estanteSel = $chave;
+        }
+    }
+    $id = e($idBase);
+    $html = '<div class="adm-local-dep" data-local-dep>';
+    if ($setores) {
+        $html .= '<label class="adm-field adm-local-dep__aux" hidden><span class="adm-field__sublabel">Setor</span><select class="adm-select" data-local-setor aria-label="Setor"><option value="">Todos os setores</option>';
+        $setorSel = $estanteSel !== '' && isset($estantes[$estanteSel]) ? $estantes[$estanteSel]['setor'] : '';
+        foreach ($setores as $sid => $sn) {
+            $html .= '<option value="' . e($sid) . '"' . ($sid === $setorSel ? ' selected' : '') . '>' . e($sn) . '</option>';
+        }
+        $html .= '</select></label>';
+    }
+    $html .= '<label class="adm-field adm-local-dep__aux" hidden><span class="adm-field__sublabel">Estante</span><select class="adm-select" data-local-estante aria-label="Estante"><option value="">Escolha a estante</option>';
+    foreach ($estantes as $chave => $e) {
+        $html .= '<option value="' . e($chave) . '" data-setor="' . e($e['setor']) . '"' . ($chave === $estanteSel ? ' selected' : '') . '>' . e($e['rotulo']) . '</option>';
+    }
+    if (isset($grupos['avulsa'])) {
+        $html .= '<option value="avulsa"' . ($estanteSel === 'avulsa' ? ' selected' : '') . '>Localização anterior (sem estante)</option>';
+    }
+    $html .= '</select></label>';
+    $html .= '<label class="adm-field" for="' . $id . '"><span class="adm-field__sublabel">Prateleira</span><select class="adm-select" name="' . e($nome) . '" id="' . $id . '" data-local-prateleira>';
+    $html .= '<option value="">' . e($vazio) . '</option>';
+    foreach ($grupos as $chave => $itens) {
+        $label = $chave === 'avulsa' ? 'Localização anterior (sem estante)' : $estantes[$chave]['rotulo'];
+        $html .= '<optgroup label="' . e($label) . '" data-estante="' . e($chave) . '">';
+        foreach ($itens as $i) {
+            $html .= '<option value="' . $i['id'] . '"' . ($i['id'] === $selecionada ? ' selected' : '') . '>' . e($i['rotulo']) . '</option>';
+        }
+        $html .= '</optgroup>';
+    }
+    $html .= '</select></label>';
+    if (!$estantes && !isset($grupos['avulsa'])) {
+        $html .= '<p class="adm-field__hint">Nenhuma estante cadastrada ainda. ' . (auth_pode('localizacoes.gerenciar') ? '<a class="adm-link" href="' . e(admin_url('organizacao-fisica')) . '">Cadastre a estrutura em Organização Física</a>.' : 'Peça a quem gerencia as localizações para cadastrar as estantes em Organização Física.') . '</p>';
+    }
+    return $html . '</div>';
+}
+
 function etiquetas_servico(): EtiquetaService
 {
     static $s = null;
@@ -188,22 +300,34 @@ function fisico_select_local(string $nome, ?int $selecionada, ?string $vazio = '
     $locais = $locais ?: localizacoes_servico()->ativas($selecionada);
     $html = '<select class="adm-select" name="' . e($nome) . '"' . ($id ? ' id="' . e($id) . '"' : '') . ($vazio === null ? ' required' : '') . '>';
     $html .= '<option value="">' . e($vazio ?? 'Selecione a localização') . '</option>';
-    $setor = null;
+    $grupo = null;
     foreach ($locais as $l) {
-        if ($l['setor'] !== $setor) {
-            $html .= ($setor !== null ? '</optgroup>' : '') . '<optgroup label="' . e($l['setor']) . '">';
-            $setor = $l['setor'];
+        // Prateleiras agrupadas pela estante (Organização Física); localizações avulsas pelo setor.
+        $estruturada = ($l['estante_id'] ?? null) !== null;
+        $chave = $estruturada ? 'e' . $l['estante_id'] : 's' . $l['setor'];
+        if ($chave !== $grupo) {
+            $rotuloGrupo = $estruturada ? fisico_rotulo_estante($l) : ($l['setor'] !== '' ? $l['setor'] : 'Sem setor') . ' (localizações anteriores)';
+            $html .= ($grupo !== null ? '</optgroup>' : '') . '<optgroup label="' . e($rotuloGrupo) . '">';
+            $grupo = $chave;
         }
-        $rotulo = fisico_local($l) . ($l['codigo'] ? ' (' . $l['codigo'] . ')' : '') . (!(int)$l['ativa'] ? ' — desativada' : '');
+        $rotulo = ($estruturada ? fisico_rotulo_prateleira($l) : fisico_local($l)) . ($l['codigo'] ? ' (' . $l['codigo'] . ')' : '') . (!(int)$l['ativa'] ? ' — desativada' : '');
         $html .= '<option value="' . (int)$l['id'] . '"' . ((int)$l['id'] === $selecionada ? ' selected' : '') . '>' . e($rotulo) . '</option>';
     }
-    return $html . ($setor !== null ? '</optgroup>' : '') . '</select>';
+    return $html . ($grupo !== null ? '</optgroup>' : '') . '</select>';
 }
 
-function fisico_select_conservacao(string $nome, string $selecionado = 'bom', string $id = ''): string
+/**
+ * Estado de conservação. Começa em "Não avaliado": a equipe escolhe a classificação depois de olhar
+ * o livro (nada vem marcado como "Bom" sem avaliação). As opções antigas (Danificado, Necessita
+ * reparo) só aparecem quando já estão gravadas no exemplar.
+ */
+function fisico_select_conservacao(string $nome, string $selecionado = 'nao_avaliado', string $id = ''): string
 {
     $html = '<select class="adm-select" name="' . e($nome) . '"' . ($id ? ' id="' . e($id) . '"' : '') . ' required>';
     foreach (ACERVO_CONSERVACAO as $valor => $rotulo) {
+        if (!in_array($valor, ExemplarService::CONSERVACAO_OPCOES, true) && $valor !== $selecionado) {
+            continue;
+        }
         $html .= '<option value="' . $valor . '"' . ($valor === $selecionado ? ' selected' : '') . '>' . e($rotulo) . '</option>';
     }
     return $html . '</select>';

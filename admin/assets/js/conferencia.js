@@ -70,6 +70,7 @@
             const atual = document.querySelector(`[data-regiao="${nova.dataset.regiao}"]`);
             if (atual) atual.innerHTML = nova.innerHTML;
         });
+        document.dispatchEvent(new CustomEvent('conferencia:atualizada'));
         abrirPaineis();
         return true;
     };

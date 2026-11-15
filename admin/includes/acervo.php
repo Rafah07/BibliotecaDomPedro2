@@ -30,8 +30,11 @@ const ACERVO_SITUACOES = [
 ];
 
 const ACERVO_CONSERVACAO = [
+    'nao_avaliado' => 'Não avaliado',
+    'excelente' => 'Excelente',
     'bom' => 'Bom',
     'regular' => 'Regular',
+    'ruim' => 'Ruim',
     'danificado' => 'Danificado',
     'necessita_reparo' => 'Necessita reparo',
 ];
@@ -460,7 +463,7 @@ function acervo_badge_situacao(string $situacao): string
 
 function acervo_badge_conservacao(string $estado): string
 {
-    $alerta = in_array($estado, ['danificado', 'necessita_reparo'], true);
+    $alerta = in_array($estado, ['ruim', 'danificado', 'necessita_reparo'], true);
     return '<span class="adm-condition' . ($alerta ? ' adm-condition--alert' : '') . '">'
         . htmlspecialchars(ACERVO_CONSERVACAO[$estado] ?? $estado) . '</span>';
 }

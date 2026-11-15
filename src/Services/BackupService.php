@@ -122,7 +122,10 @@ final class BackupService
     /** INSERTs da tabela, em blocos. Devolve o número de linhas. */
     private function dados(string $tabela, string $banco, callable $w): int
     {
-        $tipos = $this->pdo->prepare('SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION');
+        // Colunas geradas (ex.: estantes.setor_chave, localizacoes.chave_avulsa) são recalculadas pelo banco:
+        // não entram no INSERT (gravá-las daria erro na restauração).
+        $tipos = $this->pdo->prepare("SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+                                      AND EXTRA NOT LIKE '%STORED GENERATED%' AND EXTRA NOT LIKE '%VIRTUAL GENERATED%' ORDER BY ORDINAL_POSITION");
         $tipos->execute([$banco, $tabela]);
         $colunas = [];
         foreach ($tipos->fetchAll(PDO::FETCH_NUM) as [$coluna, $tipo]) {

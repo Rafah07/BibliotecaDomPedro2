@@ -12,20 +12,24 @@
  *      verificada" (sugestões; nada é unido sem confirmação).
  *   4. "+ Registrar exemplar": "Gerar código BDP" (reserva no servidor, só deste formulário),
  *      escolha consciente da linha da planilha (ou "Exemplar adicional"), salvar como Encontrado.
- *   5. Depois de salvar: "Registrar outra cópia" (mesma obra, mesma localização e estado, código
- *      novo) ou "Próximo livro" (volta para a pesquisa, mantendo a estante atual).
+ *   5. Depois de salvar: "Registrar outra cópia" (mesma obra e mesma localização, código novo; a
+ *      conservação NÃO é copiada) ou "Próximo livro" (volta para a pesquisa, mantendo a estante atual).
  *
  * OBRA × EXEMPLAR: a obra (livros) tem os dados bibliográficos e a verificação, feita UMA vez.
  * Cada exemplar tem o seu código BDP e a sua situação no inventário. Linhas importadas sem
  * exemplar não contam como exemplares encontrados.
  *
- * "Estante atual" (coluna lateral): a localização em que a equipe está trabalhando. Vem
- * preenchida em cada registro; mostra encontrados, pendentes, não localizados e o progresso da
- * estante, com "Finalizar estante" (só os itens escolhidos viram "Não localizado") e "Reabrir".
+ * "Estante atual" (coluna lateral): a prateleira em que a equipe está trabalhando (Organização
+ * Física, campos dependentes Setor → Estante → Prateleira). Vem sugerida em cada registro e é
+ * atualizada com a última localização usada. NÃO é preciso finalizar a estante: cada exemplar fica
+ * registrado assim que é salvo, e nada vira "Não localizado" sozinho.
+ *
+ * "Mover exemplar" (&mover=CODIGO): nova localização com histórico. "Pendências de conferência"
+ * (&pendencias=tipo, &pq= pesquisa, &pp= página): listas paginadas com ação direta.
  *
  * Endereços: &q= pesquisa (&pagina=), &obra=ID ficha da obra (&painel=verificar|registrar,
  * &copia=1 mantém local/estado do último registro, &criados=ID exemplar recém-registrado),
- * &codigo= exemplar lido, &novo=1 livro não listado. Requisições com o cabeçalho
+ * &codigo= exemplar lido, &novo=1 livro não listado, &linhas=todas (todas as linhas da planilha da obra). Requisições com o cabeçalho
  * "X-Conferencia: 1" recebem só as regiões da página (data-regiao), usadas pelo conferencia.js.
  */
 require_once __DIR__ . '/includes/layout.php';
@@ -33,6 +37,7 @@ require_once __DIR__ . '/includes/acervo-fisico.php';
 
 use Biblioteca\Repositories\EmprestimoRepository;
 use Biblioteca\Repositories\InventarioRepository;
+use Biblioteca\Repositories\PendenciasRepository;
 use Biblioteca\Services\AcervoException;
 use Biblioteca\Services\CodigoBdpService;
 use Biblioteca\Services\ConferenciaDuplicadaException;
@@ -56,7 +61,9 @@ $novoForm = null;          // valores do formulário "livro não listado" após 
 $correspondencias = null;  // livros parecidos encontrados antes de cadastrar
 $registrarForm = null;     // valores do painel "+ Registrar exemplar" após um erro ou "Gerar código BDP" sem JavaScript
 $verificarForm = null;     // valores do painel "Verificar e corrigir dados" após um erro
-$painel = admin_param($_GET, 'painel'); // painel aberto ao carregar: verificar | registrar | finalizar
+$moverForm = null;         // valores do painel "Mover exemplar" após um erro
+$localDesativado = null;   // estante atual que foi desativada (pede nova escolha)
+$painel = admin_param($_GET, 'painel'); // painel aberto ao carregar: verificar | registrar | mover
 
 /** Token de uso único do formulário "livro não listado" (protege contra clique duplo e reenvio). */
 function conferencia_token_novo(int $inventarioId): string
@@ -67,13 +74,17 @@ function conferencia_token_novo(int $inventarioId): string
     return $t;
 }
 
-/** Dados do exemplar físico enviados pelo formulário (código BDP, estado, localização, observação, situação, linha da planilha). */
+/**
+ * Dados do exemplar físico enviados pelo formulário (código BDP, estado, localização, observação, situação, linha da planilha).
+ * Localização: a escolhida no formulário; "Sem localização definida agora" (vazio) fica sem localização.
+ * $localPadrao só vale quando o formulário não tem o campo. Conservação sem escolha: "Não avaliado".
+ */
 function conferencia_fisico(array $post, ?int $localPadrao): array
 {
     return [
         'codigo' => mb_substr(admin_param($post, 'codigo_bdp'), 0, 30),
-        'estado_conservacao' => admin_param($post, 'estado_conservacao', 'bom'),
-        'localizacao_id' => admin_param($post, 'localizacao_id') !== '' ? admin_param($post, 'localizacao_id') : $localPadrao,
+        'estado_conservacao' => admin_param($post, 'estado_conservacao', ExemplarService::NAO_AVALIADO),
+        'localizacao_id' => array_key_exists('localizacao_id', $post) ? (admin_param($post, 'localizacao_id') !== '' ? admin_param($post, 'localizacao_id') : null) : $localPadrao,
         'observacao' => mb_substr(admin_param($post, 'observacao'), 0, 500),
         'situacao_inventario' => admin_param($post, 'situacao_inventario', 'encontrado'),
         'vinculo' => isset($post['vinculo']) ? admin_param($post, 'vinculo') : (isset($post['tem_linhas']) ? '' : null),
@@ -91,10 +102,18 @@ function conferencia_mensagem(array $item): array
     return ['aviso', $item['codigo_individual'] . ' conferido com divergência.', implode(' · ', $divs) . ($item['decisao'] ? ' · Cadastro atualizado.' : ' · A decisão fica pendente no inventário.')];
 }
 
-/** Guarda as escolhas do último exemplar registrado ("Registrar outra cópia" reaproveita local e estado). */
+/**
+ * Guarda a localização do último exemplar registrado: "Registrar outra cópia" a reaproveita e ela
+ * passa a ser a "Estante atual" sugerida nos próximos registros. A conservação NÃO é guardada:
+ * cada exemplar é avaliado separadamente.
+ */
 function conferencia_lembrar_ultimo(int $id, array $f): void
 {
-    $_SESSION['inventario_conferencia'][$id]['ultimo'] = ['localizacao_id' => $f['localizacao_id'] !== null ? (string)$f['localizacao_id'] : '', 'estado_conservacao' => $f['estado_conservacao']];
+    $local = isset($f['localizacao_id']) && $f['localizacao_id'] !== null && $f['localizacao_id'] !== '' ? (int)$f['localizacao_id'] : null;
+    $_SESSION['inventario_conferencia'][$id]['ultimo'] = ['localizacao_id' => $local !== null ? (string)$local : ''];
+    if ($local !== null) {
+        $_SESSION['inventario_conferencia'][$id]['local'] = $local;
+    }
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -105,11 +124,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             case 'local':
                 // "Estante atual": fica como padrão em cada registro até ser trocada.
                 $local = (int)admin_param($_POST, 'local_conferencia') ?: null;
-                if ($local !== null && !db_query('SELECT 1 FROM localizacoes WHERE id = ?', [$local])->fetchColumn()) {
-                    throw new AcervoException('Localização não encontrada.');
+                if ($local !== null && !db_query('SELECT 1 FROM localizacoes l LEFT JOIN estantes e ON e.id = l.estante_id WHERE l.id = ? AND l.ativa = 1 AND (e.id IS NULL OR e.ativa = 1)', [$local])->fetchColumn()) {
+                    throw new AcervoException('Localização não encontrada ou desativada. Escolha outra prateleira.');
                 }
                 $_SESSION['inventario_conferencia'][$id] = ['local' => $local, 'rapido' => admin_param($_POST, 'rapido') === '1'] + $sessao;
-                admin_flash('sucesso', $local ? 'Estante atual escolhida.' : 'Nenhuma estante selecionada.', $local ? 'Ela vem preenchida em cada exemplar registrado e em cada conferência.' : 'Escolha a localização em cada registro.');
+                admin_flash('sucesso', $local ? 'Estante atual escolhida.' : 'Nenhuma estante selecionada.', $local ? 'Ela vem sugerida em cada exemplar registrado e em cada conferência (pode ser trocada em cada um).' : 'Escolha a localização em cada registro.');
                 admin_redirecionar($base . (admin_param($_POST, 'voltar') !== '' ? '&' . http_build_query(['obra' => (int)admin_param($_POST, 'voltar')]) : ''));
             case 'ler':
                 $texto = trim(mb_substr(admin_param($_POST, 'leitura'), 0, 100));
@@ -124,19 +143,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 }
                 $ex = exemplares_repo()->porCodigo($texto);
                 if ($ex && $sessao['rapido']) {
-                    $item = inventario_servico()->conferir($id, (int)$ex['id'], ['estado_conservacao' => $ex['estado_conservacao'], 'localizacao_id' => $sessao['local']], $usuario['id'], false);
+                    // Modo rápido: confirma a existência na estante atual; a conservação não é avaliada aqui.
+                    $item = inventario_servico()->conferir($id, (int)$ex['id'], ['estado_conservacao' => ExemplarService::NAO_AVALIADO, 'localizacao_id' => $sessao['local']], $usuario['id'], false);
                     admin_flash(...conferencia_mensagem($item));
                     admin_redirecionar($base);
                 }
                 admin_redirecionar($base . '&codigo=' . rawurlencode(EmprestimoRepository::codigoExemplar($texto)));
             case 'conferir':
                 // Exemplar já etiquetado em mãos: "Marcar como encontrado" (status do EXEMPLAR).
+                // A prateleira escolhida passa a ser a localização do exemplar (com histórico) e a
+                // conservação escolhida fica registrada como avaliação ("Não avaliado" não muda nada).
                 $item = inventario_servico()->conferir($id, (int)admin_param($_POST, 'exemplar_id'), [
-                    'estado_conservacao' => admin_param($_POST, 'estado_conservacao'),
+                    'estado_conservacao' => admin_param($_POST, 'estado_conservacao', ExemplarService::NAO_AVALIADO),
                     'localizacao_id' => admin_param($_POST, 'localizacao_id'),
                     'observacao' => admin_param($_POST, 'observacao'),
-                    'aplicar' => admin_param($_POST, 'aplicar') === '1',
                 ], $usuario['id'], $podeGerenciar);
+                conferencia_lembrar_ultimo($id, ['localizacao_id' => admin_param($_POST, 'localizacao_id')]);
                 admin_flash(...conferencia_mensagem($item));
                 admin_redirecionar($base . '&conferido=1');
             case 'verificar_obra':
@@ -215,7 +237,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 ], $usuario['id']);
                 conferencia_lembrar_ultimo($id, $f);
                 admin_flash('sucesso', 'Exemplar ' . $c['codigo'] . ' registrado como ' . InventarioService::SITUACOES_REGISTRO[$c['situacao']] . '.',
-                    'Confira se o carimbo do livro mostra exatamente este código.' . ($c['registro_id'] ? ' A linha da planilha escolhida ficou ligada a este exemplar.' : ''));
+                    'Confira se o carimbo do livro mostra exatamente este código. Localização: ' . fisico_local_id($f['localizacao_id'] !== null ? (int)$f['localizacao_id'] : null) . '.'
+                    . ($c['registro_id'] ? ' A linha da planilha escolhida ficou ligada a este exemplar.' : ''));
                 admin_redirecionar($base . '&obra=' . $livroAlvo . '&criados=' . (int)$c['id'] . '#registrado');
             case 'nao_localizado':
                 $n = inventario_servico()->marcarNaoLocalizados($id, [(int)admin_param($_POST, 'item_id')], admin_param($_POST, 'observacao'), $usuario['id']);
@@ -245,6 +268,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $n = inventario_servico()->reabrirEstante($id, (int)admin_param($_POST, 'localizacao_id'), admin_param($_POST, 'voltar_pendentes') === '1', $usuario['id']);
                 admin_flash('sucesso', 'Estante reaberta.', $n ? fisico_numero($n) . ' exemplar(es) voltaram para Pendente.' : 'Os resultados já registrados foram mantidos.');
                 admin_redirecionar($base);
+            case 'mover_exemplar':
+                // "Mover exemplar": nova estante/prateleira, com histórico (anterior → nova). A obra não muda.
+                fisico_exigir('exemplares.gerenciar');
+                $painel = 'mover';
+                $moverForm = $_POST;
+                $r = organizacao_servico()->moverExemplar(admin_param($_POST, 'codigo'), (int)admin_param($_POST, 'destino_id'), $usuario['id'], admin_param($_POST, 'motivo'), $id);
+                $_SESSION['inventario_conferencia'][$id]['local'] = $r['para'];
+                admin_flash('sucesso', 'Exemplar ' . $r['codigo'] . ' movido.', 'De ' . fisico_local_id($r['de']) . ' para ' . fisico_local_id($r['para']) . '. O histórico do exemplar registrou a mudança, com quem e quando.');
+                $voltaObra = (int)admin_param($_POST, 'voltar_obra');
+                $voltaPend = admin_param($_POST, 'voltar_pendencias');
+                admin_redirecionar($base . ($voltaObra ? '&obra=' . $voltaObra . '#exemplares' : ($voltaPend !== '' ? '&pendencias=' . rawurlencode($voltaPend) : '')));
+            case 'avaliar_conservacao':
+                // Avaliação da conservação (pendência "Conservação não avaliada"), registrada no exemplar.
+                fisico_exigir('exemplares.gerenciar');
+                $estadoAv = admin_param($_POST, 'estado_conservacao');
+                if ($estadoAv === ExemplarService::NAO_AVALIADO || !in_array($estadoAv, ExemplarService::CONSERVACAO_OPCOES, true)) {
+                    throw new AcervoException('Escolha o estado de conservação (Excelente, Bom, Regular ou Ruim).');
+                }
+                $exAv = exemplares_repo()->buscar((int)admin_param($_POST, 'exemplar_id'));
+                if (!$exAv) {
+                    throw new AcervoException('Exemplar não encontrado.');
+                }
+                exemplares_servico()->alterarConservacao((int)$exAv['id'], $estadoAv, $usuario['id'], $id);
+                admin_flash('sucesso', 'Conservação de ' . $exAv['codigo_individual'] . ' avaliada: ' . ExemplarService::rotuloConservacao($estadoAv) . '.', 'A avaliação ficou registrada no exemplar, com quem e quando.');
+                $voltar = admin_param($_POST, 'voltar');
+                admin_redirecionar(str_starts_with($voltar, $base . '&') ? $voltar : $base . '&pendencias=conservacao');
             case 'nao_listado':
                 fisico_exigir('exemplares.gerenciar');
                 $token = admin_param($_POST, 'token');
@@ -347,7 +396,11 @@ try {
     $obra = $obraId ? inventario_repo()->livroConferencia($obraId) : null;
     $obraAlertas = $obra ? inventario_repo()->alertasLivro($obraId) : [];
     $obraExemplares = $obra ? inventario_repo()->exemplaresDaObra($id, $obraId) : [];
-    $obraLinhas = $obra ? inventario_repo()->registrosDaObra($id, $obraId) : [];
+    // Linhas da planilha: as sem exemplar primeiro; até 100 (ou todas com &linhas=todas), sempre com o total real.
+    $todasLinhas = admin_param($_GET, 'linhas') === 'todas';
+    $obraLinhas = $obra ? inventario_repo()->registrosDaObra($id, $obraId, $todasLinhas ? 5000 : 100) : [];
+    $obraLinhasTotais = $obra ? inventario_repo()->contarRegistrosDaObra($obraId) : ['total' => 0, 'livres' => 0];
+    $obraQuantidade = $obra ? pendencias_repo()->quantidadeObra($obraId, $id) : null;
     $obraHistorico = $obra ? obra_verificacao_servico()->historico($obraId) : [];
     $obraVinculos = $obra ? vinculo_obra_servico()->historico($obraId, 20) : [];
     $obraVerificada = $obra && $obra['dados_verificados_em'] !== null;
@@ -357,6 +410,22 @@ try {
     if ($verificarForm !== null && $erro !== null) {
         $painel = 'verificar';
     }
+    if ($moverForm !== null && $erro !== null) {
+        $painel = 'mover';
+    }
+    $moverCodigo = $moverForm !== null ? admin_param($moverForm, 'codigo') : mb_substr(admin_param($_GET, 'mover'), 0, 30);
+    if (admin_param($_GET, 'mover') !== '') {
+        $painel = 'mover';
+    }
+    $moverExemplar = $moverCodigo !== '' ? exemplares_repo()->porCodigo($moverCodigo) : null;
+
+    // Pendências de conferência (&pendencias=tipo): listas paginadas com ação direta.
+    $pendTipo = admin_param($_GET, 'pendencias');
+    $pendTipo = isset(PendenciasRepository::TIPOS[$pendTipo]) ? $pendTipo : '';
+    $pendQ = mb_substr(admin_param($_GET, 'pq'), 0, 100);
+    $pendLista = $pendTipo !== '' ? pendencias_repo()->listar($pendTipo, $id, $pendQ, max(1, (int)admin_param($_GET, 'pp', '1')), 25) : null;
+    $pendContagens = pendencias_repo()->contagens($id);
+    $geral = pendencias_repo()->indicadoresGerais();
     if (admin_param($_POST, 'acao') === 'registrar_exemplar' && $erro === null) {
         $registrarForm = null;
     }
@@ -366,19 +435,20 @@ try {
     $categoriasLista = db_query('SELECT id, nome FROM categorias WHERE arquivado_em IS NULL ORDER BY nome')->fetchAll();
     $indicadores = inventario_repo()->indicadores($id);
     $recentes = inventario_repo()->recentes($id, 8);
-    $locais = localizacoes_servico()->ativas();
     $criadosIds = array_filter(array_map('intval', explode(',', admin_param($_GET, 'criados'))));
     $criados = $criadosIds ? exemplares_repo()->paraEtiquetas($criadosIds) : [];
-    $localSessao = $sessao['local'];
-    $estante = $localSessao ? inventario_repo()->resumoEstante($id, $localSessao) : null;
-    $estanteNome = null;
-    foreach ($locais as $lc) {
-        if ((int)$lc['id'] === (int)$localSessao) {
-            $estanteNome = fisico_local($lc);
-        }
+    // Estante atual: só vale se a prateleira continua ativa (desativada → pede nova escolha).
+    $localSessao = $sessao['local'] !== null ? (int)$sessao['local'] : null;
+    $prateleiraAtual = $localSessao ? organizacao_repo()->prateleira($localSessao) : null;
+    if ($localSessao && (!$prateleiraAtual || !(int)$prateleiraAtual['ativa'] || ($prateleiraAtual['estante_id'] !== null && !(int)$prateleiraAtual['estante_ativa']))) {
+        $localDesativado = $prateleiraAtual ? fisico_local_id($localSessao) : null;
+        $_SESSION['inventario_conferencia'][$id]['local'] = null;
+        $localSessao = null;
+        $prateleiraAtual = null;
     }
-    $estantePendentes = $estante && $painel === 'finalizar' ? inventario_repo()->pendentesEstante($id, $localSessao) : null;
-    $estanteNaoLocalizados = $estante && $estante['status'] === 'finalizada' && $painel === 'reabrir' ? inventario_repo()->naoLocalizadosEstante($id, $localSessao) : null;
+    $estante = $localSessao ? inventario_repo()->resumoEstante($id, $localSessao) : null;
+    $estanteNome = $localSessao ? fisico_local_id($localSessao) : null;
+    $estanteDados = $prateleiraAtual && $prateleiraAtual['estante_id'] !== null ? organizacao_repo()->estante((int)$prateleiraAtual['estante_id']) : null;
 } catch (PDOException $e) {
     http_response_code(500);
     admin_pagina_erro('Não foi possível abrir a conferência', fisico_erro_tecnico($e, 'conferência do inventário'));
@@ -407,14 +477,29 @@ $ind = $indicadores;
         <div class="adm-progress adm-progress--lg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $ind['pct_exemplares'] ?>" aria-label="Exemplares com resultado"><div class="adm-progress__bar adm-progress__bar--ok" style="width: <?= $ind['pct_exemplares'] ?>%"></div></div>
         <p class="adm-table__muted"><?= icon('circle-check') ?> Obras com dados verificados: <strong><?= fisico_numero($ind['obras_verificadas']) ?> de <?= fisico_numero($ind['obras']) ?></strong> (<?= $ind['pct_obras'] ?>% das obras do acervo)</p>
     </div>
-    <h3 class="adm-indicadores-inv__grupo">Acervo</h3>
+    <?php $pend = $base . '&pendencias='; ?>
+    <h3 class="adm-indicadores-inv__grupo">Dados bibliográficos (obras)</h3>
     <div class="adm-stats adm-stats--indicadores">
         <?= fisico_stat('Obras cadastradas', $ind['obras'], 'Títulos/edições (não arquivados)', 'library', 'blue') ?>
         <?= fisico_stat('Dados verificados', $ind['obras_verificadas'], 'Obras conferidas pela equipe', 'circle-check', 'green') ?>
-        <?= fisico_stat('Dados não verificados', $ind['obras_nao_verificadas'], 'Obras ainda a conferir', 'circle-help', 'amber') ?>
+        <?= fisico_stat('Dados não verificados', $ind['obras_nao_verificadas'], 'Obras ainda a conferir', 'circle-help', 'amber', $pend . 'nao_verificadas') ?>
+    </div>
+    <h3 class="adm-indicadores-inv__grupo">Exemplares físicos</h3>
+    <div class="adm-stats adm-stats--indicadores">
         <?= fisico_stat('Exemplares físicos', $ind['exemplares'], 'Livros com código BDP (não baixados)', 'book-copy', 'indigo') ?>
-        <?= fisico_stat('Linhas sem vínculo físico', $ind['linhas_sem_vinculo'], 'Linhas da planilha ainda sem exemplar', 'file-spreadsheet', 'muted', $det . 'sem_codigo') ?>
-        <?php if ($ind['sem_codigo'] > 0): ?><?= fisico_stat('Exemplares sem código BDP', $ind['sem_codigo'], 'Dados antigos fora do padrão BDP-000000', 'tag', 'red') ?><?php endif; ?>
+        <?= fisico_stat('Conservação a avaliar', $geral['conservacao_pendente'], 'Ainda “Não avaliado”', 'list-checks', 'amber', $pend . 'conservacao') ?>
+        <?php if ($ind['sem_codigo'] > 0): ?><?= fisico_stat('Exemplares sem código BDP', $ind['sem_codigo'], 'Dados antigos fora do padrão BDP-000000', 'tag', 'red', $pend . 'sem_bdp') ?><?php endif; ?>
+    </div>
+    <h3 class="adm-indicadores-inv__grupo">Importação (linhas das planilhas)</h3>
+    <div class="adm-stats adm-stats--indicadores">
+        <?= fisico_stat('Linhas sem vínculo físico', $ind['linhas_sem_vinculo'], 'Linhas da planilha ainda sem exemplar', 'file-spreadsheet', 'muted', $pend . 'linhas_sem_vinculo') ?>
+        <?= fisico_stat('Linhas ligadas a exemplares', $geral['registros_vinculados'], 'De ' . fisico_numero($geral['registros']) . ' linhas importadas', 'link', 'green') ?>
+    </div>
+    <h3 class="adm-indicadores-inv__grupo">Organização física</h3>
+    <div class="adm-stats adm-stats--indicadores">
+        <?= fisico_stat('Com localização definida', $geral['com_localizacao'], $geral['pct_alocados'] . '% dos exemplares estão numa prateleira', 'map-pin', 'green', admin_url('organizacao-fisica')) ?>
+        <?= fisico_stat('Sem localização definida', $geral['sem_localizacao'], 'Ainda sem estante e prateleira', 'map-pin-off', 'amber', $pend . 'sem_localizacao') ?>
+        <?= fisico_stat('Estantes · prateleiras', $geral['estantes'], fisico_numero($geral['prateleiras']) . ' prateleira(s) ativa(s)', 'columns-3', 'blue', admin_url('organizacao-fisica')) ?>
     </div>
     <h3 class="adm-indicadores-inv__grupo">Este inventário · exemplares físicos</h3>
     <div class="adm-stats adm-stats--indicadores">
@@ -433,97 +518,45 @@ ob_start();
 ?>
 <section class="adm-card adm-panel adm-form-section adm-estante" aria-labelledby="titulo-estante">
     <h2 id="titulo-estante" class="adm-panel__title"><?= icon('map-pin') ?> Estante atual</h2>
+    <?php if ($localDesativado): ?><?= admin_aviso('aviso', 'A estante atual foi desativada.', $localDesativado . ' não aparece mais para novos registros. Escolha outra prateleira.') ?><?php endif; ?>
     <form method="post" action="<?= e($base) ?>" class="adm-estante__form" data-estante-form>
         <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="local">
         <?php if ($obra): ?><input type="hidden" name="voltar" value="<?= (int)$obra['id'] ?>"><?php endif; ?>
-        <label class="adm-field"><span class="adm-field__sublabel">Onde você está trabalhando agora</span>
-            <?= fisico_select_local('local_conferencia', $localSessao, 'Nenhuma (escolher em cada registro)', 'local-conferencia', $locais) ?></label>
+        <fieldset class="adm-field"><legend class="adm-field__sublabel">Onde você está trabalhando agora</legend>
+            <?= fisico_campo_local('local_conferencia', $localSessao, 'Nenhuma (escolher em cada registro)', 'local-conferencia') ?></fieldset>
         <label class="adm-check-confirm"><input type="checkbox" name="rapido" value="1"<?= $sessao['rapido'] ? ' checked' : '' ?>> <span>Modo rápido: livro com etiqueta é conferido assim que o código é digitado</span></label>
         <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('save') ?> Aplicar</button>
     </form>
-    <?php if (!$locais): ?><p class="adm-field__hint">Nenhuma localização cadastrada. <a class="adm-link" href="<?= e(admin_url('localizacoes')) ?>">Cadastrar localizações</a></p><?php endif; ?>
-    <?php if ($estante): ?>
-        <p class="adm-estante__nome"><strong><?= e((string)$estanteNome) ?></strong>
-            <?= $estante['status'] === 'finalizada' ? '<span class="adm-status adm-tone--indigo">Finalizada' . ($estante['finalizada_em'] ? ' em ' . e(admin_data_hora($estante['finalizada_em'])) : '') . '</span>' : '<span class="adm-status adm-tone--green">Em conferência</span>' ?></p>
-        <div class="adm-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $estante['percentual'] ?>" aria-label="Progresso da estante"><div class="adm-progress__bar adm-progress__bar--ok" style="width: <?= $estante['percentual'] ?>%"></div></div>
-        <p class="adm-table__muted"><?= $estante['percentual'] ?>% conferido · <?= fisico_numero($estante['com_resultado']) ?> de <?= fisico_numero($estante['esperados']) ?> exemplar(es) cadastrados nesta estante</p>
+    <?php if ($estante && $prateleiraAtual): ?>
+        <p class="adm-estante__nome"><strong><?= e((string)$estanteNome) ?></strong></p>
+        <?php if ($estanteDados && ($estanteDados['responsavel_nome'] || $estanteDados['equipe'])): ?>
+            <p class="adm-table__muted"><?= icon('users') ?> <?= e(implode(' · ', array_filter([$estanteDados['responsavel_nome'], $estanteDados['equipe']]))) ?></p>
+        <?php endif; ?>
         <dl class="adm-estante__numeros">
+            <div><dt>Exemplares nesta prateleira</dt><dd><?= fisico_numero((int)$prateleiraAtual['exemplares']) ?></dd></div>
             <div><dt>Encontrados aqui</dt><dd><?= fisico_numero($estante['encontrados_aqui']) ?></dd></div>
             <div><dt>Pendentes</dt><dd><?= fisico_numero($estante['pendentes']) ?></dd></div>
-            <div><dt>Não localizados</dt><dd><?= fisico_numero($estante['nao_localizados']) ?></dd></div>
-            <?php if ($estante['emprestados']): ?><div><dt>Emprestados</dt><dd><?= fisico_numero($estante['emprestados']) ?></dd></div><?php endif; ?>
+            <?php if ($estanteDados): ?><div><dt>Na estante inteira</dt><dd><?= fisico_numero((int)$estanteDados['exemplares']) ?></dd></div><?php endif; ?>
         </dl>
-        <?php if ($estante['fora_do_lugar'] > 0): ?><p class="adm-field__hint"><?= fisico_numero($estante['fora_do_lugar']) ?> encontrado(s) aqui estava(m) cadastrado(s) em outro lugar.</p><?php endif; ?>
-        <p class="adm-field__hint">Contam só os exemplares cadastrados nesta estante. Linhas da planilha sem localização não entram aqui.</p>
-        <?php if ($emAndamento): ?>
-            <div class="adm-actions-inline">
-                <?php if ($estante['status'] !== 'finalizada'): ?>
-                    <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&painel=finalizar') ?>" data-pjax><?= icon('flag') ?> Finalizar estante</a>
-                <?php else: ?>
-                    <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&painel=reabrir') ?>" data-pjax><?= icon('rotate-ccw') ?> Reabrir estante</a>
-                    <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&painel=finalizar') ?>" data-pjax><?= icon('flag') ?> Rever pendentes</a>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
+        <p class="adm-field__hint">Não é preciso finalizar a estante: cada exemplar fica registrado assim que é salvo, e nada vira “Não localizado” sozinho.</p>
+        <p class="adm-actions-inline">
+            <?php if ($prateleiraAtual['estante_id'] !== null): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('organizacao-fisica') . '?estante=' . (int)$prateleiraAtual['estante_id'] . '&prateleira=' . (int)$prateleiraAtual['id']) ?>"><?= icon('columns-3') ?> Ver na Organização Física</a><?php endif; ?>
+        </p>
     <?php else: ?>
-        <p class="adm-field__hint">Escolha a estante ou prateleira em que está trabalhando (ex.: Estante A — Prateleira 1). Ela vem preenchida em cada exemplar registrado, inclusive em “Registrar outra cópia”.</p>
+        <p class="adm-field__hint">Escolha a estante e a prateleira em que está trabalhando (ex.: Estante A — Prateleira 1). Ela vem sugerida em cada exemplar registrado, inclusive em “Registrar outra cópia”, e muda sozinha para a última prateleira usada.</p>
     <?php endif; ?>
+    <?php if ($podeCadastrar && $emAndamento): ?><p><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&painel=mover') ?>" data-painel-abrir="painel-mover"><?= icon('arrow-right-left') ?> Mover exemplar</a></p><?php endif; ?>
 </section>
 
-<?php if ($estante && $estantePendentes !== null && $emAndamento): ?>
-    <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-finalizar" aria-labelledby="painel-finalizar-titulo" open data-painel-auto>
-        <form class="adm-modal__box" method="post" action="<?= e($base) ?>">
-            <header class="adm-modal__header">
-                <div><h2 id="painel-finalizar-titulo"><?= icon('flag') ?> Finalizar estante</h2><p><?= e((string)$estanteNome) ?> · <?= count($estantePendentes) ?> exemplar(es) ainda pendente(s)</p></div>
-                <a class="adm-modal__close" href="<?= e($base) ?>" data-painel-fechar aria-label="Fechar"><?= icon('x') ?></a>
-            </header>
-            <div class="adm-modal__body">
-                <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="finalizar_estante"><input type="hidden" name="localizacao_id" value="<?= (int)$localSessao ?>">
-                <?php if (!$estantePendentes): ?>
-                    <div class="adm-empty adm-empty--left"><?= icon('square-check') ?><strong>Nenhum exemplar pendente nesta estante.</strong><span>Todos os exemplares cadastrados aqui já têm resultado. Finalize para registrar a conclusão.</span></div>
-                <?php else: ?>
-                    <p class="adm-field__hint">Estes exemplares estavam cadastrados nesta estante e ainda não foram encontrados. <strong>Marque só os que você procurou e confirmou que não estão aqui.</strong> Os não marcados continuam Pendentes. Emprestados não aparecem.</p>
-                    <label class="adm-check-confirm"><input type="checkbox" data-marcar-todos="itens[]"> <span>Selecionar todos da lista</span></label>
-                    <ul class="adm-finalizar-lista">
-                        <?php foreach ($estantePendentes as $p): ?>
-                            <li><label><input type="checkbox" name="itens[]" value="<?= (int)$p['id'] ?>"> <span class="adm-code"><?= e((string)$p['codigo_individual']) ?></span> <?= e(mb_strimwidth($p['titulo'], 0, 80, '…')) ?> <small class="adm-table__muted"><?= e($p['autores'] ?: '') ?></small></label></li>
-                        <?php endforeach; ?>
-                    </ul>
-                    <label class="adm-field"><span class="adm-field__sublabel">Observação <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="observacao" maxlength="500" placeholder="Ex.: procurado também no carrinho de devolução"></label>
-                    <label class="adm-check-confirm"><input type="checkbox" name="confirmar" value="1"> <span>Confirmo que os exemplares marcados foram procurados e <strong>não estão nesta estante</strong>. A situação deles no acervo não muda (não viram extraviados) e pode ser desfeita.</span></label>
-                <?php endif; ?>
-            </div>
-            <footer class="adm-modal__footer">
-                <a class="adm-button adm-button--ghost" href="<?= e($base) ?>" data-painel-fechar>Voltar</a>
-                <button class="adm-button adm-button--primary" type="submit"><?= icon('flag') ?> Finalizar estante</button>
-            </footer>
-        </form>
-    </dialog>
-<?php endif; ?>
-
-<?php if ($estante && $estanteNaoLocalizados !== null && $emAndamento): ?>
-    <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-reabrir" aria-labelledby="painel-reabrir-titulo" open data-painel-auto>
-        <form class="adm-modal__box" method="post" action="<?= e($base) ?>">
-            <header class="adm-modal__header">
-                <div><h2 id="painel-reabrir-titulo"><?= icon('rotate-ccw') ?> Reabrir estante</h2><p><?= e((string)$estanteNome) ?></p></div>
-                <a class="adm-modal__close" href="<?= e($base) ?>" data-painel-fechar aria-label="Fechar"><?= icon('x') ?></a>
-            </header>
-            <div class="adm-modal__body">
-                <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="reabrir_estante"><input type="hidden" name="localizacao_id" value="<?= (int)$localSessao ?>">
-                <p class="adm-field__hint">A estante volta para “Em conferência”. Exemplares encontrados continuam encontrados.</p>
-                <?php if ($estanteNaoLocalizados): ?>
-                    <p><strong><?= count($estanteNaoLocalizados) ?> exemplar(es) desta estante estão como “Não localizado”:</strong></p>
-                    <ul class="adm-finalizar-lista"><?php foreach ($estanteNaoLocalizados as $p): ?><li><span class="adm-code"><?= e((string)$p['codigo_individual']) ?></span> <?= e(mb_strimwidth($p['titulo'], 0, 80, '…')) ?></li><?php endforeach; ?></ul>
-                    <label class="adm-check-confirm"><input type="checkbox" name="voltar_pendentes" value="1"> <span>Voltar todos eles para <strong>Pendente</strong> (para procurar de novo)</span></label>
-                <?php endif; ?>
-            </div>
-            <footer class="adm-modal__footer">
-                <a class="adm-button adm-button--ghost" href="<?= e($base) ?>" data-painel-fechar>Voltar</a>
-                <button class="adm-button adm-button--primary" type="submit"><?= icon('rotate-ccw') ?> Reabrir estante</button>
-            </footer>
-        </form>
-    </dialog>
-<?php endif; ?>
+<section class="adm-card adm-panel" aria-labelledby="titulo-pendencias-lado">
+    <h2 id="titulo-pendencias-lado" class="adm-panel__title"><?= icon('list-checks') ?> Pendências de conferência</h2>
+    <ul class="adm-pendencias-tipos">
+        <?php foreach (PendenciasRepository::TIPOS as $tipo => [$rotulo, $icone]): ?>
+            <li><a href="<?= e($base . '&pendencias=' . $tipo) ?>" class="<?= $pendTipo === $tipo ? 'is-ativo' : '' ?>"<?= $pendTipo === $tipo ? ' aria-current="true"' : '' ?>><span><?= icon($icone) ?> <?= e($rotulo) ?></span> <strong><?= fisico_numero($pendContagens[$tipo] ?? 0) ?></strong></a></li>
+        <?php endforeach; ?>
+    </ul>
+    <p class="adm-field__hint">Números reais do banco. Nenhuma pendência fica escondida: abra a lista para ver todas, com páginas.</p>
+</section>
 <?php
 $htmlEstante = ob_get_clean();
 
@@ -553,7 +586,7 @@ ob_start();
 ?>
 <div class="adm-conferencia__mensagens" role="status" aria-live="polite">
     <?= admin_flash_html() ?>
-    <?php if ($erro && !in_array($painel, ['verificar', 'registrar'], true)): ?><?= admin_aviso('erro', 'Nada foi gravado.', $erro) ?><?php endif; ?>
+    <?php if ($erro && !in_array($painel, ['verificar', 'registrar', 'mover'], true)): ?><?= admin_aviso('erro', 'Nada foi gravado.', $erro) ?><?php endif; ?>
 </div>
 <?php if (!$emAndamento): ?>
     <?= admin_aviso('info', 'Este inventário não está em andamento.', $inv['status'] === 'pausado' ? 'Ele está pausado. Retome-o na página do inventário para continuar a conferência.' : 'A conferência só é possível com o inventário em andamento.') ?>
@@ -593,7 +626,7 @@ ob_start();
                             <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="corrigir"><input type="hidden" name="item_id" value="<?= (int)$itemAnterior['id'] ?>">
                             <div class="adm-form-grid">
                                 <label class="adm-field"><span class="adm-field__sublabel">Estado encontrado</span><?= fisico_select_conservacao('estado_conservacao', (string)$itemAnterior['estado_encontrado']) ?></label>
-                                <label class="adm-field"><span class="adm-field__sublabel">Localização encontrada</span><?= fisico_select_local('localizacao_id', $itemAnterior['localizacao_encontrada_id'] !== null ? (int)$itemAnterior['localizacao_encontrada_id'] : null, 'Manter a registrada', '', $locais) ?></label>
+                                <fieldset class="adm-field adm-field--full"><legend class="adm-field__sublabel">Localização encontrada</legend><?= fisico_campo_local('localizacao_id', $itemAnterior['localizacao_encontrada_id'] !== null ? (int)$itemAnterior['localizacao_encontrada_id'] : null, 'Manter a registrada', 'corrigir-local') ?></fieldset>
                                 <label class="adm-field adm-field--full"><span class="adm-field__sublabel">Observação</span><input class="adm-input" name="observacao" maxlength="500" value="<?= e((string)$itemAnterior['observacao']) ?>"></label>
                                 <label class="adm-field adm-field--full"><span class="adm-field__sublabel">Motivo da correção *</span><input class="adm-input" name="motivo" maxlength="500" required></label>
                             </div>
@@ -626,14 +659,12 @@ ob_start();
                     <fieldset class="adm-fieldset adm-form-section">
                     <legend class="adm-field__label">Exemplar em mãos</legend>
                     <div class="adm-form-grid">
-                        <label class="adm-field"><span class="adm-field__label">Estado encontrado *</span><?= fisico_select_conservacao('estado_conservacao', $exemplar['estado_conservacao']) ?></label>
-                        <label class="adm-field"><span class="adm-field__label">Localização encontrada</span>
-                            <?= fisico_select_local('localizacao_id', $localSessao ?? ($exemplar['localizacao_id'] !== null ? (int)$exemplar['localizacao_id'] : null), $exemplar['localizacao_id'] ? 'A mesma do cadastro' : 'Não informar agora', '', $locais) ?>
-                            <span class="adm-field__hint"><?= $exemplar['localizacao_id'] ? 'Se for diferente do cadastro, fica registrada como divergência.' : 'O exemplar não tem localização: a escolhida passa a ser a confirmada.' ?></span></label>
+                        <fieldset class="adm-field adm-field--full"><legend class="adm-field__label">Localização encontrada (estante e prateleira)</legend>
+                            <?= fisico_campo_local('localizacao_id', $localSessao ?? ($exemplar['localizacao_id'] !== null ? (int)$exemplar['localizacao_id'] : null), $exemplar['localizacao_id'] ? 'Manter a localização atual' : 'Sem localização definida agora', 'conferir-local') ?>
+                            <span class="adm-field__hint">Localização atual: <?= e(fisico_local($exemplar)) ?>. Se escolher outra prateleira, o exemplar passa a ficar nela (a mudança fica no histórico).</span></fieldset>
+                        <label class="adm-field"><span class="adm-field__label">Estado encontrado</span><?= fisico_select_conservacao('estado_conservacao', $exemplar['conservacao_avaliada_em'] !== null ? $exemplar['estado_conservacao'] : ExemplarService::NAO_AVALIADO) ?>
+                            <span class="adm-field__hint">Escolher um estado registra a avaliação do exemplar. “Não avaliado” não muda nada.</span></label>
                         <label class="adm-field adm-field--full"><span class="adm-field__label">Observação <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="observacao" maxlength="500" placeholder="Ex.: capa solta, estava fora de ordem"></label>
-                        <?php if ($podeGerenciar): ?>
-                            <label class="adm-check-confirm adm-field--full"><input type="checkbox" name="aplicar" value="1"> <span>Se houver diferença de estado ou localização, já atualizar o cadastro deste exemplar (decisão registrada agora).</span></label>
-                        <?php endif; ?>
                     </div>
                     </fieldset>
                     <p class="adm-field__hint">Os dados bibliográficos são da obra: para corrigi-los, use “Ver obra e exemplares” e depois “Verificar e corrigir dados”.</p>
@@ -731,6 +762,20 @@ ob_start();
             <div><dt>Edição</dt><dd><?= $obra['edicao'] ? e($obra['edicao']) : '<span class="adm-table__muted">—</span>' ?></dd></div>
             <div><dt>Categoria</dt><dd><?= $obra['categoria_nome'] ? e($obra['categoria_nome']) : '<span class="adm-table__muted">sem categoria</span>' ?></dd></div>
         </dl>
+        <?php if ($obraQuantidade && $obraQuantidade['situacao'] !== 'sem_planilha'): $qt = $obraQuantidade; ?>
+            <div class="adm-quantidade<?= $qt['divergente'] ? ' is-divergente' : '' ?>" id="quantidade">
+                <p><strong><?= icon('git-compare-arrows') ?> Quantidade: planilha × encontrados</strong>
+                    <?= $qt['divergente'] ? '<span class="adm-status adm-tone--amber">Divergência a investigar</span>' : ($qt['situacao'] === 'confiavel' ? '<span class="adm-status adm-tone--green">Confere</span>' : '<span class="adm-status adm-tone--muted">Quantidade histórica não confiável</span>') ?></p>
+                <dl>
+                    <div><dt>Linhas na planilha</dt><dd><?= fisico_numero($qt['linhas']) ?></dd></div>
+                    <div><dt>Quantidade histórica</dt><dd><?= $qt['situacao'] === 'confiavel' ? fisico_numero((int)$qt['historica']) : ($qt['situacao'] === 'faixa' ? 'de ' . fisico_numero((int)$qt['minimo']) . ' a ' . fisico_numero((int)$qt['maximo']) : 'não informada') ?></dd></div>
+                    <div><dt>Exemplares registrados</dt><dd><?= fisico_numero($qt['cadastrados']) ?></dd></div>
+                    <div><dt>Encontrados neste inventário</dt><dd><?= fisico_numero($qt['encontrados']) ?></dd></div>
+                    <?php if ($qt['diferenca']): ?><div><dt>Diferença</dt><dd><?= fisico_numero(abs((int)$qt['diferenca'])) ?></dd></div><?php endif; ?>
+                </dl>
+                <p class="adm-field__hint"><?= e($qt['mensagem']) ?> A diferença não significa livros perdidos: investigue (empréstimo, outra estante, ainda não registrado).</p>
+            </div>
+        <?php endif; ?>
         <?php if ($obraAlertas): ?><p class="adm-field__hint"><?= icon('triangle-alert') ?> <?= count($obraAlertas) ?> alerta(s) cadastral(is) aberto(s). Eles aparecem no painel de verificação e não impedem marcar os dados como verificados: dados que não existem podem ficar vazios.</p><?php endif; ?>
         <?php if ($obraHistorico || $obraVinculos): ?>
             <details class="adm-acao adm-obra__historico">
@@ -839,6 +884,7 @@ ob_start();
                             <?php elseif ($ex['conferido_em'] !== null): ?>
                                 <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&codigo=' . rawurlencode($ex['codigo_individual'])) ?>"><?= icon('pencil') ?> Corrigir</a>
                             <?php endif; ?>
+                            <?php if ($podeCadastrar && $ex['situacao'] !== 'baixado'): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&mover=' . rawurlencode($ex['codigo_individual'])) ?>#exemplares"><?= icon('arrow-right-left') ?> Mover</a><?php endif; ?>
                             <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$ex['id']) ?>"><?= icon('eye') ?> Detalhes</a>
                         </span>
                     </li>
@@ -850,7 +896,10 @@ ob_start();
     <?php if ($obraLinhas): ?>
         <section class="adm-card adm-panel" id="registros" aria-labelledby="titulo-registros">
             <div class="adm-panel__header"><div>
-                <h2 id="titulo-registros"><?= icon('file-spreadsheet') ?> Linhas da planilha desta obra (<?= count($obraLinhas) ?>, <?= count($obraLinhasLivres) ?> sem exemplar)</h2>
+                <h2 id="titulo-registros"><?= icon('file-spreadsheet') ?> Linhas da planilha desta obra (<?= fisico_numero($obraLinhasTotais['total']) ?>, <?= fisico_numero($obraLinhasTotais['livres']) ?> sem exemplar)</h2>
+                <?php if (count($obraLinhas) < $obraLinhasTotais['total']): ?>
+                    <p class="adm-field__hint"><?= icon('info') ?> Mostrando <?= fisico_numero(count($obraLinhas)) ?> de <?= fisico_numero($obraLinhasTotais['total']) ?> linhas (as sem exemplar primeiro). <a class="adm-link" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&linhas=todas') ?>#registros">Mostrar todas as linhas</a></p>
+                <?php endif; ?>
                 <p>Cada linha importada é conferida individualmente. Linha sem exemplar <strong>não conta como exemplar encontrado</strong>: ela só fica ligada a um livro físico quando você a escolhe ao registrar o exemplar.</p>
             </div></div>
             <ul class="adm-registros-obra">
@@ -939,7 +988,7 @@ ob_start();
             <?php endif; ?>
             <?php $lv = ['titulo' => $nv['titulo'] ?? '', 'subtitulo' => $nv['subtitulo'] ?? '', 'autores' => $nv['autores'] ?? '', 'isbn' => $nv['isbn'] ?? '', 'editora' => $nv['editora'] ?? '', 'ano_publicacao' => $nv['ano_publicacao'] ?? '', 'edicao' => $nv['edicao'] ?? '', 'idioma' => $nv['idioma'] ?? '', 'assunto' => $nv['assunto'] ?? '', 'categoria_id' => $nv['categoria_id'] ?? ''];
                   $alertasLv = []; $editavelLv = true; include __DIR__ . '/includes/form-conferencia-livro.php'; ?>
-            <?php $rx = $nv + ['localizacao_id' => (string)($localSessao ?? '')]; $rxLivroId = 0; $rxRegistros = []; $rxOrigem = 'nao_listado'; include __DIR__ . '/includes/form-registrar-exemplar.php'; ?>
+            <?php $rx = $nv + ['localizacao_id' => (string)($localSessao ?? '')]; $rxSugestao = $localSessao; $rxLivroId = 0; $rxRegistros = []; $rxOrigem = 'nao_listado'; include __DIR__ . '/includes/form-registrar-exemplar.php'; ?>
             <p class="adm-field__hint">Ao clicar no botão principal, você confirma que conferiu os dados da obra com o livro em mãos: ela já fica com <strong>Dados verificados</strong> e o exemplar é registrado como Encontrado. Se ainda não conferiu, cadastre só a obra; o exemplar fica para depois.</p>
             <div class="adm-form-actions adm-form-actions--static">
                 <?php if ($podeEditarLivro): ?><button class="adm-button adm-button--primary" type="submit" name="marcar_verificado" value="1"><?= icon('square-check') ?> Salvar, marcar dados como verificados e registrar exemplar</button><?php endif; ?>
@@ -950,12 +999,113 @@ ob_start();
     </section>
 <?php endif; ?>
 
-<?php if (!$codigoLido && $busca === null && !$obra && !$mostrarNovo): ?>
+<?php if ($pendLista !== null && !$codigoLido && $busca === null && !$obra && !$mostrarNovo): ?>
+    <?php [$pendRotulo, $pendIcone] = PendenciasRepository::TIPOS[$pendTipo]; $pendBase = $base . '&pendencias=' . $pendTipo . ($pendQ !== '' ? '&pq=' . rawurlencode($pendQ) : ''); ?>
+    <section class="adm-card adm-panel" id="pendencias" aria-labelledby="titulo-pendencias" tabindex="-1" data-foco>
+        <div class="adm-panel__header"><div>
+            <h2 id="titulo-pendencias"><?= icon($pendIcone) ?> Pendências de conferência · <?= e($pendRotulo) ?></h2>
+            <p><?= fisico_numero($pendLista['total']) ?> no total<?= $pendLista['paginas'] > 1 ? ' · página ' . $pendLista['pagina'] . ' de ' . $pendLista['paginas'] . ' (25 por página)' : '' ?>. Cada item tem a ação direta; nada é resolvido sozinho.</p>
+        </div></div>
+        <nav class="adm-pendencias-abas" aria-label="Tipos de pendência">
+            <?php foreach (PendenciasRepository::TIPOS as $tipo => [$rot]): ?>
+                <a class="adm-button adm-button--ghost adm-button--sm<?= $tipo === $pendTipo ? ' is-ativo' : '' ?>" href="<?= e($base . '&pendencias=' . $tipo) ?>"><?= e($rot) ?> (<?= fisico_numero($pendContagens[$tipo] ?? 0) ?>)</a>
+            <?php endforeach; ?>
+        </nav>
+        <form method="get" action="<?= e(admin_url('inventario-conferencia')) ?>" class="adm-inline-form">
+            <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="pendencias" value="<?= e($pendTipo) ?>">
+            <input class="adm-input adm-input--sm" type="search" name="pq" value="<?= e($pendQ) ?>" maxlength="100" placeholder="Filtrar por título, autor<?= in_array($pendTipo, ['sem_localizacao', 'conservacao', 'sem_bdp'], true) ? ' ou código BDP' : '' ?>" aria-label="Filtrar pendências">
+            <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('search') ?> Filtrar</button>
+        </form>
+        <?php if (!$pendLista['itens']): ?>
+            <div class="adm-empty adm-empty--left"><?= icon('square-check') ?><strong>Nenhuma pendência deste tipo<?= $pendQ !== '' ? ' com este filtro' : '' ?>.</strong></div>
+        <?php else: ?>
+            <ul class="adm-resultados-compactos">
+                <?php foreach ($pendLista['itens'] as $p): $abrirObra = $base . '&obra=' . (int)$p['livro_id']; ?>
+                    <li>
+                        <span class="adm-resultado__principal">
+                            <strong><?= isset($p['codigo_individual']) ? '<span class="adm-code">' . e((string)$p['codigo_individual']) . '</span> ' : '' ?><?= e($p['titulo']) ?></strong>
+                            <small><?= e($p['autores'] ?: 'Autor não informado') ?><?php
+                                if ($pendTipo === 'linhas_sem_vinculo') { echo ' · Linha ' . (int)$p['linha'] . ' de “' . e($p['arquivo']) . '”' . ($p['quantidade_informada'] !== null ? ' · Qtd. na planilha: ' . (int)$p['quantidade_informada'] : ''); }
+                                elseif (in_array($pendTipo, ['sem_localizacao', 'sem_bdp'], true)) { echo ' · ' . e(fisico_local($p)); }
+                                elseif ($pendTipo === 'conservacao') { echo ' · ' . e(ACERVO_CONSERVACAO[$p['estado_conservacao']] ?? $p['estado_conservacao']) . ($p['conservacao_avaliada_em'] === null && $p['estado_conservacao'] !== 'nao_avaliado' ? ' (gravado antes, nunca avaliado)' : ''); }
+                                elseif ($pendTipo === 'quantidade') { echo ' · ' . e($p['comparacao']['mensagem']); }
+                                elseif (in_array($pendTipo, ['duplicadas', 'alertas'], true) && $p['mensagens']) { echo ' · ' . e(mb_strimwidth($p['mensagens'], 0, 160, '…')); }
+                                elseif ($pendTipo === 'nao_verificadas') { echo ' · ' . (int)$p['exemplares'] . ' exemplar(es) · ' . (int)$p['linhas_sem_vinculo'] . ' linha(s) sem exemplar'; }
+                            ?></small>
+                        </span>
+                        <span class="adm-resultado__acoes">
+                            <?php if ($pendTipo === 'conservacao' && $podeCadastrar): ?>
+                                <form method="post" action="<?= e($base) ?>" class="adm-inline-form">
+                                    <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="avaliar_conservacao"><input type="hidden" name="exemplar_id" value="<?= (int)$p['id'] ?>">
+                                    <input type="hidden" name="voltar" value="<?= e($pendBase . '&pp=' . $pendLista['pagina']) ?>">
+                                    <label class="adm-visually-hidden" for="av-<?= (int)$p['id'] ?>">Estado de conservação</label><?= fisico_select_conservacao('estado_conservacao', $p['estado_conservacao'] !== 'nao_avaliado' ? $p['estado_conservacao'] : 'nao_avaliado', 'av-' . (int)$p['id']) ?>
+                                    <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('save') ?> Avaliar</button>
+                                </form>
+                            <?php elseif (in_array($pendTipo, ['sem_localizacao'], true) && $podeCadastrar && $p['codigo_individual']): ?>
+                                <a class="adm-button adm-button--primary adm-button--sm" href="<?= e($pendBase . '&mover=' . rawurlencode((string)$p['codigo_individual'])) ?>"><?= icon('map-pin') ?> Definir localização</a>
+                            <?php elseif ($pendTipo === 'sem_bdp'): ?>
+                                <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$p['id']) ?>"><?= icon('eye') ?> Ver exemplar</a>
+                            <?php elseif (in_array($pendTipo, ['nao_verificadas', 'duplicadas', 'alertas'], true) && $podeEditarLivro): ?>
+                                <a class="adm-button adm-button--primary adm-button--sm" href="<?= e($abrirObra . '&painel=verificar') ?>#obra"><?= icon('pencil') ?> Verificar dados</a>
+                            <?php elseif ($pendTipo === 'linhas_sem_vinculo' && $podeCadastrar && $p['dados_verificados_em'] !== null): ?>
+                                <a class="adm-button adm-button--primary adm-button--sm" href="<?= e($abrirObra . '&painel=registrar') ?>#exemplares"><?= icon('plus') ?> Registrar exemplar</a>
+                            <?php elseif ($pendTipo === 'linhas_sem_vinculo' && $podeEditarLivro): ?>
+                                <a class="adm-button adm-button--primary adm-button--sm" href="<?= e($abrirObra . '&painel=verificar') ?>#obra"><?= icon('pencil') ?> Verificar dados</a>
+                            <?php endif; ?>
+                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($abrirObra . ($pendTipo === 'quantidade' ? '#quantidade' : '#obra')) ?>">Abrir obra</a>
+                        </span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+            <nav class="adm-busca-conf__paginas" aria-label="Páginas das pendências">
+                <?php if ($pendLista['pagina'] > 1): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($pendBase . '&pp=' . ($pendLista['pagina'] - 1)) ?>"><?= icon('chevron-left') ?> Anteriores</a><?php endif; ?>
+                <?php if ($pendLista['pagina'] < $pendLista['paginas']): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($pendBase . '&pp=' . ($pendLista['pagina'] + 1)) ?>">Próximas <?= icon('chevron-right') ?></a><?php endif; ?>
+            </nav>
+        <?php endif; ?>
+        <?php if ($pendTipo === 'linhas_sem_vinculo' || $pendTipo === 'quantidade'): ?>
+            <p class="adm-field__hint">Linhas sem exemplar e diferenças de quantidade são <strong>a investigar</strong>: o livro pode estar emprestado, em outra estante ou ainda não ter sido registrado. Nada é marcado como não localizado automaticamente.</p>
+        <?php endif; ?>
+        <p><a class="adm-link" href="<?= e($det . 'pendentes') ?>">Decisões pendentes do inventário (itens divergentes)</a></p>
+    </section>
+<?php endif; ?>
+
+<?php if ($podeCadastrar): ?>
+    <?php $mv = $moverForm ?? []; $mvDestino = (int)($mv['destino_id'] ?? 0) ?: null; ?>
+    <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-mover" aria-labelledby="painel-mover-titulo"<?= $painel === 'mover' ? ' open data-painel-auto' : '' ?>>
+        <form class="adm-modal__box" method="post" action="<?= e($base) ?>" data-sem-enter>
+            <header class="adm-modal__header">
+                <div><h2 id="painel-mover-titulo"><?= icon('arrow-right-left') ?> Mover exemplar</h2>
+                    <p>Escolha a nova estante e prateleira. A obra não muda; o histórico guarda a localização anterior, a nova, quem e quando.</p></div>
+                <a class="adm-modal__close" href="<?= e($base) ?>" data-painel-fechar aria-label="Fechar"><?= icon('x') ?></a>
+            </header>
+            <div class="adm-modal__body">
+                <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="mover_exemplar">
+                <?php if ($obra): ?><input type="hidden" name="voltar_obra" value="<?= (int)$obra['id'] ?>"><?php endif; ?>
+                <?php if ($pendTipo !== ''): ?><input type="hidden" name="voltar_pendencias" value="<?= e($pendTipo) ?>"><?php endif; ?>
+                <?php if ($erro && $painel === 'mover'): ?><?= admin_aviso('erro', 'Nada foi gravado.', $erro) ?><?php endif; ?>
+                <label class="adm-field"><span class="adm-field__label">Código BDP do exemplar *</span>
+                    <input class="adm-input adm-input--code" name="codigo" maxlength="30" required value="<?= e($moverCodigo) ?>" placeholder="BDP-000123" autocapitalize="characters" spellcheck="false" autocomplete="off"<?= $moverCodigo === '' ? ' data-foco' : '' ?>></label>
+                <?php if ($moverExemplar): ?>
+                    <p class="adm-field__hint"><strong><?= e($moverExemplar['titulo'] ?? $SEM_TITULO) ?></strong> · localização atual: <?= e(fisico_local($moverExemplar)) ?></p>
+                <?php endif; ?>
+                <fieldset class="adm-field"><legend class="adm-field__label">Nova localização *</legend>
+                    <?= fisico_campo_local('destino_id', $mvDestino ?? $localSessao, 'Escolha a prateleira', 'mover-destino') ?></fieldset>
+                <label class="adm-field"><span class="adm-field__sublabel">Motivo <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="motivo" maxlength="300" value="<?= e((string)($mv['motivo'] ?? '')) ?>" placeholder="Ex.: reorganização da Estante B"></label>
+            </div>
+            <footer class="adm-modal__footer">
+                <a class="adm-button adm-button--ghost" href="<?= e($base) ?>" data-painel-fechar>Cancelar</a>
+                <button class="adm-button adm-button--primary" type="submit" data-salvar><?= icon('arrow-right-left') ?> Confirmar mudança</button>
+            </footer>
+        </form>
+    </dialog>
+<?php endif; ?>
+
+<?php if (!$codigoLido && $busca === null && !$obra && !$mostrarNovo && $pendLista === null): ?>
     <section class="adm-card adm-panel adm-conferencia__inicio" aria-label="Como conferir">
         <ol class="adm-passos-conf">
             <li><strong>Pesquise</strong> o livro que está em mãos (título, autor, ISBN ou código BDP).</li>
             <li>Obra com <strong>dados não verificados</strong>? Confira e clique em <strong>Salvar e marcar dados como verificados</strong> (uma vez por obra).</li>
-            <li><strong>Gerar código BDP</strong>, escreva no carimbo, escolha a linha da planilha e salve.</li>
+            <li><strong>Gerar código BDP</strong>, escreva no carimbo, escolha a linha da planilha, a <strong>estante e a prateleira</strong> e salve.</li>
             <li><strong>Registrar outra cópia</strong> ou <strong>Próximo livro</strong>.</li>
         </ol>
         <?php if ($podeCadastrar): ?><p class="adm-field__hint">O livro não está no sistema? <a class="adm-link" href="<?= e($base . '&novo=1') ?>#nao-listado">+ Cadastrar livro não listado</a></p><?php endif; ?>
@@ -999,8 +1149,14 @@ ob_start();
 
 <?php if ($obra && $podeCadastrar && $obraVerificada): ?>
     <?php
+    // "Registrar outra cópia": só a localização vem do exemplar anterior (a conservação não é copiada).
     $ultimo = admin_param($_GET, 'copia') === '1' ? ($sessao['ultimo'] ?? null) : null;
+    $ultimo = $ultimo ? ['localizacao_id' => (string)($ultimo['localizacao_id'] ?? '')] : null;
+    if ($ultimo && $ultimo['localizacao_id'] !== '' && (int)$ultimo['localizacao_id'] !== (int)$localSessao) {
+        $ultimo['localizacao_id'] = (string)($localSessao ?? ''); // a anterior foi desativada: pede nova escolha
+    }
     $rx = ($registrarForm ?? []) + ($ultimo ?? []) + ['localizacao_id' => (string)($localSessao ?? '')];
+    $rxSugestao = $localSessao;
     $rxLivroId = (int)$obra['id']; $rxRegistros = $obraLinhas; $rxOrigem = 'registrar';
     ?>
     <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-registrar" aria-labelledby="painel-registrar-titulo"<?= $painel === 'registrar' ? ' open data-painel-auto' : '' ?>>
@@ -1014,7 +1170,7 @@ ob_start();
                 <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="registrar_exemplar"><input type="hidden" name="livro_id" value="<?= (int)$obra['id'] ?>">
                 <?php if ($obraLinhas): ?><input type="hidden" name="tem_linhas" value="1"><?php endif; ?>
                 <?php if ($erro && $painel === 'registrar'): ?><?= admin_aviso('erro', 'Nada foi gravado.', $erro) ?><?php endif; ?>
-                <p class="adm-field__hint">Os dados bibliográficos já estão verificados: aqui você registra só o livro físico que está em mãos. Uma cópia por vez, cada uma com o seu código BDP.<?= $ultimo ? ' Localização e estado vieram do exemplar anterior.' : '' ?></p>
+                <p class="adm-field__hint">Os dados bibliográficos já estão verificados: aqui você registra só o livro físico que está em mãos. Uma cópia por vez, cada uma com o seu código BDP.<?= $ultimo ? ' A localização veio do exemplar anterior; avalie a conservação desta cópia separadamente.' : '' ?></p>
                 <?php include __DIR__ . '/includes/form-registrar-exemplar.php'; ?>
             </div>
             <footer class="adm-modal__footer">
@@ -1053,7 +1209,8 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
     </div>
     <div class="adm-page-head__actions">
         <?php if ($podeCadastrar && $emAndamento): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&novo=1') ?>#nao-listado" data-pjax><?= icon('plus') ?> Cadastrar livro não listado</a><?php endif; ?>
-        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-detalhes') . '?id=' . $id) ?>"><?= icon('list-checks') ?> Ver itens e pendências</a>
+        <a class="adm-button adm-button--ghost" href="<?= e($base . '&pendencias=nao_verificadas') ?>" data-pjax><?= icon('list-checks') ?> Pendências de conferência</a>
+        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-detalhes') . '?id=' . $id) ?>"><?= icon('clipboard-check') ?> Ver itens do inventário</a>
     </div>
 </section>
 
@@ -1090,4 +1247,4 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
 </div>
 
 <?php
-admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261114']));
+admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261114b']));

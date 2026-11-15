@@ -240,6 +240,18 @@ function dashboard_dados_mysql(): array
             $conferidos = $um("SELECT COUNT(*) FROM exemplares WHERE conferido_em IS NOT NULL AND situacao NOT IN ('baixado', 'extraviado')");
             return ['esperado' => $ex['total'], 'encontrados' => $conferidos, 'pendentes' => $ex['total'] - $conferidos, 'divergencias' => 0];
         })(),
+        // Organização Física (migração 140): exemplares numa prateleira de estante × sem localização definida.
+        'organizacao' => (function () use ($um) {
+            try {
+                return [
+                    'estantes' => $um('SELECT COUNT(*) FROM estantes WHERE ativa = 1'),
+                    'com_localizacao' => $um("SELECT COUNT(*) FROM exemplares e JOIN localizacoes lo ON lo.id = e.localizacao_id WHERE lo.estante_id IS NOT NULL AND e.situacao <> 'baixado'"),
+                    'total' => $um("SELECT COUNT(*) FROM exemplares WHERE situacao <> 'baixado'"),
+                ];
+            } catch (PDOException $e) {
+                return null; // banco ainda sem a migração 140
+            }
+        })(),
     ];
 }
 

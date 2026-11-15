@@ -588,7 +588,7 @@
         const s = DATA.situacoes[situacao] || { label: situacao, tom: 'blue' };
         return `<span class="adm-status adm-status--soft adm-tone--${s.tom}">${esc(s.label)}</span>`;
     };
-    const conservacaoBadge = (estado) => `<span class="adm-condition${['danificado', 'necessita_reparo'].includes(estado) ? ' adm-condition--alert' : ''}">${esc(DATA.conservacao[estado] || estado)}</span>`;
+    const conservacaoBadge = (estado) => `<span class="adm-condition${['ruim', 'danificado', 'necessita_reparo'].includes(estado) ? ' adm-condition--alert' : ''}">${esc(DATA.conservacao[estado] || estado)}</span>`;
 
     /** Mostra os exemplares simulados nas tabelas da página atual. */
     function addSimulatedRows(codes, reg) {

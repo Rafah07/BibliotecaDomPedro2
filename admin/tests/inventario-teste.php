@@ -262,14 +262,16 @@ echo "\n5. Conferência de exemplar existente\n";
 $it = $invServ->conferir($inv, $dom[0], ['estado_conservacao' => 'bom', 'localizacao_id' => $locA, 'observacao' => 'tudo certo'], $bibId);
 confere('conferido sem divergência', $it['conferido_em'] !== null && !(int)$it['divergencia_local'] && !(int)$it['divergencia_estado'] && !(int)$it['divergencia_situacao']);
 confere('data, responsável e observação gravados', (int)$it['conferido_por'] === $bibId && $it['observacao'] === 'tudo certo' && $val('SELECT conferido_em FROM exemplares WHERE id = ?', [$dom[0]]) !== null);
-$it2 = $invServ->conferir($inv, $dom[1], ['estado_conservacao' => 'necessita_reparo', 'localizacao_id' => $locB], $bibId);
-confere('local e estado diferentes viram divergências (sem alterar o cadastro)', (int)$it2['divergencia_local'] === 1 && (int)$it2['divergencia_estado'] === 1
-    && $num('SELECT localizacao_id FROM exemplares WHERE id = ?', [$dom[1]]) === $locA && $val('SELECT estado_conservacao FROM exemplares WHERE id = ?', [$dom[1]]) === 'bom');
+$it2 = $invServ->conferir($inv, $dom[1], ['estado_conservacao' => 'ruim', 'localizacao_id' => $locB], $bibId);
+confere('local e estado escolhidos na conferência são aplicados ao exemplar (não ficam como divergência)', (int)$it2['divergencia_local'] === 0 && (int)$it2['divergencia_estado'] === 0
+    && $num('SELECT localizacao_id FROM exemplares WHERE id = ?', [$dom[1]]) === $locB && $val('SELECT estado_conservacao FROM exemplares WHERE id = ?', [$dom[1]]) === 'ruim'
+    && $val('SELECT conservacao_avaliada_em FROM exemplares WHERE id = ?', [$dom[1]]) !== null);
+confere('a mudança de localização feita na conferência fica no histórico do exemplar', $num("SELECT COUNT(*) FROM movimentacoes WHERE exemplar_id = ? AND tipo = 'localizacao' AND inventario_id = ?", [$dom[1], $inv]) === 1);
 $semLocal = $num('SELECT id FROM exemplares WHERE codigo_individual = ?', ['BDP-000004']);
 $it3 = $invServ->conferir($inv, $semLocal, ['estado_conservacao' => 'regular', 'localizacao_id' => $locC], $bibId);
 confere('exemplar sem localização: a encontrada vira a confirmada (sem divergência)', !(int)$it3['divergencia_local'] && $num('SELECT localizacao_id FROM exemplares WHERE id = ?', [$semLocal]) === $locC);
 $r = $invRepo->resumo($inv);
-confere('contadores: previstos, conferidos, não conferidos, local e estado divergentes', $r['previstos'] === $previstos && $r['conferidos'] === 3 && $r['nao_conferidos'] === $previstos - 3 && $r['local_diferente'] === 1 && $r['estado_divergente'] === 1);
+confere('contadores: previstos, conferidos, não conferidos, local e estado divergentes', $r['previstos'] === $previstos && $r['conferidos'] === 3 && $r['nao_conferidos'] === $previstos - 3 && $r['local_diferente'] === 0 && $r['estado_divergente'] === 0);
 confere('código desconhecido não cria nada', $exRepo->porCodigo('BDP-999999') === null && $num('SELECT COUNT(*) FROM exemplares WHERE codigo_individual = ?', ['BDP-999999']) === 0);
 
 // ---------------------------------------------------------------
@@ -305,9 +307,8 @@ confere('localização repetida (maiúsculas/minúsculas) é recusada', recusa(f
 confere('código curto repetido é recusado', recusa(fn () => $locServ->salvar(['setor' => 'Outro', 'codigo' => 'LIT-E01-P01'], $bibId)) !== null);
 confere('localizações não podem ser excluídas fisicamente quando têm exemplares', bloqueado("DELETE FROM localizacoes WHERE id = $locA"));
 $itDiv = $invRepo->itemPorExemplar($inv, $dom[1]);
-$invServ->decidir((int)$itDiv['id'], 'atualizar_cadastro', 'confirmado na estante', $bibId);
-confere('decisão "atualizar cadastro" aplica a localização e o estado encontrados', $num('SELECT localizacao_id FROM exemplares WHERE id = ?', [$dom[1]]) === $locB && $val('SELECT estado_conservacao FROM exemplares WHERE id = ?', [$dom[1]]) === 'necessita_reparo');
-confere('decisão repetida é recusada', recusa(fn () => $invServ->decidir((int)$itDiv['id'], 'manter_cadastro', '', $bibId)) !== null);
+confere('sem divergência de local/estado, não há decisão pendente a tomar', recusa(fn () => $invServ->decidir((int)$itDiv['id'], 'manter_cadastro', '', $bibId)) !== null
+    && $num('SELECT localizacao_id FROM exemplares WHERE id = ?', [$dom[1]]) === $locB);
 
 // ---------------------------------------------------------------
 echo "\n9. Preservação da localização histórica\n";
@@ -323,7 +324,7 @@ confere('quantidade da planilha, físicos e disponíveis são números separados
 echo "\n10. Alteração do estado de conservação\n";
 $exServ->editar($dom[2], ['estado_conservacao' => 'danificado', 'observacoes' => 'capa rasgada'], $bibId);
 confere('estado alterado e registrado no histórico', $val('SELECT estado_conservacao FROM exemplares WHERE id = ?', [$dom[2]]) === 'danificado' && $num("SELECT COUNT(*) FROM movimentacoes WHERE exemplar_id = ? AND tipo = 'conservacao'", [$dom[2]]) === 1);
-confere('estado inválido recusado', recusa(fn () => $exServ->editar($dom[2], ['estado_conservacao' => 'ruim'], $bibId)) !== null);
+confere('estado inválido recusado', recusa(fn () => $exServ->editar($dom[2], ['estado_conservacao' => 'pessimo'], $bibId)) !== null);
 $exServ->alterarSituacao($dom[2], 'danificado', $bibId, 'retirado de circulação');
 confere('situação "danificado" retira de circulação', $val('SELECT situacao FROM exemplares WHERE id = ?', [$dom[2]]) === 'danificado');
 

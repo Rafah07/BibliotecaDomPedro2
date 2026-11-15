@@ -44,6 +44,10 @@ final class LocalizacaoService
             $where[] = 'l.setor = ?';
             $params[] = $f['setor'];
         }
+        if (!empty($f['avulsas'])) {
+            // Página "Localizações": só as avulsas (as prateleiras ficam na Organização Física).
+            $where[] = 'l.estante_id IS NULL';
+        }
         $situacao = $f['situacao'] ?? 'ativas';
         if ($situacao === 'ativas') {
             $where[] = 'l.ativa = 1';
@@ -72,21 +76,27 @@ final class LocalizacaoService
     /** Localizações ativas para os seletores, ordenadas. A atual ($incluir) aparece mesmo desativada. */
     public function ativas(?int $incluir = null): array
     {
-        return $this->todas('SELECT id, setor, estante, prateleira, complemento, codigo, ativa FROM localizacoes
-                             WHERE ativa = 1 OR id = ? ORDER BY setor, estante, prateleira, complemento, id', [$incluir ?? 0]);
+        // Prateleiras da Organização Física primeiro (na ordem de exibição), depois as localizações avulsas.
+        return $this->todas('SELECT l.id, l.setor, l.estante, l.prateleira, l.complemento, l.codigo, l.ativa, l.estante_id, l.descricao,
+                                    e.nome AS estante_nome, e.categoria AS estante_categoria, e.identificacao AS estante_identificacao, s.nome AS setor_nome
+                             FROM localizacoes l LEFT JOIN estantes e ON e.id = l.estante_id LEFT JOIN setores s ON s.id = e.setor_id
+                             WHERE (l.ativa = 1 AND (l.estante_id IS NULL OR (e.ativa = 1 AND (s.id IS NULL OR s.ativo = 1)))) OR l.id = ?
+                             ORDER BY l.estante_id IS NULL, s.ordem IS NULL, s.ordem, s.nome, e.ordem, e.identificacao, l.ordem,
+                                      l.setor, l.estante, l.prateleira, l.complemento, l.id', [$incluir ?? 0]);
     }
 
     /** @return list<string> setores distintos (ativos) */
     public function setores(): array
     {
-        return array_column($this->todas('SELECT DISTINCT setor FROM localizacoes WHERE ativa = 1 ORDER BY setor'), 'setor');
+        return array_column($this->todas("SELECT DISTINCT setor FROM localizacoes WHERE ativa = 1 AND setor <> '' ORDER BY setor"), 'setor');
     }
 
     /** Totais do topo da página. */
     public function resumo(): array
     {
         $r = $this->linha("SELECT COUNT(*) AS total, COALESCE(SUM(ativa = 1), 0) AS ativas, COALESCE(SUM(ativa = 0), 0) AS inativas,
-                                  COUNT(DISTINCT CASE WHEN ativa = 1 THEN setor END) AS setores FROM localizacoes") ?? [];
+                                  COUNT(DISTINCT CASE WHEN ativa = 1 AND setor <> '' THEN setor END) AS setores,
+                                  COALESCE(SUM(estante_id IS NULL AND ativa = 1), 0) AS avulsas FROM localizacoes") ?? [];
         $r['sem_local'] = (int)$this->valor("SELECT COUNT(*) FROM exemplares WHERE localizacao_id IS NULL AND situacao <> 'baixado'");
         return array_map('intval', $r);
     }
@@ -122,10 +132,14 @@ final class LocalizacaoService
                     $this->registrarAcao($responsavelId, 'localizacao.cadastrar', 'localizacao', $id, $d);
                     return $id;
                 }
-                $antes = $this->linha('SELECT setor, estante, prateleira, complemento, codigo, descricao FROM localizacoes WHERE id = ? FOR UPDATE', [$id]);
+                $antes = $this->linha('SELECT setor, estante, prateleira, complemento, codigo, descricao, estante_id FROM localizacoes WHERE id = ? FOR UPDATE', [$id]);
                 if (!$antes) {
                     throw new AcervoException('Localização não encontrada.');
                 }
+                if ($antes['estante_id'] !== null) {
+                    throw new AcervoException('Esta localização é uma prateleira de estante. Altere-a em Organização Física.');
+                }
+                unset($antes['estante_id']);
                 $this->executar('UPDATE localizacoes SET setor = ?, estante = ?, prateleira = ?, complemento = ?, codigo = ?, descricao = ? WHERE id = ?',
                     [$d['setor'], $d['estante'], $d['prateleira'], $d['complemento'], $d['codigo'], $d['descricao'], $id]);
                 $this->registrarAcao($responsavelId, 'localizacao.editar', 'localizacao', $id, ['antes' => $antes, 'depois' => $d]);
@@ -148,7 +162,7 @@ final class LocalizacaoService
     public function encontrarOuCriar(array $dados, int $responsavelId): int
     {
         $d = $this->validar($dados);
-        $existente = $this->linha('SELECT id, ativa FROM localizacoes WHERE setor = ? AND estante = ? AND prateleira = ? AND complemento = ?',
+        $existente = $this->linha('SELECT id, ativa FROM localizacoes WHERE estante_id IS NULL AND setor = ? AND estante = ? AND prateleira = ? AND complemento = ?',
             [$d['setor'], $d['estante'], $d['prateleira'], $d['complemento']]);
         if ($existente) {
             if (!(int)$existente['ativa']) {

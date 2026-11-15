@@ -139,6 +139,68 @@
         }
     });
 
+    // ---------- Localização com campos dependentes (Setor → Estante → Prateleira) ----------
+    // Sem JavaScript, só a lista de prateleiras (agrupada por estante) aparece e já funciona.
+    // Com JavaScript, aparecem os seletores de setor e estante e a lista de prateleiras passa a
+    // mostrar só as prateleiras da estante escolhida. Só a prateleira é enviada ao servidor.
+    const iniciarLocal = (caixa) => {
+        if (caixa.dataset.pronto === '1') return;
+        caixa.dataset.pronto = '1';
+        const setor = caixa.querySelector('[data-local-setor]');
+        const estante = caixa.querySelector('[data-local-estante]');
+        const prat = caixa.querySelector('[data-local-prateleira]');
+        if (!estante || !prat) return;
+        caixa.querySelectorAll('.adm-local-dep__aux').forEach((l) => { l.hidden = false; });
+        const vazio = prat.querySelector('option[value=""]');
+        const grupos = Array.from(prat.querySelectorAll('optgroup')).map((g) => g.cloneNode(true));
+        const estantes = Array.from(estante.querySelectorAll('option')).map((o) => o.cloneNode(true));
+        const montarEstantes = () => {
+            const s = setor ? setor.value : '';
+            const atual = estante.value;
+            estante.replaceChildren(...estantes
+                .filter((o) => o.value === '' || s === '' || o.dataset.setor === s)
+                .map((o) => o.cloneNode(true)));
+            estante.value = Array.from(estante.options).some((o) => o.value === atual) ? atual : '';
+        };
+        const montarPrateleiras = () => {
+            const e = estante.value;
+            const atual = prat.value;
+            const s = setor ? setor.value : '';
+            const validas = new Set(Array.from(estante.options).map((o) => o.value));
+            const lista = grupos.filter((g) => (e !== '' ? g.dataset.estante === e : (s === '' || validas.has(g.dataset.estante))));
+            const filhos = [vazio ? vazio.cloneNode(true) : new Option('', '')];
+            if (e !== '' && lista.length === 1) {
+                lista[0].querySelectorAll('option').forEach((o) => filhos.push(o.cloneNode(true)));
+            } else {
+                lista.forEach((g) => filhos.push(g.cloneNode(true)));
+            }
+            prat.replaceChildren(...filhos);
+            prat.value = Array.from(prat.options).some((o) => o.value === atual) ? atual : '';
+        };
+        if (setor) setor.addEventListener('change', () => { montarEstantes(); montarPrateleiras(); });
+        estante.addEventListener('change', () => { montarPrateleiras(); if (estante.value !== '') prat.focus(); });
+        montarEstantes();
+        montarPrateleiras();
+    };
+    const iniciarLocais = () => document.querySelectorAll('[data-local-dep]').forEach(iniciarLocal);
+    iniciarLocais();
+    document.addEventListener('conferencia:atualizada', iniciarLocais);
+
+    // ---------- Proteção contra clique duplo ----------
+    // Formulários com data-enviar-uma-vez ficam bloqueados depois do primeiro envio
+    // (o servidor também confere tudo dentro de uma transação).
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-enviar-uma-vez') || e.defaultPrevented) return;
+        if (form.dataset.enviando === '1') { e.preventDefault(); return; }
+        form.dataset.enviando = '1';
+        setTimeout(() => form.querySelectorAll('button[type=submit], button:not([type])').forEach((b) => { b.disabled = true; }), 0);
+    });
+    window.addEventListener('pageshow', () => document.querySelectorAll('form[data-enviando]').forEach((f) => {
+        delete f.dataset.enviando;
+        f.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+    }));
+
     // ---------- Confirmação ao registrar extravio ----------
     document.querySelectorAll('form.adm-decisao').forEach((form) => form.addEventListener('submit', (e) => {
         const decisao = form.querySelector('select[name="decisao"]');

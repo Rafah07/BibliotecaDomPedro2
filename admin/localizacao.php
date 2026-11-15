@@ -20,6 +20,10 @@ if ($id && !$atual) {
     admin_pagina_erro('Localização não encontrada', 'Ela pode ter sido informada errado no endereço.', 'map-pin-off');
     exit;
 }
+if ($atual && $atual['estante_id'] !== null) {
+    // Prateleira de uma estante: é editada em Organização Física (nome, ordem, situação).
+    admin_redirecionar(admin_url('organizacao-fisica') . '?estante=' . (int)$atual['estante_id']);
+}
 $campos = ['setor', 'estante', 'prateleira', 'complemento', 'codigo', 'descricao'];
 $dados = [];
 foreach ($campos as $c) {

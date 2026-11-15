@@ -87,7 +87,7 @@ $gestao = [$L, 200, 200, 403, 403];          // bibliotecária e administrador
 $soAdmin = [$L, 200, 403, 403, 403];
 $esperado = [
     'index.php' => $todos, 'livros.php' => $todos, 'detalhes-livro.php?id=' . $livro => $todos, 'categorias.php' => $todos,
-    'exemplares.php' => $todos, 'detalhes-exemplar.php?id=' . $ex[1] => $todos, 'localizacoes.php' => $todos,
+    'exemplares.php' => $todos, 'detalhes-exemplar.php?id=' . $ex[1] => $todos, 'localizacoes.php' => $todos, 'organizacao-fisica.php' => $todos, 'organizacao-etiquetas.php' => $todos,
     'inventario.php' => $todos, 'inventario-detalhes.php?id=' . $inv => $todos, 'inventario-relatorio.php?id=' . $inv => $todos,
     'classificacao.php' => $todos, 'revisao-cdd.php' => $todos, 'historico-cdd.php' => $todos, 'classificar-livro.php?id=' . $livro => $todos,
     'relatorio-cdd.php' => $todos, 'importacao.php' => $todos, 'historico-importacoes.php' => $todos, 'relatorios.php' => $todos,

@@ -18,7 +18,10 @@ const ADMIN_MENU = [
         'relatorio-cdd' => ['label' => 'Relatórios CDD', 'icon' => 'file-chart-column', 'arquivo' => 'relatorio-cdd.php', 'pronta' => true, 'oculto' => true],
         'exemplares' => ['label' => 'Exemplares', 'icon' => 'book-copy', 'arquivo' => 'exemplares.php', 'pronta' => true],
         'cadastrar-exemplar' => ['label' => 'Cadastrar exemplar', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-exemplar.php', 'pronta' => true, 'oculto' => true],
-        'localizacoes' => ['label' => 'Localizações', 'icon' => 'map-pin', 'arquivo' => 'localizacoes.php', 'pronta' => true, 'pai' => 'exemplares'],
+        // Organização Física (migração 140): setores, estantes, prateleiras, responsáveis e etiquetas.
+        'organizacao-fisica' => ['label' => 'Organização Física', 'icon' => 'columns-3', 'arquivo' => 'organizacao-fisica.php', 'pronta' => true],
+        'organizacao-etiquetas' => ['label' => 'Etiquetas das estantes', 'icon' => 'printer', 'arquivo' => 'organizacao-etiquetas.php', 'pronta' => true, 'oculto' => true],
+        'localizacoes' => ['label' => 'Localizações anteriores', 'icon' => 'map-pin', 'arquivo' => 'localizacoes.php', 'pronta' => true, 'pai' => 'organizacao-fisica'],
         'localizacao' => ['label' => 'Localização', 'icon' => 'map-pin', 'arquivo' => 'localizacao.php', 'pronta' => true, 'oculto' => true],
         'categorias' => ['label' => 'Categorias', 'icon' => 'tags', 'arquivo' => 'categorias.php', 'pronta' => true],
         'categoria' => ['label' => 'Categoria', 'icon' => 'tags', 'arquivo' => 'categoria.php', 'pronta' => true, 'oculto' => true],

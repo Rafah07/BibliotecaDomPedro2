@@ -4,7 +4,7 @@
  *
  * Uso: php admin/tests/ajuda-teste.php
  *
- * 1. Conteúdo (sem banco): 16 módulos, ids únicos, seções A–J, tutoriais relacionados e links
+ * 1. Conteúdo (sem banco): 17 módulos, ids únicos, seções A–J, tutoriais relacionados e links
  *    internos existentes, páginas do painel existentes, imagens com texto alternativo e, para cada
  *    tutorial, os nomes de campos, botões e mensagens citados (campo 'confere') encontrados no
  *    código-fonte das páginas — assim a documentação não descola do sistema.
@@ -26,7 +26,7 @@ echo "\n1. Conteúdo dos tutoriais\n";
 confere('PHP 8.2 ou mais novo', PHP_VERSION_ID >= 80200, PHP_VERSION);
 $modulos = ajuda_modulos();
 $tutoriais = ajuda_tutoriais();
-confere('16 módulos', count($modulos) === 16, (string)count($modulos));
+confere('17 módulos', count($modulos) === 17, (string)count($modulos));
 $semTutorial = array_keys(array_filter($modulos, fn ($m) => empty($m['tutoriais'])));
 confere('todo módulo tem tutoriais', !$semTutorial, implode(', ', $semTutorial));
 $semCampos = array_keys(array_filter($modulos, fn ($m) => empty($m['nome']) || empty($m['descricao']) || empty($m['icone'])));
@@ -198,7 +198,7 @@ $casos = [
     'cdd' => 'o-que-e-cdd', 'isbn invalido' => 'isbn-invalidos-importacao', 'csv' => 'faq-csv-erro', 'planilha alunos' => 'importar-alunos',
     'backup' => 'gerar-backup', 'copia de seguranca' => 'gerar-backup', 'esqueci senha' => 'faq-esqueci-senha',
     'permissoes' => 'perfis-existentes', 'relatorios' => 'acessar-relatorios', 'privacidade' => 'privacidade-alunos',
-    'localizacao' => 'localizacoes', 'configuracoes' => 'abrir-configuracoes', 'menu' => 'menu-lateral',
+    'localizacao' => 'localizacao-no-registro', 'estante' => 'organizacao-fisica-visao-geral', 'configuracoes' => 'abrir-configuracoes', 'menu' => 'menu-lateral',
 ];
 foreach ($casos as $q => $esperado) {
     $r = $ids($q);
@@ -253,7 +253,7 @@ $antes = $retrato();
 foreach ($nav as $perfil => $n) {
     [$s, $html] = $n->ir('admin/ajuda.php');
     $cards = preg_match_all('/class="adm-card ajd-modulo"/', $html);
-    confere("$perfil: abre a Central de Ajuda com os 16 módulos", $s === 200 && str_contains($html, 'Central de Ajuda') && $cards === 16 && teste_sem_erro_tecnico($html), "status $s, $cards cartões");
+    confere("$perfil: abre a Central de Ajuda com os 17 módulos", $s === 200 && str_contains($html, 'Central de Ajuda') && $cards === 17 && teste_sem_erro_tecnico($html), "status $s, $cards cartões");
     confere("$perfil: cabeçalho, subtítulo e campo de pesquisa com os textos pedidos", str_contains($html, 'Aprenda a utilizar as ferramentas da Biblioteca Dom Pedro II com tutoriais passo a passo.') && str_contains($html, 'Pesquisar uma dúvida ou funcionalidade...'));
     confere("$perfil: link Tutorial do Sistema visível (menu ou perfil)", substr_count($html, 'Tutorial do Sistema') >= 1 && str_contains($html, 'ajuda.php'));
     [$s, $html] = $n->ir('admin/ajuda.php?q=' . rawurlencode('emprestimo'));

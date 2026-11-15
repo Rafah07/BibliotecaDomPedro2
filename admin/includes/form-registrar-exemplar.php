@@ -2,7 +2,7 @@
 /**
  * Campos do EXEMPLAR físico no Inventário ("+ Registrar exemplar" e "Cadastrar livro não listado").
  * Espera: $rx (valores: codigo_bdp, estado_conservacao, localizacao_id, observacao, situacao_inventario, vinculo, processo_bdp),
- *         $locais (localizações ativas), $rxLivroId (obra, para a reserva do código; 0 = obra nova),
+ *         $rxSugestao (opcional: id da localização sugerida, a estante atual ou a última usada), $rxLivroId (obra, para a reserva do código; 0 = obra nova),
  *         $rxRegistros (TODAS as linhas da planilha desta obra, InventarioRepository::registrosDaObra; [] = nenhuma),
  *         $rxOrigem ('registrar' ou 'nao_listado': para onde volta o "Gerar código BDP" sem JavaScript).
  * O formulário que inclui este arquivo cuida do <form>, do CSRF e dos botões de salvar.
@@ -15,11 +15,15 @@
  * Linha da planilha: quando a obra tem linhas importadas, a equipe escolhe CONSCIENTEMENTE qual
  * linha este exemplar representa, ou "Exemplar adicional, sem linha correspondente". Nada vem
  * escolhido sozinho; linhas já ligadas a um exemplar aparecem desativadas, com o código.
+ *
+ * Localização definitiva: campos dependentes Setor → Estante → Prateleira (Organização Física).
+ * A localização antiga da planilha nunca é usada. Conservação: começa em "Não avaliado" e não é
+ * copiada de um exemplar para outro.
  */
 use Biblioteca\Services\CodigoBdpService;
 use Biblioteca\Services\InventarioService;
 
-$rx = ($rx ?? []) + ['codigo_bdp' => '', 'estado_conservacao' => 'bom', 'localizacao_id' => '', 'observacao' => '', 'situacao_inventario' => 'encontrado', 'vinculo' => '', 'processo_bdp' => ''];
+$rx = ($rx ?? []) + ['codigo_bdp' => '', 'estado_conservacao' => 'nao_avaliado', 'localizacao_id' => '', 'observacao' => '', 'situacao_inventario' => 'encontrado', 'vinculo' => '', 'processo_bdp' => ''];
 $rxRegistros = $rxRegistros ?? [];
 $rxLivroId = (int)($rxLivroId ?? 0);
 $rxOrigem = $rxOrigem ?? 'registrar';
@@ -27,6 +31,8 @@ $rxId = 'rx-' . $rxOrigem;
 $rxProcesso = CodigoBdpService::processoValido((string)$rx['processo_bdp']) ?? CodigoBdpService::novoProcesso();
 $rxLivres = array_values(array_filter($rxRegistros, fn ($r) => $r['exemplar_id'] === null));
 $rxVinculo = (string)$rx['vinculo'];
+$rxSugestao = isset($rxSugestao) && $rxSugestao ? (int)$rxSugestao : null;
+$rxLocal = (string)$rx['localizacao_id'] !== '' ? (int)$rx['localizacao_id'] : null;
 ?>
 <fieldset class="adm-fieldset adm-form-section">
     <legend class="adm-field__label">Exemplar físico</legend>
@@ -84,8 +90,15 @@ $rxVinculo = (string)$rx['vinculo'];
                     <span><strong><?= e($rotulo) ?></strong> <small><?= $valor === 'encontrado' ? 'o livro está em mãos agora' : 'registrar agora e conferir depois' ?></small></span></label>
             <?php endforeach; ?>
         </fieldset>
-        <label class="adm-field"><span class="adm-field__sublabel">Estado de conservação</span><?= fisico_select_conservacao('estado_conservacao', (string)$rx['estado_conservacao']) ?></label>
-        <label class="adm-field"><span class="adm-field__sublabel">Localização física (setor, estante, prateleira)</span><?= fisico_select_local('localizacao_id', (string)$rx['localizacao_id'] !== '' ? (int)$rx['localizacao_id'] : null, 'Não informar agora', '', $locais) ?></label>
+        <fieldset class="adm-field adm-field--full adm-escolha">
+            <legend class="adm-field__sublabel">Localização definitiva (setor, estante, prateleira)</legend>
+            <?= fisico_campo_local('localizacao_id', $rxLocal, 'Sem localização definida agora', $rxId . '-local') ?>
+            <?php if ($rxSugestao !== null && $rxSugestao === $rxLocal): ?>
+                <p class="adm-local-sugestao"><?= icon('map-pin') ?> Localização sugerida: <?= e(fisico_local_id($rxSugestao)) ?> (estante atual / última utilizada). Pode trocar à vontade ou escolher “Sem localização definida agora”.</p>
+            <?php endif; ?>
+        </fieldset>
+        <label class="adm-field"><span class="adm-field__sublabel">Estado de conservação</span><?= fisico_select_conservacao('estado_conservacao', (string)$rx['estado_conservacao']) ?>
+            <span class="adm-field__hint">Avalie este exemplar. “Não avaliado” pode ficar para depois.</span></label>
         <label class="adm-field adm-field--full"><span class="adm-field__sublabel">Observações deste exemplar <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="observacao" maxlength="500" value="<?= e((string)$rx['observacao']) ?>" placeholder="Ex.: capa solta, dedicatória na folha de rosto"></label>
     </div>
 </fieldset>

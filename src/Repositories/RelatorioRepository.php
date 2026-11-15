@@ -30,7 +30,7 @@ final class RelatorioRepository
     use ConsultasPdo;
 
     public const SITUACOES_EXEMPLAR = ['disponivel', 'emprestado', 'aguardando', 'manutencao', 'danificado', 'extraviado', 'baixado'];
-    public const CONSERVACAO = ['bom', 'regular', 'danificado', 'necessita_reparo'];
+    public const CONSERVACAO = ['nao_avaliado', 'excelente', 'bom', 'regular', 'ruim', 'danificado', 'necessita_reparo'];
     public const PENDENCIAS_LIVRO = ['com_isbn', 'sem_isbn', 'sem_autor', 'sem_editora', 'sem_ano', 'incompletos', 'sem_categoria', 'sem_exemplar', 'duplicidade'];
     public const STATUS_LIVRO = ['validado', 'aguardando_conferencia', 'dados_incompletos', 'com_divergencia'];
     public const SITUACOES_EMPRESTIMO = ['todos', 'ativos', 'atrasados', 'concluidos'];

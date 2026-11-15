@@ -258,8 +258,14 @@ final class InventarioService
 
     /**
      * Registra a conferência de um exemplar já cadastrado.
-     * Dados: estado_conservacao (obrigatório), localizacao_id (vazio = não informado), observacao,
-     * aplicar (atualizar o cadastro na hora, se houver divergência de local/estado; só com $podeDecidir).
+     * Dados: estado_conservacao (obrigatório; "nao_avaliado" = ninguém avaliou agora), localizacao_id
+     * (vazio = não informado), observacao, aplicar (mantido por compatibilidade).
+     *
+     * Reorganização da biblioteca (migração 140): a localização escolhida aqui é a NOVA localização
+     * do exemplar. Ele é movido para ela na hora, com o histórico (anterior → nova, quem, quando);
+     * não é tratado como "fora do lugar" nem fica pendente de decisão. Da mesma forma, uma
+     * classificação de conservação escolhida é uma avaliação feita agora e vai para o exemplar.
+     * Só a divergência de SITUAÇÃO (emprestado, extraviado, baixado) continua pedindo decisão.
      * @return array item conferido (com as divergências encontradas)
      */
     public function conferir(int $inventarioId, int $exemplarId, array $dados, int $responsavelId, bool $podeDecidir = false): array
@@ -288,8 +294,9 @@ final class InventarioService
                 }
                 $localAtual = $ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null;
                 $localEncontrado ??= $localAtual;
-                $divLocal = $localAtual !== null && $localEncontrado !== null && $localEncontrado !== $localAtual;
-                $divEstado = $estado !== $ex['estado_conservacao'];
+                // Localização e conservação: aplicadas ao exemplar logo abaixo (não são divergências).
+                $divLocal = false;
+                $divEstado = false;
                 $divSituacao = in_array($ex['situacao'], ['emprestado', 'extraviado', 'baixado'], true) || $ex['emprestimo_aberto'] !== null;
 
                 // Encontrado: se estava "Não localizado", a marcação é desfeita (fica no histórico do exemplar).
@@ -297,14 +304,14 @@ final class InventarioService
                                         divergencia_local = ?, divergencia_estado = ?, divergencia_situacao = ?, nao_localizado_em = NULL, nao_localizado_por = NULL, nao_localizado_obs = NULL WHERE id = ?',
                     [$responsavelId, $localEncontrado, $estado, $obs, (int)$divLocal, (int)$divEstado, (int)$divSituacao, $item['id']]);
 
-                // Exemplar ainda sem localização: a localização encontrada passa a ser a confirmada.
-                if ($localAtual === null && $localEncontrado !== null && $ex['situacao'] !== 'baixado') {
-                    $this->exemplares->transferir($exemplarId, $localEncontrado, $responsavelId, 'localização confirmada na conferência', $inventarioId);
+                // Nova localização escolhida: o exemplar passa a ficar nela (histórico: anterior → nova).
+                if ($localEncontrado !== null && $localEncontrado !== $localAtual && $ex['situacao'] !== 'baixado') {
+                    $this->exemplares->transferir($exemplarId, $localEncontrado, $responsavelId,
+                        $localAtual === null ? 'localização definida na conferência' : 'nova localização definida na conferência', $inventarioId);
                 }
-                if ($aplicar && ($divLocal || $divEstado) && !$divSituacao) {
-                    $this->aplicarEncontrado($exemplarId, $divLocal ? $localEncontrado : null, $divEstado ? $estado : null, $responsavelId, $inventarioId);
-                    $this->executar("UPDATE inventario_itens SET decisao = 'atualizar_cadastro', decidido_por = ?, decidido_em = NOW(), decisao_observacao = ? WHERE id = ?",
-                        [$responsavelId, 'Atualizado no momento da conferência', $item['id']]);
+                // Conservação avaliada agora (qualquer opção diferente de "Não avaliado").
+                if ($estado !== ExemplarService::NAO_AVALIADO && $ex['situacao'] !== 'baixado') {
+                    $this->exemplares->alterarConservacao($exemplarId, $estado, $responsavelId, $inventarioId);
                 }
                 $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$exemplarId]);
                 $avisos = array_filter([$divLocal ? 'localização diferente' : null, $divEstado ? 'estado diferente' : null, $divSituacao ? 'situação ' . ExemplarService::rotuloSituacao($ex['emprestimo_aberto'] !== null ? 'emprestado' : $ex['situacao']) : null]);
@@ -555,7 +562,7 @@ final class InventarioService
      */
     public function encontrarRegistro(int $itemId, array $dados, int $responsavelId): array
     {
-        $estado = (string)($dados['estado_conservacao'] ?? 'bom');
+        $estado = (string)($dados['estado_conservacao'] ?? ExemplarService::NAO_AVALIADO);
         if (!in_array($estado, ExemplarService::CONSERVACAO, true)) {
             throw new AcervoException('Informe o estado de conservação encontrado.');
         }
@@ -619,7 +626,7 @@ final class InventarioService
         if (!isset(self::SITUACOES_REGISTRO[$situacao])) {
             throw new AcervoException('Escolha a situação do exemplar no inventário (Encontrado ou Pendente).');
         }
-        $estado = (string)($dados['estado_conservacao'] ?? 'bom');
+        $estado = (string)($dados['estado_conservacao'] ?? ExemplarService::NAO_AVALIADO);
         if (!in_array($estado, ExemplarService::CONSERVACAO, true)) {
             throw new AcervoException('Escolha o estado de conservação do exemplar.');
         }
