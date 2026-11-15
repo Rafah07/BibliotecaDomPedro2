@@ -390,7 +390,10 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
         <?php if (!$lista['itens']): ?>
             <div class="adm-empty"><?= icon('columns-3') ?>
                 <strong><?= array_filter($filtros) ? 'Nenhuma estante encontrada com estes filtros.' : 'Nenhuma estante cadastrada ainda.' ?></strong>
-                <span><?= $podeGerenciar ? 'Comece por “+ Adicionar estante” ou “Criar várias estantes” (ex.: 10 estantes com 5 prateleiras cada).' : 'Peça a quem gerencia as localizações para cadastrar as estantes.' ?></span></div>
+                <span><?= array_filter($filtros) ? 'Mude a pesquisa ou limpe os filtros.' : ($podeGerenciar ? 'Cadastre a estrutura física da biblioteca para começar: uma estante por vez ou várias de uma só vez (ex.: 10 estantes com 5 prateleiras cada).' : 'Peça a quem gerencia as localizações para cadastrar as estantes.') ?></span>
+                <?php if ($podeGerenciar && !array_filter($filtros)): ?><span class="adm-empty__acoes">
+                    <a class="adm-button adm-button--primary adm-button--sm" href="<?= e($base . '?painel=estante') ?>" data-painel-abrir="painel-estante"><?= icon('plus') ?> Adicionar estante</a>
+                    <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '?painel=lote') ?>" data-painel-abrir="painel-lote"><?= icon('layers') ?> Criar várias estantes</a></span><?php endif; ?></div>
         <?php else: ?>
             <ul class="adm-org-grade">
                 <?php foreach ($lista['itens'] as $es): $pct = $resumo['com_localizacao'] > 0 ? (int)round((int)$es['exemplares'] / max(1, $resumo['com_localizacao']) * 100) : 0; ?>
@@ -417,6 +420,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
             <?php if (!$andamento): ?>
                 <p class="adm-field__hint">Cadastre estantes e defina responsáveis para acompanhar quem está organizando cada uma.</p>
             <?php else: ?>
+                <div class="adm-table-wrap adm-table-wrap--inset">
                 <table class="adm-table adm-table--compacta">
                     <thead><tr><th scope="col">Responsável / equipe</th><th scope="col">Estantes</th><th scope="col">Prateleiras</th><th scope="col">Exemplares alocados</th></tr></thead>
                     <tbody>
@@ -428,7 +432,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             <?php endif; ?>
             <h3 class="adm-org__subtitulo">Organizados nos últimos 7 dias</h3>
             <?php if (!$organizados): ?>
@@ -567,7 +571,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
     </dialog>
 
     <?php $v = $valores('setor'); ?>
-    <dialog class="adm-modal adm-painel-lateral" id="painel-setor" aria-labelledby="painel-setor-titulo"<?= $abrir('setor') ?>>
+    <dialog class="adm-modal adm-painel-lateral adm-painel-lateral--estreito" id="painel-setor" aria-labelledby="painel-setor-titulo"<?= $abrir('setor') ?>>
         <form class="adm-modal__box" method="post" action="<?= e($base) ?>">
             <header class="adm-modal__header"><div><h2 id="painel-setor-titulo"><?= icon('landmark') ?> Novo setor ou sala</h2></div><a class="adm-modal__close" href="<?= e($base) ?>" data-painel-fechar aria-label="Fechar"><?= icon('x') ?></a></header>
             <div class="adm-modal__body">
@@ -601,7 +605,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
         </dialog>
 
         <?php $v = $valores('responsavel') ?: ['responsavel_id' => $estante['responsavel_id'], 'equipe' => $estante['equipe']]; ?>
-        <dialog class="adm-modal adm-painel-lateral" id="painel-responsavel" aria-labelledby="painel-responsavel-titulo"<?= $abrir('responsavel') ?>>
+        <dialog class="adm-modal adm-painel-lateral adm-painel-lateral--estreito" id="painel-responsavel" aria-labelledby="painel-responsavel-titulo"<?= $abrir('responsavel') ?>>
             <form class="adm-modal__box" method="post" action="<?= e($base) ?>">
                 <header class="adm-modal__header"><div><h2 id="painel-responsavel-titulo"><?= icon('user-check') ?> Responsável pela <?= e($estante['nome']) ?></h2><p>Só para organizar o trabalho. Não bloqueia a edição por outras pessoas e não cria contas.</p></div><a class="adm-modal__close" href="<?= e($aqui) ?>" data-painel-fechar aria-label="Fechar"><?= icon('x') ?></a></header>
                 <div class="adm-modal__body">
@@ -617,7 +621,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
         </dialog>
 
         <?php $v = $valores('prateleiras'); ?>
-        <dialog class="adm-modal adm-painel-lateral" id="painel-prateleiras" aria-labelledby="painel-prateleiras-titulo"<?= $abrir('prateleiras') ?>>
+        <dialog class="adm-modal adm-painel-lateral adm-painel-lateral--estreito" id="painel-prateleiras" aria-labelledby="painel-prateleiras-titulo"<?= $abrir('prateleiras') ?>>
             <form class="adm-modal__box" method="post" action="<?= e($base) ?>">
                 <header class="adm-modal__header"><div><h2 id="painel-prateleiras-titulo"><?= icon('plus') ?> Adicionar prateleiras</h2><p><?= e(fisico_rotulo_estante($estante)) ?></p></div><a class="adm-modal__close" href="<?= e($aqui) ?>" data-painel-fechar aria-label="Fechar"><?= icon('x') ?></a></header>
                 <div class="adm-modal__body">

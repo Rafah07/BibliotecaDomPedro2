@@ -43,6 +43,14 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
 .adm-table--emprestimos th, .adm-table--emprestimos td { padding-left: 14px; padding-right: 14px; }
 .adm-table--emprestimos th:first-child, .adm-table--emprestimos td:first-child { padding-left: 20px; }
 .adm-table--emprestimos th:last-child, .adm-table--emprestimos td:last-child { padding-right: 20px; }
+/* Telas médias (ex.: 1366 px): cabeçalhos e data/hora quebram em duas linhas para a tabela caber
+   sem esconder a coluna Situação embaixo da coluna fixa de ações. */
+@media (min-width: 721px) {
+    .adm-table--emprestimos th { white-space: normal; vertical-align: bottom; }
+    .adm-table--emprestimos th:not(:first-child):not(:last-child), .adm-table--emprestimos td:not(:first-child):not(:last-child) { padding-left: 11px; padding-right: 11px; }
+    .adm-table--emprestimos td[data-label="Retirada"],
+    .adm-table--emprestimos td[data-label="Devolvido em"] { white-space: normal; min-width: 92px; }
+}
 /* Empréstimo atrasado: marca vermelha discreta no início da linha (a situação continua escrita no selo). */
 .adm-table tr.adm-row--alerta > td:first-child { box-shadow: inset 3px 0 0 var(--adm-red); }
 .adm-table tr.adm-row--alerta td[data-label="Devolução prevista"] { color: var(--adm-red); font-weight: 600; }
@@ -68,7 +76,7 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
 .adm-form-section.is-pending { opacity: .65; }
 
 /* Escolha atual (aluno ou exemplar) */
-.adm-escolha {
+.adm-escolha-atual {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -77,9 +85,9 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
     border-radius: var(--adm-radius);
     background: var(--adm-blue-50);
 }
-.adm-escolha > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
-.adm-escolha small { color: var(--adm-muted); overflow-wrap: anywhere; }
-.adm-escolha.is-blocked { border-color: #fecaca; background: var(--adm-red-50); }
+.adm-escolha-atual > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.adm-escolha-atual small { color: var(--adm-muted); overflow-wrap: anywhere; }
+.adm-escolha-atual.is-blocked { border-color: #fecaca; background: var(--adm-red-50); }
 
 /* Resultados da pesquisa de alunos e exemplares */
 .adm-resultados { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
@@ -98,9 +106,9 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
 .adm-resultados li.is-blocked { background: var(--adm-bg); }
 
 @media (max-width: 720px) {
-    .adm-escolha,
+    .adm-escolha-atual,
     .adm-resultados li { flex-wrap: wrap; }
-    .adm-escolha .adm-button,
+    .adm-escolha-atual .adm-button,
     .adm-resultados .adm-button { width: 100%; justify-content: center; }
     .adm-table--emprestimos .adm-row-actions { display: flex; flex-wrap: wrap; width: 100%; }
     .adm-table--emprestimos tbody tr .adm-td-title { grid-column: 1 / -1; }

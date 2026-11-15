@@ -7,7 +7,6 @@
 :where(.adm-body) h3 { margin: 0; }
 :where(.adm-body) dl, :where(.adm-body) dd { margin: 0; }
 
-.adm-mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .95em; letter-spacing: .01em; }
 .adm-missing { color: #94a3b8; font-style: italic; }
 .adm-text-green { color: var(--adm-green); }
 .adm-block-muted { display: block; color: var(--adm-muted); font-size: 12px; }
@@ -120,7 +119,8 @@ label.adm-button { cursor: pointer; }
 
 .adm-filters {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    /* Colunas de pelo menos 150 px: com poucos filtros num cartão estreito, eles não ficam espremidos. */
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 10px;
 }
 .adm-filters--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -174,7 +174,7 @@ label.adm-button { cursor: pointer; }
 .adm-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .adm-field--full { grid-column: 1 / -1; }
 .adm-field__label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #26324a; }
-.adm-field__sublabel { font-size: 12px; font-weight: 500; color: var(--adm-muted); }
+.adm-field__sublabel { font-size: 13px; font-weight: 600; color: #334155; }
 .adm-field__icon { width: 15px !important; height: 15px !important; color: var(--adm-amber-text); }
 .adm-field__hint { font-size: 12px; color: var(--adm-muted); }
 .adm-field__hint.is-ok { color: var(--adm-green); }
@@ -256,15 +256,17 @@ label.adm-button { cursor: pointer; }
 .adm-radio-card small { color: var(--adm-muted); font-size: 12.5px; line-height: 1.4; }
 .adm-radio-card:has(input:checked) { border-color: var(--adm-blue-bright); background: #f7faff; box-shadow: 0 0 0 3px rgba(47, 107, 216, .1); }
 
+/* Bloco de texto corrido (não flex): textos com link no meio não viram colunas separadas. */
 .adm-side-note {
-    display: flex;
-    gap: 8px;
+    display: block;
+    position: relative;
+    padding-left: 24px;
     margin-top: 14px !important;
     font-size: 12.5px;
     color: #2c4374;
     line-height: 1.45;
 }
-.adm-side-note .icon { width: 16px; height: 16px; margin-top: 1px; color: var(--adm-blue-accent); }
+.adm-side-note > .icon:first-child { position: absolute; left: 0; top: 1px; width: 16px; height: 16px; color: var(--adm-blue-accent); }
 
 /* Autores (chips + lista de sugestões) */
 .adm-combobox { position: relative; }
@@ -666,11 +668,17 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
 
 /* Conferências */
 .adm-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.adm-check { padding: 12px 14px; border: 1px solid var(--adm-border); border-left: 3px solid var(--adm-green); border-radius: var(--adm-radius); }
-.adm-check--warn { border-left-color: var(--adm-amber); }
+.adm-checks > .adm-check { padding: 12px 14px; border: 1px solid var(--adm-border); border-left: 3px solid var(--adm-green); border-radius: var(--adm-radius); }
+.adm-checks > .adm-check--warn { border-left-color: var(--adm-amber); }
 .adm-check__top { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 4px; }
 .adm-check p { font-size: 13.5px; }
 .adm-check small { color: var(--adm-muted); font-size: 12px; }
+/* Caixa de marcar com texto (label.adm-check): linha simples, sem cartão. */
+label.adm-check { display: flex; align-items: flex-start; gap: 8px; width: fit-content; max-width: 100%; font-size: 13.5px; line-height: 1.4; color: var(--adm-text, #1f2937); cursor: pointer; }
+label.adm-check > input[type=checkbox] { flex-shrink: 0; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--adm-navy); cursor: pointer; }
+label.adm-check > span { min-width: 0; }
+label.adm-check small { display: block; margin-top: 1px; }
+th label.adm-check, td label.adm-check { margin: 0; }
 
 /* ---------- Detalhes do exemplar ---------- */
 .adm-action-list { display: grid; gap: 6px; }
@@ -834,6 +842,8 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
     .adm-toolbar { grid-template-columns: minmax(0, 1fr) auto; }
     .adm-toolbar .adm-filters { grid-row: auto; display: none; }
     .adm-toolbar.is-open .adm-filters { display: grid; }
+    /* Formulários de filtro sem o botão "Filtros": os campos ficam sempre visíveis (antes sumiam no celular). */
+    .adm-toolbar:not(:has([data-filters-toggle])) .adm-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-toolbar [data-clear-filters] { grid-column: 1 / -1; grid-row: auto; justify-self: start; min-height: 34px; display: none; }
     .adm-toolbar.is-open [data-clear-filters] { display: inline-flex; }
     .adm-filters-toggle { display: inline-flex !important; min-height: 42px !important; }
@@ -861,7 +871,9 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
     .adm-table--cards td[data-label] {
         grid-column: 1 / -1;
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        column-gap: 4px;
         align-items: baseline;
         gap: 12px;
         padding: 5px 0 !important;
@@ -869,17 +881,25 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
         font-size: 13px;
         text-align: right;
     }
-    .adm-table--cards td[data-label]::before { content: attr(data-label); flex-shrink: 0; color: var(--adm-muted); font: 400 12px/1.5 Inter, system-ui, sans-serif; letter-spacing: 0; text-align: left; }
+    .adm-table--cards td[data-label]::before { content: attr(data-label); flex-shrink: 0; margin-right: auto; padding-right: 8px; color: var(--adm-muted); font: 400 12px/1.5 Inter, system-ui, sans-serif; letter-spacing: 0; text-align: left; }
     .adm-table--cards td[data-label="Autor"] { max-width: none; }
     .adm-table--cards td[data-label] > small { display: inline; margin-left: 4px; }
     .adm-table--cards .adm-td-cover { grid-column: 1; grid-row: 1; padding-bottom: 8px !important; }
     .adm-table--cards .adm-td-title { grid-column: 2; grid-row: 1; padding-bottom: 6px !important; align-self: center; }
+    /* Sem largura mínima de tabela nos cards: o título não passa por baixo dos botões de ação. */
+    .adm-table--cards .adm-td-title, .adm-table--cards td[data-label], .adm-table--cards .adm-td-wrap { min-width: 0 !important; max-width: none; }
+    .adm-table--cards .adm-td-title > a { overflow-wrap: anywhere; }
     .adm-table--cards .adm-actions-col { grid-column: 3; grid-row: 1; width: auto; }
+    /* Três ações, ou dois botões com texto, não cabem ao lado do título: vão para uma linha própria no fim do card. */
+    .adm-table--cards .adm-actions-col:has(.adm-actions-inline > :nth-child(3), .adm-button ~ .adm-button, .adm-button ~ form, form ~ .adm-button) { grid-column: 1 / -1; grid-row: auto; padding-top: 10px !important; border-top: 1px dashed var(--adm-border) !important; }
+    .adm-table--cards .adm-actions-col:has(.adm-actions-inline > :nth-child(3), .adm-button ~ .adm-button, .adm-button ~ form, form ~ .adm-button) .adm-actions-inline { justify-content: flex-start; flex-wrap: wrap; }
+    .adm-table--cards tbody tr:has(.adm-actions-inline > :nth-child(3), .adm-button ~ .adm-button, .adm-button ~ form, form ~ .adm-button):not(:has(.adm-td-cover)) .adm-td-title { grid-column: 1 / -1; }
     .adm-table--cards tbody tr:not(:has(.adm-td-cover)) .adm-td-title { grid-column: 1 / 3; }
     .adm-table--cards tbody tr:not(:has(.adm-td-cover)) td[data-label] { grid-column: 1 / -1; }
     .adm-table--cards .adm-num { text-align: right !important; }
     .adm-table--cards .adm-td-wrap { max-width: none; min-width: 0; }
     .adm-table--cards tr[data-empty] td { padding: 0 !important; }
+    .adm-table--cards td[colspan] { grid-column: 1 / -1; width: auto !important; max-width: none !important; }
     .adm-table--books .adm-row-actions > a { display: none; }
     .adm-table--books .adm-actions-col { position: static; box-shadow: none; background: transparent !important; }
 
@@ -918,7 +938,7 @@ a.adm-code:hover { border-color: #b9cbf3; background: var(--adm-blue-50); }
 @media (max-width: 420px) {
     .adm-filters, .adm-filters--4 { grid-template-columns: 1fr; }
     .adm-kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .adm-meta, .adm-meta--two { grid-template-columns: 1fr 1fr; }
+    .adm-meta, .adm-meta--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-stats:has(.adm-stat--compact) { grid-template-columns: 1fr 1fr; gap: 10px; }
     .adm-stat--compact { padding: 14px; }
     .adm-stat--compact .adm-icon-box { display: none; }
@@ -1000,6 +1020,8 @@ a.adm-th-sort { text-decoration: none; }
     .adm-toolbar--search [type=submit] { grid-column: 1; grid-row: 3; }
     .adm-toolbar--search .adm-button:not([type=submit]) { grid-column: 2; grid-row: 3; }
     .adm-table--livros .adm-td-title { max-width: none; }
+    .adm-table--livros td[data-label="Autor"], .adm-table--livros td[data-label="Editora / ano"] { min-width: 0; max-width: none; }
+    .adm-table--livros td[data-label="Editora / ano"] small { display: inline; margin-left: 4px; }
 }
 
 /* Formulários curtos (contas de acesso, meu perfil, arquivamento) */
@@ -1009,3 +1031,18 @@ a.adm-th-sort { text-decoration: none; }
 .adm-form-section > .adm-field + .adm-button { margin-top: 16px; }
 .adm-perfis-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 13px; color: #334155; }
 .adm-perfis-lista strong { display: block; color: var(--adm-text); margin-bottom: 2px; }
+
+/* Botão logo depois de uma grade de campos (formulários curtos): respiro acima do botão. */
+.adm-form-grid + .adm-button,
+.adm-form-grid + button { margin-top: 16px; }
+/* Grupo de campos (fieldset.adm-field): sem a moldura padrão do navegador. */
+fieldset.adm-field { border: 0; padding: 0; margin: 0; min-width: 0; }
+fieldset.adm-field > legend { padding: 0; margin-bottom: 6px; }
+/* Ações da linha (Editar, Desativar...) lado a lado no computador, sem empilhar. */
+@media (min-width: 721px) {
+    .adm-actions-col .adm-actions-inline { flex-wrap: nowrap; }
+}
+/* Barra de filtros sem campo de pesquisa (ex.: Histórico de Lotes): botões ao lado dos filtros, não sozinhos acima. */
+@media (min-width: 721px) {
+    .adm-toolbar--search:not(:has(.adm-toolbar__q)) .adm-filters { grid-row: 1; grid-column: 1; }
+}

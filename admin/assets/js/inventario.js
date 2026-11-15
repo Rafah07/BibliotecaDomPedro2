@@ -128,7 +128,7 @@
                 status.append(json.nova ? 'Código reservado para este formulário (ainda não atribuído): ' : 'Este formulário já tinha este código reservado: ');
                 const forte = document.createElement('strong');
                 forte.textContent = json.codigo;
-                status.append(forte, '. Escreva-o no carimbo do livro e depois clique em Salvar exemplar.');
+                status.append(forte, '. Ele fica definitivo ao clicar em Salvar exemplar (carimbe agora ou depois, por lote).');
             }
             campo.focus();
         } catch (erro) {

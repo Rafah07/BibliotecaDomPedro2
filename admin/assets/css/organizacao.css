@@ -115,3 +115,22 @@
     .adm-org-folha { box-shadow: none; margin: 0; page-break-after: always; break-after: page; }
     .adm-org-folha:last-child { page-break-after: auto; break-after: auto; }
 }
+
+/* Formulário simples em coluna (ex.: Etiquetas das estantes) */
+.adm-form { display: flex; flex-direction: column; gap: 14px; }
+.adm-form > .adm-actions-inline { justify-content: flex-start; }
+.adm-form .adm-field__hint { margin: 0; }
+.adm-chips label.adm-check { align-items: center; padding: 6px 12px; border: 1px solid var(--adm-border); border-radius: 999px; background: var(--adm-white); font-size: 13px; }
+.adm-chips label.adm-check:has(input:checked) { border-color: var(--adm-blue-accent); background: var(--adm-blue-50); }
+.adm-chips label.adm-check > input[type=checkbox] { margin: 0; }
+.adm-org-colunas .adm-table--compacta { min-width: 0; }
+.adm-org-colunas .adm-table--compacta th { white-space: normal; }
+.adm-form__acoes { display: flex; flex-wrap: wrap; gap: var(--adm-space-2); padding-top: var(--adm-space-1); }
+@media (max-width: 720px) { .adm-form__acoes .adm-button { flex: 1 1 100%; justify-content: center; } }
+/* Etiquetas das estantes: opções agrupadas, ações e cabeçalho da pré-visualização */
+.adm-etq-opcoes { gap: var(--adm-space-2); padding-top: var(--adm-space-1); }
+.adm-etq-opcoes > legend { margin-bottom: var(--adm-space-1); }
+.adm-etq-acoes { justify-content: flex-start; padding-top: var(--adm-space-3); border-top: 1px solid var(--adm-border); }
+.adm-etq-previa-topo { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: var(--adm-space-5) 0 var(--adm-space-3); }
+.adm-etq-previa-topo h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; font-weight: 700; color: var(--adm-navy-dark); }
+.adm-etq-previa-topo h2 .icon { width: 18px; height: 18px; color: var(--adm-blue-accent); }
