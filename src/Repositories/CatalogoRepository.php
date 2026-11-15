@@ -166,7 +166,7 @@ final class CatalogoRepository
                 JOIN livros l ON l.id = la.livro_id AND l.arquivado_em IS NULL AND l.titulo IS NOT NULL';
         $params = [];
         if ($busca !== '') {
-            $sql .= ' WHERE a.nome LIKE :busca COLLATE utf8mb4_unicode_ci';
+            $sql .= ' WHERE a.nome LIKE CONVERT(:busca USING utf8mb4) COLLATE utf8mb4_unicode_ci';
             $params[':busca'] = '%' . self::escaparLike($busca) . '%';
         }
         $sql .= ' GROUP BY a.id, a.nome ORDER BY total DESC, a.nome LIMIT :limite';
@@ -278,7 +278,7 @@ final class CatalogoRepository
     {
         $nome = ':p' . (++$this->marcador);
         $params[$nome] = $valor;
-        return $semAcento ? "$nome COLLATE utf8mb4_unicode_ci" : $nome;
+        return $semAcento ? "CONVERT($nome USING utf8mb4) COLLATE utf8mb4_unicode_ci" : $nome;
     }
 
     /** Palavras da pesquisa (no máximo 8), sem pontuação solta. */
