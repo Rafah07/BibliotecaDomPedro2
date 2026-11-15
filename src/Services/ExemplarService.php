@@ -26,6 +26,13 @@ use PDO;
  *     sistema) ou "Carimbado" (código digitado do carimbo do livro), entra no lote de cadastramento
  *     aberto de quem registrou (com a ordem dentro do lote) e, se ainda falta carimbo ou localização
  *     definitiva, fica "Aguardando liberação" até o preparo terminar (regras em Configurações).
+ *   * Lotes gerenciados (migração 160): o exemplar entra no LOTE ATIVO de quem registra (escolhido em
+ *     "Meus lotes"), só se a pessoa participa do lote, o lote está "Em cadastro" e ainda tem vaga.
+ *     A vaga é contada por exemplar físico, com a linha do lote bloqueada (cadastros simultâneos não
+ *     ultrapassam a capacidade) e o lote fecha sozinho ao ficar cheio. Depois que existe algum lote
+ *     gerenciado, ninguém registra exemplar sem lote ativo. Exemplar de lote gerenciado só fica
+ *     disponível para empréstimo depois de carimbado E guardado na estante, qualquer que seja a
+ *     configuração. Cada passo vai também para lote_eventos (histórico permanente do lote).
  *   * Operação atual (definirOperacao): cada movimentação gravada leva o número da operação, para
  *     que "Desfazer ações recentes" saiba exatamente o que foi alterado.
  */
@@ -62,6 +69,9 @@ final class ExemplarService
      */
     private bool $emprestarSemCarimbo = true;
     private bool $emprestarSemOrganizacao = true;
+
+    /** O último registro fechou o lote (ficou cheio)? */
+    private bool $loteFechou = false;
 
     /** Operação em andamento (OperacaoService): gravada em cada movimentação. */
     private ?int $operacaoId = null;
@@ -122,8 +132,8 @@ final class ExemplarService
                 throw new AcervoException('A numeração BDP chegou ao limite de ' . self::CODIGO_MAXIMO . ' exemplares.');
             }
             $this->executar('UPDATE exemplar_codigo_seq SET ultimo = ? WHERE id = 1', [$ultimo + $quantidade]);
-            [$situacaoFinal, $pendente] = $this->situacaoInicial($situacao, $carimbo, $localId);
-            [$loteId, $ordem] = $this->reservarOrdemNoLote($responsavelId, $quantidade);
+            [$loteId, $ordem, $gerenciado] = $this->reservarOrdemNoLote($responsavelId, $quantidade);
+            [$situacaoFinal, $pendente] = $this->situacaoInicial($situacao, $carimbo, $localId, $gerenciado);
 
             $criados = [];
             for ($i = 1; $i <= $quantidade; $i++) {
@@ -132,7 +142,7 @@ final class ExemplarService
                 $this->movimentacao($id, 'cadastro', ($inventarioId ? 'Exemplar cadastrado durante a conferência do inventário nº ' . $inventarioId : 'Exemplar físico cadastrado')
                     . ' · ' . self::CARIMBO[$carimbo] . ($pendente ? ' · aguardando liberação para empréstimo' : ''),
                     $responsavelId, $inventarioId, ['estado' => $estado, 'situacao' => $situacaoFinal, 'localizacao_id' => $localId, 'carimbo' => $carimbo, 'lote_id' => $loteId]);
-                $criados[] = ['id' => $id, 'codigo' => $codigo, 'carimbo' => $carimbo, 'situacao' => $situacaoFinal, 'lote_id' => $loteId, 'lote_ordem' => $ordem + $i];
+                $criados[] = ['id' => $id, 'codigo' => $codigo, 'carimbo' => $carimbo, 'situacao' => $situacaoFinal, 'lote_id' => $loteId, 'lote_ordem' => $ordem + $i, 'lote_fechou' => $this->loteFechou];
             }
             $this->lembrarLocal($responsavelId, $localId);
             $this->registrarAcao($responsavelId, 'exemplar.cadastrar', 'livro', $livroId, [
@@ -198,8 +208,8 @@ final class ExemplarService
             // Código gerado pelo sistema ("Gerar código BDP"): ainda não está no carimbo. Código digitado sem
             // reserva: veio do carimbo que o livro já tem. O formulário pode dizer explicitamente qual é o caso.
             $carimbo = $carimboPedido ?? ($reserva ? 'aguardando' : 'carimbado');
-            [$situacaoFinal, $pendente] = $this->situacaoInicial($situacao, $carimbo, $localId);
-            [$loteId, $ordem] = $this->reservarOrdemNoLote($responsavelId, 1);
+            [$loteId, $ordem, $gerenciado] = $this->reservarOrdemNoLote($responsavelId, 1);
+            [$situacaoFinal, $pendente] = $this->situacaoInicial($situacao, $carimbo, $localId, $gerenciado);
             try {
                 $id = $this->inserir($livroId, $normal, $localId, $estado, $responsavelId, $situacaoFinal, $pendente, $obs, $inventarioId, $carimbo, $loteId, $ordem + 1);
             } catch (\PDOException $e) {
@@ -216,7 +226,7 @@ final class ExemplarService
             $this->registrarAcao($responsavelId, 'exemplar.cadastrar', 'livro', $livroId, [
                 'titulo' => $livro['titulo'], 'codigos' => [$normal], 'inventario_id' => $inventarioId, 'codigo_informado' => true,
             ]);
-            return ['id' => $id, 'codigo' => $normal, 'carimbo' => $carimbo, 'situacao' => $situacaoFinal, 'lote_id' => $loteId, 'lote_ordem' => $ordem + 1];
+            return ['id' => $id, 'codigo' => $normal, 'carimbo' => $carimbo, 'situacao' => $situacaoFinal, 'lote_id' => $loteId, 'lote_ordem' => $ordem + 1, 'lote_fechou' => $this->loteFechou];
         });
     }
 
@@ -292,6 +302,13 @@ final class ExemplarService
                 return false;
             }
             $this->executar('UPDATE exemplares SET localizacao_id = ? WHERE id = ?', [$localId, $id]);
+            if ($localId !== null && $ex['organizado_em'] === null) {
+                // Primeira vez na estante: quem organizou fica guardado (movimentações depois não apagam).
+                $this->executar('UPDATE exemplares SET organizado_em = NOW(), organizado_por = ?, organizado_localizacao_id = ? WHERE id = ?', [$responsavelId, $localId, $id]);
+                if ($ex['lote_id'] !== null) {
+                    $this->eventoLote((int)$ex['lote_id'], $id, 'exemplar_organizado', $ex['codigo_individual'] . ' guardado em ' . $this->localTexto($localId), $responsavelId, ['localizacao_id' => $localId]);
+                }
+            }
             $texto = ($anterior === null ? 'Organizado: ' : ($localId === null ? 'Voltou para a área de triagem: ' : 'Localização: '))
                 . $this->localTexto($anterior) . ' → ' . $this->localTexto($localId) . ($motivo ? ' · ' . $motivo : '');
             $this->movimentacao($id, 'localizacao', $texto, $responsavelId, $inventarioId, ['de' => $anterior, 'para' => $localId]);
@@ -322,6 +339,7 @@ final class ExemplarService
         $obs = self::textoLimpo($observacao, 255);
         return $this->transacao(function () use ($ids, $responsavelId, $obs) {
             $marcados = [];
+            $lotes = [];
             sort($ids); // mesma ordem de travas em operações simultâneas
             foreach ($ids as $id) {
                 $ex = $this->bloquear($id);
@@ -333,6 +351,18 @@ final class ExemplarService
                 $this->movimentacao($id, 'carimbo', 'Carimbo confirmado: o código ' . $ex['codigo_individual'] . ' foi escrito no livro', $responsavelId, null, ['de' => 'aguardando', 'para' => 'carimbado']);
                 $this->concluirPreparo($id, $responsavelId, null);
                 $marcados[] = $ex['codigo_individual'];
+                if ($ex['lote_id'] !== null) {
+                    $lotes[(int)$ex['lote_id']] = true;
+                    $this->eventoLote((int)$ex['lote_id'], $id, 'exemplar_carimbado', 'Carimbo confirmado: ' . $ex['codigo_individual'], $responsavelId);
+                }
+            }
+            foreach (array_keys($lotes) as $loteId) {
+                // Primeiro carimbo de um lote fechado: o lote passa para "Em carimbagem".
+                $lote = $this->linha('SELECT id, numero, status FROM cadastro_lotes WHERE id = ? FOR UPDATE', [$loteId]);
+                if ($lote && $lote['status'] === 'fechado') {
+                    $this->executar("UPDATE cadastro_lotes SET status = 'em_carimbagem', carimbagem_iniciada_em = NOW(), carimbagem_iniciada_por = ? WHERE id = ?", [$responsavelId, $loteId]);
+                    $this->eventoLote($loteId, null, 'carimbagem_iniciada', 'Lote ' . self::numeroLote($lote['numero']) . ': carimbagem iniciada', $responsavelId);
+                }
             }
             if ($marcados) {
                 $this->registrarAcao($responsavelId, 'exemplar.carimbo', 'exemplar', count($marcados) === 1 ? $ids[0] : null, ['total' => count($marcados), 'codigos' => array_slice($marcados, 0, 200), 'operacao_id' => $this->operacaoId]);
@@ -348,6 +378,14 @@ final class ExemplarService
             $ex = $this->bloquear($id);
             if ($ex['carimbo_status'] !== 'carimbado') {
                 return;
+            }
+            if ($ex['lote_id'] !== null) {
+                $lote = $this->linha('SELECT numero, status FROM cadastro_lotes WHERE id = ? FOR UPDATE', [$ex['lote_id']]);
+                if ($lote && in_array($lote['status'], ['aguardando_organizacao', 'encerrado'], true)) {
+                    throw new AcervoException('A carimbagem do Lote ' . self::numeroLote($lote['numero']) . ' já foi confirmada. O carimbo de ' . $ex['codigo_individual']
+                        . ' não volta para "Aguardando carimbo"; registre uma correção administrativa no lote, se for o caso.');
+                }
+                $this->eventoLote((int)$ex['lote_id'], $id, 'carimbo_desfeito', 'Carimbo de ' . $ex['codigo_individual'] . ' voltou para Aguardando carimbo' . ($motivo !== '' ? ' · ' . $motivo : ''), $responsavelId);
             }
             $this->executar("UPDATE exemplares SET carimbo_status = 'aguardando', carimbado_em = NULL, carimbado_por = NULL WHERE id = ?", [$id]);
             $this->movimentacao($id, 'carimbo', 'Voltou para Aguardando carimbo' . ($motivo !== '' ? ' · ' . $motivo : ''), $responsavelId, null, ['de' => 'carimbado', 'para' => 'aguardando']);
@@ -373,7 +411,8 @@ final class ExemplarService
      */
     public function concluirPreparo(int $id, int $responsavelId, ?int $inventarioId): bool
     {
-        $ex = $this->linha('SELECT id, situacao, liberacao_pendente, carimbo_status, localizacao_id FROM exemplares WHERE id = ? FOR UPDATE', [$id]);
+        $ex = $this->linha("SELECT e.id, e.situacao, e.liberacao_pendente, e.carimbo_status, e.localizacao_id, (lt.modo = 'gerenciado') AS lote_gerenciado
+                            FROM exemplares e LEFT JOIN cadastro_lotes lt ON lt.id = e.lote_id WHERE e.id = ? FOR UPDATE", [$id]);
         if (!$ex || !(int)$ex['liberacao_pendente'] || !$this->preparoCompleto($ex)) {
             return false;
         }
@@ -405,6 +444,10 @@ final class ExemplarService
     /** O preparo (carimbo e localização) está completo, segundo as regras de liberação? */
     public function preparoCompleto(array $ex): bool
     {
+        if (!empty($ex['lote_gerenciado'])) {
+            // Lote gerenciado: só depois de carimbado e guardado na estante, qualquer que seja a configuração.
+            return $ex['carimbo_status'] === 'carimbado' && $ex['localizacao_id'] !== null;
+        }
         return ($this->emprestarSemCarimbo || $ex['carimbo_status'] === 'carimbado')
             && ($this->emprestarSemOrganizacao || $ex['localizacao_id'] !== null);
     }
@@ -497,8 +540,9 @@ final class ExemplarService
     /** Exemplar com a linha bloqueada até o fim da transação. */
     public function bloquear(int $id): array
     {
-        $ex = $this->linha('SELECT e.*, (SELECT m.id FROM emprestimos m WHERE m.exemplar_id = e.id AND m.data_devolucao IS NULL LIMIT 1) AS emprestimo_aberto
-                            FROM exemplares e WHERE e.id = ? FOR UPDATE', [$id]);
+        $ex = $this->linha("SELECT e.*, (SELECT m.id FROM emprestimos m WHERE m.exemplar_id = e.id AND m.data_devolucao IS NULL LIMIT 1) AS emprestimo_aberto,
+                                   (SELECT lt.modo = 'gerenciado' FROM cadastro_lotes lt WHERE lt.id = e.lote_id) AS lote_gerenciado
+                            FROM exemplares e WHERE e.id = ? FOR UPDATE", [$id]);
         if (!$ex) {
             throw new AcervoException('Exemplar não encontrado.');
         }
@@ -525,9 +569,9 @@ final class ExemplarService
      * liberação", com liberacao_pendente = 1: a liberação acontece sozinha ao concluir o preparo.
      * @return array{0: string, 1: bool}
      */
-    private function situacaoInicial(string $situacao, string $carimbo, ?int $localId): array
+    private function situacaoInicial(string $situacao, string $carimbo, ?int $localId, bool $loteGerenciado = false): array
     {
-        if ($situacao !== 'disponivel' || $this->preparoCompleto(['carimbo_status' => $carimbo, 'localizacao_id' => $localId])) {
+        if ($situacao !== 'disponivel' || $this->preparoCompleto(['carimbo_status' => $carimbo, 'localizacao_id' => $localId, 'lote_gerenciado' => $loteGerenciado])) {
             return [$situacao, false];
         }
         return ['aguardando', true];
@@ -540,26 +584,109 @@ final class ExemplarService
                          VALUES (?, ?, ?, ' . ($carimbo === 'carimbado' ? 'NOW(), ?' : 'NULL, NULL') . ', ?, ?, ?, ?, ' . ($estado === self::NAO_AVALIADO ? 'NULL, NULL' : 'NOW(), ?') . ', ?, ?, ?, ?, ?)',
             array_merge([$livroId, $codigo, $carimbo], $carimbo === 'carimbado' ? [$responsavelId] : [], [$loteId, $ordem, $localId, $estado],
                 $estado === self::NAO_AVALIADO ? [] : [$responsavelId], [$situacao, $pendente ? 1 : 0, $obs, $responsavelId, $inventarioId]));
-        return (int)$this->pdo->lastInsertId();
+        $id = (int)$this->pdo->lastInsertId();
+        if ($localId !== null) {
+            // Registrado já na estante definitiva: quem registrou também organizou.
+            $this->executar('UPDATE exemplares SET organizado_em = NOW(), organizado_por = ?, organizado_localizacao_id = ? WHERE id = ?', [$responsavelId, $localId, $id]);
+        }
+        if ($loteId !== null) {
+            $this->eventoLote($loteId, $id, 'exemplar_cadastrado', $codigo . ' cadastrado (nº ' . $ordem . ' do lote)', $responsavelId, ['ordem' => $ordem, 'carimbo' => $carimbo, 'localizacao_id' => $localId]);
+        }
+        return $id;
     }
 
     /**
-     * Lote de cadastramento aberto de quem registra (cria "Lote NNN" se não houver) e reserva
-     * $quantidade posições seguidas nele. Chamado com a sequência BDP já travada: dois cadastros
-     * simultâneos recebem ordens diferentes e o número de um lote novo não se repete.
-     * @return array{0: int, 1: int} id do lote e a última ordem usada antes desta reserva
+     * Lote em que o exemplar entra e $quantidade posições seguidas nele. Chamado com a sequência BDP
+     * já travada (todos os cadastros passam por ela, um de cada vez) e com a linha do lote bloqueada:
+     * dois cadastros simultâneos recebem ordens diferentes e a capacidade nunca é ultrapassada.
+     *   * Lote ativo gerenciado (migração 160): precisa estar "Em cadastro", a pessoa precisa participar
+     *     dele e ter vaga. A última vaga fecha o lote: "Lote fechado — Aguardando carimbagem".
+     *   * Sem lote ativo: se já existe algum lote gerenciado, o registro é recusado (escolha em "Meus
+     *     lotes"); senão vale o lote pessoal automático da migração 150.
+     * @return array{0: int, 1: int, 2: bool} id do lote, última ordem usada antes desta reserva, lote gerenciado?
      */
     private function reservarOrdemNoLote(int $responsavelId, int $quantidade): array
     {
-        $lote = $this->linha("SELECT id, total FROM cadastro_lotes WHERE responsavel_id = ? AND status = 'aberto' ORDER BY id DESC LIMIT 1 FOR UPDATE", [$responsavelId]);
+        $this->loteFechou = false;
+        $ativoId = $this->valor('SELECT lote_ativo_id FROM administradores WHERE id = ?', [$responsavelId]);
+        if ($ativoId) {
+            $lote = $this->linha('SELECT * FROM cadastro_lotes WHERE id = ? FOR UPDATE', [(int)$ativoId]);
+            if ($lote && $lote['modo'] === 'gerenciado') {
+                return $this->ocuparVagas($lote, $responsavelId, $quantidade);
+            }
+        }
+        if ($this->valor("SELECT 1 FROM cadastro_lotes WHERE modo = 'gerenciado' LIMIT 1")) {
+            throw new AcervoException('Escolha o lote em que você está trabalhando em “Meus lotes”, na página de Conferência. Cada exemplar registrado entra no lote ativo. '
+                . 'Se você não participa de nenhum lote, peça a um administrador para incluí-lo. Nada foi gravado.');
+        }
+        $lote = $this->linha("SELECT id, total FROM cadastro_lotes WHERE responsavel_id = ? AND status = 'aberto' AND modo = 'automatico' ORDER BY id DESC LIMIT 1 FOR UPDATE", [$responsavelId]);
         if (!$lote) {
             $numero = (int)$this->valor('SELECT COALESCE(MAX(numero), 0) + 1 FROM cadastro_lotes');
             $equipe = $this->valor('SELECT equipe FROM administradores WHERE id = ?', [$responsavelId]);
             $this->executar('INSERT INTO cadastro_lotes (numero, equipe, responsavel_id) VALUES (?, ?, ?)', [$numero, $equipe ?: null, $responsavelId]);
             $lote = ['id' => (int)$this->pdo->lastInsertId(), 'total' => 0];
+            $this->executar('INSERT IGNORE INTO cadastro_lote_usuarios (lote_id, administrador_id, atribuido_por) VALUES (?, ?, ?)', [$lote['id'], $responsavelId, $responsavelId]);
+            $this->eventoLote((int)$lote['id'], null, 'lote_aberto', 'Lote ' . self::numeroLote($numero) . ' aberto automaticamente no primeiro registro', $responsavelId);
         }
         $this->executar('UPDATE cadastro_lotes SET total = total + ? WHERE id = ?', [$quantidade, $lote['id']]);
-        return [(int)$lote['id'], (int)$lote['total']];
+        return [(int)$lote['id'], (int)$lote['total'], false];
+    }
+
+    /** Ocupa vagas no lote gerenciado (linha já bloqueada) e fecha o lote quando ficar cheio. */
+    private function ocuparVagas(array $lote, int $responsavelId, int $quantidade): array
+    {
+        $nome = 'Lote ' . self::numeroLote($lote['numero']);
+        if ($lote['status'] !== 'aberto') {
+            throw new AcervoException($nome . ' não recebe novos exemplares (' . self::rotuloStatusLote($lote['status']) . '). Escolha outro lote em “Meus lotes”. Nada foi gravado.');
+        }
+        $participa = $this->valor('SELECT 1 FROM cadastro_lote_usuarios WHERE lote_id = ? AND administrador_id = ? AND removido_em IS NULL', [$lote['id'], $responsavelId]);
+        if (!$participa) {
+            throw new AcervoException('Você não está atribuído ao ' . $nome . '. Só os usuários do lote podem registrar exemplares nele. Nada foi gravado.');
+        }
+        $total = (int)$lote['total'];
+        if ($lote['capacidade'] !== null) {
+            $restam = (int)$lote['capacidade'] - $total;
+            if ($quantidade > $restam) {
+                throw new AcervoException($restam <= 0
+                    ? $nome . ' já está completo. Nada foi gravado. Escolha outro lote em “Meus lotes”.'
+                    : $nome . ' tem só ' . $restam . ' vaga(s). Registre no máximo ' . $restam . ' exemplar(es) aqui ou escolha outro lote. Nada foi gravado.');
+            }
+        }
+        $this->executar('UPDATE cadastro_lotes SET total = total + ? WHERE id = ?', [$quantidade, $lote['id']]);
+        if ($lote['capacidade'] !== null && $total + $quantidade >= (int)$lote['capacidade']) {
+            $this->executar("UPDATE cadastro_lotes SET status = 'fechado', fechado_em = NOW(), fechado_por = ?, fechamento_tipo = 'automatico' WHERE id = ?", [$responsavelId, $lote['id']]);
+            $this->eventoLote((int)$lote['id'], null, 'lote_fechado', $nome . ' completo (' . (int)$lote['capacidade'] . ' exemplares): fechado automaticamente — aguardando carimbagem', $responsavelId,
+                ['tipo' => 'automatico', 'total' => $total + $quantidade]);
+            $this->loteFechou = true;
+        }
+        return [(int)$lote['id'], $total, true];
+    }
+
+    /** Linha do histórico permanente do lote (dentro da transação de quem chama). */
+    public function eventoLote(int $loteId, ?int $exemplarId, string $tipo, string $descricao, ?int $administradorId, array $detalhes = [], ?string $chave = null): void
+    {
+        $this->executar('INSERT INTO lote_eventos (lote_id, exemplar_id, tipo, descricao, detalhes, chave, administrador_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+            $loteId, $exemplarId, $tipo, mb_substr($descricao, 0, 500), $detalhes ? json_encode($detalhes, JSON_UNESCAPED_UNICODE) : null, $chave, $administradorId,
+        ]);
+    }
+
+    /** "001". */
+    public static function numeroLote(int|string|null $numero): string
+    {
+        return str_pad((string)(int)$numero, 3, '0', STR_PAD_LEFT);
+    }
+
+    public const STATUS_LOTE = [
+        'aberto' => 'Em cadastro',
+        'fechado' => 'Lote fechado — Aguardando carimbagem',
+        'em_carimbagem' => 'Em carimbagem',
+        'aguardando_organizacao' => 'Aguardando organização nas estantes',
+        'encerrado' => 'Lote encerrado',
+    ];
+
+    public static function rotuloStatusLote(string $status): string
+    {
+        return self::STATUS_LOTE[$status] ?? $status;
     }
 
     /** Guarda a última prateleira usada por quem registrou ou moveu (sugestão do próximo registro). */

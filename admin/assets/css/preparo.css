@@ -125,3 +125,43 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
     .adm-mapa__bloco { position: static; width: auto; height: auto; min-height: 70px; }
     [data-mapa-editavel] .adm-mapa__bloco { cursor: default; }
 }
+
+/* =========================================================
+   Gerenciamento de lotes (migração 160): Meus lotes, progresso, relatório do lote
+   ========================================================= */
+.adm-lote-progresso { margin: 10px 0 4px; }
+.adm-lote-progresso__barra { height: 10px; border-radius: 999px; background: var(--adm-bg); border: 1px solid var(--adm-border); overflow: hidden; }
+.adm-lote-progresso__barra span { display: block; height: 100%; background: var(--adm-blue-accent); border-radius: 999px; transition: width var(--adm-duration) var(--adm-ease); }
+.adm-lote-progresso__numeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 0; }
+.adm-lote-progresso__numeros dt { font-size: 11.5px; color: var(--adm-muted); }
+.adm-lote-progresso__numeros dd { margin: 0; font-weight: 700; color: var(--adm-navy); font-variant-numeric: tabular-nums; }
+
+.adm-meus-lotes .adm-lote-ativo { padding: 10px 12px; margin: 0 0 12px; border: 1px solid var(--adm-blue-accent); border-radius: var(--adm-radius-sm); background: var(--adm-blue-50); }
+.adm-lote-ativo__rotulo { margin: 0 0 2px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--adm-blue-accent); }
+.adm-meus-lotes__lista { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.adm-meus-lotes__lista > li { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-white); }
+.adm-meus-lotes__lista > li.is-ativo { border-color: var(--adm-blue-accent); }
+.adm-meus-lotes__lista > li > div { min-width: 0; }
+.adm-meus-lotes details.adm-acao { margin: 0 0 10px; }
+.adm-meus-lotes .adm-abrir-lote { margin-top: 10px; box-shadow: none; }
+
+.adm-lote-usuarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; margin: 4px 0; }
+.adm-lote-numero { margin: 4px 0 0; font-weight: 700; color: var(--adm-navy); }
+.adm-lote-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--adm-gap); margin: 0 0 var(--adm-gap); }
+.adm-lote-grid > .adm-card { margin: 0; }
+.adm-stats--lote, .adm-stats--lotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 var(--adm-gap); }
+.adm-stats--lote .adm-stat, .adm-stats--lotes .adm-stat { padding: 12px 14px; min-width: 0; }
+.adm-aviso-seguranca { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0; padding: 10px 12px; border: 1px solid var(--adm-amber-700); border-radius: var(--adm-radius-sm); background: var(--adm-bg); }
+.adm-lote-eventos { max-height: 420px; overflow: auto; }
+.adm-lista-simples { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.adm-lista-simples form { display: inline; margin-left: 6px; }
+.adm-subtitulo { margin: 18px 0 8px; font-size: 15px; color: var(--adm-navy); }
+.adm-rascunho { margin: 0 0 12px; }
+.adm-rascunho .adm-actions-inline { margin: 8px 0 0; }
+.adm-rascunho-status { margin-top: 8px; }
+
+@media print {
+    .adm-no-print, .adm-sidebar, .adm-header, .adm-footer { display: none !important; }
+    details#historico > *:not(summary) { display: block; }
+    .adm-lote-grid { display: block; }
+}

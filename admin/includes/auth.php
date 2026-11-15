@@ -33,6 +33,8 @@ require_once __DIR__ . '/db.php';
  *   exemplares.baixar dar baixa e registrar extravio de exemplares
  *   localizacoes.gerenciar  cadastrar, editar, desativar e reativar localizações
  *   inventario.conferir  registrar conferências e cadastrar exemplares durante o inventário
+ *   lotes.gerenciar   abrir lotes de cadastramento, atribuir usuários, fechar antecipadamente,
+ *                     encerrar lotes, registrar correções e ver o Relatório de Produtividade
  *   inventario.gerenciar criar, iniciar, pausar, concluir e cancelar inventários, decidir
  *                     divergências e ausências e corrigir conferências
  *   etiquetas.gerar   pré-visualizar e gerar o PDF das etiquetas
@@ -53,8 +55,8 @@ require_once __DIR__ . '/db.php';
  * A descrição de cada permissão para a tela Perfis e permissões está em AUTH_PERMISSOES_DESCRICOES.
  */
 const AUTH_PERMISSOES = [
-    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar', 'sistema.manutencao'],
-    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar'],
+    'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'lotes.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar', 'sistema.manutencao'],
+    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'lotes.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar'],
     'auxiliar' => ['painel.ver', 'livros.editar', 'alunos.ver', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'exemplares.gerenciar', 'inventario.conferir', 'etiquetas.gerar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos'],
     'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver', 'relatorios.ver', 'relatorios.exportar'],
 ];
@@ -95,6 +97,7 @@ const AUTH_PERMISSOES_DESCRICOES = [
         'localizacoes.gerenciar' => 'Cadastrar, editar, desativar e reativar localizações',
         'inventario.conferir' => 'Registrar conferências no inventário',
         'inventario.gerenciar' => 'Criar, concluir e cancelar inventários e decidir divergências',
+        'lotes.gerenciar' => 'Abrir, fechar e encerrar lotes, atribuir usuários e ver a produtividade por lote',
         'etiquetas.gerar' => 'Gerar o PDF das etiquetas',
         'etiquetas.configurar' => 'Editar os modelos (tamanhos e margens) das etiquetas',
     ],

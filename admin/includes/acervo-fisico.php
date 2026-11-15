@@ -18,7 +18,10 @@ use Biblioteca\Repositories\InventarioRepository;
 use Biblioteca\Repositories\OrganizacaoFisicaRepository;
 use Biblioteca\Repositories\PendenciasRepository;
 use Biblioteca\Repositories\PreparoRepository;
+use Biblioteca\Repositories\LoteRepository;
+use Biblioteca\Services\DuvidaService;
 use Biblioteca\Services\LoteService;
+use Biblioteca\Services\RascunhoService;
 use Biblioteca\Services\OcorrenciaService;
 use Biblioteca\Services\OperacaoService;
 use Biblioteca\Support\ExportadorTabela;
@@ -34,7 +37,7 @@ use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114f', 'assets/css/organizacao.css?v=20261114c', 'assets/css/preparo.css?v=20261114a'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113', 'assets/css/inventario.css?v=20261114f', 'assets/css/organizacao.css?v=20261114c', 'assets/css/preparo.css?v=20261115a'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261114i'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
@@ -154,7 +157,50 @@ function preparo_repo(): PreparoRepository
 function lotes_servico(): LoteService
 {
     static $s = null;
-    return $s ??= new LoteService(db());
+    return $s ??= new LoteService(db(), exemplares_servico());
+}
+
+function lotes_repo(): LoteRepository
+{
+    static $r = null;
+    return $r ??= new LoteRepository(db());
+}
+
+function duvidas_servico(): DuvidaService
+{
+    static $s = null;
+    return $s ??= new DuvidaService(db(), exemplares_servico());
+}
+
+function rascunhos_servico(): RascunhoService
+{
+    static $s = null;
+    return $s ??= new RascunhoService(db());
+}
+
+/** Tom do selo de cada status de lote. */
+const LOTE_TONS = ['aberto' => 'blue', 'fechado' => 'amber', 'em_carimbagem' => 'indigo', 'aguardando_organizacao' => 'teal', 'encerrado' => 'green'];
+
+/** Selo do status do lote ("Lote fechado — Aguardando carimbagem"...). */
+function lote_badge(string $status): string
+{
+    return '<span class="adm-status adm-tone--' . (LOTE_TONS[$status] ?? 'blue') . '">' . e(ExemplarService::rotuloStatusLote($status)) . '</span>';
+}
+
+/** Barra de progresso do lote: cadastrados / capacidade. */
+function lote_progresso(array $lote): string
+{
+    $total = (int)($lote['total'] ?? 0);
+    $cap = $lote['capacidade'] !== null ? (int)$lote['capacidade'] : null;
+    if ($cap === null) {
+        return '<p class="adm-field__hint">' . fisico_numero($total) . ' exemplar(es) · sem limite de capacidade (lote anterior ao gerenciamento)</p>';
+    }
+    $pct = $cap > 0 ? min(100, (int)round($total * 100 / $cap)) : 0;
+    $restam = max(0, $cap - $total);
+    return '<div class="adm-lote-progresso"><div class="adm-lote-progresso__barra" role="progressbar" aria-valuemin="0" aria-valuemax="' . $cap . '" aria-valuenow="' . $total . '" aria-label="Exemplares cadastrados no lote">'
+        . '<span style="width:' . $pct . '%"></span></div>'
+        . '<dl class="adm-lote-progresso__numeros"><div><dt>Capacidade</dt><dd>' . fisico_numero($cap) . '</dd></div><div><dt>Cadastrados</dt><dd>' . fisico_numero($total) . '</dd></div>'
+        . '<div><dt>Vagas restantes</dt><dd>' . fisico_numero($restam) . '</dd></div></dl></div>';
 }
 
 function operacoes_servico(): OperacaoService

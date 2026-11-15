@@ -24,6 +24,12 @@
  * atualizada com a última localização usada. NÃO é preciso finalizar a estante: cada exemplar fica
  * registrado assim que é salvo, e nada vira "Não localizado" sozinho.
  *
+ * "Meus lotes" (coluna lateral, migração 160): lotes de que a pessoa participa, o lote ativo (onde
+ * entram os exemplares registrados), capacidade, vagas, status, planilhas e histórico. Quem tem
+ * lotes.gerenciar vê "+ Abrir novo lote" e a visão geral dos lotes em andamento. As ações vão para
+ * lotes.php. Formulários de obra e de exemplar guardam rascunho (rascunhos.js) e o rascunho é
+ * apagado quando o formulário é salvo.
+ *
  * "Mover exemplar" (&mover=CODIGO): nova localização com histórico. "Pendências de conferência"
  * (&pendencias=tipo, &pq= pesquisa, &pp= página): listas paginadas com ação direta.
  *
@@ -105,7 +111,20 @@ function conferencia_preparo_texto(array $c): string
     if (($c['situacao_exemplar'] ?? $c['situacao'] ?? '') === 'aguardando') {
         $partes[] = 'Ainda não está liberado para empréstimo: falta o carimbo ou a estante definitiva.';
     }
+    if (!empty($c['lote_fechou']) && !empty($c['lote_id'])) {
+        $partes[] = 'O lote ficou completo e foi fechado automaticamente — aguardando carimbagem. Escolha outro lote em “Meus lotes” para continuar registrando.';
+    }
     return $partes ? ' ' . implode(' ', $partes) : '';
+}
+
+/** Apaga o rascunho do formulário salvo com sucesso (não sobra nada para recuperar e duplicar). */
+function conferencia_descartar_rascunho(int $usuarioId, string $formulario, string $referencia): void
+{
+    try {
+        rascunhos_servico()->descartar($usuarioId, $formulario, $referencia);
+    } catch (Throwable) {
+        // rascunho é só conveniência: o registro já foi gravado
+    }
 }
 
 /** Mensagem curta do resultado de uma conferência. */
@@ -180,6 +199,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $verificarForm = $_POST;
                 $cad = conferencia_cadastro();
                 $r = $cad->atualizarLivro($livroAlvo, $cad->dados($_POST), $usuario['id'], admin_param($_POST, 'confirmar_alertas') === '1', $marcar, $id);
+                conferencia_descartar_rascunho($usuario['id'], 'verificar_obra', 'inv' . $id . '-obra' . $livroAlvo);
                 $alertasTxt = $r['alertas_abertos'] ? $r['alertas_abertos'] . ' alerta(s) cadastral(is) continuam abertos (não impedem a verificação).' : '';
                 if ($marcar) {
                     // Conferência contínua: o registro do exemplar abre sozinho.
@@ -248,6 +268,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     'carimbo' => $f['carimbo'],
                 ], $usuario['id']);
                 conferencia_lembrar_ultimo($id, $f);
+                conferencia_descartar_rascunho($usuario['id'], 'registrar_exemplar', 'inv' . $id . '-obra' . $livroAlvo);
                 admin_flash('sucesso', 'Exemplar ' . $c['codigo'] . ' registrado como ' . InventarioService::SITUACOES_REGISTRO[$c['situacao']] . '.',
                     'Confira se o carimbo do livro mostra exatamente este código. Localização: ' . fisico_local_id($f['localizacao_id'] !== null ? (int)$f['localizacao_id'] : null) . '.'
                     . ($c['registro_id'] ? ' A linha da planilha escolhida ficou ligada a este exemplar.' : '') . conferencia_preparo_texto($c));
@@ -334,6 +355,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $fisico = conferencia_fisico($_POST, $sessao['local']);
                 $res = $cad->cadastrarNaoListado($id, $dadosNovo, $fisico, $usuario['id'], null, $marcar);
                 unset($_SESSION['inv_nao_listado'][$token]);
+                conferencia_descartar_rascunho($usuario['id'], 'nao_listado', 'inv' . $id);
                 $_SESSION['inv_nao_listado_feito'][$token] = ['codigo' => $res['codigo'], 'livro_id' => $res['livro_id']];
                 $_SESSION['inv_nao_listado_feito'] = array_slice($_SESSION['inv_nao_listado_feito'], -20, null, true);
                 $alertasTxt = $res['alertas'] ? ' ' . $res['alertas'] . ' alerta(s) cadastral(is) ficaram registrados para completar depois.' : '';
@@ -464,6 +486,14 @@ try {
     $estanteDados = $prateleiraAtual && $prateleiraAtual['estante_id'] !== null ? organizacao_repo()->estante((int)$prateleiraAtual['estante_id']) : null;
     // Localização sugerida nos registros: a estante atual ou a última prateleira usada por esta pessoa.
     $sugestaoLocal = fisico_sugestao_local($usuario['id'], $localSessao);
+    // Lotes (migração 160): Meus lotes, lote ativo e visão geral para quem gerencia.
+    $meusLotes = lotes_repo()->meusLotes($usuario['id']);
+    $loteAtivo = lotes_repo()->loteAtivo($usuario['id']);
+    $lotesEmUso = lotes_repo()->emUso();
+    $duvidasAbertas = lotes_repo()->contarDuvidasAbertas();
+    $podeLotes = auth_pode('lotes.gerenciar');
+    $lotesGerais = $podeLotes ? lotes_repo()->lotesEmAndamento(12) : [];
+    $atribuiveis = $podeLotes ? lotes_repo()->usuariosAtribuiveis() : [];
     $localPadrao = $sugestaoLocal['id'] !== null ? (string)$sugestaoLocal['id'] : '';
 } catch (PDOException $e) {
     http_response_code(500);
@@ -529,6 +559,72 @@ $ind = $indicadores;
 <?php
 $htmlIndicadores = ob_get_clean();
 
+// ---------- Meus lotes ----------
+ob_start();
+$voltarConf = $base . ($obra ? '&obra=' . (int)$obra['id'] : '');
+?>
+<section class="adm-card adm-panel adm-meus-lotes" aria-labelledby="titulo-meus-lotes" id="meus-lotes">
+    <h2 id="titulo-meus-lotes" class="adm-panel__title"><?= icon('layers') ?> Meus lotes</h2>
+    <?php if ($loteAtivo): ?>
+        <div class="adm-lote-ativo">
+            <p class="adm-lote-ativo__rotulo">Lote ativo</p>
+            <p><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$loteAtivo['id']) ?>"><strong><?= e(\Biblioteca\Repositories\LoteRepository::nome($loteAtivo)) ?></strong></a> <?= lote_badge($loteAtivo['status']) ?></p>
+            <?php if ($loteAtivo['descricao']): ?><p class="adm-table__muted"><?= e($loteAtivo['descricao']) ?></p><?php endif; ?>
+            <?= lote_progresso($loteAtivo) ?>
+            <?php if ($loteAtivo['status'] !== 'aberto'): ?><?= admin_aviso('aviso', 'Este lote não recebe novos exemplares.', 'Escolha outro lote abaixo para continuar registrando.') ?>
+            <?php else: ?><p class="adm-field__hint">Cada exemplar que você registrar entra neste lote, com o seu nome.</p><?php endif; ?>
+        </div>
+    <?php elseif ($lotesEmUso): ?>
+        <?= admin_aviso('aviso', 'Escolha o lote em que vai trabalhar.', $meusLotes ? 'Os exemplares só podem ser registrados num lote ativo.' : 'Você não participa de nenhum lote em cadastro. Peça a um administrador para incluí-lo.') ?>
+    <?php endif; ?>
+    <?php if ($meusLotes): ?>
+        <ul class="adm-meus-lotes__lista">
+            <?php foreach ($meusLotes as $ml): ?>
+                <li class="<?= $loteAtivo && (int)$loteAtivo['id'] === (int)$ml['id'] ? 'is-ativo' : '' ?>">
+                    <div><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$ml['id']) ?>"><strong><?= e(\Biblioteca\Repositories\LoteRepository::nome($ml)) ?></strong></a> <?= lote_badge($ml['status']) ?>
+                        <small class="adm-block-muted"><?= fisico_numero((int)$ml['total']) ?><?= $ml['capacidade'] !== null ? ' de ' . fisico_numero((int)$ml['capacidade']) . ' · ' . fisico_numero(max(0, (int)$ml['capacidade'] - (int)$ml['total'])) . ' vaga(s)' : ' exemplar(es)' ?>
+                            <?= $ml['status'] === 'em_carimbagem' || $ml['status'] === 'fechado' ? ' · ' . fisico_numero((int)$ml['exemplares'] - (int)$ml['carimbados']) . ' a carimbar' : '' ?>
+                            <?= $ml['status'] === 'aguardando_organizacao' ? ' · ' . fisico_numero((int)$ml['exemplares'] - (int)$ml['organizados']) . ' a organizar' : '' ?></small></div>
+                    <div class="adm-actions-inline">
+                        <?php if ($ml['status'] === 'aberto' && $ml['modo'] === 'gerenciado' && (!$loteAtivo || (int)$loteAtivo['id'] !== (int)$ml['id'])): ?>
+                            <form method="post" action="<?= e(admin_url('lotes')) ?>" class="adm-inline-form">
+                                <?= csrf_campo() ?><input type="hidden" name="acao" value="ativo"><input type="hidden" name="lote_id" value="<?= (int)$ml['id'] ?>"><input type="hidden" name="voltar" value="<?= e($voltarConf) ?>">
+                                <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('square-check') ?> Trabalhar neste lote</button>
+                            </form>
+                        <?php endif; ?>
+                        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lote') . '?' . http_build_query(['id' => (int)$ml['id'], 'saida' => 'planilha'])) ?>" target="_blank" rel="noopener" title="Planilha BDP do lote"><?= icon('printer') ?> Planilha</a>
+                    </div>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php elseif (!$lotesEmUso): ?>
+        <p class="adm-field__hint">Ainda não há lotes gerenciados. Enquanto nenhum lote for aberto, cada pessoa registra no seu lote automático, como antes.</p>
+    <?php endif; ?>
+    <?php if ($lotesGerais): ?>
+        <details class="adm-acao">
+            <summary><?= icon('list-ordered') ?> Visão geral dos lotes em andamento (<?= count($lotesGerais) ?>)</summary>
+            <ul class="adm-meus-lotes__lista adm-meus-lotes__lista--geral">
+                <?php foreach ($lotesGerais as $lg): ?>
+                    <li><div><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$lg['id']) ?>"><strong><?= e(\Biblioteca\Repositories\LoteRepository::nome($lg)) ?></strong></a> <?= lote_badge($lg['status']) ?>
+                        <small class="adm-block-muted"><?= fisico_numero((int)$lg['total']) ?><?= $lg['capacidade'] !== null ? '/' . fisico_numero((int)$lg['capacidade']) : '' ?> · <?= e($lg['participantes'] ?: 'sem participantes') ?></small></div></li>
+                <?php endforeach; ?>
+            </ul>
+        </details>
+    <?php endif; ?>
+    <?php if ($podeLotes): ?>
+        <details class="adm-acao" id="abrir-lote-det"<?= admin_param($_GET, 'abrir_lote') === '1' ? ' open' : '' ?>>
+            <summary class="adm-button adm-button--primary adm-button--sm"><?= icon('plus') ?> Abrir novo lote</summary>
+            <?php $voltarAbrir = $voltarConf; $formAbrir = null; $erroAbrir = null; require __DIR__ . '/includes/form-abrir-lote.php'; ?>
+        </details>
+    <?php endif; ?>
+    <p class="adm-actions-inline">
+        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lotes')) ?>"><?= icon('history') ?> Histórico de Lotes</a>
+        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('duvidas') . '?' . http_build_query(['voltar' => $voltarConf] + ($obra ? ['livro' => (int)$obra['id']] : []))) ?>"><?= icon('circle-help') ?> Registrar dúvida</a>
+    </p>
+</section>
+<?php
+$htmlLotes = ob_get_clean();
+
 // ---------- Estante atual ----------
 ob_start();
 ?>
@@ -569,11 +665,12 @@ ob_start();
         <?php foreach (PendenciasRepository::TIPOS as $tipo => [$rotulo, $icone]): ?>
             <li><a href="<?= e($base . '&pendencias=' . $tipo) ?>" class="<?= $pendTipo === $tipo ? 'is-ativo' : '' ?>"<?= $pendTipo === $tipo ? ' aria-current="true"' : '' ?>><span><?= icon($icone) ?> <?= e($rotulo) ?></span> <strong><?= fisico_numero($pendContagens[$tipo] ?? 0) ?></strong></a></li>
         <?php endforeach; ?>
+        <li><a href="<?= e(admin_url('duvidas') . '?' . http_build_query(['voltar' => $base])) ?>"><span><?= icon('circle-help') ?> Dúvidas registradas em aberto</span> <strong><?= fisico_numero($duvidasAbertas) ?></strong></a></li>
     </ul>
     <p class="adm-field__hint">Números reais do banco. Nenhuma pendência fica escondida: abra a lista para ver todas, com páginas.</p>
 </section>
 <?php
-$htmlEstante = ob_get_clean();
+$htmlEstante = $htmlLotes . ob_get_clean();
 
 // ---------- Últimas conferências ----------
 ob_start();
@@ -988,7 +1085,7 @@ ob_start();
     <section class="adm-card adm-panel" id="nao-listado" aria-labelledby="titulo-nao-listado">
         <div class="adm-panel__header"><div><h2 id="titulo-nao-listado"><?= icon('book-plus') ?> Cadastrar livro não listado</h2>
             <p>Para o livro que está em mãos e não aparece na pesquisa. 1) Dados da <strong>obra</strong> (todos opcionais: não preencha o que não souber). 2) Confirme os dados. 3) <strong>Gerar código BDP</strong> e escreva no carimbo. 4) Salve: o exemplar fica Encontrado neste inventário.</p></div></div>
-        <form method="post" action="<?= e($base) ?>#nao-listado" class="adm-form-section" data-sem-enter>
+        <form method="post" action="<?= e($base) ?>#nao-listado" class="adm-form-section" data-sem-enter data-rascunho="nao_listado" data-rascunho-ref="inv<?= $id ?>">
             <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="nao_listado"><input type="hidden" name="token" value="<?= e($tokenNovo) ?>">
             <?php if ($correspondencias): ?>
                 <div class="adm-correspondencias" role="group" aria-labelledby="titulo-corresp">
@@ -1138,7 +1235,7 @@ ob_start();
     $alertasLv = $obraAlertas; $editavelLv = true;
     ?>
     <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-verificar" aria-labelledby="painel-verificar-titulo"<?= $painel === 'verificar' ? ' open data-painel-auto' : '' ?>>
-        <form class="adm-modal__box" method="post" action="<?= e($base . '&obra=' . (int)$obra['id']) ?>#obra" data-sem-enter>
+        <form class="adm-modal__box" method="post" action="<?= e($base . '&obra=' . (int)$obra['id']) ?>#obra" data-sem-enter data-rascunho="verificar_obra" data-rascunho-ref="inv<?= $id ?>-obra<?= (int)$obra['id'] ?>">
             <header class="adm-modal__header">
                 <div><h2 id="painel-verificar-titulo"><?= icon('pencil') ?> Verificar e corrigir dados</h2>
                     <p><?= e($tituloObra) ?> · <?= e(ObraVerificacaoService::rotulo($obra['dados_verificados_em'])) ?></p></div>
@@ -1177,7 +1274,7 @@ ob_start();
     $rxLivroId = (int)$obra['id']; $rxRegistros = $obraLinhas; $rxOrigem = 'registrar';
     ?>
     <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-registrar" aria-labelledby="painel-registrar-titulo"<?= $painel === 'registrar' ? ' open data-painel-auto' : '' ?>>
-        <form class="adm-modal__box" method="post" action="<?= e($base . '&obra=' . (int)$obra['id']) ?>#exemplares" data-sem-enter>
+        <form class="adm-modal__box" method="post" action="<?= e($base . '&obra=' . (int)$obra['id']) ?>#exemplares" data-sem-enter data-rascunho="registrar_exemplar" data-rascunho-ref="inv<?= $id ?>-obra<?= (int)$obra['id'] ?>">
             <header class="adm-modal__header">
                 <div><h2 id="painel-registrar-titulo"><?= icon('plus') ?> Registrar exemplar<?= $ultimo ? ' · outra cópia' : '' ?></h2>
                     <p><?= e($tituloObra) ?> · <?= count($ativos) ?> exemplar(es) já registrado(s)</p></div>
@@ -1225,7 +1322,9 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
         <p><?= e($inv['titulo']) ?> · pesquise, verifique a obra uma vez e registre cada exemplar com o seu código BDP, sem sair desta página</p>
     </div>
     <div class="adm-page-head__actions">
+        <?php if ($podeLotes): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&abrir_lote=1') ?>#abrir-lote-det"><?= icon('plus') ?> Abrir novo lote</a><?php endif; ?>
         <?php if ($podeCadastrar && $emAndamento): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&novo=1') ?>#nao-listado" data-pjax><?= icon('plus') ?> Cadastrar livro não listado</a><?php endif; ?>
+        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('lotes')) ?>"><?= icon('layers') ?> Histórico de Lotes</a>
         <a class="adm-button adm-button--ghost" href="<?= e($base . '&pendencias=nao_verificadas') ?>" data-pjax><?= icon('list-checks') ?> Pendências de conferência</a>
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-detalhes') . '?id=' . $id) ?>"><?= icon('clipboard-check') ?> Ver itens do inventário</a>
     </div>
@@ -1263,4 +1362,4 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
 </div>
 
 <?php
-admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261114b']));
+admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261114b', 'assets/js/rascunhos.js?v=20261115']));
