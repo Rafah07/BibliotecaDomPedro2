@@ -86,9 +86,12 @@ admin_page_start('organizacao-etiquetas', 'Etiquetas das estantes', 'Etiquetas d
                 </div>
             </fieldset>
         <?php endif; ?>
-        <label class="adm-check"><input type="checkbox" name="sem_categoria" value="1"<?= $categoria ? '' : ' checked' ?>> Não mostrar a categoria da estante (ex.: Literatura Brasileira)</label>
-        <label class="adm-check"><input type="checkbox" name="inativas" value="1"<?= $inativas ? ' checked' : '' ?>> Incluir estantes, prateleiras e setores desativados</label>
-        <div class="adm-actions-inline">
+        <fieldset class="adm-fieldset adm-etq-opcoes">
+            <legend class="adm-field__label">Opções de impressão</legend>
+            <label class="adm-check"><input type="checkbox" name="sem_categoria" value="1"<?= $categoria ? '' : ' checked' ?>> Não mostrar a categoria da estante (ex.: Literatura Brasileira)</label>
+            <label class="adm-check"><input type="checkbox" name="inativas" value="1"<?= $inativas ? ' checked' : '' ?>> Incluir estantes, prateleiras e setores desativados</label>
+        </fieldset>
+        <div class="adm-actions-inline adm-etq-acoes">
             <button class="adm-button adm-button--ghost" type="submit"><?= icon('eye') ?> Atualizar pré-visualização</button>
             <?php if ($etiquetas): ?><button class="adm-button adm-button--primary" type="button" onclick="window.print()"><?= icon('printer') ?> Imprimir (<?= count($etiquetas) ?> etiqueta(s), <?= count($folhas) ?> folha(s) A4)</button><?php endif; ?>
         </div>
@@ -98,10 +101,18 @@ admin_page_start('organizacao-etiquetas', 'Etiquetas das estantes', 'Etiquetas d
 </div>
 
 <?php if (!$etiquetas): ?>
-    <div class="adm-empty adm-nao-imprimir"><?= icon('printer') ?>
-        <strong>Nada para imprimir.</strong>
-        <span><?= $todas || $setores ? 'Nenhuma etiqueta com estas escolhas.' : 'Cadastre as estantes em Organização Física primeiro.' ?></span></div>
+    <section class="adm-card adm-panel adm-nao-imprimir">
+        <div class="adm-empty"><?= icon('printer') ?>
+            <strong><?= $todas || $setores ? 'Nenhuma etiqueta com estas escolhas.' : 'Nenhuma estante cadastrada.' ?></strong>
+            <span><?= $todas || $setores ? 'Mude “O que imprimir”, o setor ou as estantes marcadas e atualize a pré-visualização.' : 'Cadastre a estrutura física da biblioteca (estantes e prateleiras) para gerar as etiquetas.' ?></span>
+            <?php if (!$todas && !$setores && auth_pode('localizacoes.gerenciar')): ?><a class="adm-button adm-button--primary adm-button--sm" href="<?= e(admin_url('organizacao-fisica') . '?painel=estante') ?>"><?= icon('plus') ?> Cadastrar estantes</a><?php endif; ?>
+        </div>
+    </section>
 <?php else: ?>
+    <div class="adm-etq-previa-topo adm-nao-imprimir">
+        <h2><?= icon('eye') ?> Pré-visualização</h2>
+        <span class="adm-table__muted"><?= count($etiquetas) ?> etiqueta(s) · <?= count($folhas) ?> folha(s) A4 · tamanho <?= e(mb_strtolower($tamanhos[$tamanho])) ?></span>
+    </div>
     <div class="adm-org-previa">
         <?php foreach ($folhas as $folha): ?>
             <div class="adm-org-folha adm-org-folha--tamanho-<?= $tamanho ?>">

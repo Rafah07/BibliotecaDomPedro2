@@ -18,7 +18,7 @@ $responsaveis = cdd_responsaveis();
 $v = fn ($valor) => htmlspecialchars((string)$valor);
 
 admin_page_start('classificacao', 'Histórico CDD', 'Acervo', 'Reclassificação bibliográfica pela CDD', [
-    'assets/css/acervo.css?v=20261115lay',
+    'assets/css/acervo.css?v=20261115des',
     'assets/css/classificacao.css?v=20261102e9',
 ]);
 ?>

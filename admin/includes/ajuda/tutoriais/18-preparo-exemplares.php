@@ -176,7 +176,7 @@ return [
         'passos' => [
             ['titulo' => 'Abra a página', 'texto' => 'No menu **Exemplares**, clique em [[pagina:ocorrencias|Ocorrências e Conservação]]. Na conferência, use o botão **Registrar ocorrência** do exemplar.'],
             ['titulo' => 'Preencha', 'texto' => 'Digite o **Código BDP do exemplar**, escolha o **Problema** e descreva (opcional).'],
-            ['titulo' => 'Decida o empréstimo', 'texto' => 'Responda **Deixar exemplar indisponível para empréstimo?** (veja [[tutorial:disponibilidade-ocorrencia|como decidir]]) e clique em **Registrar ocorrência**.'],
+            ['titulo' => 'Decida o empréstimo', 'texto' => 'Em **Disponibilidade para empréstimo**, responda **Este problema impede o empréstimo do exemplar?** (veja [[tutorial:disponibilidade-ocorrencia|como decidir]]) e clique em **Registrar ocorrência**.'],
             ['titulo' => 'Resolva depois', 'texto' => 'Quando o livro for consertado, use **Marcar como resolvida**, conte **O que foi feito?** e clique em **Confirmar resolução**.'],
         ],
         'exemplo' => 'BDP-000123 está com o miolo se soltando: a auxiliar registra “Encadernação danificada” e deixa indisponível até o conserto.',
@@ -184,12 +184,12 @@ return [
         'problemas' => [['“Nenhum exemplar tem o código ...”', 'O código foi digitado errado.', 'Confira o carimbo e digite de novo.']],
         'cuidados' => ['Registre uma ocorrência por problema.'],
         'relacionados' => ['disponibilidade-ocorrencia', 'conservacao-exemplar'],
-        'confere' => ['ocorrencias.php' => ['Ocorrências e Conservação', 'Código BDP do exemplar *', 'Problema *', 'Registrar ocorrência', 'Marcar como resolvida', 'O que foi feito? *', 'Confirmar resolução'], 'includes/acervo-fisico.php' => ['Deixar exemplar indisponível para empréstimo?']],
+        'confere' => ['ocorrencias.php' => ['Ocorrências e Conservação', 'Código BDP do exemplar *', 'Problema *', 'Registrar ocorrência', 'Marcar como resolvida', 'O que foi feito? *', 'Confirmar resolução'], 'includes/acervo-fisico.php' => ['Disponibilidade para empréstimo', 'Este problema impede o empréstimo do exemplar?', 'Sim — deixar indisponível', 'Não — manter disponível']],
     ],
     [
         'id' => 'disponibilidade-ocorrencia',
         'titulo' => 'Como decidir se um exemplar com problema continua disponível para empréstimo',
-        'resumo' => 'Escolha “Sim, deixar indisponível” para problemas graves e “Não, permitir empréstimos normalmente” para estragos leves.',
+        'resumo' => 'Escolha “Sim — deixar indisponível” para problemas graves e “Não — manter disponível” para estragos leves.',
         'palavras' => ['indisponível', 'bloquear empréstimo', 'liberar empréstimo', 'disponível', 'ocorrência'],
         'paginas' => [],
         'permissao' => 'exemplares.gerenciar',
@@ -197,8 +197,8 @@ return [
         'quando' => ['Ao registrar ou resolver uma ocorrência.'],
         'requisitos' => ['Permissão para gerenciar exemplares.'],
         'passos' => [
-            ['titulo' => 'Problema grave', 'texto' => 'Páginas faltando, livro molhado ou rasgado: escolha **Sim, deixar indisponível**. O exemplar fica como Danificado e sai do empréstimo.'],
-            ['titulo' => 'Problema leve', 'texto' => 'Capa levemente danificada, rabisco pequeno: escolha **Não, permitir empréstimos normalmente**.'],
+            ['titulo' => 'Problema grave', 'texto' => 'Páginas faltando, livro molhado ou rasgado: escolha **Sim — deixar indisponível**. O exemplar fica como Danificado e sai do empréstimo.'],
+            ['titulo' => 'Problema leve', 'texto' => 'Capa levemente danificada, rabisco pequeno: escolha **Não — manter disponível**.'],
             ['titulo' => 'Ao resolver', 'texto' => 'Em **Disponibilidade do exemplar**, escolha **Liberar para empréstimo** ou **Manter a situação atual**.'],
         ],
         'exemplo' => 'Um livro fictício com a capa um pouco dobrada continua emprestando; outro sem as últimas páginas fica indisponível.',
@@ -206,7 +206,7 @@ return [
         'problemas' => [['Resolvi a ocorrência e o livro continua indisponível.', 'Há outra ocorrência aberta que bloqueia, ou ele ainda aguarda carimbo ou estante.', 'Veja as ocorrências do exemplar e a Planilha de Códigos BDP.']],
         'cuidados' => ['Na dúvida, deixe indisponível e peça a avaliação da bibliotecária.'],
         'relacionados' => ['registrar-ocorrencia', 'conferencia-x-organizacao'],
-        'confere' => ['includes/acervo-fisico.php' => ['Sim, deixar indisponível', 'Não, permitir empréstimos normalmente'], 'ocorrencias.php' => ['Disponibilidade do exemplar', 'Liberar para empréstimo', 'Manter a situação atual']],
+        'confere' => ['includes/acervo-fisico.php' => ['Sim — deixar indisponível', 'Não — manter disponível'], 'ocorrencias.php' => ['Disponibilidade do exemplar', 'Liberar para empréstimo', 'Manter a situação atual']],
     ],
     [
         'id' => 'mapa-estantes',

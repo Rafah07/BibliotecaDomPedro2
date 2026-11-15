@@ -3,7 +3,7 @@
  * Ocorrências e Conservação: problemas físicos dos EXEMPLARES (capa danificada, páginas faltando,
  * livro molhado...). Registrar, editar observações, resolver e consultar o histórico.
  *
- * "Deixar exemplar indisponível para empréstimo?" (Sim/Não) é decidido por quem pode gerenciar
+ * "Este problema impede o empréstimo do exemplar?" (Sim/Não) é decidido por quem pode gerenciar
  * exemplares. A situação do exemplar (a mesma do catálogo e dos empréstimos) muda na mesma
  * transação: OcorrenciaService. Ao resolver, o exemplar só é liberado se não houver outro motivo
  * de bloqueio (outra ocorrência, empréstimo aberto ou preparo pendente).
@@ -113,7 +113,7 @@ $resolver = (int)admin_param($_GET, 'resolver');
 $chave = OperacaoService::novaChave();
 $filtrosLink = array_filter($filtros, fn ($v) => $v !== '');
 
-admin_page_start('ocorrencias', 'Ocorrências e Conservação', 'Exemplares', 'Problemas físicos dos exemplares', FISICO_CSS);
+admin_page_start('ocorrencias', 'Ocorrências e Conservação', 'Ocorrências e Conservação', 'Controle de problemas e conservação dos exemplares', FISICO_CSS);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Exemplares', admin_url('exemplares')], ['Ocorrências e Conservação']]) ?>
@@ -144,9 +144,9 @@ admin_page_start('ocorrencias', 'Ocorrências e Conservação', 'Exemplares', 'P
             <input type="hidden" name="voltar" value="<?= e($voltarGet) ?>"><input type="hidden" name="inventario_id" value="<?= $inventarioGet ?: '' ?>">
             <label class="adm-field"><span class="adm-field__sublabel">Código BDP do exemplar *</span><input class="adm-input adm-input--code" name="codigo" required maxlength="30" value="<?= e($formNova['codigo']) ?>" placeholder="BDP-000123" autocomplete="off" spellcheck="false"></label>
             <label class="adm-field"><span class="adm-field__sublabel">Problema *</span><?= fisico_select_ocorrencia('tipo', $formNova['tipo'], 'oc-tipo') ?></label>
-            <label class="adm-field"><span class="adm-field__sublabel">Observações</span><textarea class="adm-input" name="descricao" rows="2" maxlength="1000" placeholder="Ex.: faltam as páginas 45 a 52"><?= e($formNova['descricao']) ?></textarea></label>
+            <label class="adm-field"><span class="adm-field__sublabel">Observações <span class="adm-optional">(opcional)</span></span><textarea class="adm-input" name="descricao" rows="3" maxlength="1000" placeholder="Ex.: faltam as páginas 45 a 52"><?= e($formNova['descricao']) ?></textarea></label>
             <?= fisico_campo_bloqueio('oc', $formNova['bloquear']) ?>
-            <button class="adm-button adm-button--primary" type="submit"><?= icon('save') ?> Registrar ocorrência</button>
+            <div class="adm-form__acoes"><button class="adm-button adm-button--primary" type="submit"><?= icon('save') ?> Registrar ocorrência</button></div>
         </form>
     </section>
     <?php endif; ?>
@@ -194,7 +194,7 @@ admin_page_start('ocorrencias', 'Ocorrências e Conservação', 'Exemplares', 'P
                             <form method="post" action="<?= e($base) ?>" class="adm-ocorrencia__form" id="oc-<?= (int)$o['id'] ?>" data-enviar-uma-vez>
                                 <?= csrf_campo() ?><input type="hidden" name="acao" value="resolver"><input type="hidden" name="id" value="<?= (int)$o['id'] ?>"><input type="hidden" name="chave" value="<?= e($chave) ?>">
                                 <label class="adm-field"><span class="adm-field__sublabel">O que foi feito? *</span><input class="adm-input" name="resolucao" required maxlength="1000" placeholder="Ex.: capa colada e reforçada"></label>
-                                <fieldset class="adm-field adm-escolha"><legend class="adm-field__sublabel">Disponibilidade do exemplar</legend>
+                                <fieldset class="adm-escolha"><legend class="adm-field__sublabel">Disponibilidade do exemplar</legend>
                                     <label class="adm-escolha__opcao"><input type="radio" name="liberar" value="1"<?= (int)$o['bloqueia_emprestimo'] ? ' checked' : '' ?>> <span><strong>Liberar para empréstimo</strong> <small>só acontece se não houver outro motivo de bloqueio</small></span></label>
                                     <label class="adm-escolha__opcao"><input type="radio" name="liberar" value="0"<?= (int)$o['bloqueia_emprestimo'] ? '' : ' checked' ?>> <span><strong>Manter a situação atual</strong></span></label>
                                 </fieldset>
@@ -204,7 +204,7 @@ admin_page_start('ocorrencias', 'Ocorrências e Conservação', 'Exemplares', 'P
                     <?php endif; ?>
                 </li>
             <?php endforeach; ?>
-            <?php if (!$lista['itens']): ?><li><div class="adm-empty"><?= icon('circle-check') ?><strong>Nenhuma ocorrência com estes filtros.</strong></div></li><?php endif; ?>
+            <?php if (!$lista['itens']): ?><li class="adm-ocorrencias__vazio"><div class="adm-empty"><?= icon('circle-check') ?><strong><?= $filtros['q'] !== '' || $filtros['tipo'] !== '' || $filtros['bloqueio'] !== '' || $filtros['status'] !== 'aberta' ? 'Nenhuma ocorrência com estes filtros.' : 'Nenhuma ocorrência aberta.' ?></strong><span>Problemas físicos registrados (páginas faltando, capa solta, livro molhado) aparecem aqui até serem resolvidos.</span></div></li><?php endif; ?>
         </ul>
         <?= admin_paginacao($lista['total'], $lista['pagina'], 30, $base, $filtrosLink, [30]) ?>
     </section>

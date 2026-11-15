@@ -37,8 +37,8 @@ use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261115lay', 'assets/css/emprestimos.css?v=20261115lay', 'assets/css/inventario.css?v=20261115lay', 'assets/css/organizacao.css?v=20261115lay', 'assets/css/preparo.css?v=20261115lay'];
-const FISICO_JS = ['assets/js/inventario.js?v=20261114i'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261115des', 'assets/css/emprestimos.css?v=20261115lay', 'assets/css/inventario.css?v=20261115des', 'assets/css/organizacao.css?v=20261115des', 'assets/css/preparo.css?v=20261115des'];
+const FISICO_JS = ['assets/js/inventario.js?v=20261115des'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
 
@@ -304,12 +304,15 @@ function fisico_select_ocorrencia(string $nome, string $selecionado = '', string
     return $html . '</select>';
 }
 
-/** Campo "Deixar exemplar indisponível para empréstimo?" (Sim/Não, sem resposta pré-marcada). */
+/** Campo "Disponibilidade para empréstimo" (este problema impede o empréstimo?) (Sim/Não, sem resposta pré-marcada). */
 function fisico_campo_bloqueio(string $idBase, string $marcado = ''): string
 {
-    return '<fieldset class="adm-field adm-escolha"><legend class="adm-field__sublabel">Deixar exemplar indisponível para empréstimo? <span class="adm-required" aria-hidden="true">*</span></legend>'
-        . '<label class="adm-escolha__opcao"><input type="radio" name="bloquear" value="1" required' . ($marcado === '1' ? ' checked' : '') . '> <span><strong>Sim, deixar indisponível</strong> <small>ex.: páginas faltando, livro molhado</small></span></label>'
-        . '<label class="adm-escolha__opcao"><input type="radio" name="bloquear" value="0" required' . ($marcado === '0' ? ' checked' : '') . '> <span><strong>Não, permitir empréstimos normalmente</strong> <small>ex.: capa levemente danificada</small></span></label>'
+    $dica = e($idBase) . '-bloqueio-dica';
+    return '<fieldset class="adm-escolha adm-escolha--bloqueio" aria-describedby="' . $dica . '">'
+        . '<legend class="adm-field__label">Disponibilidade para empréstimo <span class="adm-required" aria-hidden="true">*</span></legend>'
+        . '<p class="adm-field__hint" id="' . $dica . '">Este problema impede o empréstimo do exemplar?</p>'
+        . '<label class="adm-escolha__opcao adm-escolha__opcao--perigo"><input type="radio" name="bloquear" value="1" required' . ($marcado === '1' ? ' checked' : '') . '> <span><strong>Sim — deixar indisponível</strong> <small>Ex.: páginas faltando, livro molhado.</small></span></label>'
+        . '<label class="adm-escolha__opcao"><input type="radio" name="bloquear" value="0" required' . ($marcado === '0' ? ' checked' : '') . '> <span><strong>Não — manter disponível</strong> <small>Ex.: capa levemente danificada.</small></span></label>'
         . '</fieldset>';
 }
 

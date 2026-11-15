@@ -113,6 +113,7 @@
     function showTooltip(target) {
         if (!tooltip || mobileQuery.matches || (root.classList.contains('adm-sidebar-expanded') && !target.hasAttribute('data-sidebar-toggle'))) return;
         const rect = target.getBoundingClientRect();
+        if (!rect.width) return;
         tooltip.textContent = target.dataset.tooltip;
         tooltip.style.left = rect.right + 12 + 'px';
         tooltip.style.top = rect.top + rect.height / 2 + 'px';
@@ -194,6 +195,49 @@
     document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventListener('submit', (event) => {
         if (!window.confirm(form.dataset.confirm)) event.preventDefault();
     }));
+
+    // ---------- Envio em andamento ----------
+    // Depois do envio (formulário POST que navega), o botão mostra "processando" e um segundo
+    // envio do mesmo formulário é ignorado. O botão NÃO é desativado: o navegador ainda envia
+    // o nome/valor dele. Exportações (target) e downloads voltam ao normal sozinhos.
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (event.defaultPrevented || !(form instanceof HTMLFormElement)) return;
+        if ((form.method || '').toLowerCase() !== 'post' || form.target || form.hasAttribute('data-sem-ocupado')) return;
+        const botao = event.submitter;
+        if (botao && (botao.formTarget || botao.hasAttribute('formtarget') || botao.formNoValidate && botao.dataset.gerarCodigo)) return;
+        const propria = form.hasAttribute('data-enviar-uma-vez'); // inventario.js já protege estes
+        if (!propria && form.dataset.admOcupado === '1') { event.preventDefault(); return; }
+        // Decide depois dos outros scripts: se algum enviou em segundo plano (preventDefault), não marca.
+        window.setTimeout(() => {
+            if (event.defaultPrevented) return;
+            if (!propria) form.dataset.admOcupado = '1';
+            form.setAttribute('aria-busy', 'true');
+            if (botao && botao.classList.contains('adm-button')) botao.classList.add('is-busy');
+            window.setTimeout(() => {
+                delete form.dataset.admOcupado;
+                form.removeAttribute('aria-busy');
+                botao?.classList.remove('is-busy');
+            }, 8000);
+        }, 0);
+    });
+    window.addEventListener('pageshow', (event) => {
+        if (!event.persisted) return;
+        document.querySelectorAll('form[data-adm-ocupado], form[aria-busy]').forEach((f) => { delete f.dataset.admOcupado; f.removeAttribute('aria-busy'); });
+        document.querySelectorAll('.adm-button.is-busy').forEach((b) => b.classList.remove('is-busy'));
+    });
+
+    // ---------- Detalhes que lembram se ficaram abertos (data-lembrar) ----------
+    const lembrarDetalhes = (raiz) => raiz.querySelectorAll('details[data-lembrar]').forEach((det) => {
+        const chave = 'adm-det-' + det.dataset.lembrar;
+        try { if (localStorage.getItem(chave) === '1') det.open = true; } catch (e) { /* sem armazenamento */ }
+        if (det.dataset.lembrarOk) return;
+        det.dataset.lembrarOk = '1';
+        det.addEventListener('toggle', () => { try { localStorage.setItem(chave, det.open ? '1' : '0'); } catch (e) { /* ignora */ } });
+    });
+    lembrarDetalhes(document);
+    new MutationObserver((mudancas) => mudancas.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) lembrarDetalhes(n); })))
+        .observe(document.body, { childList: true, subtree: true });
 
     // ---------- Data atual ----------
     document.querySelectorAll('[data-today]').forEach((el) => {

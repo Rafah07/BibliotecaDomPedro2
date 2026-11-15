@@ -524,6 +524,15 @@ $ind = $indicadores;
         <p class="adm-table__muted"><?= icon('circle-check') ?> Obras com dados verificados: <strong><?= fisico_numero($ind['obras_verificadas']) ?> de <?= fisico_numero($ind['obras']) ?></strong> (<?= $ind['pct_obras'] ?>% das obras do acervo)</p>
     </div>
     <?php $pend = $base . '&pendencias='; ?>
+    <h3 class="adm-indicadores-inv__grupo">Este inventário · exemplares físicos</h3>
+    <div class="adm-stats adm-stats--indicadores">
+        <?= fisico_stat('Encontrados', $ind['ex_encontrados'], 'Exemplares conferidos na estante', 'square-check', 'green', $det . 'encontrados') ?>
+        <?= fisico_stat('Pendentes', $ind['ex_pendentes'], 'Exemplares ainda não conferidos', 'hourglass', 'amber', $det . 'a_conferir') ?>
+        <?= fisico_stat('Não localizados', $ind['ex_nao_localizados'], 'Procurados e não achados', 'book-x', 'red', $det . 'nao_localizados') ?>
+        <?php if ($ind['ex_emprestados'] > 0): ?><?= fisico_stat('Emprestados', $ind['ex_emprestados'], 'Fora da estante por empréstimo', 'arrow-right-left', 'indigo', $det . 'em_circulacao') ?><?php endif; ?>
+    </div>
+    <details class="adm-indicadores-inv__mais" data-lembrar="inv-indicadores">
+        <summary><?= icon('chevron-down') ?> Indicadores do acervo: obras, exemplares, importação e organização</summary>
     <h3 class="adm-indicadores-inv__grupo">Dados bibliográficos (obras)</h3>
     <div class="adm-stats adm-stats--indicadores">
         <?= fisico_stat('Obras cadastradas', $ind['obras'], 'Títulos/edições (não arquivados)', 'library', 'blue') ?>
@@ -547,13 +556,7 @@ $ind = $indicadores;
         <?= fisico_stat('Sem localização definida', $geral['sem_localizacao'], 'Ainda sem estante e prateleira', 'map-pin-off', 'amber', $pend . 'sem_localizacao') ?>
         <?= fisico_stat('Estantes · prateleiras', $geral['estantes'], fisico_numero($geral['prateleiras']) . ' prateleira(s) ativa(s)', 'columns-3', 'blue', admin_url('organizacao-fisica')) ?>
     </div>
-    <h3 class="adm-indicadores-inv__grupo">Este inventário · exemplares físicos</h3>
-    <div class="adm-stats adm-stats--indicadores">
-        <?= fisico_stat('Encontrados', $ind['ex_encontrados'], 'Exemplares conferidos na estante', 'square-check', 'green', $det . 'encontrados') ?>
-        <?= fisico_stat('Pendentes', $ind['ex_pendentes'], 'Exemplares ainda não conferidos', 'hourglass', 'amber', $det . 'a_conferir') ?>
-        <?= fisico_stat('Não localizados', $ind['ex_nao_localizados'], 'Procurados e não achados', 'book-x', 'red', $det . 'nao_localizados') ?>
-        <?php if ($ind['ex_emprestados'] > 0): ?><?= fisico_stat('Emprestados', $ind['ex_emprestados'], 'Fora da estante por empréstimo', 'arrow-right-left', 'indigo', $det . 'em_circulacao') ?><?php endif; ?>
-    </div>
+    </details>
     <p class="adm-field__hint"><?= icon('file-spreadsheet') ?> Linhas da planilha neste inventário: <strong><?= fisico_numero($ind['linhas_pendentes']) ?></strong> pendente(s) e <?= fisico_numero($ind['linhas_nao_localizadas']) ?> não localizada(s). Elas <strong>não contam como exemplares</strong> até alguém registrar o livro físico.</p>
 </section>
 <?php
@@ -601,7 +604,7 @@ $voltarConf = $base . ($obra ? '&obra=' . (int)$obra['id'] : '');
         <p class="adm-field__hint">Ainda não há lotes gerenciados. Enquanto nenhum lote for aberto, cada pessoa registra no seu lote automático, como antes.</p>
     <?php endif; ?>
     <?php if ($lotesGerais): ?>
-        <details class="adm-acao">
+        <details class="adm-acao adm-meus-lotes__geral">
             <summary><?= icon('list-ordered') ?> Visão geral dos lotes em andamento (<?= count($lotesGerais) ?>)</summary>
             <ul class="adm-meus-lotes__lista adm-meus-lotes__lista--geral">
                 <?php foreach ($lotesGerais as $lg): ?>
@@ -612,12 +615,12 @@ $voltarConf = $base . ($obra ? '&obra=' . (int)$obra['id'] : '');
         </details>
     <?php endif; ?>
     <?php if ($podeLotes): ?>
-        <details class="adm-acao" id="abrir-lote-det"<?= admin_param($_GET, 'abrir_lote') === '1' ? ' open' : '' ?>>
+        <details class="adm-acao adm-acao--lote adm-meus-lotes__abrir" id="abrir-lote-det"<?= admin_param($_GET, 'abrir_lote') === '1' ? ' open' : '' ?>>
             <summary class="adm-button adm-button--primary adm-button--sm"><?= icon('plus') ?> Abrir novo lote</summary>
             <?php $voltarAbrir = $voltarConf; $formAbrir = null; $erroAbrir = null; require __DIR__ . '/includes/form-abrir-lote.php'; ?>
         </details>
     <?php endif; ?>
-    <p class="adm-actions-inline">
+    <p class="adm-meus-lotes__links">
         <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lotes')) ?>"><?= icon('history') ?> Histórico de Lotes</a>
         <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('duvidas') . '?' . http_build_query(['voltar' => $voltarConf] + ($obra ? ['livro' => (int)$obra['id']] : []))) ?>"><?= icon('circle-help') ?> Registrar dúvida</a>
     </p>
@@ -634,9 +637,9 @@ ob_start();
     <form method="post" action="<?= e($base) ?>" class="adm-estante__form" data-estante-form>
         <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="local">
         <?php if ($obra): ?><input type="hidden" name="voltar" value="<?= (int)$obra['id'] ?>"><?php endif; ?>
-        <fieldset class="adm-field"><legend class="adm-field__sublabel">Onde você está trabalhando agora</legend>
+        <fieldset class="adm-fieldset"><legend class="adm-field__sublabel">Onde você está trabalhando agora</legend>
             <?= fisico_campo_local('local_conferencia', $localSessao, 'Nenhuma (escolher em cada registro)', 'local-conferencia') ?></fieldset>
-        <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('save') ?> Aplicar</button>
+        <button class="adm-button adm-button--ghost adm-button--sm adm-estante__aplicar" type="submit"><?= icon('save') ?> Aplicar</button>
     </form>
     <?php if ($estante && $prateleiraAtual): ?>
         <p class="adm-estante__nome"><strong><?= e((string)$estanteNome) ?></strong></p>
@@ -654,7 +657,7 @@ ob_start();
             <?php if ($prateleiraAtual['estante_id'] !== null): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('organizacao-fisica') . '?estante=' . (int)$prateleiraAtual['estante_id'] . '&prateleira=' . (int)$prateleiraAtual['id']) ?>"><?= icon('columns-3') ?> Ver na Organização Física</a><?php endif; ?>
         </p>
     <?php else: ?>
-        <p class="adm-field__hint">Escolha a estante e a prateleira em que está trabalhando (ex.: Estante A — Prateleira 1). Ela vem sugerida em cada exemplar registrado, inclusive em “Registrar outra cópia”, e muda sozinha para a última prateleira usada.</p>
+        <p class="adm-field__hint">Escolha a prateleira em que está trabalhando: ela vem sugerida em cada exemplar registrado e muda sozinha para a última usada. Também dá para continuar sem estante e organizar depois.</p>
     <?php endif; ?>
     <?php if ($podeCadastrar && $emAndamento): ?><p><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&painel=mover') ?>" data-painel-abrir="painel-mover"><?= icon('arrow-right-left') ?> Mover exemplar</a></p><?php endif; ?>
 </section>
@@ -1084,7 +1087,7 @@ ob_start();
     <?php $nv = $novoForm ?? ['titulo' => mb_substr(admin_param($_GET, 'titulo'), 0, 255)]; ?>
     <section class="adm-card adm-panel" id="nao-listado" aria-labelledby="titulo-nao-listado">
         <div class="adm-panel__header"><div><h2 id="titulo-nao-listado"><?= icon('book-plus') ?> Cadastrar livro não listado</h2>
-            <p>Para o livro que está em mãos e não aparece na pesquisa. 1) Dados da <strong>obra</strong> (todos opcionais: não preencha o que não souber). 2) Confirme os dados. 3) <strong>Gerar código BDP</strong> e escreva no carimbo. 4) Salve: o exemplar fica Encontrado neste inventário.</p></div></div>
+            <p>Para o livro que está em mãos e não aparece na pesquisa. 1) Dados da <strong>obra</strong> (todos opcionais: não preencha o que não souber). 2) Confirme os dados. 3) Digite o código do carimbo ou clique em <strong>Gerar código BDP</strong> (dá para carimbar depois, por lote). 4) Salve: o exemplar fica Encontrado neste inventário.</p></div></div>
         <form method="post" action="<?= e($base) ?>#nao-listado" class="adm-form-section" data-sem-enter data-rascunho="nao_listado" data-rascunho-ref="inv<?= $id ?>">
             <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="nao_listado"><input type="hidden" name="token" value="<?= e($tokenNovo) ?>">
             <?php if ($correspondencias): ?>
@@ -1215,14 +1218,15 @@ ob_start();
 <?php endif; ?>
 
 <?php if (!$codigoLido && $busca === null && !$obra && !$mostrarNovo && $pendLista === null): ?>
-    <section class="adm-card adm-panel adm-conferencia__inicio" aria-label="Como conferir">
+    <section class="adm-guia-conf" aria-labelledby="titulo-guia-conf">
+        <h2 class="adm-guia-conf__titulo" id="titulo-guia-conf"><?= icon('lightbulb') ?> Como conferir</h2>
         <ol class="adm-passos-conf">
-            <li><strong>Pesquise</strong> o livro que está em mãos (título, autor, ISBN ou código BDP).</li>
-            <li>Obra com <strong>dados não verificados</strong>? Confira e clique em <strong>Salvar e marcar dados como verificados</strong> (uma vez por obra).</li>
-            <li><strong>Gerar código BDP</strong>, escreva no carimbo, escolha a linha da planilha, a <strong>estante e a prateleira</strong> e salve.</li>
-            <li><strong>Registrar outra cópia</strong> ou <strong>Próximo livro</strong>.</li>
+            <li><strong>Pesquise</strong> o livro em mãos.</li>
+            <li><strong>Verifique a obra</strong> uma vez, se os dados ainda não foram conferidos.</li>
+            <li><strong>Registre o exemplar</strong>: código do carimbo ou <strong>Gerar código BDP</strong> (dá para carimbar depois, por lote).</li>
+            <li><strong>Outra cópia</strong> ou <strong>próximo livro</strong>.</li>
         </ol>
-        <?php if ($podeCadastrar): ?><p class="adm-field__hint">O livro não está no sistema? <a class="adm-link" href="<?= e($base . '&novo=1') ?>#nao-listado">+ Cadastrar livro não listado</a></p><?php endif; ?>
+        <?php if ($podeCadastrar): ?><p class="adm-guia-conf__extra">Não está no sistema? <a class="adm-link" href="<?= e($base . '&novo=1') ?>#nao-listado">+ Cadastrar livro não listado</a></p><?php endif; ?>
     </section>
 <?php endif; ?>
 
@@ -1234,7 +1238,7 @@ ob_start();
         : $obra;
     $alertasLv = $obraAlertas; $editavelLv = true;
     ?>
-    <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-verificar" aria-labelledby="painel-verificar-titulo"<?= $painel === 'verificar' ? ' open data-painel-auto' : '' ?>>
+    <dialog class="adm-modal adm-modal--wide adm-painel-lateral adm-painel-lateral--largo" id="painel-verificar" aria-labelledby="painel-verificar-titulo"<?= $painel === 'verificar' ? ' open data-painel-auto' : '' ?>>
         <form class="adm-modal__box" method="post" action="<?= e($base . '&obra=' . (int)$obra['id']) ?>#obra" data-sem-enter data-rascunho="verificar_obra" data-rascunho-ref="inv<?= $id ?>-obra<?= (int)$obra['id'] ?>">
             <header class="adm-modal__header">
                 <div><h2 id="painel-verificar-titulo"><?= icon('pencil') ?> Verificar e corrigir dados</h2>
@@ -1273,7 +1277,7 @@ ob_start();
     $rxSugestao = $sugestaoLocal;
     $rxLivroId = (int)$obra['id']; $rxRegistros = $obraLinhas; $rxOrigem = 'registrar';
     ?>
-    <dialog class="adm-modal adm-modal--wide adm-painel-lateral" id="painel-registrar" aria-labelledby="painel-registrar-titulo"<?= $painel === 'registrar' ? ' open data-painel-auto' : '' ?>>
+    <dialog class="adm-modal adm-modal--wide adm-painel-lateral adm-painel-lateral--largo" id="painel-registrar" aria-labelledby="painel-registrar-titulo"<?= $painel === 'registrar' ? ' open data-painel-auto' : '' ?>>
         <form class="adm-modal__box" method="post" action="<?= e($base . '&obra=' . (int)$obra['id']) ?>#exemplares" data-sem-enter data-rascunho="registrar_exemplar" data-rascunho-ref="inv<?= $id ?>-obra<?= (int)$obra['id'] ?>">
             <header class="adm-modal__header">
                 <div><h2 id="painel-registrar-titulo"><?= icon('plus') ?> Registrar exemplar<?= $ultimo ? ' · outra cópia' : '' ?></h2>
@@ -1345,9 +1349,9 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                         data-busca-viva="<?= e($base) ?>" aria-controls="conferencia-area">
                     <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> Pesquisar</button>
                 </div>
-                <p class="adm-field__hint" id="leitura-dica">
-                    Os resultados aparecem enquanto você digita. Livro já carimbado? Digite o código BDP escrito no carimbo e pressione Enter.
-                    Atalhos: <kbd>/</kbd> pesquisa · <kbd>N</kbd> próximo livro · <kbd>C</kbd> outra cópia · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> salva o formulário aberto.
+                <p class="adm-field__hint adm-leitura__dica" id="leitura-dica">
+                    <span>Resultados aparecem enquanto você digita; código BDP + Enter abre o exemplar.</span>
+                    <span class="adm-leitura__atalhos">Atalhos: <kbd>/</kbd> pesquisa · <kbd>N</kbd> próximo livro · <kbd>C</kbd> outra cópia · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> salva</span>
                 </p>
             </form>
         </section>
