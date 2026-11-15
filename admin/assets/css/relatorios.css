@@ -127,3 +127,5 @@
     .rel-chart, .rel-card { break-inside: avoid; }
     .rel-bars__fill, .rel-columns__bar, .rel-legend__dot, .rel-progress span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+.rel-mini-table { min-width: 0; }
+.rel-mini-table th { white-space: normal; }

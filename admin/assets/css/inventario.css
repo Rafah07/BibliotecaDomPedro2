@@ -2,12 +2,10 @@
 
 .adm-stats--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .adm-kpis--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.adm-panel__title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.adm-panel__title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.adm-panel__title > .icon { flex-shrink: 0; width: 18px; height: 18px; color: var(--adm-blue-accent); }
 .adm-form-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .adm-input--sm { min-height: 34px; padding: 6px 10px; font-size: 13px; }
-.adm-inline-form { display: flex; align-items: flex-end; gap: 8px; }
-.adm-actions-inline { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-.adm-actions-inline form { margin: 0; }
 .adm-atalhos { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .adm-meta--grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 
@@ -203,7 +201,7 @@
 .adm-codigo-bdp__status { margin: 4px 0 0; font-size: 13px; color: #166534; min-height: 1em; }
 .adm-codigo-bdp__status:empty { display: none; }
 .adm-codigo-bdp__status.is-erro { color: var(--adm-red); }
-.adm-escolha { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-escolha { border: 0; padding: 0; margin: 0; display: flex; flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: 8px; min-width: 0; background: none; }
 .adm-escolha legend { margin-bottom: 6px; }
 .adm-escolha__opcao { flex: 1 1 200px; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); cursor: pointer; background: var(--adm-white); }
 .adm-escolha__opcao:has(input:checked) { border-color: var(--adm-blue-accent); background: var(--adm-blue-50); }
@@ -299,4 +297,9 @@ kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-
     .adm-resultado__principal small { white-space: normal; }
     .adm-registrado__acoes .adm-button { flex: 1 1 100%; justify-content: center; }
     .adm-stats--indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Lista de exemplares em telas médias: a localização quebra linha para a coluna Ações caber na tela. */
+@media (min-width: 721px) {
+    .adm-table--exemplares td[data-label="Localização"] { white-space: normal; min-width: 170px; }
 }

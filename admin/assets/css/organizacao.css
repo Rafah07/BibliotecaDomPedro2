@@ -115,3 +115,13 @@
     .adm-org-folha { box-shadow: none; margin: 0; page-break-after: always; break-after: page; }
     .adm-org-folha:last-child { page-break-after: auto; break-after: auto; }
 }
+
+/* Formulário simples em coluna (ex.: Etiquetas das estantes) */
+.adm-form { display: flex; flex-direction: column; gap: 14px; }
+.adm-form > .adm-actions-inline { justify-content: flex-start; }
+.adm-form .adm-field__hint { margin: 0; }
+.adm-chips label.adm-check { align-items: center; padding: 6px 12px; border: 1px solid var(--adm-border); border-radius: 999px; background: var(--adm-white); font-size: 13px; }
+.adm-chips label.adm-check:has(input:checked) { border-color: var(--adm-blue-accent); background: var(--adm-blue-50); }
+.adm-chips label.adm-check > input[type=checkbox] { margin: 0; }
+.adm-org-colunas .adm-table--compacta { min-width: 0; }
+.adm-org-colunas .adm-table--compacta th { white-space: normal; }

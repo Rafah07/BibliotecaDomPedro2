@@ -86,7 +86,7 @@ $aptoExemplar = $exemplar && $exemplar['situacao'] === 'disponivel' && $exemplar
 $passo = !$aluno ? 1 : (!$exemplar ? 2 : 3);
 $estado = ['aluno' => $aluno['id'] ?? null, 'exemplar' => $exemplar['id'] ?? null];
 
-admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261114', 'assets/css/emprestimos.css?v=20261113']);
+admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulação do acervo', ['assets/css/acervo.css?v=20261115lay', 'assets/css/emprestimos.css?v=20261115lay']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Empréstimos', admin_url('emprestimos')], ['Novo empréstimo']]) ?>
@@ -119,7 +119,7 @@ admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulaçã
         </div>
     </div>
     <?php if ($aluno): ?>
-        <div class="adm-escolha<?= $aptoAluno ? '' : ' is-blocked' ?>">
+        <div class="adm-escolha-atual<?= $aptoAluno ? '' : ' is-blocked' ?>">
             <span class="adm-icon-box adm-icon-box--sm adm-tone--<?= $aptoAluno ? 'blue' : 'red' ?>"><?= icon('graduation-cap') ?></span>
             <div>
                 <strong><?= e($aluno['nome']) ?></strong>
@@ -183,7 +183,7 @@ admin_page_start('emprestimos', 'Novo empréstimo', 'Empréstimos', 'Circulaçã
         </div>
     </div>
     <?php if ($exemplar): ?>
-        <div class="adm-escolha<?= $aptoExemplar ? '' : ' is-blocked' ?>">
+        <div class="adm-escolha-atual<?= $aptoExemplar ? '' : ' is-blocked' ?>">
             <span class="adm-icon-box adm-icon-box--sm adm-tone--<?= $aptoExemplar ? 'blue' : 'red' ?>"><?= icon('book-copy') ?></span>
             <div>
                 <strong><?= e($exemplar['titulo']) ?></strong>

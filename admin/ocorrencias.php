@@ -139,7 +139,7 @@ admin_page_start('ocorrencias', 'Ocorrências e Conservação', 'Exemplares', 'P
     <section class="adm-card adm-panel" aria-labelledby="titulo-nova" id="nova">
         <h2 id="titulo-nova" class="adm-panel__title"><?= icon('plus') ?> Registrar ocorrência</h2>
         <?php if ($erroNova): ?><?= admin_aviso('erro', 'A ocorrência não foi registrada.', $erroNova) ?><?php endif; ?>
-        <form method="post" action="<?= e($base) ?>" data-enviar-uma-vez>
+        <form class="adm-form" method="post" action="<?= e($base) ?>" data-enviar-uma-vez>
             <?= csrf_campo() ?><input type="hidden" name="acao" value="registrar"><input type="hidden" name="chave" value="<?= e($chave) ?>">
             <input type="hidden" name="voltar" value="<?= e($voltarGet) ?>"><input type="hidden" name="inventario_id" value="<?= $inventarioGet ?: '' ?>">
             <label class="adm-field"><span class="adm-field__sublabel">Código BDP do exemplar *</span><input class="adm-input adm-input--code" name="codigo" required maxlength="30" value="<?= e($formNova['codigo']) ?>" placeholder="BDP-000123" autocomplete="off" spellcheck="false"></label>

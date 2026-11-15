@@ -191,7 +191,7 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
                 </div>
             </div>
             <div class="adm-table-wrap" tabindex="0" aria-label="Tabela de empréstimos recentes">
-                <table class="adm-table">
+                <table class="adm-table adm-table--dash">
                     <thead>
                         <tr>
                             <th scope="col">Livro</th>
@@ -239,7 +239,7 @@ admin_page_start('dashboard', 'Dashboard', 'Painel Administrativo', 'Visão gera
                 </div>
             </div>
             <div class="adm-table-wrap" tabindex="0" aria-label="Tabela de atividades recentes (role horizontalmente em telas pequenas)">
-                <table class="adm-table">
+                <table class="adm-table adm-table--dash">
                     <thead>
                         <tr>
                             <th scope="col">Tipo</th>

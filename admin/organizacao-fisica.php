@@ -417,6 +417,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
             <?php if (!$andamento): ?>
                 <p class="adm-field__hint">Cadastre estantes e defina responsáveis para acompanhar quem está organizando cada uma.</p>
             <?php else: ?>
+                <div class="adm-table-wrap adm-table-wrap--inset">
                 <table class="adm-table adm-table--compacta">
                     <thead><tr><th scope="col">Responsável / equipe</th><th scope="col">Estantes</th><th scope="col">Prateleiras</th><th scope="col">Exemplares alocados</th></tr></thead>
                     <tbody>
@@ -428,7 +429,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             <?php endif; ?>
             <h3 class="adm-org__subtitulo">Organizados nos últimos 7 dias</h3>
             <?php if (!$organizados): ?>

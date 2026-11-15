@@ -99,7 +99,7 @@ admin_page_start('relatorio-atividades', 'Relatório de Atividades', 'Relatório
     </div>
 </section>
 
-<form class="adm-card adm-toolbar adm-toolbar--search adm-nao-imprimir" method="get" action="<?= e($base) ?>">
+<form class="adm-card adm-panel adm-atividades-filtros adm-nao-imprimir" method="get" action="<?= e($base) ?>">
     <div class="adm-filters">
         <label class="adm-filter"><span>De</span><input class="adm-input" type="date" name="de" value="<?= e($filtros['de']) ?>" max="<?= e($hoje) ?>"></label>
         <label class="adm-filter"><span>Até</span><input class="adm-input" type="date" name="ate" value="<?= e($filtros['ate']) ?>" max="<?= e($hoje) ?>"></label>
@@ -110,10 +110,12 @@ admin_page_start('relatorio-atividades', 'Relatório de Atividades', 'Relatório
         <label class="adm-filter"><span>Tipo de atividade</span><select class="adm-select" name="tipo"><option value="">Todos</option>
             <?php foreach (PreparoRepository::ATIVIDADES as $k => $r): ?><option value="<?= e($k) ?>"<?= $filtros['tipo'] === $k ? ' selected' : '' ?>><?= e($r) ?></option><?php endforeach; ?></select></label>
     </div>
+    <div class="adm-atividades-filtros__acoes">
     <button type="submit" class="adm-button adm-button--primary adm-button--sm"><?= icon('search') ?> Gerar</button>
     <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base) ?>">Hoje</a>
     <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['de' => date('Y-m-d', strtotime('monday this week')), 'ate' => $hoje])) ?>">Esta semana</a>
     <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['de' => date('Y-m-01'), 'ate' => $hoje])) ?>">Este mês</a>
+    </div>
 </form>
 
 <section class="adm-card adm-panel adm-relatorio-atividades" aria-labelledby="titulo-relatorio">

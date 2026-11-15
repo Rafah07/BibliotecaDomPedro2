@@ -106,7 +106,7 @@ admin_page_start('duvidas', 'Dúvidas da conferência', 'Inventário', 'Dúvidas
     <section class="adm-card adm-panel" aria-labelledby="titulo-nova" id="nova">
         <h2 id="titulo-nova" class="adm-panel__title"><?= icon('plus') ?> Registrar dúvida</h2>
         <?php if ($erro): ?><?= admin_aviso('erro', 'A dúvida não foi registrada.', $erro) ?><?php endif; ?>
-        <form method="post" action="<?= e($base) ?>" data-enviar-uma-vez>
+        <form class="adm-form" method="post" action="<?= e($base) ?>" data-enviar-uma-vez>
             <?= csrf_campo() ?><input type="hidden" name="acao" value="registrar"><input type="hidden" name="voltar" value="<?= e($voltarGet) ?>">
             <?php if ($livroFiltro && $form['codigo'] === ''): ?>
                 <input type="hidden" name="livro_id" value="<?= (int)$livroFiltro['id'] ?>">
