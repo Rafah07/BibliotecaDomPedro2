@@ -71,8 +71,8 @@ return [
         'exemplo' => 'Pela manhã, a Equipe 1 fictícia abre o “Lote 005”. À tarde, abre o “Lote 006” para a pilha nova.',
         'resultado' => ['Cada exemplar guarda o lote e a ordem em que foi registrado. A ordem não muda depois.'],
         'problemas' => [['Meus registros entraram no lote de ontem.', 'O lote anterior continuava aberto.', 'Abra um lote novo antes de começar a pilha do dia. Os já registrados continuam no lote em que entraram.']],
-        'cuidados' => ['Um lote vazio não gasta número: se abrir um lote e não registrar nada, ele é reaproveitado.'],
-        'relacionados' => ['planilha-codigos-bdp', 'confirmar-carimbados'],
+        'cuidados' => ['Um lote vazio não gasta número: se abrir um lote e não registrar nada, ele é reaproveitado.', 'Depois que a administração abre o primeiro lote em “Abrir novo lote” (na conferência do Inventário), os lotes passam a ter capacidade e usuários: veja [[tutorial:abrir-lote|Como abrir um lote]] e [[tutorial:lote-ativo|Como selecionar o lote ativo]].'],
+        'relacionados' => ['planilha-codigos-bdp', 'confirmar-carimbados', 'abrir-lote'],
         'confere' => ['planilha-bdp.php' => ['Lotes', 'Seu lote atual', 'Lotes de cadastramento', 'Reimprimir lote']],
     ],
     [

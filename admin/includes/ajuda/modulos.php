@@ -83,6 +83,13 @@ return [
         'arquivo' => '18-preparo-exemplares.php',
         'palavras' => ['carimbo', 'planilha de codigos', 'lote', 'triagem', 'ocorrencia', 'danificado', 'mapa', 'desfazer', 'relatorio de atividades', 'movimentacao em lote'],
     ],
+    'gerenciamento-lotes' => [
+        'nome' => 'Gerenciamento de lotes',
+        'icone' => 'layers',
+        'descricao' => 'Abrir lotes, escolher o lote ativo, fechamento automático, planilha BDP, carimbagem, organização nas estantes, encerramento, histórico, produtividade, dúvidas e rascunhos.',
+        'arquivo' => '19-gerenciamento-lotes.php',
+        'palavras' => ['lote', 'lotes', 'meus lotes', 'lote ativo', 'capacidade', 'carimbagem', 'encerrar lote', 'historico de lotes', 'produtividade', 'duvida', 'rascunho'],
+    ],
     'etiquetas' => [
         'nome' => 'Etiquetas',
         'icone' => 'tag',

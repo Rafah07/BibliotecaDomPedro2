@@ -102,12 +102,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 admin_redirecionar($voltar);
             case 'novo_lote':
                 fisico_exigir('exemplares.gerenciar');
+                if (lotes_repo()->emUso()) {
+                    throw new AcervoException('Os lotes agora são abertos por um administrador, com capacidade e usuários, em “+ Abrir novo lote” (Conferência ou Histórico de Lotes). Escolha o seu em “Meus lotes”.');
+                }
                 $loteId = lotes_servico()->abrirNovo($usuario['id'], admin_param($_POST, 'equipe'), admin_param($_POST, 'descricao'));
                 $lote = preparo_repo()->lote($loteId);
                 admin_flash('sucesso', PreparoRepository::rotuloLote($lote) . ' aberto.', 'Os próximos exemplares que você registrar entram neste lote, na ordem do registro. Separe os livros dele juntos, na mesma ordem.');
                 admin_redirecionar(admin_url_filtros($base, ['aba' => 'lotes']));
             case 'fechar_lote':
                 fisico_exigir('exemplares.gerenciar');
+                if (db_query('SELECT modo FROM cadastro_lotes WHERE id = ?', [(int)admin_param($_POST, 'lote_id')])->fetchColumn() === 'gerenciado') {
+                    fisico_exigir('lotes.gerenciar');
+                }
                 lotes_servico()->fechar((int)admin_param($_POST, 'lote_id'), $usuario['id']);
                 admin_flash('sucesso', 'Lote fechado.', 'O próximo exemplar registrado por quem abriu o lote vai para um lote novo.');
                 admin_redirecionar(admin_url_filtros($base, ['aba' => 'lotes']));
@@ -296,13 +302,23 @@ admin_page_start('planilha-bdp', 'Planilha de Códigos BDP', 'Exemplares', 'Cód
     <div class="adm-org-colunas">
         <section class="adm-card adm-panel" aria-labelledby="titulo-lote-atual">
             <h2 id="titulo-lote-atual" class="adm-panel__title"><?= icon('layers') ?> Seu lote atual</h2>
-            <?php if ($loteAberto): ?>
+            <?php $loteAtivoG = lotes_repo()->loteAtivo($usuario['id']); $lotesEmUso = lotes_repo()->emUso(); ?>
+            <?php if ($lotesEmUso): ?>
+                <?php if ($loteAtivoG): ?>
+                    <p><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$loteAtivoG['id']) ?>"><strong><?= e(Biblioteca\Repositories\LoteRepository::nome($loteAtivoG)) ?></strong></a> <?= lote_badge($loteAtivoG['status']) ?></p>
+                    <?= lote_progresso($loteAtivoG) ?>
+                <?php else: ?>
+                    <p class="adm-field__hint">Você não tem lote ativo. Escolha um em “Meus lotes”, na página de Conferência do inventário.</p>
+                <?php endif; ?>
+                <p class="adm-field__hint">Os lotes são abertos por um administrador, com capacidade e usuários responsáveis, e acompanham cada exemplar até a estante definitiva.</p>
+                <p><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lotes')) ?>"><?= icon('history') ?> Histórico de Lotes</a></p>
+            <?php elseif ($loteAberto): ?>
                 <p><strong><?= e(PreparoRepository::rotuloLote($loteAberto)) ?></strong> · <?= fisico_numero((int)$loteAberto['exemplares']) ?> exemplar(es)</p>
                 <p class="adm-field__hint">Os exemplares que você registrar entram neste lote, na ordem do registro.</p>
             <?php else: ?>
                 <p class="adm-field__hint">Você ainda não tem lote aberto. O primeiro exemplar que você registrar abre um lote automaticamente, ou abra um agora com o nome da equipe.</p>
             <?php endif; ?>
-            <?php if ($podeGerenciar): ?>
+            <?php if ($podeGerenciar && !$lotesEmUso): ?>
                 <form method="post" action="<?= e($base) ?>" class="adm-form-grid" data-enviar-uma-vez>
                     <?= csrf_campo() ?><input type="hidden" name="acao" value="novo_lote">
                     <label class="adm-field"><span class="adm-field__sublabel">Equipe <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="equipe" maxlength="80" placeholder="Ex.: Equipe 1" value="<?= e((string)($loteAberto['equipe'] ?? '')) ?>"></label>
@@ -332,11 +348,12 @@ admin_page_start('planilha-bdp', 'Planilha de Códigos BDP', 'Exemplares', 'Cód
                             <td data-label="Exemplares"><?= fisico_numero((int)$lt['exemplares']) ?></td>
                             <td data-label="Aguardando carimbo"><?= fisico_numero((int)$lt['aguardando_carimbo']) ?></td>
                             <td data-label="Aguardando organização"><?= fisico_numero((int)$lt['aguardando_organizacao']) ?></td>
-                            <td data-label="Situação"><span class="adm-status adm-tone--<?= $lt['status'] === 'aberto' ? 'green' : 'muted' ?>"><?= $lt['status'] === 'aberto' ? 'Aberto' : 'Fechado' ?></span></td>
+                            <td data-label="Situação"><?= lote_badge($lt['status']) ?></td>
                             <td class="adm-td-actions">
                                 <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['aba' => 'todos', 'lote' => (int)$lt['id']])) ?>"><?= icon('eye') ?> Integrantes</a>
                                 <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url_filtros($base, ['saida' => 'imprimir', 'carimbo' => 'todos', 'lote' => (int)$lt['id']])) ?>" target="_blank" rel="noopener"><?= icon('printer') ?> Reimprimir lote</a>
-                                <?php if ($podeGerenciar && $lt['status'] === 'aberto'): ?>
+                                <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lote') . '?id=' . (int)$lt['id']) ?>"><?= icon('layers') ?> Relatório</a>
+                                <?php if ($podeGerenciar && $lt['status'] === 'aberto' && ($lt['modo'] ?? 'automatico') === 'automatico'): ?>
                                     <form method="post" action="<?= e($base) ?>" class="adm-inline-form" data-confirm="Fechar o <?= e(PreparoRepository::rotuloLote($lt)) ?>? Os próximos registros de quem o abriu vão para um lote novo.">
                                         <?= csrf_campo() ?><input type="hidden" name="acao" value="fechar_lote"><input type="hidden" name="lote_id" value="<?= (int)$lt['id'] ?>">
                                         <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('archive') ?> Fechar</button>

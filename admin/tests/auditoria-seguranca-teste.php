@@ -85,6 +85,7 @@ $todos = [$L, 200, 200, 200, 200];
 $equipe = [$L, 200, 200, 200, 403];          // circulação/dados de alunos e cadastro: não para "consulta"
 $gestao = [$L, 200, 200, 403, 403];          // bibliotecária e administrador
 $soAdmin = [$L, 200, 403, 403, 403];
+$loteCad = (new \Biblioteca\Services\LoteService($pdo))->abrirNovo($contas['administrador'], 'Equipe fictícia');   // lote automático (migração 160)
 $esperado = [
     'index.php' => $todos, 'livros.php' => $todos, 'detalhes-livro.php?id=' . $livro => $todos, 'categorias.php' => $todos,
     'exemplares.php' => $todos, 'detalhes-exemplar.php?id=' . $ex[1] => $todos, 'localizacoes.php' => $todos, 'organizacao-fisica.php' => $todos, 'organizacao-etiquetas.php' => $todos,
@@ -103,6 +104,7 @@ $esperado = [
     'localizacao.php?id=' . $loc => $gestao, 'importar-alunos.php' => $gestao, 'configuracoes.php' => $gestao, 'site-publico.php' => $gestao,
     'planilha-bdp.php' => $todos, 'ocorrencias.php' => $todos, 'organizacao-mapa.php' => $todos, 'relatorio-atividades.php' => $todos,   // migração 150
     'acoes-recentes.php' => $equipe, 'movimentacao-lote.php' => $equipe,
+    'lotes.php' => $todos, 'lote.php?id=' . $loteCad => $todos, 'duvidas.php' => $todos, 'lotes-produtividade.php' => $gestao,   // migração 160
     'administradores.php' => $soAdmin, 'administrador.php?id=' . $contas['auxiliar'] => $soAdmin, 'manutencao.php' => $soAdmin,
 ];
 $paginasExistentes = array_map('basename', glob(__DIR__ . '/../*.php'));

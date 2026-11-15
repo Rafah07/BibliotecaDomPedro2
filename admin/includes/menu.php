@@ -42,6 +42,11 @@ const ADMIN_MENU = [
         'inventario-editar' => ['label' => 'Inventário', 'icon' => 'clipboard-check', 'arquivo' => 'inventario-editar.php', 'pronta' => true, 'oculto' => true],
         'inventario-detalhes' => ['label' => 'Inventário', 'icon' => 'clipboard-check', 'arquivo' => 'inventario-detalhes.php', 'pronta' => true, 'oculto' => true],
         'inventario-conferencia' => ['label' => 'Conferência', 'icon' => 'keyboard', 'arquivo' => 'inventario-conferencia.php', 'pronta' => true, 'oculto' => true],
+        // Gerenciamento de lotes e etapas de trabalho (migração 160).
+        'lotes' => ['label' => 'Histórico de Lotes', 'icon' => 'layers', 'arquivo' => 'lotes.php', 'pronta' => true, 'pai' => 'inventario'],
+        'lote' => ['label' => 'Relatório do lote', 'icon' => 'layers', 'arquivo' => 'lote.php', 'pronta' => true, 'oculto' => true],
+        'lotes-produtividade' => ['label' => 'Relatório de Produtividade', 'icon' => 'chart-column', 'arquivo' => 'lotes-produtividade.php', 'pronta' => true, 'pai' => 'inventario', 'permissao' => 'lotes.gerenciar'],
+        'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-relatorio' => ['label' => 'Relatório do inventário', 'icon' => 'file-chart-column', 'arquivo' => 'inventario-relatorio.php', 'pronta' => true, 'oculto' => true],
     ],
     'Circulação' => [

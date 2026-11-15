@@ -28,11 +28,16 @@ try {
             $dados['localizacao_id'] = fisico_resolver_local($fx, $usuario['id']);
             $criados = exemplares_servico()->cadastrar($livroId, $dados, $usuario['id'], $quantidade);
             $codigos = array_column($criados, 'codigo');
+            try {
+                rascunhos_servico()->descartar($usuario['id'], 'cadastrar_exemplar', 'livro' . $livroId);
+            } catch (Throwable) {
+            }
             $lote = !empty($criados[0]['lote_id']) ? preparo_repo()->lote((int)$criados[0]['lote_id']) : null;
             admin_flash('sucesso', count($criados) === 1 ? 'Exemplar cadastrado: ' . $codigos[0] . '.' : count($criados) . ' exemplares cadastrados: ' . implode(', ', $codigos) . '.',
                 'Os códigos não se repetem e não serão reaproveitados. Eles entraram na Planilha de Códigos BDP como “Aguardando carimbo”'
                 . ($lote ? ' (' . Biblioteca\Repositories\PreparoRepository::rotuloLote($lote) . ')' : '') . ': escreva o código no carimbo de cada livro e marque como carimbado.'
-                . ($criados[0]['situacao'] === 'aguardando' && $fx['situacao'] === 'disponivel' ? ' Até lá o exemplar não é emprestado.' : ''));
+                . ($criados[0]['situacao'] === 'aguardando' && $fx['situacao'] === 'disponivel' ? ' Até lá o exemplar não é emprestado.' : '')
+                . (!empty(end($criados)['lote_fechou']) ? ' O lote ficou completo e foi fechado automaticamente — aguardando carimbagem. Escolha outro lote em “Meus lotes” (Conferência).' : ''));
             admin_redirecionar($base . '?livro=' . $livroId . '&criados=' . implode(',', array_column($criados, 'id')));
         } catch (AcervoException $e) {
             $erro = $e->getMessage();
@@ -50,6 +55,8 @@ try {
     }
     $criadosIds = array_filter(array_map('intval', explode(',', admin_param($_GET, 'criados'))));
     $criados = $criadosIds ? exemplares_repo()->paraEtiquetas($criadosIds) : [];
+    $loteAtivo = lotes_repo()->loteAtivo((int)$usuario['id']);
+    $lotesEmUso = lotes_repo()->emUso();
 } catch (PDOException $e) {
     http_response_code(500);
     admin_pagina_erro('Não foi possível abrir o cadastro de exemplar', fisico_erro_tecnico($e, 'cadastro de exemplar'));
@@ -130,7 +137,13 @@ admin_page_start('exemplares', 'Cadastrar exemplar', 'Exemplares', 'Unidades fí
 <?php else: ?>
     <div class="adm-form-layout">
         <div class="adm-form-layout__main">
-            <form method="post" class="adm-card adm-panel adm-form-section" data-loading-form>
+            <?php if ($loteAtivo): ?>
+                <?= admin_aviso($loteAtivo['status'] === 'aberto' ? 'sucesso' : 'aviso', 'Lote ativo: ' . Biblioteca\Repositories\LoteRepository::nome($loteAtivo) . ' — ' . Biblioteca\Services\ExemplarService::rotuloStatusLote($loteAtivo['status']) . '.',
+                    $loteAtivo['status'] === 'aberto' ? ($loteAtivo['capacidade'] !== null ? 'Restam ' . max(0, (int)$loteAtivo['capacidade'] - (int)$loteAtivo['total']) . ' vaga(s). ' : '') . 'Os exemplares cadastrados aqui entram neste lote.' : 'Este lote não recebe novos exemplares. Escolha outro em “Meus lotes”, na página de Conferência.') ?>
+            <?php elseif ($lotesEmUso): ?>
+                <?= admin_aviso('aviso', 'Escolha o lote em que vai trabalhar.', 'Os exemplares só podem ser registrados num lote ativo. Escolha em “Meus lotes”, na página de Conferência do inventário.') ?>
+            <?php endif; ?>
+            <form method="post" class="adm-card adm-panel adm-form-section" data-loading-form data-rascunho="cadastrar_exemplar" data-rascunho-ref="livro<?= (int)$livroId ?>">
                 <?= csrf_campo() ?>
                 <input type="hidden" name="livro_id" value="<?= (int)$livro['id'] ?>">
                 <div class="adm-form-section__header"><span class="adm-step">2</span><div><h2>Dados do exemplar</h2><p>O exemplar fica ligado a este livro e recebe um código próprio.</p></div></div>
@@ -165,4 +178,4 @@ admin_page_start('exemplares', 'Cadastrar exemplar', 'Exemplares', 'Unidades fí
 <?php endif; ?>
 
 <?php
-admin_page_end(FISICO_JS);
+admin_page_end(array_merge(FISICO_JS, ['assets/js/rascunhos.js?v=20261115']));
