@@ -104,7 +104,7 @@ $notas = [
 ];
 
 admin_page_start($secao === 'atividades' ? 'atividades' : 'relatorios', 'Relatórios — ' . $info['titulo'], 'Relatórios', 'Estatísticas e exportação de dados', [
-    'assets/css/acervo.css?v=20261115des', 'assets/css/relatorios.css?v=20261115lay',
+    'assets/css/acervo.css?v=20261115mob', 'assets/css/relatorios.css?v=20261115mob',
 ]);
 ?>
 

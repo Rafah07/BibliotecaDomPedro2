@@ -34,8 +34,8 @@ $cards = [
 ];
 
 admin_page_start('classificacao', 'Classificação CDD', 'Acervo', 'Reclassificação bibliográfica pela CDD', [
-    'assets/css/acervo.css?v=20261115des',
-    'assets/css/classificacao.css?v=20261102e9',
+    'assets/css/acervo.css?v=20261115mob',
+    'assets/css/classificacao.css?v=20261115mob',
 ]);
 ?>
 

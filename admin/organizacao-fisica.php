@@ -224,8 +224,11 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
 <div class="adm-progress adm-progress--lg adm-org__progresso" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $resumo['pct_alocados'] ?>" aria-label="Exemplares com localização definida"><div class="adm-progress__bar adm-progress__bar--ok" style="width: <?= $resumo['pct_alocados'] ?>%"></div></div>
 <p class="adm-field__hint"><?= icon('info') ?> O andamento é medido pelos exemplares registrados e colocados nas prateleiras. Livros podem mudar de estante a qualquer momento (use <strong>Mover exemplar</strong>).</p>
 <?php if (!$estante): ?>
-    <h2 class="adm-org__subtitulo">Conferência física × organização definitiva</h2>
-    <?= fisico_indicadores_preparo_html(preparo_repo()->indicadores(), admin_url('planilha-bdp')) ?>
+    <?php // No celular os indicadores de preparo começam recolhidos (a lista de estantes vem logo depois). ?>
+    <details class="adm-recolhivel" data-aberto-no-computador>
+        <summary><h2 class="adm-org__subtitulo">Conferência física × organização definitiva</h2></summary>
+        <?= fisico_indicadores_preparo_html(preparo_repo()->indicadores(), admin_url('planilha-bdp')) ?>
+    </details>
 <?php endif; ?>
 
 <?php if ($estante): ?>

@@ -225,10 +225,10 @@ return [
         ],
         'exemplo' => 'A bibliotecária fictícia coloca as Estantes A a E na parede da janela e F a J no meio da sala.',
         'resultado' => ['O mapa fica salvo para toda a equipe. Ele só desenha a sala: nenhum exemplar muda de lugar.'],
-        'problemas' => [['No celular não consigo arrastar.', 'No celular o mapa vira uma lista.', 'Use uma tela maior ou os campos numéricos.']],
+        'problemas' => [['No celular não consigo arrastar.', 'No celular as estantes aparecem em **Lista**; o botão **Mapa** mostra a disposição, com os botões de zoom (**Diminuir o mapa** e **Aumentar o mapa**), mas sem arrastar.', 'Use uma tela maior ou os campos numéricos de **Ajustar as posições por números**.']],
         'cuidados' => ['Saia da página só depois de clicar em Salvar mapa: o que não foi salvo se perde.'],
         'relacionados' => ['organizacao-fisica-visao-geral'],
-        'confere' => ['organizacao-mapa.php' => ['Mapa das estantes', 'Salvar mapa', 'Disposição automática', 'Ajustar as posições por números', 'Abrir'], 'includes/menu.php' => ['Mapa das estantes']],
+        'confere' => ['organizacao-mapa.php' => ['Mapa das estantes', 'Salvar mapa', 'Disposição automática', 'Ajustar as posições por números', 'Abrir', 'Lista', 'Mapa', 'Diminuir o mapa', 'Aumentar o mapa'], 'includes/menu.php' => ['Mapa das estantes']],
     ],
     [
         'id' => 'relatorio-atividades',

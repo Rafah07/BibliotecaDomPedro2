@@ -3,7 +3,7 @@
    Complementa admin.css: usa as mesmas variáveis e o prefixo "adm-".
    ========================================================= */
 
-.adm-body select, .adm-body textarea { font: inherit; color: inherit; }
+.adm-body :where(select, textarea) { font: inherit; color: inherit; }
 :where(.adm-body) h3 { margin: 0; }
 :where(.adm-body) dl, :where(.adm-body) dd { margin: 0; }
 
@@ -826,7 +826,7 @@ th label.adm-check, td label.adm-check { margin: 0; }
     .adm-notice--action > .adm-button { margin-left: 32px; }
 }
 
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
     .adm-filters--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-form-actions { margin: 0 -16px -24px; padding: 12px 16px; }
     .adm-info-grid { grid-template-columns: 1fr; gap: 20px; }
@@ -838,7 +838,7 @@ th label.adm-check, td label.adm-check { margin: 0; }
 }
 
 /* Celular: tabelas viram cards empilhados */
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-toolbar { grid-template-columns: minmax(0, 1fr) auto; }
     .adm-toolbar .adm-filters { grid-row: auto; display: none; }
     .adm-toolbar.is-open .adm-filters { display: grid; }
@@ -935,7 +935,7 @@ th label.adm-check, td label.adm-check { margin: 0; }
     .adm-modal__footer .adm-button { flex: 1 1 auto; }
 }
 
-@media (max-width: 420px) {
+@media screen and (max-width: 420px) {
     .adm-filters, .adm-filters--4 { grid-template-columns: 1fr; }
     .adm-kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
     .adm-meta, .adm-meta--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1013,7 +1013,7 @@ a.adm-th-sort { text-decoration: none; }
 @media (max-width: 1100px) {
     .adm-filters--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-toolbar--search { grid-template-columns: 1fr 1fr; }
     .adm-toolbar--search .adm-toolbar__q { grid-column: 1 / -1; }
     .adm-toolbar--search .adm-filters { grid-row: 2; grid-template-columns: 1fr; }
@@ -1039,10 +1039,10 @@ a.adm-th-sort { text-decoration: none; }
 fieldset.adm-field { border: 0; padding: 0; margin: 0; min-width: 0; }
 fieldset.adm-field > legend { padding: 0; margin-bottom: 6px; }
 /* Ações da linha (Editar, Desativar...) lado a lado no computador, sem empilhar. */
-@media (min-width: 721px) {
+@media print, (min-width: 721px) {
     .adm-actions-col .adm-actions-inline { flex-wrap: nowrap; }
 }
 /* Barra de filtros sem campo de pesquisa (ex.: Histórico de Lotes): botões ao lado dos filtros, não sozinhos acima. */
-@media (min-width: 721px) {
+@media print, (min-width: 721px) {
     .adm-toolbar--search:not(:has(.adm-toolbar__q)) .adm-filters { grid-row: 1; grid-column: 1; }
 }

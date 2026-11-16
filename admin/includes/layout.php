@@ -22,19 +22,22 @@ if (PHP_SAPI !== 'cli') {
 function admin_page_start(string $paginaAtual, string $tituloPagina, string $tituloHeader, string $subtituloHeader, array $estilos = []): void
 {
     auth_sessao(); // a sessão precisa começar antes de qualquer saída HTML
+    $GLOBALS['admin_pagina_atual'] = $paginaAtual; // usada pela navegação do celular (admin_page_end)
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#123d73">
     <meta name="robots" content="noindex">
     <title><?= htmlspecialchars($tituloPagina) ?> | Painel — Biblioteca Dom Pedro II</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261115des')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261115mob')) ?>">
     <?php foreach ($estilos as $estilo): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset($estilo)) ?>">
     <?php endforeach; ?>
+    <?php // Camada responsiva central (celular, tablet, notebook, impressão): carregada por último em todas as páginas. ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/responsivo.css?v=20261115mob')) ?>">
     <script>
         // Aplica o estado salvo do menu antes da pintura para evitar "pulo" visual.
         try { if (localStorage.getItem('adm-sidebar') === 'expanded') document.documentElement.classList.add('adm-sidebar-expanded'); } catch (e) {}
@@ -59,10 +62,11 @@ function admin_page_end(array $scripts = []): void
             Biblioteca Dom Pedro II · Painel administrativo<?= db_modo() === 'demo' ? ' (modo demonstrativo — dados fictícios)' : '' ?>
         </footer>
     </div>
+    <?php include __DIR__ . '/navegacao-movel.php'; ?>
 </div>
 <div class="adm-toasts" aria-live="polite" aria-atomic="false"></div>
 <div class="adm-tooltip" role="tooltip" hidden></div>
-<script src="<?= htmlspecialchars(admin_asset('assets/js/admin.js?v=20261115des')) ?>"></script>
+<script src="<?= htmlspecialchars(admin_asset('assets/js/admin.js?v=20261115mob')) ?>"></script>
 <script src="<?= htmlspecialchars(admin_asset('assets/js/sugestoes.js?v=20261114b')) ?>"></script>
 <?php foreach ($scripts as $script): ?>
 <script src="<?= htmlspecialchars(admin_asset($script)) ?>"></script>

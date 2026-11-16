@@ -4,7 +4,7 @@
    ========================================================= */
 
 /* ---------- Campos dependentes Setor → Estante → Prateleira ---------- */
-.adm-local-dep { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px 12px; align-items: end; }
+.adm-local-dep { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 8px 12px; align-items: end; }
 .adm-local-dep .adm-field { margin: 0; min-width: 0; }
 .adm-local-dep .adm-select { width: 100%; }
 .adm-local-dep > .adm-field__hint { grid-column: 1 / -1; margin: 0; }
@@ -39,6 +39,14 @@
 .adm-org-cartao__numero, .adm-org-cartao__resp { margin: 0; font-size: 13px; color: var(--adm-muted); display: flex; gap: 6px; align-items: center; }
 .adm-org-cartao__numero strong { color: var(--adm-navy); font-size: 18px; }
 .adm-org-cartao__resp .icon { width: 14px; height: 14px; flex: none; }
+/* O cartão se adapta à própria largura (container query): estreito (duas colunas no celular),
+   a identificação fica acima do nome em vez de espremer o texto ao lado. */
+.adm-org-cartao { container-type: inline-size; }
+@container (max-width: 210px) {
+    .adm-org-cartao__link { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .adm-org-cartao__numero strong { font-size: 16px; }
+    .adm-org-cartao__resp { align-items: flex-start; }
+}
 
 .adm-org-colunas > * { min-width: 0; overflow-x: auto; }
 .adm-org-colunas { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--adm-gap); align-items: start; margin-bottom: var(--adm-gap); }
@@ -78,8 +86,10 @@
 .adm-indicadores-grupo dd { margin: 0; font-weight: 700; color: var(--adm-navy); }
 .adm-indicadores-grupo a { color: inherit; }
 
-@media (max-width: 640px) {
-    .adm-org-grade { grid-template-columns: 1fr; }
+@media screen and (max-width: 640px) {
+    /* Uma ou duas colunas conforme o espaço (dois cartões só quando cada um tem ~156 px). */
+    .adm-org-grade { grid-template-columns: repeat(auto-fill, minmax(min(100%, 156px), 1fr)); gap: 10px; }
+    .adm-org-cartao { padding: 10px 12px; }
     .adm-org-colunas { grid-template-columns: 1fr; }
 }
 
@@ -126,7 +136,7 @@
 .adm-org-colunas .adm-table--compacta { min-width: 0; }
 .adm-org-colunas .adm-table--compacta th { white-space: normal; }
 .adm-form__acoes { display: flex; flex-wrap: wrap; gap: var(--adm-space-2); padding-top: var(--adm-space-1); }
-@media (max-width: 720px) { .adm-form__acoes .adm-button { flex: 1 1 100%; justify-content: center; } }
+@media screen and (max-width: 720px) { .adm-form__acoes .adm-button { flex: 1 1 100%; justify-content: center; } }
 /* Etiquetas das estantes: opções agrupadas, ações e cabeçalho da pré-visualização */
 .adm-etq-opcoes { gap: var(--adm-space-2); padding-top: var(--adm-space-1); }
 .adm-etq-opcoes > legend { margin-bottom: var(--adm-space-1); }

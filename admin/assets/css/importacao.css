@@ -235,7 +235,7 @@ a.adm-kpi { color: inherit; text-decoration: none; }
 .adm-imp-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 /* Tabela da pré-visualização: cabe inteira em 1366px (a coluna Ações ficava escondida atrás da
    rolagem lateral). Em telas menores a coluna Ações fica fixa à direita enquanto a tabela rola. */
-@media (min-width: 721px) {
+@media print, (min-width: 721px) {
     .adm-imp-table th, .adm-imp-table td { padding-left: 12px; padding-right: 12px; }
     .adm-imp-table th:first-child, .adm-imp-table td:first-child { padding-left: 20px; }
     .adm-imp-table .adm-td-wrap { min-width: 150px; max-width: 300px; }
@@ -348,7 +348,7 @@ a.adm-kpi { color: inherit; text-decoration: none; }
     .adm-kpis--6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .adm-imp-resume { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
     /* Só os números na linha; o nome da etapa atual aparece inteiro logo abaixo (antes ficava "E..."). */
     .adm-imp-steps { position: relative; grid-template-columns: repeat(5, minmax(0, 1fr)) auto; padding-bottom: 28px; }
     .adm-imp-steps__label { display: none; }
@@ -357,14 +357,14 @@ a.adm-kpi { color: inherit; text-decoration: none; }
     .adm-imp-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-imp-plan, .adm-imp-compare { grid-template-columns: 1fr !important; }
 }
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-imp-modal { width: 100vw; max-width: 100vw; }
     .adm-imp-modal .adm-modal__body { padding: 16px; }
     .adm-imp-compare > div { padding: 12px; }
     .adm-imp-orig div, .adm-imp-norm div { grid-template-columns: 1fr; }
     .adm-imp-decision__grid .adm-button { flex: 1 1 100%; justify-content: center; }
 }
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-kpis--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-imp-resume { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-imp-map thead { display: none; }

@@ -2,8 +2,9 @@
    ações recentes, relatório de atividades, sugestão de localização e cópias de segurança. */
 
 /* Selos de situação física (carimbo / organização / ocorrência) */
-.adm-selos-preparo { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+.adm-selos-preparo { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; max-width: 100%; min-width: 0; }
 .adm-selos-preparo .adm-badge { font-size: 11.5px; }
+.adm-selos-preparo > * { max-width: 100%; min-width: 0; white-space: normal; }
 
 /* Indicadores separados (encontrados, aguardando carimbo, ...) */
 .adm-stats--preparo { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 var(--adm-gap); }
@@ -22,6 +23,23 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 .adm-planilha-bdp .adm-code { white-space: nowrap; }
 .adm-td-actions { white-space: nowrap; }
 .adm-td-actions form { display: inline; }
+/* Planilha no celular: cartão compacto — seleção, código e lote no topo; obra; carimbo e localização;
+   cadastro e observações em "Mais detalhes"; ações no fim (a principal larga). A impressão usa o
+   layout A4 próprio (saida=imprimir), nunca estes cartões. */
+@media screen and (max-width: 720px) {
+    .adm-planilha-bdp tbody tr:not([data-empty]) { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
+    .adm-planilha-bdp td.adm-check-col { grid-column: 1; grid-row: 1; width: auto; }
+    .adm-planilha-bdp td.adm-pl-codigo { grid-column: 2; grid-row: 1; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+    .adm-planilha-bdp td.adm-pl-codigo .adm-code { font-size: 15px; }
+    .adm-planilha-bdp td.adm-pl-lote { grid-column: 3; grid-row: 1; font-size: 12.5px; color: var(--adm-muted); text-align: right; }
+    .adm-planilha-bdp td.adm-pl-lote::before { content: "Lote "; }
+    .adm-planilha-bdp td.adm-pl-obra { grid-column: 1 / -1; grid-row: 2; }
+    .adm-planilha-bdp td.adm-pl-status { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+    .adm-planilha-bdp td.adm-pl-status small { flex-basis: 100%; }
+    .adm-planilha-bdp td.adm-td-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px !important; border-top: 1px dashed var(--adm-border) !important; white-space: normal; }
+    .adm-planilha-bdp td.adm-td-actions > .adm-button { flex: 1 1 auto; justify-content: center; }
+    .adm-planilha-bdp td.adm-td-actions > button.adm-button { flex-basis: 100%; }
+}
 
 /* Passos (movimentação em lote) */
 .adm-passos { counter-reset: passo; }
@@ -73,7 +91,7 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 
 /* Cópias de segurança */
 
-@media (max-width: 640px) {
+@media screen and (max-width: 640px) {
     .adm-preparo-saidas .adm-button { flex: 1 1 auto; justify-content: center; }
     .adm-td-actions { white-space: normal; }
 }
@@ -115,9 +133,21 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 .adm-mapa__numeros { margin-bottom: 12px; }
 .adm-mapa__numeros .adm-input { width: 80px; }
 
-@media (max-width: 640px) {
-    .adm-mapa { height: auto !important; display: grid; gap: 8px; padding: 8px; background-image: none; touch-action: auto; }
-    .adm-mapa__bloco { position: static; width: auto; height: auto; min-height: 70px; }
+/* Celular: escolha entre lista (padrão) e mapa. O mapa fica numa área com rolagem e zoom próprios
+   (organizacao-mapa.js), com a largura real de 32 px por coluna: os nomes continuam legíveis. */
+.adm-mapa-vista { display: none; }
+.adm-mapa-zoom { display: flex; align-items: center; gap: 6px; }
+.adm-mapa-zoom[hidden] { display: none; }
+.adm-mapa-zoom__valor { min-width: 44px; text-align: center; font-size: 13px; font-weight: 600; color: var(--adm-muted); font-variant-numeric: tabular-nums; }
+@media screen and (max-width: 640px) {
+    .adm-mapa-vista { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 8px; }
+    .adm-mapa-vista .adm-segmented { width: auto; }
+    .adm-mapa-vista .adm-segmented button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; }
+    .adm-mapa-vista .adm-segmented .icon { width: 16px; height: 16px; }
+    .adm-mapa-area:not(.is-mapa) .adm-mapa { height: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 8px; padding: 8px; background-image: none; touch-action: auto; }
+    .adm-mapa-area:not(.is-mapa) .adm-mapa__bloco { position: static; width: auto; height: auto; min-height: 70px; }
+    .adm-mapa-area.is-mapa { margin: 8px 0 14px; max-height: 65dvh; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-bg); }
+    .adm-mapa-area.is-mapa .adm-mapa { width: calc(var(--mapa-colunas) * 32px); margin: 0; border: 0; border-radius: 0; touch-action: pan-x pan-y; zoom: var(--mapa-zoom, 1); }
     [data-mapa-editavel] .adm-mapa__bloco { cursor: default; }
 }
 
@@ -125,6 +155,10 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
    Gerenciamento de lotes (migração 160): Meus lotes, progresso, relatório do lote
    ========================================================= */
 .adm-lote-progresso { margin: 10px 0 4px; }
+/* Progresso compacto do lote nos cartões do celular (Histórico de Lotes e faixa do lote ativo). */
+.adm-lote-mini { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 12.5px; color: var(--adm-muted); }
+.adm-lote-mini__barra { display: block; height: 6px; border-radius: 999px; background: var(--adm-blue-100); overflow: hidden; }
+.adm-lote-mini__barra > span { display: block; height: 100%; border-radius: 999px; background: var(--adm-blue-accent); }
 .adm-lote-progresso__barra { height: 10px; border-radius: 999px; background: var(--adm-bg); border: 1px solid var(--adm-border); overflow: hidden; }
 .adm-lote-progresso__barra span { display: block; height: 100%; background: var(--adm-blue-accent); border-radius: 999px; transition: width var(--adm-duration) var(--adm-ease); }
 .adm-lote-progresso__numeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 0; }
@@ -133,7 +167,7 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 
 .adm-meus-lotes .adm-lote-ativo { padding: 10px 12px; margin: 0 0 12px; border: 1px solid var(--adm-blue-accent); border-radius: var(--adm-radius-sm); background: var(--adm-blue-50); }
 .adm-lote-ativo__rotulo { margin: 0 0 2px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--adm-blue-accent); }
-.adm-meus-lotes__lista { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.adm-meus-lotes__lista { list-style: none; margin: 0 0 10px; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .adm-meus-lotes__lista > li { display: flex; flex-direction: column; align-items: stretch; gap: var(--adm-space-2); padding: 10px 12px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-white); }
 .adm-meus-lotes__lista > li.is-ativo { border-color: var(--adm-blue-accent); background: var(--adm-blue-50); box-shadow: inset 3px 0 0 var(--adm-blue-accent); }
 .adm-meus-lotes__lista > li > div { min-width: 0; }
@@ -148,8 +182,35 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 .adm-meus-lotes__links .adm-button { justify-content: center; }
 .adm-meus-lotes .adm-abrir-lote { margin-top: 10px; box-shadow: none; }
 
-.adm-lote-usuarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; margin: 4px 0; }
+.adm-lote-usuarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 6px 14px; margin: 4px 0; max-height: 320px; overflow-y: auto; overscroll-behavior: contain; }
+.adm-lote-usuarios > label[hidden] { display: none; }
+.adm-lote-usuarios__busca { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 4px 0 6px; }
+.adm-lote-usuarios__busca .adm-field-search { flex: 1 1 220px; }
+@media (pointer: coarse) { .adm-lote-usuarios .adm-check { min-height: 40px; align-items: center; } }
 .adm-lote-numero { margin: 4px 0 0; font-weight: 700; color: var(--adm-navy); }
+/* Etapas do lote (lote_etapas_html): linha no computador, lista vertical no celular. */
+.adm-etapas { list-style: none; margin: 0 0 var(--adm-gap); padding: 14px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-lg); background: var(--adm-white); box-shadow: var(--adm-shadow); counter-reset: etapa; }
+.adm-etapa { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.adm-etapa:not(:last-child)::after { content: ""; position: absolute; top: 14px; left: 36px; right: 4px; height: 2px; border-radius: 2px; background: var(--adm-border); }
+.adm-etapa--feita:not(:last-child)::after { background: var(--adm-green); }
+.adm-etapa__marca { width: 28px; height: 28px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--adm-border-strong); background: var(--adm-white); color: var(--adm-muted); font-size: 12.5px; font-weight: 700; }
+.adm-etapa__marca .icon { width: 15px; height: 15px; }
+.adm-etapa--feita .adm-etapa__marca { border-color: var(--adm-green); background: var(--adm-green); color: #fff; }
+.adm-etapa--atual .adm-etapa__marca { border-color: var(--adm-blue-accent); background: var(--adm-blue-accent); color: #fff; box-shadow: 0 0 0 4px var(--adm-blue-50); }
+.adm-etapa__texto { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.adm-etapa__texto strong { font-size: 13px; color: var(--adm-text); overflow-wrap: anywhere; }
+.adm-etapa--futura .adm-etapa__texto strong { color: var(--adm-muted); font-weight: 600; }
+.adm-etapa--atual .adm-etapa__texto strong { color: var(--adm-navy); }
+.adm-etapa__texto small { font-size: 12px; color: var(--adm-muted); }
+.adm-etapa--atual .adm-etapa__texto small { color: var(--adm-blue-accent); font-weight: 600; }
+@media screen and (max-width: 900px) {
+    .adm-etapas { grid-template-columns: 1fr; gap: 0; padding: 12px 14px; }
+    .adm-etapa { flex-direction: row; align-items: flex-start; gap: 12px; padding-bottom: 14px; }
+    .adm-etapa:last-child { padding-bottom: 0; }
+    .adm-etapa:not(:last-child)::after { top: 32px; bottom: 2px; left: 13px; right: auto; width: 2px; height: auto; }
+    .adm-etapa__texto { padding-top: 4px; }
+}
+@media print { .adm-etapas { box-shadow: none; } }
 .adm-lote-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--adm-gap); margin: 0 0 var(--adm-gap); }
 .adm-lote-grid > .adm-card { margin: 0; }
 .adm-stats--lote, .adm-stats--lotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 var(--adm-gap); }
@@ -173,7 +234,7 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 .adm-atividades-filtros { display: grid; gap: 12px; margin-bottom: var(--adm-gap); }
 .adm-atividades-filtros .adm-filters { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .adm-atividades-filtros__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
-@media (max-width: 560px) {
+@media screen and (max-width: 560px) {
     .adm-atividades-filtros .adm-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-atividades-filtros__acoes .adm-button { flex: 1 1 auto; justify-content: center; }
 }

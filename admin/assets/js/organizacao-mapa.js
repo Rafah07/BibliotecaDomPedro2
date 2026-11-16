@@ -3,6 +3,38 @@
    que o servidor recebe ao clicar em "Salvar mapa". Sem JavaScript, os campos numéricos funcionam sozinhos. */
 (() => {
     'use strict';
+    // ---------- Celular: Lista ou Mapa (com zoom) ----------
+    const vista = document.querySelector('[data-mapa-vista]');
+    const area = document.querySelector('[data-mapa-area]');
+    const mapaVisivel = area && area.querySelector('[data-mapa]');
+    if (vista && area && mapaVisivel) {
+        const zoomBox = vista.querySelector('[data-mapa-zoom]');
+        const valor = vista.querySelector('[data-zoom-valor]');
+        let zoom = 1;
+        const larguraMapa = () => (parseInt(mapaVisivel.dataset.colunas, 10) || 24) * 32;
+        const ajuste = () => Math.max(0.3, Math.min(1, (area.clientWidth - 2) / larguraMapa()));
+        const aplicarZoom = (z) => {
+            zoom = Math.max(0.3, Math.min(1.6, Math.round(z * 100) / 100));
+            mapaVisivel.style.setProperty('--mapa-zoom', String(zoom));
+            if (valor) valor.textContent = Math.round(zoom * 100) + '%';
+        };
+        const escolher = (modo) => {
+            const ehMapa = modo === 'mapa';
+            area.classList.toggle('is-mapa', ehMapa);
+            vista.querySelectorAll('[data-vista]').forEach((b) => {
+                const ativo = b.dataset.vista === modo;
+                b.classList.toggle('is-active', ativo);
+                b.setAttribute('aria-pressed', String(ativo));
+            });
+            if (zoomBox) zoomBox.hidden = !ehMapa;
+            if (ehMapa) aplicarZoom(ajuste()); // começa mostrando a sala inteira na largura da tela
+            try { sessionStorage.setItem('adm-mapa-vista', modo); } catch (e) { /* sem armazenamento */ }
+        };
+        vista.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => escolher(b.dataset.vista)));
+        vista.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => aplicarZoom(zoom + 0.2 * Number(b.dataset.zoom))));
+        try { if (sessionStorage.getItem('adm-mapa-vista') === 'mapa') escolher('mapa'); } catch (e) { /* sem armazenamento */ }
+    }
+
     const mapa = document.querySelector('[data-mapa][data-mapa-editavel]');
     const form = document.querySelector('[data-mapa-form]');
     if (form) {

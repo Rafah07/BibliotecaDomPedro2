@@ -130,6 +130,105 @@
     });
     sidebar?.querySelector('.adm-nav')?.addEventListener('scroll', hideTooltip, { passive: true });
 
+    // ---------- Pesquisa do cabeçalho no celular ----------
+    // Até 900 px a pesquisa fica recolhida num botão (o cabeçalho ocupa uma linha só).
+    const buscaBtn = document.querySelector('[data-busca-topo]');
+    const header = document.querySelector('.adm-header');
+    function setBusca(aberta) {
+        if (!buscaBtn || !header) return;
+        header.classList.toggle('is-busca-aberta', aberta);
+        buscaBtn.setAttribute('aria-expanded', String(aberta));
+        buscaBtn.setAttribute('aria-label', aberta ? 'Fechar a pesquisa' : 'Pesquisar no acervo');
+        if (aberta) header.querySelector('.adm-search input')?.focus();
+    }
+    buscaBtn?.addEventListener('click', () => setBusca(!header.classList.contains('is-busca-aberta')));
+    header?.querySelector('.adm-search')?.addEventListener('focusout', (event) => {
+        const campo = event.currentTarget.querySelector('input');
+        // Fecha ao sair da pesquisa vazia (a lista de sugestões fica dentro do formulário).
+        if (mobileQuery.matches && !event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== buscaBtn && campo && campo.value.trim() === '') setBusca(false);
+    });
+    mobileQuery.addEventListener('change', () => setBusca(false));
+
+    // ---------- Ações do topo da página no celular ----------
+    // Até 640 px, as ações secundárias de ".adm-page-head__actions" vão para um menu "Mais ações"
+    // (sem empilhar quatro ou cinco botões largos antes do conteúdo). No computador, nada muda.
+    // data-acoes-visiveis="N" define quantas ficam à mostra (padrão: 1).
+    const acoesQuery = window.matchMedia('(max-width: 640px)');
+    document.querySelectorAll('.adm-page-head__actions').forEach((caixa, n) => {
+        const itens = Array.from(caixa.children);
+        const visiveis = Math.max(0, parseInt(caixa.dataset.acoesVisiveis ?? '1', 10) || 0);
+        if (itens.length - visiveis < 2) return; // um botão a mais cabe na linha: não vale um menu
+        const mais = document.createElement('div');
+        mais.className = 'adm-dropdown adm-acoes-mais';
+        mais.innerHTML = '<button class="adm-button adm-button--ghost" type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-controls="acoes-mais-' + n + '">'
+            + '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>'
+            + '<span>' + (visiveis ? 'Mais ações' : 'Ações') + '</span></button><div class="adm-dropdown__menu" id="acoes-mais-' + n + '"></div>';
+        const menu = mais.querySelector('.adm-dropdown__menu');
+        caixa.appendChild(mais);
+        const organizar = () => {
+            const celular = acoesQuery.matches;
+            itens.slice(visiveis).forEach((el) => (celular ? menu : caixa).insertBefore(el, celular ? null : mais));
+            mais.hidden = !celular;
+            caixa.classList.toggle('has-mais', celular);
+        };
+        organizar();
+        acoesQuery.addEventListener('change', organizar);
+    });
+
+    // ---------- Tabelas em cartões: "Mais detalhes" ----------
+    // No celular, as células marcadas com .adm-td-sec ficam escondidas no cartão; este botão
+    // mostra todas. No computador a célula do botão não aparece (a tabela já é completa).
+    document.querySelectorAll('.adm-table--cards tbody tr').forEach((linha) => {
+        if (!linha.querySelector(':scope > td.adm-td-sec')) return;
+        const celula = document.createElement('td');
+        celula.className = 'adm-td-mais';
+        celula.innerHTML = '<button type="button" class="adm-td-mais__botao" aria-expanded="false"><span>Mais detalhes</span>'
+            + '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>';
+        const botao = celula.querySelector('button');
+        botao.addEventListener('click', () => {
+            const aberta = linha.classList.toggle('is-expandida');
+            botao.setAttribute('aria-expanded', String(aberta));
+            botao.querySelector('span').textContent = aberta ? 'Menos detalhes' : 'Mais detalhes';
+        });
+        // Antes da célula de ações (se houver), para as ações continuarem no fim do cartão.
+        const acoes = linha.querySelector(':scope > td.adm-actions-col, :scope > td.adm-table__actions, :scope > td.adm-td-actions');
+        linha.insertBefore(celula, acoes);
+    });
+
+    // ---------- Blocos recolhidos só no celular ----------
+    // <details data-aberto-no-computador>: aberto no computador e no tablet, fechado no celular
+    // (informação secundária não ocupa a área principal da tela pequena).
+    if (!window.matchMedia('(max-width: 720px)').matches) {
+        document.querySelectorAll('details[data-aberto-no-computador]').forEach((det) => { det.open = true; });
+    }
+
+    // ---------- Teclado virtual ----------
+    // Com um campo de texto em foco no celular, a barra inferior some para não cobrir o campo
+    // nem os resultados (o teclado já ocupa metade da tela).
+    const digitavel = (el) => el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|color|file|hidden)$/i.test(el.type)) || el.isContentEditable);
+    document.addEventListener('focusin', (event) => body.classList.toggle('adm-digitando', mobileQuery.matches && digitavel(event.target)));
+    document.addEventListener('focusout', () => window.setTimeout(() => {
+        if (!digitavel(document.activeElement)) body.classList.remove('adm-digitando');
+    }, 60));
+
+    // ---------- Listas longas de opções com filtro (data-filtro-lista="#id") ----------
+    // Ex.: usuários de um lote. O campo filtra as opções pelo texto, sem desmarcar nada.
+    document.querySelectorAll('[data-filtro-lista]').forEach((campo) => {
+        const lista = document.querySelector(campo.dataset.filtroLista);
+        if (!lista) return;
+        const contador = campo.dataset.filtroContador ? document.querySelector(campo.dataset.filtroContador) : null;
+        const sem = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const contar = () => {
+            if (contador) contador.textContent = String(lista.querySelectorAll('input:checked').length);
+        };
+        campo.addEventListener('input', () => {
+            const termo = sem(campo.value.trim());
+            lista.querySelectorAll('label').forEach((op) => { op.hidden = termo !== '' && !sem(op.textContent).includes(termo); });
+        });
+        lista.addEventListener('change', contar);
+        contar();
+    });
+
     // ---------- Menus suspensos ----------
     const dropdowns = document.querySelectorAll('.adm-dropdown');
     function closeDropdowns(except) {
@@ -157,6 +256,7 @@
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closeDropdowns();
+            if (header?.classList.contains('is-busca-aberta')) { setBusca(false); buscaBtn?.focus(); }
             if (body.classList.contains('adm-mobile-open')) setMobileOpen(false);
         }
         // Atalho "/" para focar a pesquisa, como em outras plataformas administrativas.

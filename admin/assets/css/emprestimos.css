@@ -45,7 +45,7 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
 .adm-table--emprestimos th:last-child, .adm-table--emprestimos td:last-child { padding-right: 20px; }
 /* Telas médias (ex.: 1366 px): cabeçalhos e data/hora quebram em duas linhas para a tabela caber
    sem esconder a coluna Situação embaixo da coluna fixa de ações. */
-@media (min-width: 721px) {
+@media print, (min-width: 721px) {
     .adm-table--emprestimos th { white-space: normal; vertical-align: bottom; }
     .adm-table--emprestimos th:not(:first-child):not(:last-child), .adm-table--emprestimos td:not(:first-child):not(:last-child) { padding-left: 11px; padding-right: 11px; }
     .adm-table--emprestimos td[data-label="Retirada"],
@@ -105,7 +105,7 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
 .adm-resultados small { color: var(--adm-muted); font-size: 12.5px; overflow-wrap: anywhere; }
 .adm-resultados li.is-blocked { background: var(--adm-bg); }
 
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-escolha-atual,
     .adm-resultados li { flex-wrap: wrap; }
     .adm-escolha-atual .adm-button,
@@ -117,7 +117,7 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
 }
 
 /* Celular (tabela em cards): a marca de atraso fica na borda do card. */
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-table--cards tr.adm-row--alerta { border-left: 3px solid var(--adm-red) !important; }
     .adm-table--cards tr.adm-row--alerta > td:first-child { box-shadow: none; }
 }

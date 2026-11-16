@@ -37,7 +37,7 @@ use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261115des', 'assets/css/emprestimos.css?v=20261115lay', 'assets/css/inventario.css?v=20261115des', 'assets/css/organizacao.css?v=20261115des', 'assets/css/preparo.css?v=20261115des'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261115mob', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261115mob'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261115des'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
@@ -185,6 +185,36 @@ const LOTE_TONS = ['aberto' => 'blue', 'fechado' => 'amber', 'em_carimbagem' => 
 function lote_badge(string $status): string
 {
     return '<span class="adm-status adm-tone--' . (LOTE_TONS[$status] ?? 'blue') . '">' . e(ExemplarService::rotuloStatusLote($status)) . '</span>';
+}
+
+/**
+ * Etapas do lote, na ordem do trabalho: Em cadastro → Fechado (aguardando carimbagem) → Em carimbagem →
+ * Aguardando organização → Encerrado. Cada etapa mostra se já foi concluída, se é a atual (com o texto
+ * "Etapa atual", não só a cor) e a data em que começou. Horizontal no computador; vertical no celular.
+ */
+function lote_etapas_html(array $lote): string
+{
+    $etapas = [
+        'aberto' => ['Em cadastro', $lote['criado_em'] ?? null],
+        'fechado' => ['Fechado — aguardando carimbagem', $lote['fechado_em'] ?? null],
+        'em_carimbagem' => ['Em carimbagem', $lote['carimbagem_iniciada_em'] ?? null],
+        'aguardando_organizacao' => ['Aguardando organização', $lote['carimbagem_concluida_em'] ?? null],
+        'encerrado' => ['Encerrado', $lote['encerrado_em'] ?? null],
+    ];
+    $ordem = array_keys($etapas);
+    $atual = array_search($lote['status'], $ordem, true);
+    $atual = $atual === false ? 0 : $atual;
+    $html = '<ol class="adm-etapas" aria-label="Etapas do lote">';
+    foreach ($ordem as $i => $chave) {
+        [$rotulo, $data] = $etapas[$chave];
+        $estado = $i < $atual || ($i === $atual && $chave === 'encerrado') ? 'feita' : ($i === $atual ? 'atual' : 'futura');
+        $situacao = ['feita' => 'Concluída', 'atual' => 'Etapa atual', 'futura' => 'Ainda não'][$estado];
+        $html .= '<li class="adm-etapa adm-etapa--' . $estado . '"' . ($estado === 'atual' ? ' aria-current="step"' : '') . '>'
+            . '<span class="adm-etapa__marca" aria-hidden="true">' . ($estado === 'feita' ? icon('check') : (string)($i + 1)) . '</span>'
+            . '<span class="adm-etapa__texto"><strong>' . e($rotulo) . '</strong>'
+            . '<small>' . $situacao . ($data && $estado !== 'futura' ? ' · ' . e(admin_data_hora($data)) : '') . '</small></span></li>';
+    }
+    return $html . '</ol>';
 }
 
 /** Barra de progresso do lote: cadastrados / capacidade. */

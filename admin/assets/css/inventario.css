@@ -82,7 +82,7 @@
 .adm-leitura__linha { display: flex; gap: 10px; }
 .adm-sugestoes .adm-leitura__campo { width: 100%; }
 .adm-toolbar__q.adm-sugestoes { flex: 1; }
-.adm-leitura__campo { flex: 1; min-height: 52px; font-size: 20px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .04em; }
+.adm-leitura__campo { flex: 1; min-height: 52px; font-size: 20px; }
 .adm-resultados--livros li { align-items: flex-start; }
 .adm-resultados--livros small { display: block; }
 .adm-exemplares-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -115,11 +115,10 @@
     .adm-conferencia, .adm-etiquetas { grid-template-columns: 1fr; }
     .adm-form-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-kpis--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-stats--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .adm-form-grid--4 { grid-template-columns: 1fr; }
-    .adm-leitura__linha { flex-direction: column; }
     .adm-inline-form { width: 100%; }
     .adm-actions-inline { justify-content: flex-start; }
     .adm-td-decisao { min-width: 0; }
@@ -154,7 +153,7 @@
 .adm-input--code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-transform: uppercase; letter-spacing: .03em; }
 .adm-fechar-estante__lista { max-height: 420px; overflow: auto; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); }
 .adm-fechar-estante__lista .adm-table { margin: 0; }
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-inline-form { flex-wrap: wrap; }
     .adm-inline-form .adm-input { flex: 1 1 100%; }
 }
@@ -212,7 +211,7 @@
 .adm-escolha > legend { padding: 0; margin: 0 0 6px; }
 .adm-escolha > .adm-field__hint { flex-basis: 100%; margin: -2px 0 2px; }
 .adm-escolha__opcao {
-    flex: 1 1 220px; min-width: 0; align-self: stretch;
+    flex: 1 1 150px; min-width: 0; align-self: stretch;
     display: flex; gap: 10px; align-items: flex-start;
     padding: 10px 12px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm);
     cursor: pointer; background: var(--adm-white); line-height: 1.35;
@@ -243,20 +242,81 @@
 .adm-painel-lateral[open] { animation: adm-painel-in .2s var(--adm-ease); }
 @keyframes adm-painel-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 .adm-painel-lateral .adm-modal__close { text-decoration: none; }
-@media (max-width: 720px) {
-    .adm-painel-lateral, .adm-painel-lateral--largo, .adm-painel-lateral--estreito { margin: auto 0 0; width: 100vw; max-width: 100vw; height: 94dvh; max-height: 94dvh; border-radius: 18px 18px 0 0; }
-    .adm-painel-lateral .adm-modal__body { padding: var(--adm-space-4); }
-    .adm-painel-lateral[open]:not(:modal) { inset: auto 0 0 0; }
+/* Celular: o painel vira uma tela de edição de largura e altura totais (cabeçalho compacto com
+   o X de fechar, conteúdo rolável e botões principais sempre visíveis no rodapé, acima da área
+   de gestos do sistema). 100vh fica como alternativa para navegadores sem dvh. */
+@media screen and (max-width: 720px) {
+    .adm-painel-lateral, .adm-painel-lateral--largo, .adm-painel-lateral--estreito { margin: 0; width: 100vw; max-width: 100vw; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; }
+    .adm-painel-lateral .adm-modal__box { max-height: none; }
+    .adm-painel-lateral[open] { animation-name: adm-painel-sobe; }
+    .adm-painel-lateral .adm-modal__header { align-items: center; padding: 8px 8px 8px 16px; padding-top: max(8px, env(safe-area-inset-top)); }
+    .adm-painel-lateral .adm-modal__header h2 { font-size: 16px; }
+    .adm-painel-lateral .adm-modal__header p { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .adm-painel-lateral .adm-modal__close { width: 44px; height: 44px; margin: 0; }
+    .adm-painel-lateral .adm-modal__close .icon { width: 22px; height: 22px; }
+    .adm-painel-lateral .adm-modal__body { padding: var(--adm-space-4); scroll-padding-bottom: var(--adm-space-5); }
+    .adm-painel-lateral[open]:not(:modal) { inset: 0; }
     .adm-codigo-bdp__linha { flex-direction: column; }
     .adm-obra-resumo .adm-button, .adm-exemplares-obra .adm-actions-inline, .adm-registros-obra .adm-actions-inline { margin-left: 0; }
-    .adm-painel-lateral .adm-modal__footer .adm-button { flex: 1 1 100%; justify-content: center; }
+    /* Rodapé: botões lado a lado (o principal mais largo); "Fechar" repetido sai, o X do topo fecha. */
+    .adm-painel-lateral .adm-modal__footer { flex-wrap: nowrap; gap: var(--adm-space-2); padding: 10px var(--adm-space-4); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+    .adm-painel-lateral .adm-modal__footer .adm-button { flex: 1 1 0; min-width: 0; min-height: 46px; justify-content: center; }
+    .adm-painel-lateral .adm-modal__footer .adm-button--primary { flex-grow: 2; }
+    .adm-painel-lateral .adm-modal__footer > [data-painel-fechar] { display: none; }
 }
+@keyframes adm-painel-sobe { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* =========================================================
    Conferência contínua (migração 130)
    ========================================================= */
 [data-regiao].is-loading { opacity: .6; transition: opacity .15s ease; }
 .adm-conferencia__area { display: flex; flex-direction: column; gap: var(--adm-gap); min-width: 0; }
+
+/* Faixa do lote ativo: no computador o lote aparece em "Meus lotes", na coluna ao lado; quando essa
+   coluna desce para baixo do conteúdo (tablet e celular), a faixa mostra o lote logo acima da pesquisa. */
+.adm-conferencia__lote { display: none; }
+.adm-lote-faixa { display: flex; align-items: center; gap: var(--adm-space-3); padding: 10px 12px; border: 1px solid var(--adm-blue-100); border-left: 3px solid var(--adm-blue-accent); border-radius: var(--adm-radius); background: var(--adm-white); box-shadow: var(--adm-shadow); }
+.adm-lote-faixa.is-alerta { border-color: #f6d79b; border-left-color: var(--adm-amber); background: var(--adm-amber-50); }
+.adm-lote-faixa__icone { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: var(--adm-radius-sm); background: var(--adm-blue-50); color: var(--adm-blue-accent); }
+.adm-lote-faixa.is-alerta .adm-lote-faixa__icone { background: var(--adm-white); color: var(--adm-amber-text); }
+.adm-lote-faixa__corpo { flex: 1; min-width: 0; }
+.adm-lote-faixa__corpo p { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 0; line-height: 1.3; }
+.adm-lote-faixa__rotulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--adm-blue-accent); }
+.adm-lote-faixa .adm-lote-mini { margin-top: 4px; }
+.adm-lote-faixa > .adm-button { flex-shrink: 0; }
+
+/* Tablet e celular: uma coluna, na ordem do trabalho — lote ativo, pesquisa, resultado, obra,
+   registro e próxima ação; depois Meus lotes, estante atual e pendências; os indicadores por último. */
+@media (max-width: 1100px) {
+    .adm-conferencia__lote:not(:empty) { display: block; }
+    .adm-conferencia { order: 1; }
+    .adm-conferencia__indicadores { order: 2; }
+    .adm-conferencia__indicadores .adm-indicadores-inv { margin-bottom: 0; }
+}
+@media screen and (max-width: 720px) {
+    .adm-conferencia, .adm-conferencia__main, .adm-conferencia__side, .adm-conferencia__area { gap: var(--adm-space-4); }
+    /* Pesquisa: campo largo e botão ao lado (só o ícone nas telas estreitas). */
+    .adm-leitura__linha { gap: var(--adm-space-2); }
+    .adm-leitura__linha .adm-button { min-width: 0; min-height: 52px; flex: none; }
+    .adm-leitura__campo { min-width: 0; font-size: 18px; }
+    .adm-leitura__label { font-size: 14px; }
+    /* Resultados em cartões: ação principal larga e fácil de tocar. */
+    .adm-resultados-compactos li { padding: 12px 10px; gap: 6px; }
+    .adm-resultado__principal strong { font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+    .adm-resultado__acoes { flex-wrap: nowrap; width: 100%; }
+    .adm-resultado__acoes .adm-button { min-height: 44px; }
+    .adm-resultado__acoes .adm-button--primary { flex: 1 1 auto; }
+    /* Depois de registrar: "Registrar outra cópia" e "Próximo livro" lado a lado quando cabem. */
+    .adm-registrado__acoes .adm-button { flex: 1 1 150px; min-height: 48px; }
+    .adm-registrado__acoes .adm-button--sm { flex-basis: 100%; min-height: 40px; }
+}
+@media screen and (max-width: 480px) {
+    .adm-leitura__btn-texto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .adm-leitura__linha .adm-button { width: 56px; padding: 0; }
+    .adm-leitura__linha .adm-button .icon { width: 22px; height: 22px; }
+}
+/* Telas de toque: os atalhos de teclado não aparecem dentro dos botões. */
+@media (hover: none) { .adm-conferencia .adm-button kbd { display: none; } }
 .adm-conferencia__mensagens:empty { display: none; }
 kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--adm-white); font: 600 .75rem/1.5 ui-monospace, monospace; color: var(--adm-text); }
 
@@ -330,19 +390,19 @@ kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-
 .adm-passos-conf > li::before { content: counter(passo); position: absolute; left: 0; top: 0; width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-white); color: var(--adm-navy); font-size: 11.5px; font-weight: 700; border: 1px solid var(--adm-blue-100); }
 .adm-guia-conf__extra { margin: var(--adm-space-2) 0 0; color: var(--adm-muted); font-size: 13px; }
 
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .adm-resultados-compactos li { grid-template-columns: 1fr; }
     .adm-resultado__acoes { grid-column: 1; grid-row: auto; justify-content: flex-start; }
     .adm-resultado__principal small { white-space: normal; }
-    .adm-registrado__acoes .adm-button { flex: 1 1 100%; justify-content: center; }
+    .adm-registrado__acoes .adm-button { justify-content: center; }
     .adm-stats--indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Lista de exemplares em telas médias: a localização quebra linha para a coluna Ações caber na tela. */
-@media (min-width: 721px) {
+@media print, (min-width: 721px) {
     .adm-table--exemplares td[data-label="Localização"] { white-space: normal; min-width: 170px; }
 }
-@media (min-width: 721px) {
+@media print, (min-width: 721px) {
     .adm-painel-lateral .adm-modal__header { padding: 20px var(--adm-space-5) 16px; }
     .adm-painel-lateral .adm-modal__footer { padding: 14px var(--adm-space-5); }
 }
