@@ -189,26 +189,29 @@ confere('não liga o exemplar à linha da planilha de outra obra', $msg !== null
 $e1 = $invServ->registrarExemplar($inv, $principe, ['codigo' => $g1['codigo'], 'estado_conservacao' => 'bom', 'localizacao_id' => $local, 'situacao_inventario' => 'encontrado',
     'item_id' => (int)$regPrincipe[0]['id'], 'observacoes' => 'Carimbo novo', 'processo_bdp' => $proc1], $bibId);
 $it1 = $invRepo->item($e1['item_id']);
-confere('exemplar 1: ligado à linha 2 da planilha, Encontrado, com localização', $e1['codigo'] === $g1['codigo'] && (int)$it1['id'] === (int)$regPrincipe[0]['id']
-    && $it1['codigo_individual'] === $g1['codigo'] && $it1['conferido_em'] !== null && (int)$it1['importacao_item_id'] > 0 && (int)$it1['localizacao_encontrada_id'] === $local);
+$itLinha = $invRepo->item((int)$regPrincipe[0]['id']);
+confere('exemplar 1: item próprio, Encontrado, com localização; a linha 2 continua da obra e fica "Obra localizada"', $e1['codigo'] === $g1['codigo'] && (int)$it1['id'] !== (int)$regPrincipe[0]['id']
+    && $it1['codigo_individual'] === $g1['codigo'] && $it1['conferido_em'] !== null && (int)$it1['localizacao_encontrada_id'] === $local && $e1['registro_linha'] === 2
+    && $itLinha['exemplar_id'] === null && $itLinha['obra_localizada_em'] !== null);
 confere('a reserva vira definitiva (usada pelo exemplar salvo)', $val('SELECT exemplar_id FROM exemplar_codigo_reservas WHERE codigo = ?', [$g1['codigo']]) == $e1['id']);
 confere('salvar de novo o mesmo código é recusado (UNIQUE)', $recusa(fn () => $invServ->registrarExemplar($inv, $principe, ['codigo' => $g1['codigo']], $bibId)) !== null);
-$msg = $recusa(fn () => $invServ->registrarExemplar($inv, $principe, ['codigo' => $codigos->reservar($bibId, $principe)['codigo'], 'item_id' => (int)$regPrincipe[0]['id']], $bibId));
-confere('a mesma linha da planilha não recebe dois exemplares', $msg !== null && str_contains($msg, 'já está ligada'));
+$eLinha = $invServ->registrarExemplar($inv, $principe, ['codigo' => $codigos->reservar($bibId, $principe)['codigo'], 'item_id' => (int)$regPrincipe[0]['id']], $bibId);
+confere('a mesma linha da planilha vale para outra cópia (não é "consumida")', $eLinha['registro_linha'] === 2 && $num('SELECT COUNT(*) FROM exemplares WHERE livro_id = ?', [$principe]) === 2);
 $g4 = $codigos->reservar($bibId, $principe);
 confere('depois de salvar, "Gerar" entrega o próximo número (a reserva anterior ficou presa à falha acima e é reaproveitada só por quem a recebeu)', $g4['codigo'] !== $g1['codigo']);
 $e2 = $invServ->registrarExemplar($inv, $principe, ['codigo' => $g4['codigo'], 'situacao_inventario' => 'encontrado'], $bibId);
 $e3 = $invServ->registrarExemplar($inv, $principe, ['codigo' => 'BDP-000900', 'situacao_inventario' => 'pendente'], $bibId);
 $exs = $invRepo->exemplaresDaObra($inv, $principe);
-confere('vários exemplares da mesma obra sem duplicar o cadastro bibliográfico', count($exs) === 3 && $num('SELECT COUNT(*) FROM livros WHERE titulo LIKE ?', ['O Pequeno Príncipe (Fictício)']) === 1);
-confere('cada exemplar tem a sua situação no inventário (Encontrado, Encontrado, Pendente)', array_map(fn ($x) => inventario_status_teste($x), $exs) === ['Encontrado', 'Encontrado', 'Pendente'], json_encode(array_column($exs, 'codigo_individual')));
+confere('vários exemplares da mesma obra sem duplicar o cadastro bibliográfico', count($exs) === 4 && $num('SELECT COUNT(*) FROM livros WHERE titulo LIKE ?', ['O Pequeno Príncipe (Fictício)']) === 1);
+confere('cada exemplar tem a sua situação no inventário (Encontrado, Encontrado, Pendente)', array_map(fn ($x) => inventario_status_teste($x), $exs) === ['Encontrado', 'Encontrado', 'Encontrado', 'Pendente'], json_encode(array_column($exs, 'codigo_individual')));
 confere('o exemplar Pendente fica "Aguardando" e o Encontrado "Disponível"', $val('SELECT situacao FROM exemplares WHERE id = ?', [$e3['id']]) === 'aguardando' && $val('SELECT situacao FROM exemplares WHERE id = ?', [$e2['id']]) === 'disponivel');
 confere('código digitado maior que a sequência faz a sequência avançar (nunca repete)', $num('SELECT ultimo FROM exemplar_codigo_seq') >= 900 && $codigos->reservar($auxId, null)['codigo'] !== 'BDP-000900');
 $r = $invRepo->resumo($inv);
-confere('contadores: 2 encontrados; as linhas sem exemplar das outras obras continuam fora da conta', $r['encontrados'] === 2 && $r['sem_codigo'] === 2 && $r['obras_verificadas'] === 1, json_encode($r));
+confere('contadores: 3 encontrados; a linha da obra localizada sai das pendências e não conta como exemplar', $r['encontrados'] === 3 && $r['sem_codigo'] === 3 && $r['obra_localizada'] === 1
+    && $r['a_conferir'] === 3 && $r['obras_verificadas'] === 1, json_encode($r));
 confere('a obra parecida (outra edição) continua sem exemplares: nada foi unido', $num('SELECT COUNT(*) FROM exemplares WHERE livro_id = ?', [$principe2]) === 0 && count($invRepo->registrosSemExemplar($inv, $principe2)) === 1);
 $conf = $invServ->conferir($inv, $e3['id'], ['estado_conservacao' => 'bom'], $bibId);
-confere('o exemplar Pendente pode ser marcado como Encontrado depois, pelo código', $conf['conferido_em'] !== null && $invRepo->resumo($inv)['encontrados'] === 3);
+confere('o exemplar Pendente pode ser marcado como Encontrado depois, pelo código', $conf['conferido_em'] !== null && $invRepo->resumo($inv)['encontrados'] === 4);
 // Baixa: o código nunca volta.
 $exServ->alterarSituacao($e2['id'], 'disponivel', $bibId);
 $exServ->baixar($e2['id'], $bibId, 'teste de baixa (fictício)');
@@ -265,7 +268,7 @@ $tk = $bib->csrf('admin/perfil.php');
 confere('ficha da obra: título, "Dados verificados", exemplares com códigos e situações', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'O Pequeno Príncipe (Fictício)')
     && str_contains($html, 'Dados verificados') && str_contains($html, $g1['codigo']) && str_contains($html, 'BDP-000900') && str_contains($html, 'Registrar exemplar') && str_contains($html, 'Histórico ('));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv . '&obra=' . $principe2);
-confere('obra não verificada: botão de registro bloqueado e orientação para verificar', $s === 200 && str_contains($html, 'Dados não verificados') && str_contains($html, 'Primeiro, verifique os dados da obra')
+confere('obra não verificada: botão de registro bloqueado e orientação para verificar', $s === 200 && str_contains($html, 'Dados não verificados') && str_contains($html, 'Dados ainda não verificados')
     && !str_contains($html, 'id="painel-registrar"') && str_contains($html, 'Linha 3 da planilha'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv . '&q=' . rawurlencode('Pequeno Príncipe'));
 confere('pesquisa mostra as duas edições separadas, cada uma com o seu status', $s === 200 && substr_count($html, '#obra">Abrir</a>') >= 2 && str_contains($html, 'Dados verificados') && str_contains($html, 'Dados não verificados'));

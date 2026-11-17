@@ -132,7 +132,7 @@ confere('obra verificada e o painel "Registrar exemplar" abre em seguida', $s ==
     && $val('SELECT dados_verificados_em FROM livros WHERE id = ?', [$lendas]) !== null && $num('SELECT COUNT(*) FROM exemplares WHERE livro_id = ?', [$lendas]) === 0);
 [$s, $html] = $bib->ir($pg . '&obra=' . $lendas . '&painel=registrar');
 preg_match('/name="processo_bdp" value="([a-f0-9]{32})"/', $html, $mm);
-confere('registro direto como cópia física, sem pedir linha da planilha; origem discreta na ficha', $s === 200 && str_contains($html, 'o exemplar é registrado direto como cópia física')
+confere('registro direto como cópia física, sem pedir linha da planilha; origem discreta na ficha', $s === 200 && str_contains($html, 'Obra sem planilha') && str_contains($html, 'registrado direto como cópia física')
     && !str_contains($html, 'corresponde a qual linha da planilha') && str_contains($html, 'Cadastrada manualmente (conferência)') && ($mm[1] ?? '') !== '');
 confere('a obra nova aparece na pesquisa do Inventário', in_array($lendas, array_map('intval', array_column((new InventarioRepository($pdo))->pesquisarLivros($inv, 'Lendas Sertão', 15, 1)['livros'], 'id')), true));
 

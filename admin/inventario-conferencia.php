@@ -11,7 +11,7 @@
  *      verificados" → o formulário do exemplar abre sozinho. Ou "Vincular a uma obra já
  *      verificada" (sugestões; nada é unido sem confirmação).
  *   4. "+ Registrar exemplar": "Gerar código BDP" (reserva no servidor, só deste formulário),
- *      escolha consciente da linha da planilha (ou "Exemplar adicional"), salvar como Encontrado.
+ *      a associação da obra com a planilha é aproveitada sozinha (migração 170), salvar como Encontrado.
  *   5. Depois de salvar: "Registrar outra cópia" (mesma obra e mesma localização, código novo; a
  *      conservação NÃO é copiada) ou "Próximo livro" (volta para a pesquisa, mantendo a estante atual).
  *
@@ -307,11 +307,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 conferencia_descartar_rascunho($usuario['id'], 'registrar_exemplar', 'inv' . $id . '-obra' . $livroAlvo);
                 admin_flash('sucesso', 'Exemplar ' . $c['codigo'] . ' registrado como ' . InventarioService::SITUACOES_REGISTRO[$c['situacao']] . '.',
                     'Confira se o carimbo do livro mostra exatamente este código. Localização: ' . fisico_local_id($f['localizacao_id'] !== null ? (int)$f['localizacao_id'] : null) . '.'
-                    . ($c['registro_id'] ? ' A linha da planilha escolhida ficou ligada a este exemplar.' : '') . conferencia_preparo_texto($c));
+                    . ($c['registro_linha'] ? ' Associação da obra aproveitada (linha ' . $c['registro_linha'] . ' da planilha): a linha continua valendo para as outras cópias.' : '') . conferencia_preparo_texto($c));
                 admin_redirecionar($base . '&obra=' . $livroAlvo . '&criados=' . (int)$c['id'] . '#registrado');
             case 'nao_localizado':
                 $n = inventario_servico()->marcarNaoLocalizados($id, [(int)admin_param($_POST, 'item_id')], admin_param($_POST, 'observacao'), $usuario['id']);
-                admin_flash($n ? 'sucesso' : 'aviso', $n ? 'Marcado como não localizado.' : 'Nada foi alterado.', $n ? 'Se o livro aparecer depois, registre o exemplar ligado a esta linha, ou use "Voltar para pendente".' : 'O item já tinha resultado ou está emprestado.');
+                admin_flash($n ? 'sucesso' : 'aviso', $n ? 'Marcado como não localizado.' : 'Nada foi alterado.', $n ? 'Se o livro aparecer depois, registre o exemplar da obra (a linha é aproveitada sozinha), ou use "Voltar para pendente".' : 'O item já tinha resultado ou está emprestado.');
                 admin_redirecionar($base . '&obra=' . (int)admin_param($_POST, 'livro_id') . '#registros');
             case 'voltar_pendente':
                 $itemId = (int)admin_param($_POST, 'item_id');
@@ -631,8 +631,8 @@ $ind = $indicadores;
     </div>
     <h3 class="adm-indicadores-inv__grupo">Importação (linhas das planilhas)</h3>
     <div class="adm-stats adm-stats--indicadores">
-        <?= fisico_stat('Linhas sem vínculo físico', $ind['linhas_sem_vinculo'], 'Linhas da planilha ainda sem exemplar', 'file-spreadsheet', 'muted', $pend . 'linhas_sem_vinculo') ?>
-        <?= fisico_stat('Linhas ligadas a exemplares', $geral['registros_vinculados'], 'De ' . fisico_numero($geral['registros']) . ' linhas importadas', 'link', 'green') ?>
+        <?= fisico_stat('Registros de obras sem exemplar', $ind['linhas_sem_vinculo'], 'A obra ainda não tem nenhuma cópia física', 'file-spreadsheet', 'muted', $pend . 'linhas_sem_vinculo') ?>
+        <?= fisico_stat('Registros de obras com exemplar', $geral['registros_vinculados'], 'De ' . fisico_numero($geral['registros']) . ' registros importados (um registro vale para várias cópias)', 'link', 'green') ?>
     </div>
     <h3 class="adm-indicadores-inv__grupo">Organização física</h3>
     <div class="adm-stats adm-stats--indicadores">
@@ -641,7 +641,7 @@ $ind = $indicadores;
         <?= fisico_stat('Estantes · prateleiras', $geral['estantes'], fisico_numero($geral['prateleiras']) . ' prateleira(s) ativa(s)', 'columns-3', 'blue', admin_url('organizacao-fisica')) ?>
     </div>
     </details>
-    <p class="adm-field__hint"><?= icon('file-spreadsheet') ?> Linhas da planilha neste inventário: <strong><?= fisico_numero($ind['linhas_pendentes']) ?></strong> pendente(s) e <?= fisico_numero($ind['linhas_nao_localizadas']) ?> não localizada(s). Elas <strong>não contam como exemplares</strong> até alguém registrar o livro físico.</p>
+    <p class="adm-field__hint"><?= icon('file-spreadsheet') ?> Registros da planilha neste inventário: <strong><?= fisico_numero($ind['linhas_pendentes']) ?></strong> de obras ainda a procurar, <?= fisico_numero($ind['linhas_obra_localizada']) ?> de obras já localizadas e <?= fisico_numero($ind['linhas_nao_localizadas']) ?> não localizado(s). Eles <strong>não contam como exemplares</strong>: a quantidade real é a dos livros físicos registrados.</p>
 </section>
 <?php
 $htmlIndicadores = ob_get_clean();
@@ -927,7 +927,7 @@ ob_start();
                         <span class="adm-resultado__info">
                             <?= obra_badge_verificacao($l['dados_verificados_em']) ?>
                             <span class="adm-chip" title="Exemplares físicos com código BDP"><?= icon('book-copy') ?> <?= count($l['exemplares']) ?> exemplar(es)</span>
-                            <?php if ((int)$l['linhas_sem_vinculo'] > 0): ?><span class="adm-chip" title="Linhas da planilha ainda sem exemplar"><?= icon('file-spreadsheet') ?> <?= (int)$l['linhas_sem_vinculo'] ?> linha(s) sem exemplar</span><?php endif; ?>
+                            <?php if ((int)$l['linhas_sem_vinculo'] > 0): ?><span class="adm-chip" title="Registros da planilha desta obra; a obra ainda não tem cópia física"><?= icon('file-spreadsheet') ?> <?= (int)$l['linhas_sem_vinculo'] ?> registro(s) da planilha, nenhum exemplar ainda</span><?php endif; ?>
                         </span>
                         <span class="adm-resultado__acoes">
                             <?php if (!$verif && $podeEditarLivro): ?>
@@ -977,13 +977,58 @@ ob_start();
         <div class="adm-panel__header"><div>
             <span class="adm-obra__rotulo"><?= icon('book-open') ?> Obra · dados bibliográficos</span>
             <h2 id="titulo-obra"><?= e($tituloObra) ?> <?= obra_badge_verificacao($obra['dados_verificados_em']) ?></h2>
-            <p><?= $obraVerificada
-                ? 'Verificados em ' . e(admin_data_hora($obra['dados_verificados_em'])) . ($obra['verificado_por_nome'] ? ' por ' . e($obra['verificado_por_nome']) : '') . '. Outras cópias desta obra não precisam ser verificadas de novo.'
-                : 'Os dados desta obra ainda não foram conferidos. Confira com o livro em mãos (uma vez só) antes de registrar exemplares.' ?></p>
+            <p class="adm-obra__associacao"><?= $obraLinhasTotais['total'] > 0
+                ? icon('file-spreadsheet') . ' Origem: linha ' . (int)$obraLinhas[0]['linha'] . ($obraLinhasTotais['total'] > 1 ? ' (e mais ' . fisico_numero($obraLinhasTotais['total'] - 1) . ')' : '') . ' da planilha. '
+                    . ($obraVerificada ? '<strong>Associação bibliográfica confirmada.</strong>' : 'Associação bibliográfica a confirmar na verificação dos dados.')
+                : icon('book-plus') . ' Obra sem planilha (' . e(mb_strtolower(ACERVO_ORIGENS[$obra['origem_cadastro']] ?? $obra['origem_cadastro'])) . '). Não precisa de linha da planilha.' ?></p>
+            <?php if ($obraVerificada): ?>
+                <p class="adm-table__muted">Dados verificados em <?= e(admin_data_hora($obra['dados_verificados_em'])) ?><?= $obra['verificado_por_nome'] ? ' por ' . e($obra['verificado_por_nome']) : '' ?>. Outras cópias desta obra não precisam ser verificadas de novo.</p>
+            <?php endif; ?>
         </div>
-        <?php if ($podeEditarLivro): ?>
-            <a class="adm-button <?= $obraVerificada ? 'adm-button--ghost' : 'adm-button--primary' ?>" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&painel=verificar') ?>#obra" data-painel-abrir="painel-verificar" data-atalho="verificar"<?= !$obraVerificada && !$criados && $painel === '' ? ' data-foco' : '' ?>><?= icon('pencil') ?> <?= $obraVerificada ? 'Corrigir dados da obra' : 'Verificar e corrigir dados' ?></a>
+        </div>
+        <?php
+        // Quatro situações separadas: associação, verificação, exemplares registrados e conferência física.
+        $obraRegistrados = $obraQuantidade['cadastrados'] ?? count($ativos);
+        $obraEncontrados = $obraQuantidade['encontrados'] ?? $encontradosObra;
+        $obraChips = [
+            ['Exemplares registrados', fisico_numero($obraRegistrados), $obraRegistrados ? 'blue' : 'muted'],
+            ['Encontrados no inventário atual', fisico_numero($obraEncontrados), $obraEncontrados ? 'green' : 'muted'],
+            ['Registros da planilha', fisico_numero($obraLinhasTotais['total']), 'muted'],
+        ];
+        if ($obraQuantidade && $obraQuantidade['situacao'] === 'confiavel') {
+            $obraChips[] = ['Quantidade histórica', fisico_numero((int)$obraQuantidade['historica']), 'muted'];
+        } elseif ($obraQuantidade && $obraQuantidade['situacao'] === 'faixa') {
+            $obraChips[] = ['Quantidade histórica', 'de ' . fisico_numero((int)$obraQuantidade['minimo']) . ' a ' . fisico_numero((int)$obraQuantidade['maximo']), 'muted'];
+        }
+        if ($obraQuantidade && $obraQuantidade['divergente']) {
+            $obraChips[] = ['Divergência', fisico_numero(abs((int)$obraQuantidade['diferenca'])), 'amber'];
+        }
+        ?>
+        <ul class="adm-obra-indicadores" aria-label="Resumo da obra">
+            <?php foreach ($obraChips as [$rot, $val, $tom]): ?><li class="adm-obra-indicadores__item adm-tone--<?= $tom ?>"><strong><?= e($val) ?></strong> <span><?= e($rot) ?></span></li><?php endforeach; ?>
+        </ul>
+        <ul class="adm-obra-status" aria-label="Situação da obra">
+            <li><span>Associação</span> <?= $obraLinhasTotais['total'] > 0 ? ($obraVerificada ? '<span class="adm-status adm-tone--green">Confirmada</span>' : '<span class="adm-status adm-tone--amber">A confirmar</span>') : '<span class="adm-status adm-tone--muted">Sem planilha</span>' ?></li>
+            <li><span>Verificação</span> <?= $obraVerificada ? '<span class="adm-status adm-tone--green">Dados verificados</span>' : '<span class="adm-status adm-tone--amber">Não verificada</span>' ?></li>
+            <li><span>Exemplares</span> <?= $obraRegistrados ? '<span class="adm-status adm-tone--blue">' . fisico_numero($obraRegistrados) . ' registrado(s)</span>' : '<span class="adm-status adm-tone--muted">Nenhum registrado</span>' ?></li>
+            <li><span>Conferência física</span> <?= $obraEncontrados ? '<span class="adm-status adm-tone--green">' . fisico_numero($obraEncontrados) . ' encontrado(s)</span>' : '<span class="adm-status adm-tone--muted">Nenhum encontrado ainda</span>' ?></li>
+        </ul>
+        <?php if (!$obraVerificada): ?>
+            <div class="adm-obra__aviso" role="note">
+                <p><?= icon('triangle-alert') ?> <strong>Dados ainda não verificados.</strong> Confira com o livro em mãos (uma vez só) antes de registrar exemplares.</p>
+                <?php if ($podeEditarLivro): ?><a class="adm-button adm-button--primary adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&painel=verificar') ?>#obra" data-painel-abrir="painel-verificar" data-atalho="verificar"<?= !$criados && $painel === '' ? ' data-foco' : '' ?>><?= icon('pencil') ?> Verificar e corrigir dados</a><?php endif; ?>
+            </div>
         <?php endif; ?>
+        <div class="adm-obra-acoes" aria-label="Ações rápidas">
+            <?php if ($podeCadastrar && $obraVerificada): ?>
+                <a class="adm-button adm-button--primary adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&painel=registrar') ?>#exemplares" data-painel-abrir="painel-registrar" data-atalho="registrar"><?= icon('plus') ?> Registrar exemplar</a>
+                <?php if ($ativos): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&painel=registrar&copia=1') ?>#exemplares"><?= icon('copy') ?> Registrar outra cópia</a><?php endif; ?>
+            <?php endif; ?>
+            <?php if ($podeEditarLivro && $obraVerificada): ?>
+                <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&painel=verificar') ?>#obra" data-painel-abrir="painel-verificar" data-atalho="verificar"><?= icon('pencil') ?> Corrigir dados da obra</a>
+            <?php endif; ?>
+            <a class="adm-button adm-button--ghost adm-button--sm" href="#exemplares"><?= icon('book-copy') ?> Consultar exemplares</a>
+            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('duvidas') . '?' . http_build_query(['voltar' => $base . '&obra=' . (int)$obra['id'], 'livro' => (int)$obra['id']])) ?>"><?= icon('circle-help') ?> Registrar dúvida</a>
         </div>
         <dl class="adm-meta adm-meta--boxed adm-meta--grid">
             <div><dt>Autor(es)</dt><dd><?= $obra['autores'] ? e(implode('; ', $obra['autores'])) : '<span class="adm-table__muted">não informado</span>' ?></dd></div>
@@ -996,6 +1041,7 @@ ob_start();
             <div><dt>CDD</dt><dd><?= $obraCdd['numero'] !== '' ? cdd_numero($obraCdd['numero']) . ($obraCdd['tipo'] !== 'aprovada' ? ' <small class="adm-table__muted">' . ($obraCdd['tipo'] === 'proposta' ? 'proposta' : 'antiga') . '</small>' : '') : '<span class="adm-table__muted">sem CDD</span>' ?></dd></div>
         </dl>
         <?php if ($obraQuantidade && $obraQuantidade['situacao'] !== 'sem_planilha'): $qt = $obraQuantidade; ?>
+            <details class="adm-quantidade-detalhes"<?= $qt['divergente'] ? ' open' : '' ?>><summary>Quantidade: planilha × exemplares (detalhes)</summary>
             <div class="adm-quantidade<?= $qt['divergente'] ? ' is-divergente' : '' ?>" id="quantidade">
                 <p><strong><?= icon('git-compare-arrows') ?> Quantidade: planilha × encontrados</strong>
                     <?= $qt['divergente'] ? '<span class="adm-status adm-tone--amber">Divergência a investigar</span>' : ($qt['situacao'] === 'confiavel' ? '<span class="adm-status adm-tone--green">Confere</span>' : '<span class="adm-status adm-tone--muted">Quantidade histórica não confiável</span>') ?></p>
@@ -1008,6 +1054,7 @@ ob_start();
                 </dl>
                 <p class="adm-field__hint"><?= e($qt['mensagem']) ?> A diferença não significa livros perdidos: investigue (empréstimo, outra estante, ainda não registrado).</p>
             </div>
+            </details>
         <?php endif; ?>
         <?php if ($obraAlertas): ?><p class="adm-field__hint"><?= icon('triangle-alert') ?> <?= count($obraAlertas) ?> alerta(s) cadastral(is) aberto(s). Eles aparecem no painel de verificação e não impedem marcar os dados como verificados: dados que não existem podem ficar vazios.</p><?php endif; ?>
         <?php if ($obraHistorico || $obraVinculos): ?>
@@ -1086,7 +1133,7 @@ ob_start();
     <section class="adm-card adm-panel adm-obra-exemplares" id="exemplares" aria-labelledby="titulo-exemplares">
         <div class="adm-panel__header"><div>
             <h2 id="titulo-exemplares"><?= icon('book-copy') ?> Exemplares físicos <span class="adm-table__muted">(<?= count($ativos) ?>, <?= $encontradosObra ?> encontrado(s) neste inventário)</span></h2>
-            <p>Cada exemplar tem o seu código BDP e a sua situação no inventário. Vários exemplares usam o mesmo cadastro da obra.</p>
+            <p>Cada exemplar tem o seu código BDP, lote e situação no inventário. Todos usam o mesmo cadastro da obra (e a mesma linha da planilha, quando houver).</p>
         </div>
         <?php if ($podeCadastrar): ?>
             <?php if ($obraVerificada): ?>
@@ -1096,90 +1143,124 @@ ob_start();
             <?php endif; ?>
         <?php endif; ?>
         </div>
-        <?php if (!$obraVerificada && $podeCadastrar): ?>
-            <?= admin_aviso('info', 'Primeiro, verifique os dados da obra.', 'Clique em “Verificar e corrigir dados” e use “Salvar e marcar dados como verificados”: o registro do exemplar abre em seguida. Se a obra já foi verificada em outro cadastro, use “Vincular a uma obra já verificada”.') ?>
-        <?php endif; ?>
         <?php if (!$obraExemplares): ?>
-            <div class="adm-empty adm-empty--left"><?= icon('book-copy') ?><strong>Nenhum exemplar físico registrado ainda.</strong><span>As linhas da planilha abaixo não são exemplares: elas só viram exemplar quando alguém registra o livro físico com um código BDP.</span></div>
+            <div class="adm-empty adm-empty--left"><?= icon('book-copy') ?><strong>Nenhum exemplar físico registrado ainda.</strong><span>Os registros da planilha não são exemplares: a quantidade real é a dos livros físicos registrados com código BDP.</span></div>
         <?php else: ?>
-            <ul class="adm-exemplares-obra">
-                <?php foreach ($obraExemplares as $ex): [$rotEx, $tomEx] = inventario_exemplar_status($ex); ?>
-                    <li class="<?= in_array((int)$ex['id'], $criadosIds, true) ? 'is-novo' : '' ?>">
-                        <span class="adm-code"><?= e($ex['codigo_individual']) ?></span>
-                        <span class="adm-status adm-tone--<?= $tomEx ?>"><?= e($rotEx) ?></span>
-                        <?php if ($ex['situacao'] !== 'baixado'): ?><?= fisico_badge_carimbo($ex['carimbo_status']) ?><?= (int)$ex['ocorrencias_abertas'] ? '<span class="adm-status adm-tone--red">' . icon('triangle-alert') . ' ' . (int)$ex['ocorrencias_abertas'] . ' ocorrência(s)</span>' : '' ?><?php endif; ?>
-                        <span class="adm-exemplares-obra__info">
-                            <?= e(fisico_local_ou_triagem($ex)) ?> · <?= e(ACERVO_CONSERVACAO[$ex['estado_conservacao']] ?? $ex['estado_conservacao']) ?> · <?= e(ExemplarService::rotuloSituacao($ex['emprestimo_aberto'] ? 'emprestado' : $ex['situacao'])) ?>
-                            <?= $ex['origem_linha'] ? ' · linha ' . (int)$ex['origem_linha'] . ' da planilha' : '' ?><?= $ex['item_id'] === null && $ex['situacao'] !== 'baixado' ? ' · fora da lista deste inventário' : '' ?>
-                        </span>
-                        <span class="adm-actions-inline">
-                            <?php if ($ex['conferido_em'] === null && $ex['situacao'] !== 'baixado'): ?>
-                                <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&codigo=' . rawurlencode($ex['codigo_individual'])) ?>"><?= icon('square-check') ?> Marcar como encontrado</a>
-                            <?php elseif ($ex['conferido_em'] !== null): ?>
-                                <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&codigo=' . rawurlencode($ex['codigo_individual'])) ?>"><?= icon('pencil') ?> Corrigir</a>
-                            <?php endif; ?>
-                            <?php if ($podeCadastrar && $ex['situacao'] !== 'baixado'): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&mover=' . rawurlencode($ex['codigo_individual'])) ?>#exemplares"><?= icon('arrow-right-left') ?> Mover</a><?php endif; ?>
-                            <?php if ($podeCadastrar && $ex['situacao'] !== 'baixado'): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('ocorrencias') . '?' . http_build_query(['codigo' => $ex['codigo_individual'], 'inventario' => $id, 'voltar' => $base . '&obra=' . (int)$obra['id'] . '#exemplares'])) ?>#nova"><?= icon('triangle-alert') ?> Registrar ocorrência</a><?php endif; ?>
-                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$ex['id']) ?>"><?= icon('eye') ?> Detalhes</a>
-                        </span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+            <?php
+            $exPorPagina = 20;
+            $exPaginas = max(1, (int)ceil(count($obraExemplares) / $exPorPagina));
+            $exPagina = max(1, min($exPaginas, (int)($_GET['expag'] ?? 1)));
+            $exLista = array_slice($obraExemplares, ($exPagina - 1) * $exPorPagina, $exPorPagina);
+            ?>
+            <div class="adm-table-wrap adm-exemplares-tabela">
+                <table class="adm-table adm-table--compact adm-table--cards">
+                    <thead><tr><th>Código BDP</th><th>Lote</th><th>No inventário</th><th>Carimbo</th><th>Conservação</th><th>Estante / prateleira</th><th>Empréstimo</th><th><span class="adm-visually-hidden">Ações</span></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($exLista as $ex): [$rotEx, $tomEx] = inventario_exemplar_status($ex);
+                        $exDisp = $ex['situacao'] === 'disponivel' && !$ex['emprestimo_aberto'] && !(int)$ex['ocorrencias_abertas']; ?>
+                        <tr class="<?= in_array((int)$ex['id'], $criadosIds, true) ? 'is-novo' : '' ?>">
+                            <td data-label="Código BDP"><a class="adm-code" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$ex['id']) ?>"><?= e($ex['codigo_individual']) ?></a>
+                                <?php if ($ex['origem_linha']): ?><small class="adm-block-muted">linha <?= (int)$ex['origem_linha'] ?> da planilha</small><?php endif; ?></td>
+                            <td data-label="Lote"><?= $ex['lote_numero'] !== null ? 'Lote ' . e(ExemplarService::numeroLote($ex['lote_numero'])) : '<span class="adm-table__muted">—</span>' ?></td>
+                            <td data-label="No inventário"><span class="adm-status adm-tone--<?= $tomEx ?>"><?= e($rotEx) ?></span><?= $ex['item_id'] === null && $ex['situacao'] !== 'baixado' ? '<small class="adm-block-muted">fora da lista deste inventário</small>' : '' ?></td>
+                            <td data-label="Carimbo"><?= $ex['situacao'] !== 'baixado' ? fisico_badge_carimbo($ex['carimbo_status']) : '<span class="adm-table__muted">—</span>' ?></td>
+                            <td data-label="Conservação"><?= e(ACERVO_CONSERVACAO[$ex['estado_conservacao']] ?? $ex['estado_conservacao']) ?></td>
+                            <td data-label="Estante / prateleira"><?= e(fisico_local_ou_triagem($ex)) ?></td>
+                            <td data-label="Empréstimo"><?= $exDisp ? '<span class="adm-status adm-tone--green">Disponível</span>' : e(ExemplarService::rotuloSituacao($ex['emprestimo_aberto'] ? 'emprestado' : $ex['situacao'])) ?>
+                                <?= (int)$ex['ocorrencias_abertas'] ? '<span class="adm-status adm-tone--red">' . icon('triangle-alert') . ' ' . (int)$ex['ocorrencias_abertas'] . ' ocorrência(s)</span>' : '' ?></td>
+                            <td class="adm-table__acoes">
+                                <details class="adm-menu-acoes">
+                                    <summary class="adm-button adm-button--ghost adm-button--sm"><?= icon('ellipsis-vertical') ?> Ações</summary>
+                                    <span class="adm-menu-acoes__lista">
+                                        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('detalhes-exemplar') . '?id=' . (int)$ex['id']) ?>"><?= icon('eye') ?> Consultar e editar</a>
+                                        <?php if ($ex['conferido_em'] === null && $ex['situacao'] !== 'baixado'): ?>
+                                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&codigo=' . rawurlencode($ex['codigo_individual'])) ?>"><?= icon('square-check') ?> Marcar como encontrado</a>
+                                        <?php elseif ($ex['conferido_em'] !== null): ?>
+                                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&codigo=' . rawurlencode($ex['codigo_individual'])) ?>"><?= icon('pencil') ?> Corrigir</a>
+                                        <?php endif; ?>
+                                        <?php if ($podeCadastrar && $ex['situacao'] !== 'baixado'): ?>
+                                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&mover=' . rawurlencode($ex['codigo_individual'])) ?>#exemplares"><?= icon('arrow-right-left') ?> Mover</a>
+                                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('ocorrencias') . '?' . http_build_query(['codigo' => $ex['codigo_individual'], 'inventario' => $id, 'voltar' => $base . '&obra=' . (int)$obra['id'] . '#exemplares'])) ?>#nova"><?= icon('triangle-alert') ?> Registrar ocorrência</a>
+                                        <?php endif; ?>
+                                    </span>
+                                </details>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php if ($exPaginas > 1): ?>
+                <nav class="adm-paginacao adm-paginacao--compacta" aria-label="Páginas de exemplares">
+                    <?php for ($pg = 1; $pg <= $exPaginas; $pg++): ?>
+                        <a class="adm-button adm-button--ghost adm-button--sm<?= $pg === $exPagina ? ' is-active' : '' ?>" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&expag=' . $pg) ?>#exemplares"<?= $pg === $exPagina ? ' aria-current="page"' : '' ?>><?= $pg ?></a>
+                    <?php endfor; ?>
+                </nav>
+            <?php endif; ?>
         <?php endif; ?>
     </section>
 
     <?php if ($obraLinhas): ?>
-        <section class="adm-card adm-panel" id="registros" aria-labelledby="titulo-registros">
-            <div class="adm-panel__header"><div>
-                <h2 id="titulo-registros"><?= icon('file-spreadsheet') ?> Linhas da planilha desta obra (<?= fisico_numero($obraLinhasTotais['total']) ?>, <?= fisico_numero($obraLinhasTotais['livres']) ?> sem exemplar)</h2>
-                <?php if (count($obraLinhas) < $obraLinhasTotais['total']): ?>
-                    <p class="adm-field__hint"><?= icon('info') ?> Mostrando <?= fisico_numero(count($obraLinhas)) ?> de <?= fisico_numero($obraLinhasTotais['total']) ?> linhas (as sem exemplar primeiro). <a class="adm-link" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&linhas=todas') ?>#registros">Mostrar todas as linhas</a></p>
-                <?php endif; ?>
-                <p>Cada linha importada é conferida individualmente. Linha sem exemplar <strong>não conta como exemplar encontrado</strong>: ela só fica ligada a um livro físico quando você a escolhe ao registrar o exemplar.</p>
-            </div></div>
+        <details class="adm-card adm-panel adm-referencias" id="registros"<?= admin_param($_GET, 'linhas') === 'todas' || $vq !== '' ? ' open' : '' ?>>
+            <summary class="adm-referencias__resumo">
+                <h2 id="titulo-registros"><?= icon('file-spreadsheet') ?> Referências da planilha <span class="adm-table__muted">(<?= fisico_numero($obraLinhasTotais['total']) ?> registro(s)<?= $obraLinhasTotais['arquivos'] > 1 ? ', ' . fisico_numero($obraLinhasTotais['arquivos']) . ' arquivos' : '' ?>)</span></h2>
+                <span class="adm-table__muted">Dados originais, dados corrigidos e histórico da associação</span>
+            </summary>
+            <p class="adm-field__hint">Cada registro descreve a <strong>obra</strong>, não um exemplar. Ele vale para todas as cópias físicas e não é “usado” quando um exemplar é registrado. Registros <strong>não contam como exemplares encontrados</strong>: a quantidade real é a da conferência física.</p>
+            <?php if (count($obraLinhas) < $obraLinhasTotais['total']): ?>
+                <p class="adm-field__hint"><?= icon('info') ?> Mostrando <?= fisico_numero(count($obraLinhas)) ?> de <?= fisico_numero($obraLinhasTotais['total']) ?> registros. <a class="adm-link" href="<?= e($base . '&obra=' . (int)$obra['id'] . '&linhas=todas') ?>#registros">Mostrar todos</a></p>
+            <?php endif; ?>
             <ul class="adm-registros-obra">
                 <?php foreach ($obraLinhas as $reg): ?>
                     <li id="registro-<?= (int)($reg['item_id'] ?? 0) ?>">
-                        <span><?= icon('file-spreadsheet') ?> <strong>Linha <?= (int)$reg['linha'] ?></strong> <small class="adm-table__muted">“<?= e($reg['arquivo']) ?>”</small></span>
-                        <?php if ($reg['exemplar_id'] !== null): ?>
-                            <span class="adm-status adm-tone--green">Ligada ao <?= e((string)$reg['codigo_individual']) ?></span>
-                        <?php elseif ($reg['item_id'] === null): ?>
-                            <span class="adm-status adm-tone--muted">Sem exemplar · fora deste inventário</span>
-                        <?php else: [$rotReg, $tomReg] = inventario_item_situacao($reg + ['emprestimo_aberto' => null]); ?>
-                            <span class="adm-status adm-tone--<?= $tomReg ?>">Sem exemplar · <?= e($rotReg) ?></span>
+                        <span><?= icon('file-spreadsheet') ?> <strong>Linha <?= (int)$reg['linha'] ?></strong> <small class="adm-table__muted">“<?= e($reg['arquivo']) ?>”<?= $reg['importado_em'] ? ' · importada em ' . e(admin_data_hora($reg['importado_em'], false)) : '' ?></small></span>
+                        <?php if ($reg['item_id'] === null): ?>
+                            <span class="adm-status adm-tone--muted">Fora deste inventário</span>
+                        <?php else: [$rotReg, $tomReg] = inventario_item_situacao($reg + ['emprestimo_aberto' => null, 'exemplar_id' => null, 'cadastrado_no_inventario' => 0]); ?>
+                            <span class="adm-status adm-tone--<?= $tomReg ?>"><?= e($rotReg) ?></span>
                         <?php endif; ?>
-                        <small class="adm-table__muted"><?= e(implode(' · ', array_filter([
-                            $reg['titulo_original'] ? 'Título na planilha: ' . mb_strimwidth($reg['titulo_original'], 0, 70, '…') : null,
-                            $reg['autor_original'] ? 'Autor: ' . mb_strimwidth($reg['autor_original'], 0, 50, '…') : null,
-                            $reg['localizacao_antiga'] ? 'Local antigo: ' . $reg['localizacao_antiga'] : null,
-                            $reg['quantidade_informada'] !== null ? 'Qtd. na planilha: ' . (int)$reg['quantidade_informada'] . ' (só referência)' : null,
-                            $reg['vinculado_em'] ? 'Ligada em ' . admin_data_hora($reg['vinculado_em']) . ($reg['vinculado_por_nome'] ? ' por ' . $reg['vinculado_por_nome'] : '') : null,
-                            $reg['livro_original_id'] ? 'Vinculada a partir de “' . $reg['livro_original_titulo'] . '”' : null,
-                            $reg['nao_localizado_em'] ? 'Não localizada em ' . admin_data_hora($reg['nao_localizado_em']) . ($reg['nao_localizado_obs'] ? ' (' . $reg['nao_localizado_obs'] . ')' : '') : null,
-                        ]))) ?></small>
+                        <?php if ($reg['exemplar_id'] !== null): ?>
+                            <span class="adm-status adm-tone--muted" title="Antes, cada linha era ligada a uma cópia. O vínculo fica guardado como histórico.">Vínculo antigo: <?= e((string)$reg['codigo_individual']) ?></span>
+                        <?php endif; ?>
+                        <details class="adm-referencias__dados">
+                            <summary class="adm-link"><?= icon('eye') ?> Dados originais × cadastro atual</summary>
+                            <table class="adm-table adm-table--compact adm-comparar">
+                                <thead><tr><th>Campo</th><th>Planilha original</th><th>Cadastro atual</th></tr></thead>
+                                <tbody>
+                                <?php foreach ([
+                                    ['Título', $reg['titulo_original'], $obra['titulo']],
+                                    ['Autor', $reg['autor_original'], $obra['autores'] ? implode('; ', $obra['autores']) : null],
+                                    ['CDD', $reg['cdd_original'], $obraCdd['numero'] !== '' ? $obraCdd['numero'] : null],
+                                    ['Local antigo', $reg['localizacao_antiga'], null],
+                                    ['Quantidade', $reg['quantidade_informada'] !== null ? (string)(int)$reg['quantidade_informada'] : null, fisico_numero($obraRegistrados) . ' exemplar(es) registrado(s)'],
+                                ] as [$campo, $orig, $atual]): $mudou = $atual !== null && $orig !== null && $campo !== 'Quantidade' && mb_strtolower(trim((string)$orig)) !== mb_strtolower(trim((string)$atual)); ?>
+                                    <tr<?= $mudou ? ' class="is-alterado"' : '' ?>><th scope="row"><?= e($campo) ?></th><td data-label="Planilha original"><?= $orig !== null && $orig !== '' ? e((string)$orig) : '<span class="adm-table__muted">—</span>' ?></td><td data-label="Cadastro atual"><?= $atual !== null && $atual !== '' ? e((string)$atual) : '<span class="adm-table__muted">—</span>' ?><?= $mudou ? ' <small class="adm-table__muted">(corrigido)</small>' : '' ?></td></tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                            <?php if ($reg['extras']): ?><p class="adm-block-muted"><?php foreach ($reg['extras'] as $kx => $vx): ?><?= e($kx) ?>: <?= e($vx) ?> · <?php endforeach; ?></p><?php endif; ?>
+                            <p class="adm-block-muted"><?= e(implode(' · ', array_filter([
+                                $reg['vinculado_em'] ? 'Vínculo antigo com ' . $reg['codigo_individual'] . ' em ' . admin_data_hora($reg['vinculado_em']) . ($reg['vinculado_por_nome'] ? ' por ' . $reg['vinculado_por_nome'] : '') : null,
+                                $reg['livro_original_id'] ? 'Associada a partir de “' . $reg['livro_original_titulo'] . '”' : null,
+                                $reg['obra_localizada_em'] ? 'Obra localizada neste inventário em ' . admin_data_hora($reg['obra_localizada_em']) : null,
+                                $reg['nao_localizado_em'] ? 'Marcada como não localizada em ' . admin_data_hora($reg['nao_localizado_em']) . ($reg['nao_localizado_obs'] ? ' (' . $reg['nao_localizado_obs'] . ')' : '') : null,
+                            ]))) ?></p>
+                        </details>
                         <span class="adm-actions-inline">
-                            <?php if ($reg['exemplar_id'] === null && $reg['item_id'] !== null && $reg['conferido_em'] === null): ?>
-                                <?php if (!$reg['nao_localizado_em']): ?>
-                                    <form method="post" action="<?= e($base) ?>" class="adm-inline-form" data-confirmar="Marcar esta linha da planilha como não localizada? Você pode desfazer depois.">
-                                        <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="nao_localizado"><input type="hidden" name="item_id" value="<?= (int)$reg['item_id'] ?>"><input type="hidden" name="livro_id" value="<?= (int)$obra['id'] ?>">
-                                        <input class="adm-input adm-input--sm" name="observacao" maxlength="500" placeholder="Onde foi procurado (opcional)" aria-label="Onde foi procurado (opcional)">
-                                        <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('book-x') ?> Não localizado</button>
-                                    </form>
-                                <?php else: ?>
-                                    <form method="post" action="<?= e($base) ?>" class="adm-inline-form">
-                                        <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="voltar_pendente"><input type="hidden" name="item_id" value="<?= (int)$reg['item_id'] ?>">
-                                        <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('rotate-ccw') ?> Voltar para pendente</button>
-                                    </form>
-                                <?php endif; ?>
+                            <?php if ($reg['item_id'] !== null && $reg['nao_localizado_em'] && $reg['conferido_em'] === null && !$reg['obra_localizada_em']): ?>
+                                <form method="post" action="<?= e($base) ?>" class="adm-inline-form">
+                                    <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="voltar_pendente"><input type="hidden" name="item_id" value="<?= (int)$reg['item_id'] ?>">
+                                    <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('rotate-ccw') ?> Voltar para pendente</button>
+                                </form>
                             <?php endif; ?>
                             <?php if ($reg['exemplar_id'] !== null && $podeGerenciar): ?>
                                 <details class="adm-acao">
                                     <summary class="adm-button adm-button--ghost adm-button--sm"><?= icon('undo-2') ?> Ligada por engano?</summary>
                                     <form method="post" action="<?= e($base) ?>" class="adm-acao__form">
                                         <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="desfazer_vinculo_linha"><input type="hidden" name="registro_id" value="<?= (int)$reg['id'] ?>"><input type="hidden" name="livro_id" value="<?= (int)$obra['id'] ?>">
-                                        <input class="adm-input adm-input--sm" name="motivo" maxlength="500" required placeholder="Motivo (ex.: era a linha 12, não a 8)" aria-label="Motivo">
-                                        <button class="adm-button adm-button--ghost adm-button--sm" type="submit">Desfazer vínculo com o exemplar</button>
-                                        <small class="adm-block-muted">O exemplar continua registrado (como exemplar adicional) e a linha volta para Pendente.</small>
+                                        <input class="adm-input adm-input--sm" name="motivo" maxlength="500" required placeholder="Motivo (ex.: era outra cópia)" aria-label="Motivo">
+                                        <button class="adm-button adm-button--ghost adm-button--sm" type="submit">Desfazer vínculo antigo com o exemplar</button>
+                                        <small class="adm-block-muted">O exemplar continua registrado e a linha continua sendo da obra.</small>
                                     </form>
                                 </details>
                             <?php endif; ?>
@@ -1197,7 +1278,7 @@ ob_start();
                     </li>
                 <?php endforeach; ?>
             </ul>
-        </section>
+        </details>
     <?php endif; ?>
 <?php endif; ?>
 
@@ -1319,7 +1400,7 @@ ob_start();
                                 elseif ($pendTipo === 'conservacao') { echo ' · ' . e(ACERVO_CONSERVACAO[$p['estado_conservacao']] ?? $p['estado_conservacao']) . ($p['conservacao_avaliada_em'] === null && $p['estado_conservacao'] !== 'nao_avaliado' ? ' (gravado antes, nunca avaliado)' : ''); }
                                 elseif ($pendTipo === 'quantidade') { echo ' · ' . e($p['comparacao']['mensagem']); }
                                 elseif (in_array($pendTipo, ['duplicadas', 'alertas'], true) && $p['mensagens']) { echo ' · ' . e(mb_strimwidth($p['mensagens'], 0, 160, '…')); }
-                                elseif ($pendTipo === 'nao_verificadas') { echo ' · ' . (int)$p['exemplares'] . ' exemplar(es) · ' . (int)$p['linhas_sem_vinculo'] . ' linha(s) sem exemplar'; }
+                                elseif ($pendTipo === 'nao_verificadas') { echo ' · ' . (int)$p['exemplares'] . ' exemplar(es) · ' . (int)$p['linhas_sem_vinculo'] . ' registro(s) da planilha sem exemplar'; }
                             ?></small>
                         </span>
                         <span class="adm-resultado__acoes">

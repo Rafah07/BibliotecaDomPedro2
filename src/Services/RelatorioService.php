@@ -348,10 +348,16 @@ final class RelatorioService
                     self::card('Sem ano de publicação', $a['sem_ano'], 'Ano não informado', 'calendar', 'amber', ['pendencia' => 'sem_ano']),
                     self::card('Informações incompletas', $a['incompletos'], 'Falta autor, editora ou ano', 'triangle-alert', 'red', ['pendencia' => 'incompletos']),
                     self::card('Possíveis duplicidades', $a['duplicidade'], 'Registros com mesmo título e autor', 'copy', 'red', ['pendencia' => 'duplicidade']),
-                    self::card('Sem exemplar físico', $a['sem_exemplar'], 'Registros ainda sem código BDP', 'book-x', 'red', ['pendencia' => 'sem_exemplar']),
+                    self::card('Sem exemplar físico', $a['sem_exemplar'], 'Obras ainda sem nenhuma cópia com código BDP', 'book-x', 'red', ['pendencia' => 'sem_exemplar']),
                     self::card('Quantidade histórica das planilhas', $a['quantidade_historica'], 'Só referência: não confirmada fisicamente', 'file-spreadsheet', 'muted'),
                     self::card('Importadas da planilha', $a['origem_planilha'], $pct($a['origem_planilha'], $a['total']) . ' dos registros', 'file-spreadsheet', 'blue', ['origem' => 'planilha']),
                     self::card('Cadastradas manualmente', $a['origem_manual'], $a['origem_conferencia'] . ' na conferência do inventário', 'book-plus', 'indigo', ['origem' => 'manual']),
+                    self::card('Obras verificadas', $a['verificadas'], $pct($a['verificadas'], $a['total']) . ' das obras (dados conferidos com o livro)', 'circle-check', 'green'),
+                    self::card('Registros originais da planilha', $a['registros_originais'], 'Linhas importadas (descrevem obras, não exemplares)', 'file-spreadsheet', 'muted'),
+                    self::card('Registros associados', $a['registros_associados'], 'De obras já verificadas · ' . $a['registros_com_exemplar'] . ' de obras com exemplar', 'link', 'green'),
+                    self::card('Exemplares registrados', $a['exemplares_registrados'], 'Cópias físicas com código BDP (no acervo)', 'book-copy', 'blue'),
+                    self::card('Exemplares encontrados', $a['exemplares_encontrados'], 'Conferidos fisicamente ao menos uma vez', 'square-check', 'green'),
+                    self::card('Divergências de quantidade', $a['divergencias_quantidade'], 'Obras verificadas com quantidade histórica diferente da física (investigar)', 'git-compare-arrows', 'amber'),
                 ];
                 if ($p->limitado()) {
                     $cards[] = self::card('Cadastrados no sistema no período', $this->repo->contarLivros(['periodo' => $p]), 'Data de cadastro, não de aquisição', 'book-plus', 'indigo');

@@ -105,6 +105,26 @@ final class RelatorioRepository
                            FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL') ?? [];
         $r['quantidade_historica'] = (int)($h['quantidade'] ?? 0);
         $r['livros_com_quantidade_historica'] = (int)($h['livros'] ?? 0);
+        // Obras, registros da planilha e exemplares, sempre contados separadamente (migração 170):
+        // um registro descreve a obra e vale para várias cópias; nunca é contado como exemplar.
+        $r['verificadas'] = (int)$this->valor('SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL AND dados_verificados_em IS NOT NULL');
+        $g = $this->linha("SELECT COUNT(*) AS registros, COALESCE(SUM(l.dados_verificados_em IS NOT NULL), 0) AS associados,
+                                  COALESCE(SUM(EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = r.livro_id AND e.situacao <> 'baixado')), 0) AS com_exemplar
+                           FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL") ?? [];
+        $r['registros_originais'] = (int)($g['registros'] ?? 0);
+        $r['registros_associados'] = (int)($g['associados'] ?? 0);
+        $r['registros_com_exemplar'] = (int)($g['com_exemplar'] ?? 0);
+        $x = $this->linha("SELECT COUNT(*) AS registrados, COALESCE(SUM(e.conferido_em IS NOT NULL), 0) AS encontrados
+                           FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL WHERE e.situacao NOT IN ('baixado', 'extraviado')") ?? [];
+        $r['exemplares_registrados'] = (int)($x['registrados'] ?? 0);
+        $r['exemplares_encontrados'] = (int)($x['encontrados'] ?? 0);
+        // Divergência de quantidade: mesma regra de PendenciasRepository::compararQuantidade (só obras verificadas
+        // com quantidade informada; exemplares já encontrados alguma vez).
+        $n = 'COALESCE(enc.n, 0)';
+        $r['divergencias_quantidade'] = (int)$this->valor('SELECT COUNT(*) FROM livros l JOIN (' . PendenciasRepository::AGREGADO_PLANILHA . ") q ON q.livro_id = l.id
+                LEFT JOIN (SELECT livro_id, COUNT(*) AS n FROM exemplares WHERE situacao <> 'baixado' AND conferido_em IS NOT NULL GROUP BY livro_id) enc ON enc.livro_id = l.id
+                WHERE l.arquivado_em IS NULL AND l.dados_verificados_em IS NOT NULL AND q.linhas_qtd > 0
+                  AND ((q.linhas = 1 AND q.qmax <> $n) OR (q.linhas > 1 AND ($n < q.qmax OR $n > q.qsoma + (q.linhas - q.linhas_qtd))))");
         return $r;
     }
 

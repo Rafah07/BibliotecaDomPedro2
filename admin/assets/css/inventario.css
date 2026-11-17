@@ -434,3 +434,66 @@ kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-
     .adm-leitura__linha .adm-leitura__nova { flex: 1 1 100%; min-height: 44px; justify-content: center; }
     .adm-nova-obra__acoes .adm-button { flex: 1 1 100%; min-height: 48px; justify-content: center; }
 }
+
+/* Ficha da obra (migração 170): indicadores compactos, quatro situações, ações rápidas,
+   tabela de exemplares e "Referências da planilha" recolhível. */
+.adm-obra__associacao { margin: 4px 0 0; }
+.adm-obra__associacao .icon { width: 15px; height: 15px; vertical-align: -2px; margin-right: 2px; }
+.adm-obra-indicadores { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.adm-obra-indicadores__item { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 13px; line-height: 1.3; }
+.adm-obra-indicadores__item strong { font-size: 15px; }
+.adm-obra-indicadores__item.adm-tone--muted { background: var(--adm-bg); color: var(--adm-text, inherit); border: 1px solid var(--adm-border); }
+.adm-obra-status { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.adm-obra-status li { display: flex; flex-direction: column; gap: 3px; padding: 6px 10px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); font-size: 12px; }
+.adm-obra-status li > span:first-child { color: var(--adm-muted, #64748b); font-weight: 600; text-transform: uppercase; letter-spacing: .02em; font-size: 11px; }
+.adm-obra-status .adm-status { align-self: flex-start; white-space: normal; max-width: 100%; }
+.adm-quantidade-detalhes > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--adm-blue-accent); margin: 10px 0 0; }
+.adm-obra__aviso { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--adm-amber, #d97706); background: var(--adm-amber-50, #fffbeb); border-radius: var(--adm-radius-sm); }
+.adm-obra__aviso p { margin: 0; display: flex; gap: 6px; align-items: center; }
+.adm-obra-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+.adm-exemplares-tabela .adm-code { font-weight: 700; }
+.adm-exemplares-tabela tr.is-novo { background: var(--adm-green-50); }
+.adm-menu-acoes { position: relative; }
+.adm-menu-acoes > summary { list-style: none; }
+.adm-menu-acoes > summary::-webkit-details-marker { display: none; }
+.adm-menu-acoes__lista { position: absolute; right: 0; z-index: 5; display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 210px; margin-top: 4px; padding: 6px; background: var(--adm-white); border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); box-shadow: 0 8px 24px rgba(15, 23, 42, .12); }
+.adm-menu-acoes__lista .adm-button { justify-content: flex-start; }
+.adm-paginacao--compacta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.adm-paginacao--compacta .is-active { background: var(--adm-blue-50); color: var(--adm-blue-accent); }
+.adm-referencias > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; list-style: none; }
+.adm-referencias > summary::-webkit-details-marker { display: none; }
+.adm-referencias > summary h2 { margin: 0; font-size: 16px; }
+.adm-referencias > summary h2::after { content: " ▾"; color: var(--adm-muted, #64748b); }
+.adm-referencias[open] > summary h2::after { content: " ▴"; }
+.adm-referencias__dados { flex-basis: 100%; }
+.adm-referencias__dados > summary { cursor: pointer; display: inline-flex; gap: 4px; align-items: center; font-size: 13px; }
+.adm-comparar { margin: 6px 0; }
+.adm-comparar th[scope="row"] { width: 120px; }
+.adm-comparar tr.is-alterado td:last-child { background: var(--adm-blue-50); }
+.adm-associacao-info { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--adm-green, #16a34a); background: var(--adm-green-50); border-radius: var(--adm-radius-sm); font-size: 13px; }
+.adm-associacao-info p { margin: 0; }
+.adm-associacao-info__titulo { display: flex; gap: 6px; align-items: center; }
+.adm-associacao-info__texto { margin-top: 2px !important; }
+@media screen and (max-width: 720px) {
+    .adm-obra-status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .adm-obra-acoes .adm-button { flex: 1 1 calc(50% - 6px); min-height: 44px; justify-content: center; }
+    .adm-menu-acoes__lista { position: static; box-shadow: none; min-width: 0; }
+    .adm-comparar thead { display: none; }
+    .adm-comparar tr { display: grid; grid-template-columns: 1fr; padding: 6px 0; border-bottom: 1px solid var(--adm-border); }
+    .adm-comparar th[scope="row"] { width: auto; }
+    .adm-comparar td[data-label]::before { content: attr(data-label) ": "; color: var(--adm-muted, #64748b); font-size: 12px; }
+}
+@media screen and (max-width: 720px) {
+    .adm-obra .adm-meta--grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+    .adm-exemplares-tabela .adm-table--cards tbody tr:not([data-empty]) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; padding: 10px 12px; }
+    .adm-exemplares-tabela .adm-table--cards td[data-label] { grid-column: auto !important; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0; padding: 3px 0 !important; border-top: 0 !important; text-align: left; }
+    .adm-exemplares-tabela .adm-table--cards td[data-label]::before { margin: 0; padding: 0; font-size: 11px; }
+    .adm-exemplares-tabela .adm-table--cards td[data-label="Código BDP"],
+    .adm-exemplares-tabela .adm-table--cards td[data-label="Estante / prateleira"],
+    .adm-exemplares-tabela .adm-table--cards .adm-table__acoes { grid-column: 1 / -1 !important; }
+    .adm-exemplares-tabela .adm-table--cards td[data-label] { min-width: 0; overflow: hidden; }
+    .adm-exemplares-tabela .adm-table--cards td[data-label] .adm-status { white-space: normal; max-width: 100%; }
+    .adm-exemplares-tabela .adm-table--cards td[data-label="Código BDP"] { flex-direction: row; align-items: baseline; gap: 8px; border-bottom: 1px dashed var(--adm-border) !important; padding-bottom: 6px !important; margin-bottom: 2px; }
+    .adm-exemplares-tabela .adm-table--cards td[data-label="Código BDP"]::before { display: none; }
+    .adm-exemplares-tabela .adm-table--cards .adm-table__acoes { padding-top: 4px !important; }
+}
