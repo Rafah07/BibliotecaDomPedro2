@@ -88,6 +88,8 @@ $rxLocal = (string)$rx['localizacao_id'] !== '' ? (int)$rx['localizacao_id'] : n
                         <small class="adm-block-muted">Uma cópia física além das que aparecem na planilha. As linhas continuam “sem exemplar”.</small></span>
                 </label>
             </fieldset>
+        <?php else: ?>
+            <p class="adm-field__hint adm-registro-direto"><?= icon('info') ?> Esta obra não tem linhas da planilha importada (por exemplo, foi cadastrada na conferência): o exemplar é registrado direto como cópia física da obra.</p>
         <?php endif; ?>
     </section>
 

@@ -415,3 +415,22 @@ kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-
 .adm-escolha__opcao--perigo:has(input:checked) { border-color: var(--adm-red); background: var(--adm-red-50); box-shadow: inset 0 0 0 1px var(--adm-red); }
 .adm-escolha--bloqueio > .adm-field__hint { margin-top: -4px; }
 @media (hover: none) { .adm-leitura__atalhos { display: none; } }
+
+/* "+ Cadastrar nova obra" (conferência): botão ao lado da pesquisa e formulário da obra. */
+.adm-leitura__linha { flex-wrap: wrap; }
+.adm-leitura__campo { flex: 1 1 260px; }
+.adm-leitura__linha .adm-leitura__nova { min-width: 0; white-space: nowrap; }
+.adm-nova-obra__passos { margin: 0 0 16px; padding: 10px 14px; border-left: 3px solid var(--adm-blue, #2563eb); background: var(--adm-bg); border-radius: var(--adm-radius-sm); }
+.adm-nova-obra__passos p { margin: 0; }
+.adm-nova-obra__passos p + p { margin-top: 4px; }
+.adm-correspondencias--vivas { margin: 12px 0 4px; }
+.adm-correspondencias--vivas [data-continuar-nova] { margin-top: 10px; }
+.adm-nova-obra__acoes { flex-wrap: wrap; }
+.adm-nova-obra__legenda { margin: 10px 0 0; padding-left: 18px; }
+.adm-nova-obra__legenda li + li { margin-top: 2px; }
+.adm-registro-direto { display: flex; gap: 6px; align-items: flex-start; }
+.adm-registro-direto .icon { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+@media screen and (max-width: 720px) {
+    .adm-leitura__linha .adm-leitura__nova { flex: 1 1 100%; min-height: 44px; justify-content: center; }
+    .adm-nova-obra__acoes .adm-button { flex: 1 1 100%; min-height: 48px; justify-content: center; }
+}

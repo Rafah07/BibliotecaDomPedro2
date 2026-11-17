@@ -33,6 +33,18 @@ final class RelatorioRepository
     public const CONSERVACAO = ['nao_avaliado', 'excelente', 'bom', 'regular', 'ruim', 'danificado', 'necessita_reparo'];
     public const PENDENCIAS_LIVRO = ['com_isbn', 'sem_isbn', 'sem_autor', 'sem_editora', 'sem_ano', 'incompletos', 'sem_categoria', 'sem_exemplar', 'duplicidade'];
     public const STATUS_LIVRO = ['validado', 'aguardando_conferencia', 'dados_incompletos', 'com_divergencia'];
+    /** Filtro de origem do cadastro: planilha | manual (acervo + conferência) | inventario (só conferência). */
+    public const ORIGENS = ['planilha', 'manual', 'inventario'];
+
+    private static function condicaoOrigem(string $origem): ?string
+    {
+        return match ($origem) {
+            'planilha' => "l.origem_cadastro = 'planilha'",
+            'manual' => "l.origem_cadastro IN ('manual', 'inventario')",
+            'inventario' => "l.origem_cadastro = 'inventario'",
+            default => null,
+        };
+    }
     public const SITUACOES_EMPRESTIMO = ['todos', 'ativos', 'atrasados', 'concluidos'];
     public const FILTROS_CDD = ['aprovada', 'pendente', 'sugerida', 'em_revisao', 'conflito', 'antiga', 'sem_aprovacao'];
 
@@ -82,7 +94,10 @@ final class RelatorioRepository
                                   COALESCE(SUM(' . self::SEM_CATEGORIA . '), 0) AS sem_categoria,
                                   COALESCE(SUM(' . self::SEM_EXEMPLAR . '), 0) AS sem_exemplar,
                                   COALESCE(SUM(' . self::duplicidade() . "), 0) AS duplicidade,
-                                  COALESCE(SUM(l.status_validacao = 'validado'), 0) AS validados
+                                  COALESCE(SUM(l.status_validacao = 'validado'), 0) AS validados,
+                                  COALESCE(SUM(l.origem_cadastro = 'planilha'), 0) AS origem_planilha,
+                                  COALESCE(SUM(l.origem_cadastro IN ('manual', 'inventario')), 0) AS origem_manual,
+                                  COALESCE(SUM(l.origem_cadastro = 'inventario'), 0) AS origem_conferencia
                            FROM livros l WHERE l.arquivado_em IS NULL") ?? [];
         $r = array_map('intval', $r);
         $r['arquivados'] = (int)$this->valor('SELECT COUNT(*) FROM livros WHERE arquivado_em IS NOT NULL');
@@ -125,6 +140,9 @@ final class RelatorioRepository
         if (in_array($f['status'] ?? '', self::STATUS_LIVRO, true)) {
             $w[] = 'l.status_validacao = ?';
             $p[] = $f['status'];
+        }
+        if ($c = self::condicaoOrigem((string)($f['origem'] ?? ''))) {
+            $w[] = $c;
         }
         $w[] = match ($f['pendencia'] ?? '') {
             'com_isbn' => 'NOT ' . self::SEM_ISBN,
@@ -359,6 +377,9 @@ final class RelatorioRepository
             $w[] = 'e.estado_conservacao = ?';
             $p[] = $f['conservacao'];
         }
+        if ($c = self::condicaoOrigem((string)($f['origem'] ?? ''))) {
+            $w[] = $c;
+        }
         return [implode(' AND ', $w), $p];
     }
 
@@ -372,7 +393,7 @@ final class RelatorioRepository
     {
         [$w, $p] = $this->filtrosExemplares($f);
         return $this->todas('SELECT e.id, e.codigo_individual, e.situacao, e.estado_conservacao, e.criado_em, e.conferido_em, e.livro_id,
-                                    l.titulo, l.isbn, ' . self::AUTORES . " AS autores,
+                                    l.titulo, l.isbn, l.origem_cadastro, ' . self::AUTORES . " AS autores,
                                     lo.setor, lo.estante, lo.prateleira, lo.complemento
                              FROM exemplares e JOIN livros l ON l.id = e.livro_id
                              LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id

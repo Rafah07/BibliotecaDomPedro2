@@ -114,12 +114,14 @@ function relatorios_filtros(string $secao, array $g): array
             'ano' => admin_param($g, 'ano') === 'sem' ? 'sem' : ($id('ano') ?: ''),
             'status' => $lista('status', RelatorioRepository::STATUS_LIVRO),
             'pendencia' => $lista('pendencia', RelatorioRepository::PENDENCIAS_LIVRO),
+            'origem' => $lista('origem', RelatorioRepository::ORIGENS),
         ],
         'exemplares' => [
             'codigo' => $txt('codigo', 30), 'q' => $txt('q'),
             'situacao' => $lista('situacao', [...RelatorioRepository::SITUACOES_EXEMPLAR, 'no_acervo']),
             'localizacao' => admin_param($g, 'localizacao') === 'sem' ? 'sem' : ($id('localizacao') ?: ''),
             'conservacao' => $lista('conservacao', RelatorioRepository::CONSERVACAO),
+            'origem' => $lista('origem', RelatorioRepository::ORIGENS),
         ],
         'emprestimos' => [
             'situacao' => $lista('situacao', RelatorioRepository::SITUACOES_EMPRESTIMO) ?: 'todos',
@@ -199,7 +201,7 @@ function relatorios_filtros_texto(array $ctx): array
         $saida[match ($k) {
             'categoria' => 'Categoria', 'ano' => 'Ano de publicação', 'status' => 'Situação', 'pendencia' => 'Pendência',
             'situacao' => 'Situação', 'localizacao' => 'Localização', 'conservacao' => 'Conservação', 'livro' => 'Livro',
-            'faixa' => 'Faixa de atraso', 'inventario' => 'Inventário', 'classe' => 'Classe CDD', 'modulo' => 'Tipo de ação', 'usuario' => 'Responsável',
+            'faixa' => 'Faixa de atraso', 'inventario' => 'Inventário', 'classe' => 'Classe CDD', 'modulo' => 'Tipo de ação', 'usuario' => 'Responsável', 'origem' => 'Origem do cadastro',
             default => $rotulos[$k] ?? $k,
         }] = match ($k) {
             'categoria' => $v === 'sem' ? 'Não informado' : $nomeCategoria($v),
@@ -216,6 +218,7 @@ function relatorios_filtros_texto(array $ctx): array
             'classe' => $v . '00 — ' . RelatorioService::CLASSES_CDD[$v],
             'modulo' => RelatorioService::MODULOS_ATIVIDADE[$v] ?? $v,
             'usuario' => 'Conta nº ' . (int)$v,
+            'origem' => RelatorioService::FILTRO_ORIGENS[$v] ?? $v,
             default => (string)$v,
         };
     }

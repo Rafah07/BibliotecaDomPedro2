@@ -162,6 +162,13 @@ final class ConferenciaCadastroService
             $conds[] = 'l.titulo LIKE ?';
             $params[] = '%' . addcslashes($d['titulo'], '%_\\') . '%';
         }
+        // Mesmo autor principal só conta junto com uma palavra do título (autor sozinho traria a obra inteira dele).
+        $autor = Texto::limpar($d['autores'][0] ?? null);
+        $palavra = $this->palavraTitulo($d['titulo'] ?? null);
+        if ($autor !== null && mb_strlen($autor) >= 3 && $palavra !== null) {
+            $conds[] = '(l.titulo LIKE ? AND EXISTS (SELECT 1 FROM livro_autores la JOIN autores a ON a.id = la.autor_id WHERE la.livro_id = l.id AND a.nome LIKE ?))';
+            array_push($params, '%' . addcslashes($palavra, '%_\\') . '%', '%' . addcslashes($this->sobrenome($autor), '%_\\') . '%');
+        }
         if (!$conds) {
             return [];
         }
@@ -175,9 +182,22 @@ final class ConferenciaCadastroService
                 $isbn && in_array($l['isbn'], [$isbn, strlen($isbn) === 10 ? Isbn::para13($isbn) : $isbn], true) => 'Mesmo ISBN',
                 $obra !== null && Texto::chaveObra($l['titulo'], explode('; ', (string)$l['autores'])[0] ?: null) === $obra => 'Mesmo título e autor',
                 !empty($d['isbn_original']) && $l['isbn_original'] === $d['isbn_original'] => 'Mesmo ISBN (como foi digitado)',
+                $autor !== null && str_contains(mb_strtolower((string)$l['autores']), mb_strtolower($this->sobrenome($autor))) => 'Mesmo autor e título parecido',
                 default => 'Título parecido',
             };
-            $l['peso'] = ['Mesmo ISBN' => 0, 'Mesmo título e autor' => 1, 'Mesmo ISBN (como foi digitado)' => 2][$l['motivo']] ?? 3;
+            // Editora e edição ajudam a decidir se é a mesma edição ou outra (nunca bloqueiam o cadastro).
+            $detalhes = [];
+            if (!empty($d['editora']) && $l['editora'] !== null && mb_strtolower(trim($l['editora'])) === mb_strtolower(trim($d['editora']))) {
+                $detalhes[] = 'mesma editora';
+            }
+            if (!empty($d['edicao']) && $l['edicao'] !== null && mb_strtolower(trim($l['edicao'])) === mb_strtolower(trim($d['edicao']))) {
+                $detalhes[] = 'mesma edição';
+            } elseif (!empty($d['edicao']) && $l['edicao'] !== null) {
+                $detalhes[] = 'edição diferente';
+            }
+            $l['detalhes'] = $detalhes;
+            $l['peso'] = (['Mesmo ISBN' => 0, 'Mesmo título e autor' => 1, 'Mesmo ISBN (como foi digitado)' => 2, 'Mesmo autor e título parecido' => 3][$l['motivo']] ?? 4) * 10
+                - count(array_diff($detalhes, ['edição diferente']));
         }
         unset($l);
         usort($lista, fn ($a, $b) => [$a['peso'], $a['id']] <=> [$b['peso'], $b['id']]);
@@ -198,18 +218,7 @@ final class ConferenciaCadastroService
         return $this->transacao(function () use ($inventarioId, $d, $fisico, $responsavelId, $livroExistenteId, $marcarVerificado) {
             $novo = $livroExistenteId === null;
             if ($novo) {
-                $this->executar("INSERT INTO livros (titulo, subtitulo, isbn, isbn_original, editora, ano_publicacao, edicao, idioma, assunto, observacoes_internas, status_validacao, origem_cadastro)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aguardando_conferencia', 'inventario')", [
-                    $d['titulo'], $d['subtitulo'], $d['isbn'], $d['isbn_original'], $d['editora'], $d['ano_publicacao'], $d['edicao'], $d['idioma'], $d['assunto'],
-                    'Cadastrado durante a conferência do inventário nº ' . $inventarioId . ' (não constava na lista).',
-                ]);
-                $livroId = (int)$this->pdo->lastInsertId();
-                $this->gravarAutores($livroId, $d['autores']);
-                $this->gravarCategoria($livroId, $d['categoria_id']);
-                $this->registrarAcao($responsavelId, 'livro.cadastrar', 'livro', $livroId, ['origem' => 'inventario', 'inventario_id' => $inventarioId]);
-                if ($marcarVerificado) {
-                    $this->verificacao->registrar($livroId, [], $responsavelId, true, 'nao_listado', $inventarioId);
-                }
+                $livroId = $this->inserirObra($inventarioId, $d, $responsavelId, $marcarVerificado);
             } else {
                 $livroId = $livroExistenteId;
                 if (!$this->valor('SELECT 1 FROM livros WHERE id = ? AND arquivado_em IS NULL', [$livroId])) {
@@ -229,6 +238,39 @@ final class ConferenciaCadastroService
             return ['livro_id' => $livroId, 'exemplar_id' => $c['id'] ?? null, 'codigo' => $c['codigo'] ?? null, 'item_id' => $c['item_id'] ?? null,
                 'alertas' => $alertas, 'novo_livro' => $novo, 'verificado' => $verificado];
         });
+    }
+
+    /**
+     * "+ Cadastrar nova obra" na conferência: cria SÓ a obra (origem "inventario" = cadastrada
+     * manualmente durante a conferência), sem exemplar, sem código BDP e sem ocupar vaga no lote.
+     * Todos os campos são opcionais (obra sem ISBN é normal). Com $marcarVerificado, a obra já fica
+     * "Dados verificados" e pode receber exemplares em seguida (InventarioService::registrarExemplar,
+     * o mesmo registro das obras importadas, sem linha da planilha).
+     * @return array{livro_id: int, alertas: int, verificado: bool}
+     */
+    public function cadastrarObra(int $inventarioId, array $d, int $responsavelId, bool $marcarVerificado = false): array
+    {
+        return $this->transacao(function () use ($inventarioId, $d, $responsavelId, $marcarVerificado) {
+            $livroId = $this->inserirObra($inventarioId, $d, $responsavelId, $marcarVerificado);
+            return ['livro_id' => $livroId, 'alertas' => $this->reconferirAlertas($livroId, $responsavelId, false), 'verificado' => $marcarVerificado];
+        });
+    }
+
+    private function inserirObra(int $inventarioId, array $d, int $responsavelId, bool $marcarVerificado): int
+    {
+        $this->executar("INSERT INTO livros (titulo, subtitulo, isbn, isbn_original, editora, ano_publicacao, edicao, idioma, assunto, observacoes_internas, status_validacao, origem_cadastro)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aguardando_conferencia', 'inventario')", [
+            $d['titulo'], $d['subtitulo'], $d['isbn'], $d['isbn_original'], $d['editora'], $d['ano_publicacao'], $d['edicao'], $d['idioma'], $d['assunto'],
+            'Cadastrado durante a conferência do inventário nº ' . $inventarioId . ' (não constava na planilha).',
+        ]);
+        $livroId = (int)$this->pdo->lastInsertId();
+        $this->gravarAutores($livroId, $d['autores']);
+        $this->gravarCategoria($livroId, $d['categoria_id']);
+        $this->registrarAcao($responsavelId, 'livro.cadastrar', 'livro', $livroId, ['origem' => 'inventario', 'inventario_id' => $inventarioId]);
+        if ($marcarVerificado) {
+            $this->verificacao->registrar($livroId, [], $responsavelId, true, 'nao_listado', $inventarioId);
+        }
+        return $livroId;
     }
 
     /**
@@ -288,6 +330,24 @@ final class ConferenciaCadastroService
         };
         $this->executar('UPDATE livros SET status_validacao = ? WHERE id = ?', [$status, $livroId]);
         return (int)$this->valor('SELECT COUNT(*) FROM livro_pendencias WHERE livro_id = ? AND resolvida_em IS NULL', [$livroId]);
+    }
+
+    /** Sobrenome para comparar autores ("Silva, Ana" → "Silva"; "Ana Silva" → "Silva"). */
+    private function sobrenome(string $autor): string
+    {
+        if (str_contains($autor, ',')) {
+            return trim(explode(',', $autor)[0]);
+        }
+        $partes = preg_split('/\s+/u', trim($autor));
+        return (string)end($partes);
+    }
+
+    /** A palavra mais longa do título (4+ letras), para achar a mesma obra com o título escrito de outro jeito. */
+    private function palavraTitulo(?string $titulo): ?string
+    {
+        $palavras = array_filter(preg_split('/[^\p{L}\p{N}]+/u', (string)$titulo), fn ($p) => mb_strlen($p) >= 4);
+        usort($palavras, fn ($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+        return $palavras[0] ?? null;
     }
 
     private function gravarAutores(int $livroId, array $autores): void

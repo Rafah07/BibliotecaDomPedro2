@@ -35,7 +35,7 @@
  *
  * Endereços: &q= pesquisa (&pagina=), &obra=ID ficha da obra (&painel=verificar|registrar,
  * &copia=1 mantém local/estado do último registro, &criados=ID exemplar recém-registrado),
- * &codigo= exemplar lido, &novo=1 livro não listado, &linhas=todas (todas as linhas da planilha da obra). Requisições com o cabeçalho
+ * &codigo= exemplar lido, &novo=1 livro não listado (obra + 1º exemplar), &nova_obra=1 "+ Adicionar obra" (só a obra), &linhas=todas (todas as linhas da planilha da obra). Requisições com o cabeçalho
  * "X-Conferencia: 1" recebem só as regiões da página (data-regiao), usadas pelo conferencia.js.
  */
 require_once __DIR__ . '/includes/layout.php';
@@ -66,6 +66,7 @@ $podeEditarLivro = auth_pode('livros.editar');
 $sessao = ($_SESSION['inventario_conferencia'][$id] ?? []) + ['local' => null, 'ultimo' => null];
 $erro = null;
 $novoForm = null;          // valores do formulário "livro não listado" após um erro ou na etapa de correspondências
+$novaObraForm = null;      // valores do formulário "+ Adicionar obra" (só a obra) após um erro ou na etapa de correspondências
 $correspondencias = null;  // livros parecidos encontrados antes de cadastrar
 $registrarForm = null;     // valores do painel "+ Registrar exemplar" após um erro ou "Gerar código BDP" sem JavaScript
 $verificarForm = null;     // valores do painel "Verificar e corrigir dados" após um erro
@@ -74,11 +75,11 @@ $localDesativado = null;   // estante atual que foi desativada (pede nova escolh
 $painel = admin_param($_GET, 'painel'); // painel aberto ao carregar: verificar | registrar | mover
 
 /** Token de uso único do formulário "livro não listado" (protege contra clique duplo e reenvio). */
-function conferencia_token_novo(int $inventarioId): string
+function conferencia_token_novo(int $inventarioId, string $chave = 'inv_nao_listado'): string
 {
     $t = bin2hex(random_bytes(16));
-    $_SESSION['inv_nao_listado'][$t] = $inventarioId;
-    $_SESSION['inv_nao_listado'] = array_slice($_SESSION['inv_nao_listado'], -20, null, true);
+    $_SESSION[$chave][$t] = $inventarioId;
+    $_SESSION[$chave] = array_slice($_SESSION[$chave], -20, null, true);
     return $t;
 }
 
@@ -403,6 +404,49 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 }
                 admin_flash('sucesso', 'Obra cadastrada com “Dados não verificados”.', $cddTxt . 'Nenhum exemplar foi registrado. Quando conferir os dados, use “Verificar e corrigir dados”; o registro do exemplar abre em seguida.' . $alertasTxt);
                 admin_redirecionar($base . '&obra=' . $res['livro_id'] . '#obra');
+            case 'nova_obra':
+                // "+ Adicionar obra": só a OBRA (sem exemplar, sem código BDP, sem vaga no lote).
+                // salvar = obra (Dados não verificados) | verificar (Dados verificados) | registrar
+                // (verifica e abre em seguida o painel "Registrar exemplar", o mesmo das obras importadas).
+                fisico_exigir('exemplares.gerenciar');
+                $token = admin_param($_POST, 'token');
+                $feito = $_SESSION['inv_nova_obra_feito'][$token] ?? null;
+                if ($feito) {
+                    admin_flash('aviso', 'Esta obra já foi cadastrada.', 'O formulário foi enviado de novo (clique duplo ou atualização da página). Nada foi gravado outra vez.');
+                    admin_redirecionar($base . '&obra=' . (int)$feito['livro_id'] . '#obra');
+                }
+                if (!isset($_SESSION['inv_nova_obra'][$token])) {
+                    throw new AcervoException('O formulário expirou. Abra "+ Adicionar obra" de novo e confira se a obra já não foi cadastrada.');
+                }
+                $novaObraForm = $_POST;
+                $salvar = in_array(admin_param($_POST, 'salvar'), ['obra', 'verificar', 'registrar'], true) ? admin_param($_POST, 'salvar') : 'obra';
+                $marcar = $salvar !== 'obra';
+                if ($marcar) {
+                    fisico_exigir('livros.editar');
+                }
+                conferencia_validar_cdd($_POST);
+                $cad = conferencia_cadastro();
+                $dadosNovo = $cad->dados($_POST);
+                if (admin_param($_POST, 'escolha') !== 'novo') {
+                    $correspondencias = $cad->correspondencias($dadosNovo);
+                    if ($correspondencias) {
+                        break; // mostra as obras parecidas antes de gravar (nada é unido automaticamente)
+                    }
+                }
+                $res = $cad->cadastrarObra($id, $dadosNovo, $usuario['id'], $marcar);
+                $cddTxt = conferencia_gravar_cdd((int)$res['livro_id'], $_POST, $usuario, $id);
+                unset($_SESSION['inv_nova_obra'][$token]);
+                conferencia_descartar_rascunho($usuario['id'], 'nova_obra', 'inv' . $id);
+                $_SESSION['inv_nova_obra_feito'][$token] = ['livro_id' => $res['livro_id']];
+                $_SESSION['inv_nova_obra_feito'] = array_slice($_SESSION['inv_nova_obra_feito'], -20, null, true);
+                $alertasTxt = $res['alertas'] ? ' ' . $res['alertas'] . ' alerta(s) cadastral(is) ficaram registrados para completar depois.' : '';
+                if ($salvar === 'registrar') {
+                    admin_flash('sucesso', 'Obra cadastrada com dados verificados.', $cddTxt . 'Agora registre o exemplar que está em mãos: gere o código BDP e salve.' . $alertasTxt);
+                    admin_redirecionar($base . '&obra=' . $res['livro_id'] . '&painel=registrar#exemplares');
+                }
+                admin_flash('sucesso', $marcar ? 'Obra cadastrada com dados verificados.' : 'Obra cadastrada com “Dados não verificados”.', $cddTxt
+                    . ($marcar ? 'Nenhum exemplar foi registrado ainda: use “+ Registrar exemplar” para cada cópia física.' : 'Nenhum exemplar foi registrado. Quando conferir os dados, use “Verificar e corrigir dados”; o registro do exemplar abre em seguida.') . $alertasTxt);
+                admin_redirecionar($base . '&obra=' . $res['livro_id'] . '#obra');
             case 'corrigir':
                 fisico_exigir('inventario.gerenciar');
                 $item = inventario_servico()->corrigir((int)admin_param($_POST, 'item_id'), [
@@ -505,6 +549,8 @@ try {
 
     $mostrarNovo = $podeCadastrar && ($novoForm !== null || admin_param($_GET, 'novo') === '1');
     $tokenNovo = $mostrarNovo ? ($novoForm !== null && isset($_SESSION['inv_nao_listado'][admin_param($novoForm, 'token')]) ? admin_param($novoForm, 'token') : conferencia_token_novo($id)) : '';
+    $mostrarNovaObra = $podeCadastrar && !$mostrarNovo && ($novaObraForm !== null || admin_param($_GET, 'nova_obra') === '1');
+    $tokenNovaObra = $mostrarNovaObra ? ($novaObraForm !== null && isset($_SESSION['inv_nova_obra'][admin_param($novaObraForm, 'token')]) ? admin_param($novaObraForm, 'token') : conferencia_token_novo($id, 'inv_nova_obra')) : '';
     $categoriasLista = db_query('SELECT id, nome FROM categorias WHERE arquivado_em IS NULL ORDER BY nome')->fetchAll();
     $indicadores = inventario_repo()->indicadores($id);
     $recentes = inventario_repo()->recentes($id, 8);
@@ -867,8 +913,9 @@ ob_start();
         <div class="adm-panel__header"><div><h2 id="titulo-busca">Obras para “<?= e($q) ?>”<?= $paginaBusca > 1 ? ' · página ' . $paginaBusca : '' ?></h2>
             <p>Escolha a obra que está em mãos. <kbd>↓</kbd> navega pelos resultados.</p></div></div>
         <?php if (!$busca['livros']): ?>
-            <div class="adm-empty adm-empty--left"><?= icon('book-x') ?><strong>Nenhum livro encontrado.</strong><span>Tente outra palavra do título, o sobrenome do autor ou o ISBN. Se o livro está em mãos e não consta no sistema, cadastre-o aqui mesmo.</span>
-                <?php if ($podeCadastrar): ?><a class="adm-button adm-button--primary adm-button--sm" href="<?= e($base . '&novo=1&titulo=' . rawurlencode($q)) ?>#nao-listado"><?= icon('plus') ?> Cadastrar livro não listado</a><?php endif; ?></div>
+            <div class="adm-empty adm-empty--left"><?= icon('book-x') ?><strong>Nenhuma obra encontrada.</strong><span>Caso o livro esteja em mãos e ainda não esteja cadastrado, adicione uma nova obra. Antes, tente outra palavra do título, o sobrenome do autor ou o ISBN.</span>
+                <?php if ($podeCadastrar): ?><span class="adm-empty__acoes"><a class="adm-button adm-button--primary adm-button--sm" href="<?= e($base . '&nova_obra=1&titulo=' . rawurlencode($q)) ?>#nova-obra"><?= icon('book-plus') ?> + Adicionar obra</a>
+                    <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&novo=1&titulo=' . rawurlencode($q)) ?>#nao-listado"><?= icon('plus') ?> Cadastrar livro não listado</a></span><?php endif; ?></div>
         <?php else: ?>
             <ul class="adm-resultados-compactos" data-resultados>
                 <?php foreach ($busca['livros'] as $l): $verif = $l['dados_verificados_em'] !== null; $abrir = $base . '&obra=' . (int)$l['id']; ?>
@@ -945,6 +992,7 @@ ob_start();
             <div><dt>Ano</dt><dd><?= $obra['ano_publicacao'] ? (int)$obra['ano_publicacao'] : '<span class="adm-table__muted">não informado</span>' ?></dd></div>
             <div><dt>Edição</dt><dd><?= $obra['edicao'] ? e($obra['edicao']) : '<span class="adm-table__muted">—</span>' ?></dd></div>
             <div><dt>Categoria</dt><dd><?= $obra['categoria_nome'] ? e($obra['categoria_nome']) : '<span class="adm-table__muted">sem categoria</span>' ?></dd></div>
+            <div class="adm-meta__origem"><dt>Origem</dt><dd><span class="adm-table__muted"><?= e(ACERVO_ORIGENS[$obra['origem_cadastro']] ?? $obra['origem_cadastro']) ?></span></dd></div>
             <div><dt>CDD</dt><dd><?= $obraCdd['numero'] !== '' ? cdd_numero($obraCdd['numero']) . ($obraCdd['tipo'] !== 'aprovada' ? ' <small class="adm-table__muted">' . ($obraCdd['tipo'] === 'proposta' ? 'proposta' : 'antiga') . '</small>' : '') : '<span class="adm-table__muted">sem CDD</span>' ?></dd></div>
         </dl>
         <?php if ($obraQuantidade && $obraQuantidade['situacao'] !== 'sem_planilha'): $qt = $obraQuantidade; ?>
@@ -1188,7 +1236,59 @@ ob_start();
     </section>
 <?php endif; ?>
 
-<?php if ($pendLista !== null && !$codigoLido && $busca === null && !$obra && !$mostrarNovo): ?>
+<?php if ($mostrarNovaObra): ?>
+    <?php $nv = $novaObraForm ?? ['titulo' => mb_substr(admin_param($_GET, 'titulo'), 0, 255)]; ?>
+    <section class="adm-card adm-panel adm-nova-obra" id="nova-obra" aria-labelledby="titulo-nova-obra">
+        <div class="adm-panel__header"><div><h2 id="titulo-nova-obra"><?= icon('book-plus') ?> Adicionar obra</h2>
+            <p>Cadastre só a <strong>obra</strong> (os dados bibliográficos) de um livro que não aparece na pesquisa, por exemplo porque não estava na planilha importada. Os exemplares são registrados em seguida.</p></div></div>
+        <div class="adm-nova-obra__passos" role="note">
+            <p><strong>1. Obra</strong> · os dados bibliográficos, cadastrados uma vez. <strong>2. Exemplar</strong> · cada cópia física, com o seu código BDP, registrada depois.</p>
+            <p class="adm-field__hint">Cadastrar a obra não gera código BDP nem ocupa vaga no lote: só cada exemplar registrado ocupa uma vaga.</p>
+        </div>
+        <form method="post" action="<?= e($base) ?>#nova-obra" class="adm-form-section" data-sem-enter data-rascunho="nova_obra" data-rascunho-ref="inv<?= $id ?>"
+              data-nova-obra="<?= e(admin_asset('api/inventario/correspondencias.php') . '?id=' . $id) ?>" data-base="<?= e($base) ?>">
+            <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="nova_obra"><input type="hidden" name="token" value="<?= e($tokenNovaObra) ?>">
+            <?php if ($correspondencias): ?>
+                <div class="adm-correspondencias" role="group" aria-labelledby="titulo-corresp" data-foco tabindex="-1">
+                    <p id="titulo-corresp"><?= icon('triangle-alert') ?> <strong>Encontramos <?= count($correspondencias) ?> obra(s) parecida(s) no sistema.</strong> Confira antes de cadastrar. Nada é unido automaticamente: edições diferentes podem ter o mesmo título.</p>
+                    <ul class="adm-resultados">
+                        <?php foreach ($correspondencias as $c): ?>
+                            <li><span><strong><?= e($c['titulo']) ?></strong> · <?= e($c['autores'] ?: 'Autor não informado') ?><?= $c['isbn'] ? ' · ISBN ' . e($c['isbn']) : '' ?><?= $c['editora'] ? ' · ' . e($c['editora']) : '' ?><?= $c['ano_publicacao'] ? ' · ' . (int)$c['ano_publicacao'] : '' ?><?= $c['edicao'] ? ' · ' . e($c['edicao']) : '' ?>
+                                <small class="adm-block-muted"><?= e($c['motivo']) ?><?= $c['detalhes'] ? ' · ' . e(implode(', ', $c['detalhes'])) : '' ?> · <?= (int)$c['exemplares'] ?> exemplar(es)</small></span>
+                                <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base . '&obra=' . (int)$c['id']) ?>#obra"><?= icon('book-copy') ?> Utilizar obra existente</a></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <label class="adm-check-confirm"><input type="checkbox" name="escolha" value="novo" required> <span><strong>Continuar cadastrando uma nova obra.</strong> Nenhuma destas é a obra em mãos (por exemplo, é outra edição).</span></label>
+                </div>
+            <?php else: ?>
+                <input type="hidden" name="escolha" value="" data-escolha-viva>
+            <?php endif; ?>
+            <?php $lv = ['titulo' => $nv['titulo'] ?? '', 'subtitulo' => $nv['subtitulo'] ?? '', 'autores' => $nv['autores'] ?? '', 'isbn' => $nv['isbn'] ?? '', 'editora' => $nv['editora'] ?? '', 'ano_publicacao' => $nv['ano_publicacao'] ?? '', 'edicao' => $nv['edicao'] ?? '', 'idioma' => $nv['idioma'] ?? '', 'assunto' => $nv['assunto'] ?? '', 'categoria_id' => $nv['categoria_id'] ?? ''];
+                  $alertasLv = []; $editavelLv = true;
+                  $cddLv = ['numero' => '', 'tipo' => null, 'pode_aprovar' => auth_pode('cdd.aprovar'), 'cdd' => $nv['cdd'] ?? '', 'cdd_fonte' => $nv['cdd_fonte'] ?? ''];
+                  include __DIR__ . '/includes/form-conferencia-livro.php'; ?>
+            <div class="adm-correspondencias adm-correspondencias--vivas" data-correspondencias-vivas aria-live="polite" hidden></div>
+            <p class="adm-field__hint"><?= icon('info') ?> <strong>Nenhum campo é obrigatório.</strong> Preencha só o que o livro informa: sem ISBN, deixe o ISBN vazio. Não invente dados para completar.</p>
+            <div class="adm-form-actions adm-form-actions--static adm-nova-obra__acoes">
+                <?php if ($podeEditarLivro): ?>
+                    <button class="adm-button adm-button--primary" type="submit" name="salvar" value="registrar" data-salvar><?= icon('book-copy') ?> Salvar, verificar e registrar exemplar</button>
+                    <button class="adm-button adm-button--ghost" type="submit" name="salvar" value="verificar"><?= icon('square-check') ?> Salvar e marcar dados como verificados</button>
+                <?php endif; ?>
+                <button class="adm-button adm-button--ghost" type="submit" name="salvar" value="obra" formnovalidate><?= icon('save') ?> Salvar obra</button>
+                <a class="adm-button adm-button--ghost" href="<?= e($base) ?>" data-proximo>Cancelar</a>
+            </div>
+            <ul class="adm-field__hint adm-nova-obra__legenda">
+                <?php if ($podeEditarLivro): ?>
+                    <li><strong>Salvar, verificar e registrar exemplar</strong>: você conferiu os dados com o livro em mãos; o registro do primeiro exemplar abre em seguida.</li>
+                    <li><strong>Salvar e marcar dados como verificados</strong>: a obra fica verificada; os exemplares podem ser registrados depois.</li>
+                <?php endif; ?>
+                <li><strong>Salvar obra</strong>: só a obra, com “Dados não verificados”, sem exemplar e sem código BDP.</li>
+            </ul>
+        </form>
+    </section>
+<?php endif; ?>
+
+<?php if ($pendLista !== null && !$codigoLido && $busca === null && !$obra && !$mostrarNovo && !$mostrarNovaObra): ?>
     <?php [$pendRotulo, $pendIcone] = PendenciasRepository::TIPOS[$pendTipo]; $pendBase = $base . '&pendencias=' . $pendTipo . ($pendQ !== '' ? '&pq=' . rawurlencode($pendQ) : ''); ?>
     <section class="adm-card adm-panel" id="pendencias" aria-labelledby="titulo-pendencias" tabindex="-1" data-foco>
         <div class="adm-panel__header"><div>
@@ -1289,7 +1389,7 @@ ob_start();
     </dialog>
 <?php endif; ?>
 
-<?php if (!$codigoLido && $busca === null && !$obra && !$mostrarNovo && $pendLista === null): ?>
+<?php if (!$codigoLido && $busca === null && !$obra && !$mostrarNovo && !$mostrarNovaObra && $pendLista === null): ?>
     <section class="adm-guia-conf" aria-labelledby="titulo-guia-conf">
         <h2 class="adm-guia-conf__titulo" id="titulo-guia-conf"><?= icon('lightbulb') ?> Como conferir</h2>
         <ol class="adm-passos-conf">
@@ -1298,7 +1398,7 @@ ob_start();
             <li><strong>Registre o exemplar</strong>: código do carimbo ou <strong>Gerar código BDP</strong> (dá para carimbar depois, por lote).</li>
             <li><strong>Outra cópia</strong> ou <strong>próximo livro</strong>.</li>
         </ol>
-        <?php if ($podeCadastrar): ?><p class="adm-guia-conf__extra">Não está no sistema? <a class="adm-link" href="<?= e($base . '&novo=1') ?>#nao-listado">+ Cadastrar livro não listado</a></p><?php endif; ?>
+        <?php if ($podeCadastrar): ?><p class="adm-guia-conf__extra">Não está no sistema? <a class="adm-link" href="<?= e($base . '&novo=1') ?>#nao-listado">+ Cadastrar livro não listado</a> · <a class="adm-link" href="<?= e($base . '&nova_obra=1') ?>#nova-obra">+ Adicionar obra</a></p><?php endif; ?>
     </section>
 <?php endif; ?>
 
@@ -1420,9 +1520,10 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
                 <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="ler">
                 <label for="leitura" id="titulo-leitura" class="adm-leitura__label"><?= icon('keyboard') ?> Pesquisar livro: título, autor, ISBN ou código BDP</label>
                 <div class="adm-leitura__linha">
-                    <input class="adm-input adm-leitura__campo" type="search" id="leitura" name="leitura" maxlength="100" value="<?= e($q) ?>" placeholder="Ex.: Dom Casmurro, Machado, 978… ou BDP-000001"<?= $obra || $mostrarNovo || $codigoLido ? '' : ' autofocus' ?> data-campo-codigo autocapitalize="off" autocomplete="off" spellcheck="false" aria-describedby="leitura-dica"
+                    <input class="adm-input adm-leitura__campo" type="search" id="leitura" name="leitura" maxlength="100" value="<?= e($q) ?>" placeholder="Ex.: Dom Casmurro, Machado, 978… ou BDP-000001"<?= $obra || $mostrarNovo || $mostrarNovaObra || $codigoLido ? '' : ' autofocus' ?> data-campo-codigo autocapitalize="off" autocomplete="off" spellcheck="false" aria-describedby="leitura-dica"
                         data-busca-viva="<?= e($base) ?>" aria-controls="conferencia-area" enterkeyhint="search">
                     <button class="adm-button adm-button--primary" type="submit"><?= icon('search') ?> <span class="adm-leitura__btn-texto">Pesquisar</span></button>
+                    <?php if ($podeCadastrar): ?><a class="adm-button adm-button--ghost adm-leitura__nova" href="<?= e($base . '&nova_obra=1') ?>#nova-obra" data-pjax data-nova-obra-link><?= icon('book-plus') ?> <span>+ Adicionar obra</span></a><?php endif; ?>
                 </div>
                 <p class="adm-field__hint adm-leitura__dica" id="leitura-dica">
                     <span>Resultados aparecem enquanto você digita; código BDP + Enter abre o exemplar.</span>
@@ -1441,4 +1542,4 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
 </div>
 
 <?php
-admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261115mob', 'assets/js/rascunhos.js?v=20261115']));
+admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261115mob', 'assets/js/rascunhos.js?v=20261115', 'assets/js/nova-obra.js?v=20261117']));

@@ -171,6 +171,10 @@ admin_page_start($secao === 'atividades' ? 'atividades' : 'relatorios', 'Relató
                 <select class="adm-select" name="pendencia"><option value="">Todos os registros</option>
                     <?php foreach (RelatorioService::PENDENCIAS_LIVRO as $k => $r): ?><option value="<?= $k ?>"<?= $sel($f['pendencia'], $k) ?>><?= e($r) ?></option><?php endforeach; ?>
                 </select></label>
+            <label class="adm-field"><span class="adm-field__label">Origem do cadastro</span>
+                <select class="adm-select" name="origem"><option value="">Todas</option>
+                    <?php foreach (RelatorioService::FILTRO_ORIGENS as $k => $r): ?><option value="<?= $k ?>"<?= $sel($f['origem'], $k) ?>><?= e($r) ?></option><?php endforeach; ?>
+                </select></label>
         <?php elseif ($secao === 'exemplares'): ?>
             <label class="adm-field"><span class="adm-field__label">Código BDP</span><input class="adm-input adm-mono" type="search" name="codigo" value="<?= e($f['codigo']) ?>" placeholder="BDP-000123" autocomplete="off"></label>
             <label class="adm-field"><span class="adm-field__label">Título ou autor</span><input class="adm-input" type="search" name="q" value="<?= e($f['q']) ?>" autocomplete="off"></label>
@@ -185,6 +189,10 @@ admin_page_start($secao === 'atividades' ? 'atividades' : 'relatorios', 'Relató
             <label class="adm-field"><span class="adm-field__label">Conservação</span>
                 <select class="adm-select" name="conservacao"><option value="">Todas</option>
                     <?php foreach (\Biblioteca\Repositories\RelatorioRepository::CONSERVACAO as $c): ?><option value="<?= $c ?>"<?= $sel($f['conservacao'], $c) ?>><?= e(ExemplarService::rotuloConservacao($c)) ?></option><?php endforeach; ?>
+                </select></label>
+            <label class="adm-field"><span class="adm-field__label">Origem do cadastro</span>
+                <select class="adm-select" name="origem"><option value="">Todas</option>
+                    <?php foreach (RelatorioService::FILTRO_ORIGENS as $k => $r): ?><option value="<?= $k ?>"<?= $sel($f['origem'], $k) ?>><?= e($r) ?></option><?php endforeach; ?>
                 </select></label>
         <?php elseif ($secao === 'emprestimos'): ?>
             <label class="adm-field"><span class="adm-field__label">Situação</span>

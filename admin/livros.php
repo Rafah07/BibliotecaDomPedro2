@@ -197,7 +197,7 @@ admin_page_start('acervo', 'Livros', 'Acervo', 'Livros, exemplares e categorias 
                             <?php if ($arquivados): ?><small>Arquivado em <?= admin_data_hora($l['arquivado_em'], false) ?></small><?php endif; ?>
                             <small class="adm-row-tags">
                                 <?= acervo_badge_status($l['status_validacao']) ?>
-                                <?php if ($l['origem_cadastro'] === 'planilha'): ?><span class="adm-chip">Planilha</span><?php endif; ?>
+                                <?php if ($l['origem_cadastro'] === 'planilha'): ?><span class="adm-chip">Planilha</span><?php elseif ($l['origem_cadastro'] === 'inventario'): ?><span class="adm-chip" title="Cadastrada manualmente na conferência do inventário">Conferência</span><?php endif; ?>
                                 <?php if ($l['categorias']): ?><span class="adm-chip"><?= e($l['categorias']) ?></span><?php endif; ?>
                             </small>
                         </td>
