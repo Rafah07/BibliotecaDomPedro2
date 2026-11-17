@@ -104,7 +104,7 @@ return [
         'id' => 'verificar-dados-obra',
         'titulo' => 'Como verificar e corrigir os dados da obra',
         'resumo' => 'Abra a obra no Inventário, clique em Verificar e corrigir dados, confira com o livro em mãos e use Salvar e marcar dados como verificados.',
-        'palavras' => ['verificar dados', 'verificar e corrigir dados', 'dados verificados', 'marcar como verificado', 'corrigir título', 'corrigir autor', 'corrigir isbn', 'conferir dados bibliográficos', 'histórico da verificação', 'nova verificação', 'corrigir dados da obra'],
+        'palavras' => ['verificar dados', 'verificar e corrigir dados', 'dados verificados', 'marcar como verificado', 'corrigir título', 'corrigir autor', 'corrigir isbn', 'conferir dados bibliográficos', 'histórico da verificação', 'nova verificação', 'corrigir dados da obra', 'corrigir cdd', 'cdd no inventário'],
         'paginas' => [],
         'permissao' => 'livros.editar',
         'objetivo' => 'Conferir uma única vez os dados bibliográficos de cada obra, sem sair do Inventário.',
@@ -114,6 +114,7 @@ return [
             ['titulo' => 'Encontre a obra', 'texto' => 'Na conferência, digite o título, o autor, o ISBN ou o código BDP. Os resultados aparecem enquanto você digita. Na obra certa, clique em **Verificar dados** (ou em **Abrir** para ver a ficha completa).'],
             ['titulo' => 'Abra o painel', 'texto' => 'Na ficha, clique em **Verificar e corrigir dados**. O painel lateral abre por cima da página: você continua no Inventário.'],
             ['titulo' => 'Corrija e complete', 'texto' => 'Corrija o que estiver errado e preencha o que o livro informa. **Nenhum campo é obrigatório**: se o livro não tem ISBN, deixe vazio. Os alertas cadastrais aparecem no topo do painel.'],
+            ['titulo' => 'CDD', 'texto' => 'O campo **CDD** traz a classificação atual (a CDD antiga da planilha aparece só na dica). Se mudar o número, informe de onde veio em **Fonte da CDD** (ex.: ficha catalográfica). Para a bibliotecária e o administrador, a nova CDD já fica **aprovada**; para os demais perfis, vira **sugestão** para aprovar na Classificação CDD. Tudo fica no histórico da CDD. Mudar a CDD não retira a verificação da obra.'],
             ['titulo' => 'Confirme', 'texto' => 'Clique em **Salvar e marcar dados como verificados**. Só este botão muda o status para **Dados verificados**, e logo em seguida o painel **Registrar exemplar** abre sozinho para você registrar o livro que está na mão. Para gravar sem confirmar (por exemplo, se vai conferir depois), use **Salvar alterações**.'],
             ['titulo' => 'Quando usar "Dados verificados"', 'lista' => [
                 'Você comparou título, autor e os demais dados com o livro físico.',
@@ -130,7 +131,7 @@ return [
         ],
         'cuidados' => ['A verificação vale para todos os exemplares da obra: confira com atenção.', 'Edições diferentes são obras diferentes: não junte dados de duas edições.'],
         'relacionados' => ['obra-e-exemplar', 'registrar-exemplar', 'alertas-cadastrais'],
-        'confere' => ['inventario-conferencia.php' => ['Verificar dados', 'Abrir</a>', 'Verificar e corrigir dados', 'Salvar e marcar dados como verificados', 'Salvar alterações', 'Corrigir dados da obra', 'Histórico (', 'Nenhum campo é obrigatório', 'painel=registrar'], '../src/Services/ObraVerificacaoService.php' => ['Dados verificados', 'Dados não verificados']],
+        'confere' => ['inventario-conferencia.php' => ['Verificar dados', 'Abrir</a>', 'Verificar e corrigir dados', 'Salvar e marcar dados como verificados', 'Salvar alterações', 'Corrigir dados da obra', 'Histórico (', 'Nenhum campo é obrigatório', 'painel=registrar'], 'includes/form-conferencia-livro.php' => ['Fonte da CDD'], '../src/Services/ObraVerificacaoService.php' => ['Dados verificados', 'Dados não verificados']],
     ],
     [
         'id' => 'registrar-exemplar',

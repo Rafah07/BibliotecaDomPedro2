@@ -4,6 +4,8 @@
  * Espera: $lv (valores: titulo, subtitulo, autores (lista ou texto), isbn, editora, ano_publicacao,
  * edicao, idioma, assunto, categoria_id), $alertasLv (alertas abertos), $categoriasLista,
  * $editavelLv (pode editar o livro). Nenhum campo é obrigatório.
+ * Opcional: $cddLv = ['numero' => CDD que vale hoje, 'tipo' => aprovada|proposta|antiga|null,
+ * 'pode_aprovar' => bool, 'cdd' => valor digitado, 'cdd_fonte' => fonte digitada] mostra o campo CDD.
  * O formulário que inclui este arquivo cuida do <form>, do CSRF e dos botões.
  */
 $lv = ($lv ?? []) + ['titulo' => '', 'subtitulo' => '', 'autores' => '', 'isbn' => '', 'isbn_original' => '', 'editora' => '', 'ano_publicacao' => '', 'edicao' => '', 'idioma' => '', 'assunto' => '', 'categoria_id' => ''];
@@ -45,6 +47,19 @@ $tiposAlerta = ['incompleto' => ['Informação incompleta', 'amber'], 'inconsist
                 <?php endforeach; ?>
             </select></label>
         <label class="adm-field adm-field--full"><span class="adm-field__sublabel">Assunto</span><input class="adm-input" name="assunto" maxlength="255" value="<?= e((string)$lv['assunto']) ?>"<?= $ro ?>></label>
+        <?php if (isset($cddLv) && is_array($cddLv)):
+            $cddTipos = ['aprovada' => 'aprovada', 'proposta' => 'proposta, aguardando aprovação', 'antiga' => 'da planilha antiga, ainda não aprovada; digite-a para registrar'];
+            // O campo vem com a CDD aprovada ou proposta; a antiga da planilha só aparece na dica
+            // (pode nem estar no formato da CDD). Só o que for alterado é gravado (cdd_exibida).
+            $cddExibida = in_array($cddLv['tipo'] ?? null, ['aprovada', 'proposta'], true) ? (string)$cddLv['numero'] : '';
+            $cddValor = (string)($cddLv['cdd'] ?? $cddExibida);
+            $cddPodeGravar = $editavelLv && auth_pode('cdd.sugerir'); ?>
+            <?php if ($cddPodeGravar): ?><input type="hidden" name="cdd_exibida" value="<?= e($cddExibida) ?>"><?php endif; ?>
+            <label class="adm-field"><span class="adm-field__sublabel">CDD</span><input class="adm-input adm-mono" name="cdd" maxlength="60" value="<?= e($cddValor) ?>" placeholder="Ex.: 869.3" autocomplete="off"<?= $cddPodeGravar ? '' : ' disabled' ?>>
+                <span class="adm-field__hint"><?= !empty($cddLv['numero']) ? 'Atual: ' . e($cddLv['numero']) . ' (' . e($cddTipos[$cddLv['tipo']] ?? '') . '). ' : 'Ainda sem CDD. ' ?><?= !$cddPodeGravar ? 'Seu perfil não pode alterar a CDD.' : (!empty($cddLv['pode_aprovar']) ? 'Se mudar, a nova CDD fica aprovada, com histórico.' : 'Se mudar, vira sugestão para a bibliotecária aprovar.') ?></span></label>
+            <label class="adm-field"><span class="adm-field__sublabel">Fonte da CDD <span class="adm-optional">opcional</span></span><input class="adm-input" name="cdd_fonte" maxlength="255" value="<?= e((string)($cddLv['cdd_fonte'] ?? '')) ?>" placeholder="Ex.: ficha catalográfica do livro"<?= $cddPodeGravar ? '' : ' disabled' ?>>
+                <span class="adm-field__hint">Se ficar vazio: “Livro em mãos (conferência do inventário)”.</span></label>
+        <?php endif; ?>
         <?php if ($editavelLv): ?>
             <input type="hidden" name="editar_livro" value="1">
             <?php if ($alertasLv): ?>

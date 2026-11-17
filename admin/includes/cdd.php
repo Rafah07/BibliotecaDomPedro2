@@ -602,6 +602,60 @@ function cdd_executar(string $acao, int $livroId, array $dados, array $usuario):
     return $store['classificacoes'][$livroId];
 }
 
+/** CDD que vale hoje para o livro: a aprovada, senão a proposta, senão a da planilha (só exibição). */
+function cdd_vigente(array $class): array
+{
+    foreach (['cdd_aprovada' => 'aprovada', 'cdd_proposta' => 'proposta', 'cdd_original' => 'antiga'] as $campo => $tipo) {
+        if (($class[$campo] ?? null) !== null && $class[$campo] !== '') {
+            return ['numero' => (string)$class[$campo], 'tipo' => $tipo];
+        }
+    }
+    return ['numero' => '', 'tipo' => null];
+}
+
+/**
+ * CDD corrigida com o livro em mãos (formulário de correção do Inventário).
+ * Valide antes com cdd_validar(). Vazio, igual ao que o formulário mostrou ($exibida) ou igual à CDD
+ * que já vale: nada muda (retorna null).
+ * Quem pode aprovar (bibliotecária, administrador) grava a CDD já aprovada, com histórico de
+ * correção; os demais perfis deixam uma sugestão para a bibliotecária aprovar na Classificação CDD.
+ * @return array{acao: string, numero: string, anterior: string}|null
+ */
+function cdd_corrigir_na_conferencia(int $livroId, string $entrada, string $fonte, array $usuario, string $contexto, string $exibida = ''): ?array
+{
+    // Vazio, ou o mesmo valor que o formulário mostrou: a pessoa não mexeu na CDD.
+    if (trim($entrada) === '' || trim($entrada) === trim($exibida)) {
+        return null;
+    }
+    $v = cdd_validar($entrada);
+    if (!$v['valida']) {
+        throw new CddErro($v['erro'], ['cdd' => $v['erro']]);
+    }
+    cdd_itens(true);
+    $item = cdd_item($livroId);
+    if (!$item) {
+        throw new CddErro('Livro não encontrado ou arquivado.', [], 404);
+    }
+    $permissoes = AUTH_PERMISSOES[$usuario['perfil']] ?? [];
+    $aprovar = in_array('cdd.aprovar', $permissoes, true);
+    $atual = cdd_vigente($item['class']);
+    // Mesma CDD já aprovada (ou já sugerida, para quem só sugere): nada a fazer. A CDD antiga da
+    // planilha nunca valeu sozinha, então digitá-la de novo a confirma.
+    if ($atual['numero'] === $v['numero'] && ($atual['tipo'] === 'aprovada' || ($atual['tipo'] === 'proposta' && !$aprovar))) {
+        return null;
+    }
+    if (!$aprovar && !in_array('cdd.sugerir', $permissoes, true)) {
+        throw new CddErro('Seu perfil não pode registrar classificações: a CDD não foi gravada.', [], 403);
+    }
+    $acao = $aprovar ? 'aprovar' : 'sugerir';
+    cdd_executar($acao, $livroId, [
+        'cdd' => $v['numero'],
+        'fonte_nome' => trim($fonte) !== '' ? $fonte : 'Livro em mãos (conferência do inventário)',
+        'justificativa' => 'CDD ' . ($atual['numero'] !== '' ? 'corrigida (antes: ' . $atual['numero'] . ')' : 'informada') . ' por ' . $usuario['nome'] . ' na ' . $contexto . ', com o livro em mãos.',
+    ], $usuario);
+    return ['acao' => $acao, 'numero' => $v['numero'], 'anterior' => $atual['numero']];
+}
+
 function cdd_dados_limpos(array $d): array
 {
     $texto = fn ($v, int $max) => mb_substr(trim((string)$v), 0, $max);
