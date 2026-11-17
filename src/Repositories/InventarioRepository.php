@@ -396,8 +396,9 @@ final class InventarioRepository
     {
         $l = $this->linha('SELECT l.*, (SELECT lc.categoria_id FROM livro_categorias lc WHERE lc.livro_id = l.id ORDER BY lc.principal DESC, lc.categoria_id LIMIT 1) AS categoria_id,
                                   (SELECT c.nome FROM livro_categorias lc JOIN categorias c ON c.id = lc.categoria_id WHERE lc.livro_id = l.id ORDER BY lc.principal DESC, lc.categoria_id LIMIT 1) AS categoria_nome,
-                                  vp.nome AS verificado_por_nome
-                           FROM livros l LEFT JOIN administradores vp ON vp.id = l.dados_verificados_por WHERE l.id = ? AND l.arquivado_em IS NULL', [$livroId]);
+                                  vp.nome AS verificado_por_nome, cc.cdd_aprovada, cc.cdd_proposta, cc.cdd_original AS cdd_class_original
+                           FROM livros l LEFT JOIN administradores vp ON vp.id = l.dados_verificados_por
+                           LEFT JOIN classificacoes_cdd cc ON cc.livro_id = l.id WHERE l.id = ? AND l.arquivado_em IS NULL', [$livroId]);
         if (!$l) {
             return null;
         }

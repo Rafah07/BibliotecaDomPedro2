@@ -40,6 +40,7 @@
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/acervo-fisico.php';
+require_once __DIR__ . '/includes/cdd.php';
 
 use Biblioteca\Repositories\EmprestimoRepository;
 use Biblioteca\Repositories\InventarioRepository;
@@ -127,6 +128,36 @@ function conferencia_descartar_rascunho(int $usuarioId, string $formulario, stri
     }
 }
 
+/** CDD digitada no formulário: confere o formato ANTES de gravar qualquer dado do livro. */
+function conferencia_validar_cdd(array $post): void
+{
+    $cdd = admin_param($post, 'cdd');
+    if ($cdd !== '' && $cdd !== admin_param($post, 'cdd_exibida') && !($v = cdd_validar($cdd))['valida']) {
+        throw new AcervoException('CDD: ' . $v['erro']);
+    }
+}
+
+/**
+ * Grava a CDD digitada no formulário de correção (aprovada para quem aprova, sugestão para os demais).
+ * O livro já foi salvo: um problema aqui só gera aviso. Retorna o texto para a mensagem de sucesso.
+ */
+function conferencia_gravar_cdd(int $livroId, array $post, array $usuario, int $inventarioId): string
+{
+    try {
+        $r = cdd_corrigir_na_conferencia($livroId, admin_param($post, 'cdd'), mb_substr(admin_param($post, 'cdd_fonte'), 0, 255), $usuario, 'conferência do inventário nº ' . $inventarioId, admin_param($post, 'cdd_exibida'));
+    } catch (Throwable $e) {
+        error_log('[biblioteca] CDD da conferência não gravada: ' . $e->getMessage());
+        admin_flash('aviso', 'CDD não registrada', 'Os outros dados foram salvos, mas a CDD não' . ($e instanceof CddErro ? ': ' . $e->getMessage() : '.') . ' Registre-a pela Classificação CDD.');
+        return '';
+    }
+    if ($r === null) {
+        return '';
+    }
+    return $r['acao'] === 'aprovar'
+        ? 'CDD ' . $r['numero'] . ' aprovada' . ($r['anterior'] !== '' ? ' (antes: ' . $r['anterior'] . ')' : '') . '. '
+        : 'CDD ' . $r['numero'] . ' enviada como sugestão para a bibliotecária aprovar. ';
+}
+
 /** Mensagem curta do resultado de uma conferência. */
 function conferencia_mensagem(array $item): array
 {
@@ -197,19 +228,23 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $livroAlvo = (int)admin_param($_POST, 'livro_id');
                 $marcar = admin_param($_POST, 'marcar_verificado') === '1';
                 $verificarForm = $_POST;
+                conferencia_validar_cdd($_POST);
                 $cad = conferencia_cadastro();
                 $r = $cad->atualizarLivro($livroAlvo, $cad->dados($_POST), $usuario['id'], admin_param($_POST, 'confirmar_alertas') === '1', $marcar, $id);
+                $cddTxt = conferencia_gravar_cdd($livroAlvo, $_POST, $usuario, $id);
                 conferencia_descartar_rascunho($usuario['id'], 'verificar_obra', 'inv' . $id . '-obra' . $livroAlvo);
                 $alertasTxt = $r['alertas_abertos'] ? $r['alertas_abertos'] . ' alerta(s) cadastral(is) continuam abertos (não impedem a verificação).' : '';
                 if ($marcar) {
                     // Conferência contínua: o registro do exemplar abre sozinho.
-                    admin_flash('sucesso', 'Dados verificados.', ($r['alteracoes'] ? 'Correções salvas. ' : '') . 'Agora registre o exemplar que está em mãos. ' . $alertasTxt);
+                    admin_flash('sucesso', 'Dados verificados.', ($r['alteracoes'] ? 'Correções salvas. ' : '') . $cddTxt . 'Agora registre o exemplar que está em mãos. ' . $alertasTxt);
                     admin_redirecionar($base . '&obra=' . $livroAlvo . ($podeCadastrar ? '&painel=registrar' : '') . '#exemplares');
                 }
                 if ($r['alteracoes']) {
-                    admin_flash($r['verificacao'] === 'verificado' ? 'sucesso' : 'aviso', 'Alterações salvas.', $r['verificacao'] === 'verificado'
+                    admin_flash($r['verificacao'] === 'verificado' ? 'sucesso' : 'aviso', 'Alterações salvas.', $cddTxt . ($r['verificacao'] === 'verificado'
                         ? 'A obra continua com os dados verificados. ' . $alertasTxt
-                        : 'A obra está com “Dados não verificados”. Quando terminar de conferir, use “Salvar e marcar dados como verificados”. ' . $alertasTxt);
+                        : 'A obra está com “Dados não verificados”. Quando terminar de conferir, use “Salvar e marcar dados como verificados”. ' . $alertasTxt));
+                } elseif ($cddTxt !== '') {
+                    admin_flash('sucesso', 'CDD salva.', $cddTxt . $alertasTxt);
                 } else {
                     admin_flash('aviso', 'Nenhuma informação alterada.', $alertasTxt);
                 }
@@ -344,6 +379,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 if ($marcar) {
                     fisico_exigir('livros.editar');
                 }
+                conferencia_validar_cdd($_POST);
                 $cad = conferencia_cadastro();
                 $dadosNovo = $cad->dados($_POST);
                 if (admin_param($_POST, 'escolha') !== 'novo') {
@@ -354,6 +390,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 }
                 $fisico = conferencia_fisico($_POST, $sessao['local']);
                 $res = $cad->cadastrarNaoListado($id, $dadosNovo, $fisico, $usuario['id'], null, $marcar);
+                $cddTxt = conferencia_gravar_cdd((int)$res['livro_id'], $_POST, $usuario, $id);
                 unset($_SESSION['inv_nao_listado'][$token]);
                 conferencia_descartar_rascunho($usuario['id'], 'nao_listado', 'inv' . $id);
                 $_SESSION['inv_nao_listado_feito'][$token] = ['codigo' => $res['codigo'], 'livro_id' => $res['livro_id']];
@@ -361,10 +398,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $alertasTxt = $res['alertas'] ? ' ' . $res['alertas'] . ' alerta(s) cadastral(is) ficaram registrados para completar depois.' : '';
                 if ($res['exemplar_id']) {
                     conferencia_lembrar_ultimo($id, $fisico);
-                    admin_flash('sucesso', 'Obra cadastrada com dados verificados e exemplar ' . $res['codigo'] . ' registrado.', 'Confira se o carimbo do livro mostra este código.' . $alertasTxt);
+                    admin_flash('sucesso', 'Obra cadastrada com dados verificados e exemplar ' . $res['codigo'] . ' registrado.', $cddTxt . 'Confira se o carimbo do livro mostra este código.' . $alertasTxt);
                     admin_redirecionar($base . '&obra=' . $res['livro_id'] . '&criados=' . (int)$res['exemplar_id'] . '#registrado');
                 }
-                admin_flash('sucesso', 'Obra cadastrada com “Dados não verificados”.', 'Nenhum exemplar foi registrado. Quando conferir os dados, use “Verificar e corrigir dados”; o registro do exemplar abre em seguida.' . $alertasTxt);
+                admin_flash('sucesso', 'Obra cadastrada com “Dados não verificados”.', $cddTxt . 'Nenhum exemplar foi registrado. Quando conferir os dados, use “Verificar e corrigir dados”; o registro do exemplar abre em seguida.' . $alertasTxt);
                 admin_redirecionar($base . '&obra=' . $res['livro_id'] . '#obra');
             case 'corrigir':
                 fisico_exigir('inventario.gerenciar');
@@ -430,6 +467,7 @@ try {
     }
     $obra = $obraId ? inventario_repo()->livroConferencia($obraId) : null;
     $obraAlertas = $obra ? inventario_repo()->alertasLivro($obraId) : [];
+    $obraCdd = $obra ? cdd_vigente(['cdd_aprovada' => $obra['cdd_aprovada'], 'cdd_proposta' => $obra['cdd_proposta'], 'cdd_original' => $obra['cdd_class_original'] ?? ($obra['legados'][0]['cdd_original'] ?? null)]) : ['numero' => '', 'tipo' => null];
     $obraExemplares = $obra ? inventario_repo()->exemplaresDaObra($id, $obraId) : [];
     // Linhas da planilha: as sem exemplar primeiro; até 100 (ou todas com &linhas=todas), sempre com o total real.
     $todasLinhas = admin_param($_GET, 'linhas') === 'todas';
@@ -907,6 +945,7 @@ ob_start();
             <div><dt>Ano</dt><dd><?= $obra['ano_publicacao'] ? (int)$obra['ano_publicacao'] : '<span class="adm-table__muted">não informado</span>' ?></dd></div>
             <div><dt>Edição</dt><dd><?= $obra['edicao'] ? e($obra['edicao']) : '<span class="adm-table__muted">—</span>' ?></dd></div>
             <div><dt>Categoria</dt><dd><?= $obra['categoria_nome'] ? e($obra['categoria_nome']) : '<span class="adm-table__muted">sem categoria</span>' ?></dd></div>
+            <div><dt>CDD</dt><dd><?= $obraCdd['numero'] !== '' ? cdd_numero($obraCdd['numero']) . ($obraCdd['tipo'] !== 'aprovada' ? ' <small class="adm-table__muted">' . ($obraCdd['tipo'] === 'proposta' ? 'proposta' : 'antiga') . '</small>' : '') : '<span class="adm-table__muted">sem CDD</span>' ?></dd></div>
         </dl>
         <?php if ($obraQuantidade && $obraQuantidade['situacao'] !== 'sem_planilha'): $qt = $obraQuantidade; ?>
             <div class="adm-quantidade<?= $qt['divergente'] ? ' is-divergente' : '' ?>" id="quantidade">
@@ -1135,7 +1174,9 @@ ob_start();
                 </div>
             <?php endif; ?>
             <?php $lv = ['titulo' => $nv['titulo'] ?? '', 'subtitulo' => $nv['subtitulo'] ?? '', 'autores' => $nv['autores'] ?? '', 'isbn' => $nv['isbn'] ?? '', 'editora' => $nv['editora'] ?? '', 'ano_publicacao' => $nv['ano_publicacao'] ?? '', 'edicao' => $nv['edicao'] ?? '', 'idioma' => $nv['idioma'] ?? '', 'assunto' => $nv['assunto'] ?? '', 'categoria_id' => $nv['categoria_id'] ?? ''];
-                  $alertasLv = []; $editavelLv = true; include __DIR__ . '/includes/form-conferencia-livro.php'; ?>
+                  $alertasLv = []; $editavelLv = true;
+                  $cddLv = ['numero' => '', 'tipo' => null, 'pode_aprovar' => auth_pode('cdd.aprovar'), 'cdd' => $nv['cdd'] ?? '', 'cdd_fonte' => $nv['cdd_fonte'] ?? ''];
+                  include __DIR__ . '/includes/form-conferencia-livro.php'; ?>
             <?php $rx = $nv + ['localizacao_id' => $localPadrao]; $rxSugestao = $sugestaoLocal; $rxLivroId = 0; $rxRegistros = []; $rxOrigem = 'nao_listado'; include __DIR__ . '/includes/form-registrar-exemplar.php'; ?>
             <p class="adm-field__hint">Ao clicar no botão principal, você confirma que conferiu os dados da obra com o livro em mãos: ela já fica com <strong>Dados verificados</strong> e o exemplar é registrado como Encontrado. Se ainda não conferiu, cadastre só a obra; o exemplar fica para depois.</p>
             <div class="adm-form-actions adm-form-actions--static">
@@ -1268,6 +1309,7 @@ ob_start();
         ? ['titulo' => $vf['titulo'] ?? '', 'subtitulo' => $vf['subtitulo'] ?? '', 'autores' => $vf['autores'] ?? '', 'isbn' => $vf['isbn'] ?? '', 'editora' => $vf['editora'] ?? '', 'ano_publicacao' => $vf['ano_publicacao'] ?? '', 'edicao' => $vf['edicao'] ?? '', 'idioma' => $vf['idioma'] ?? '', 'assunto' => $vf['assunto'] ?? '', 'categoria_id' => $vf['categoria_id'] ?? '']
         : $obra;
     $alertasLv = $obraAlertas; $editavelLv = true;
+    $cddLv = $obraCdd + ['pode_aprovar' => auth_pode('cdd.aprovar')] + ($vf !== null ? ['cdd' => $vf['cdd'] ?? '', 'cdd_fonte' => $vf['cdd_fonte'] ?? ''] : []);
     ?>
     <dialog class="adm-modal adm-modal--wide adm-painel-lateral adm-painel-lateral--largo" id="painel-verificar" aria-labelledby="painel-verificar-titulo"<?= $painel === 'verificar' ? ' open data-painel-auto' : '' ?>>
         <form class="adm-modal__box" method="post" action="<?= e($base . '&obra=' . (int)$obra['id']) ?>#obra" data-sem-enter data-rascunho="verificar_obra" data-rascunho-ref="inv<?= $id ?>-obra<?= (int)$obra['id'] ?>">
