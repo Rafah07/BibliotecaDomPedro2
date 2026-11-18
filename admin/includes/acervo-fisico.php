@@ -37,7 +37,7 @@ use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261117c', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261115mob'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261118a', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261115mob'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261115des'];
 
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
