@@ -14,9 +14,9 @@ const ACERVO_STATUS = [
 ];
 
 const ACERVO_ORIGENS = [
-    'manual' => 'Cadastro manual',
-    'planilha' => 'Importação de planilha',
-    'inventario' => 'Inventário físico',
+    'manual' => 'Cadastrada manualmente (acervo)',
+    'planilha' => 'Importada da planilha',
+    'inventario' => 'Cadastrada manualmente (conferência)',
 ];
 
 const ACERVO_SITUACOES = [

@@ -9,13 +9,13 @@
  *    1. migração 130 sobre um banco com dados da 120: o vínculo linha × exemplar é recuperado;
  *    2. duas abas (dois formulários) recebem códigos BDP diferentes; a mesma aba recebe o mesmo;
  *    3. reserva cancelada não é aceita e o número não volta para a sequência; expiração;
- *    4. duas pessoas registrando ao mesmo tempo (8 processos paralelos), duas disputando a mesma linha;
- *    5. nenhuma linha da planilha é escolhida automaticamente;
- *    6. exemplar adicional, sem linha correspondente;
+ *    4. duas pessoas registrando ao mesmo tempo (8 processos paralelos), duas com a mesma linha (ambas gravam);
+ *    5. a linha descreve a obra (migração 170): é aproveitada sozinha e nunca "consumida";
+ *    6. exemplar "adicional" (formulário antigo) também usa a associação da obra;
  *    7. obra sem ISBN;
- *    8. inventário novo depois de registrar só parte das cópias de uma obra;
+ *    8. inventário novo: obra com cópias não traz as linhas de novo; obra sem cópia traz;
  *    9. vincular linhas a uma obra já verificada (com confirmação) e desfazer, sem perder a origem;
- *   10. desfazer vínculo linha × exemplar feito por engano;
+ *   10. desfazer vínculo ANTIGO linha × exemplar feito por engano;
  *   11. estante atual: finalizar (só os escolhidos, com confirmação) e reabrir;
  *   12. livro não listado com código do formulário;
  *   13. registros seguidos pela página (outra cópia mantém a localização, não a conservação; clique duplo não duplica);
@@ -228,26 +228,26 @@ confere('reserva não usada aparece como expirada depois de 24 h', CodigoBdpServ
 confere('a mesma aba não recebe de volta uma reserva expirada', $codigos->reservar($bibId, $mar, $abaB)['codigo'] !== $rb['codigo']);
 
 // ---------------------------------------------------------------
-echo "\n5. Nenhuma linha escolhida automaticamente\n";
-$m = $recusa(fn () => $regMar($ra['codigo'], $abaA, ''));
-confere('sem escolher a linha (obra com linhas livres), o registro é recusado', $m !== null && str_contains($m, 'Escolha a qual linha'), (string)$m);
-confere('nada foi gravado', $num('SELECT COUNT(*) FROM exemplares') === 0);
-$x1 = $regMar($ra['codigo'], $abaA, 'r:' . $regDaLinha(3));
-confere('com a linha escolhida, o exemplar fica ligado a ELA (não à primeira)', $x1['registro_id'] === $regDaLinha(3) && (int)$val('SELECT exemplar_id FROM registros_legados WHERE id = ?', [$regDaLinha(3)]) === $x1['id']
-    && $val('SELECT exemplar_id FROM registros_legados WHERE id = ?', [$regDaLinha(2)]) === null);
-confere('o item da linha vira o exemplar Encontrado (sem item duplicado)', $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND importacao_item_id = (SELECT importacao_item_id FROM registros_legados WHERE id = ?)', [$inv, $regDaLinha(3)]) === 1
-    && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id = ? AND conferido_em IS NOT NULL', [$inv, $x1['id']]) === 1);
-confere('a linha já ligada não aceita outro exemplar', ($m = $recusa(fn () => $regMar($codigos->reservar($bibId, $mar, $abaB = CodigoBdpService::novoProcesso())['codigo'], $abaB, 'r:' . $regDaLinha(3)))) !== null && str_contains($m, 'já está ligada'), (string)$m);
+echo "\n5. A linha da planilha descreve a obra (migração 170)\n";
+$x1 = $regMar($ra['codigo'], $abaA, '');
+confere('sem escolher linha, o registro é aceito e aproveita a associação da obra (linha 2)', $x1['registro_id'] === $regDaLinha(2) && $x1['registro_linha'] === 2, json_encode($x1));
+confere('nenhuma linha é "consumida" (nenhuma fica ligada a uma cópia)', $num('SELECT COUNT(*) FROM registros_legados WHERE livro_id = ? AND exemplar_id IS NOT NULL', [$mar]) === 0);
+confere('o exemplar ganha um item próprio, Encontrado; as linhas da obra ficam "Obra localizada"', $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id = ? AND conferido_em IS NOT NULL AND importacao_item_id IS NULL', [$inv, $x1['id']]) === 1
+    && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND livro_id = ? AND exemplar_id IS NULL AND obra_localizada_em IS NOT NULL', [$inv, $mar]) === 3);
+$abaR = CodigoBdpService::novoProcesso();
+$xr = $regMar($codigos->reservar($bibId, $mar, $abaR)['codigo'], $abaR, 'r:' . $regDaLinha(3));
+confere('a mesma obra recebe outra cópia com a referência de outra linha, sem recusa', $xr['registro_id'] === $regDaLinha(3));
+confere('referência de linha de OUTRA obra é recusada', ($m = $recusa(fn () => $regMar('BDP-000999', CodigoBdpService::novoProcesso(), 'r:' . $regDaLinha(5)))) !== null && str_contains($m, 'não pertence'), (string)$m);
 confere('mesmo formulário enviado de novo: aviso, nada duplicado', (function () use ($regMar, $ra, $abaA, $num) {
     try {
         $regMar($ra['codigo'], $abaA, 'adicional');
     } catch (RegistroRepetidoException $e) {
-        return $e->codigo === $ra['codigo'] && $num('SELECT COUNT(*) FROM exemplares') === 1;
+        return $e->codigo === $ra['codigo'] && $num('SELECT COUNT(*) FROM exemplares') === 2;
     }
     return false;
 })());
-confere('histórico: data do código, quem registrou e a linha', $num("SELECT COUNT(*) FROM registro_vinculos WHERE registro_id = ? AND acao = 'vincular_exemplar' AND exemplar_id = ? AND administrador_id = ?", [$regDaLinha(3), $x1['id'], $bibId]) === 1
-    && $val('SELECT usado_em FROM exemplar_codigo_reservas WHERE codigo = ?', [$ra['codigo']]) !== null && $val('SELECT vinculado_por FROM registros_legados WHERE id = ?', [$regDaLinha(3)]) == $bibId);
+confere('histórico: código usado, quem registrou e a linha da obra na movimentação', $val('SELECT usado_em FROM exemplar_codigo_reservas WHERE codigo = ?', [$ra['codigo']]) !== null
+    && $num("SELECT COUNT(*) FROM movimentacoes WHERE exemplar_id = ? AND descricao LIKE '%linha 2 da planilha%'", [$x1['id']]) === 1);
 
 // ---------------------------------------------------------------
 echo "\n3. Cancelar reserva\n";
@@ -264,7 +264,7 @@ confere('reservas canceladas continuam guardadas (não podem ser apagadas)', $re
 // ---------------------------------------------------------------
 echo "\n6. Exemplar adicional, sem linha correspondente\n";
 $x2 = $regMar($rc2['codigo'], $abaC, 'adicional', ['situacao_inventario' => 'pendente']);
-confere('exemplar adicional não liga nenhuma linha (as livres continuam sem exemplar)', $x2['registro_id'] === null && $num('SELECT COUNT(*) FROM registros_legados WHERE livro_id = ? AND exemplar_id IS NULL', [$mar]) === 2);
+confere('"adicional" (formulário antigo) também usa a associação da obra e não liga linhas', $x2['registro_id'] === $regDaLinha(2) && $num('SELECT COUNT(*) FROM registros_legados WHERE livro_id = ? AND exemplar_id IS NULL', [$mar]) === 3);
 confere('situação Pendente: o exemplar entra no inventário sem estar encontrado', $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id = ? AND conferido_em IS NULL AND localizacao_esperada_id = ?', [$inv, $x2['id'], $loc1]) === 1);
 
 // ---------------------------------------------------------------
@@ -289,20 +289,21 @@ foreach ($filhos as $i => $f) {
 $oks = array_values(array_filter($saidas, fn ($s) => str_starts_with($s, 'ok:')));
 $codigosFilhos = array_map(fn ($s) => explode(':', $s)[1] ?? '', $saidas);
 confere('8 formulários ao mesmo tempo recebem 8 códigos diferentes', count(array_unique(array_filter($codigosFilhos))) === 8, implode(' | ', $saidas));
-confere('a mesma linha disputada por duas pessoas fica com UM exemplar; a outra é avisada', count($oks) === 7 && (str_starts_with($saidas[0], 'ok:') xor str_starts_with($saidas[1], 'ok:'))
-    && str_contains($saidas[0] . $saidas[1], 'ligada'), implode(' | ', $saidas));
-confere('nenhum código repetido no banco e só um exemplar ligado à linha', $num('SELECT COUNT(*) FROM exemplares') === $num('SELECT COUNT(DISTINCT codigo_individual) FROM exemplares')
-    && $val('SELECT exemplar_id FROM registros_legados WHERE id = ?', [$regDaLinha(2)]) !== null && $num('SELECT COUNT(*) FROM registro_vinculos WHERE registro_id = ? AND acao = \'vincular_exemplar\'', [$regDaLinha(2)]) === 1);
+confere('duas pessoas com a mesma linha ao mesmo tempo: as duas cópias são gravadas (a linha vale para várias)', count($oks) === 8, implode(' | ', $saidas));
+confere('nenhum código repetido no banco e nenhuma linha "consumida"', $num('SELECT COUNT(*) FROM exemplares') === $num('SELECT COUNT(DISTINCT codigo_individual) FROM exemplares')
+    && $val('SELECT exemplar_id FROM registros_legados WHERE id = ?', [$regDaLinha(2)]) === null);
 
 // ---------------------------------------------------------------
 echo "\n10. Desfazer vínculo linha × exemplar feito por engano\n";
-$exLinha2 = (int)$val('SELECT exemplar_id FROM registros_legados WHERE id = ?', [$regDaLinha(2)]);
+// Vínculo antigo (como a versão 130 gravava: a linha apontava para uma cópia).
+$exLinha2 = (int)$x2['id'];
+$pdo->prepare('UPDATE registros_legados SET exemplar_id = ?, vinculado_em = NOW(), vinculado_por = ? WHERE id = ?')->execute([$exLinha2, $bibId, $regDaLinha(2)]);
 confere('desfazer exige motivo', $recusa(fn () => $invServ->desfazerVinculoLinha($inv, $regDaLinha(2), $bibId, '')) !== null);
 $invServ->desfazerVinculoLinha($inv, $regDaLinha(2), $bibId, 'Escolhi a linha errada');
-confere('a linha volta para "sem exemplar" e Pendente; o exemplar continua existindo', $val('SELECT exemplar_id FROM registros_legados WHERE id = ?', [$regDaLinha(2)]) === null
-    && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id IS NULL AND importacao_item_id = (SELECT importacao_item_id FROM registros_legados WHERE id = ?)', [$inv, $regDaLinha(2)]) === 1
+confere('a linha deixa de apontar para a cópia; o exemplar continua; a linha segue "Obra localizada" (sem item duplicado)', $val('SELECT exemplar_id FROM registros_legados WHERE id = ?', [$regDaLinha(2)]) === null
+    && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id IS NULL AND obra_localizada_em IS NOT NULL AND importacao_item_id = (SELECT importacao_item_id FROM registros_legados WHERE id = ?)', [$inv, $regDaLinha(2)]) === 1
     && $num('SELECT COUNT(*) FROM exemplares WHERE id = ?', [$exLinha2]) === 1);
-confere('fica no histórico (vincular + desfazer)', $num("SELECT COUNT(*) FROM registro_vinculos WHERE registro_id = ? AND acao = 'desfazer_exemplar'", [$regDaLinha(2)]) === 1);
+confere('fica no histórico', $num("SELECT COUNT(*) FROM registro_vinculos WHERE registro_id = ? AND acao = 'desfazer_exemplar'", [$regDaLinha(2)]) === 1);
 
 // ---------------------------------------------------------------
 echo "\n11. Estante atual: finalizar e reabrir\n";
@@ -351,7 +352,7 @@ preg_match('/name="processo_bdp" value="([a-f0-9]{32})"/', $html, $mm);
 $procPg = $mm[1] ?? '';
 confere('painel "Registrar exemplar": formulário com identificação própria e estante atual preenchida', $s === 200 && $procPg !== '' && str_contains($html, 'id="painel-registrar"')
     && preg_match('/name="localizacao_id".*?<option value="' . $loc2 . '" selected/s', $html) === 1);
-confere('nenhuma linha da planilha vem marcada (só "adicional" quando não há linhas livres)', preg_match('/name="vinculo" value="r:\d+"[^>]*checked/', $html) === 0 && str_contains($html, 'Exemplar adicional, sem linha correspondente'));
+confere('nenhuma escolha de linha: a associação aparece só como informação', preg_match('/type="radio" name="vinculo"/', $html) === 0 && str_contains($html, 'Associação bibliográfica aproveitada automaticamente') && str_contains($html, 'Origem: linha 2'));
 [$s, $json] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $mar, 'processo' => $procPg]);
 $codPg = json_decode($json, true)['codigo'] ?? '';
 $post = ['csrf' => $tk, 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $mar, 'codigo_bdp' => $codPg, 'processo_bdp' => $procPg, 'vinculo' => 'r:' . $regDaLinha(2),
@@ -377,14 +378,12 @@ confere('"Salvar e marcar dados como verificados" abre em seguida o painel do ex
 
 // ---------------------------------------------------------------
 echo "\n8. Inventário novo depois de registrar só parte das cópias\n";
-$livresMar = $num('SELECT COUNT(*) FROM registros_legados WHERE livro_id = ? AND exemplar_id IS NULL', [$mar]);
 $invServ->cancelar($inv, $bibId, 'Teste fictício: abrir outro inventário');
 $inv2 = $invServ->criar(['titulo' => 'Segundo Inventário Fictício', 'data_inicio' => date('Y-m-d'), 'responsavel_id' => $bibId], $bibId);
 $invServ->iniciar($inv2, $bibId);
-confere('linhas ainda sem exemplar entram de novo como Pendente, mesmo com a obra já tendo cópias', $livresMar === 1
-    && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND livro_id = ? AND exemplar_id IS NULL', [$inv2, $mar]) === $livresMar);
-confere('linhas já ligadas não entram duplicadas: vêm junto com o exemplar', $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND importacao_item_id = (SELECT importacao_item_id FROM registros_legados WHERE id = ?)', [$inv2, $regDaLinha(3)]) === 1
-    && (int)$val('SELECT exemplar_id FROM inventario_itens WHERE inventario_id = ? AND importacao_item_id = (SELECT importacao_item_id FROM registros_legados WHERE id = ?)', [$inv2, $regDaLinha(3)]) === $x1['id']);
+confere('obra que já tem cópias: as linhas não entram de novo (as cópias entram pelo código BDP)', $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND livro_id = ? AND exemplar_id IS NULL', [$inv2, $mar]) === 0
+    && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND livro_id = ? AND exemplar_id IS NOT NULL', [$inv2, $mar]) === $num("SELECT COUNT(*) FROM exemplares WHERE livro_id = ? AND situacao NOT IN ('baixado', 'extraviado')", [$mar]));
+confere('obra sem nenhuma cópia: a linha entra como Pendente, para procurar o livro', $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND livro_id = ? AND exemplar_id IS NULL', [$inv2, $busca]) === 1);
 confere('"Incluir linhas que ficaram de fora" não duplica nada', $invServ->registrosSemExemplarFaltando($inv2) === 0 && $invServ->completarRegistrosSemExemplar($inv2, $bibId) === 0);
 confere('o inventário cancelado continua no histórico, sem alterações', $val('SELECT status FROM inventarios WHERE id = ?', [$inv]) === 'cancelado' && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ?', [$inv]) > 0);
 
@@ -393,7 +392,8 @@ echo "\n14. Indicadores, pesquisa e resposta parcial\n";
 $ind = $invRepo->indicadores($inv2);
 confere('indicadores: obras, verificadas e não verificadas fecham a conta', $ind['obras'] === $ind['obras_verificadas'] + $ind['obras_nao_verificadas'] && $ind['obras'] === $num('SELECT COUNT(*) FROM livros WHERE arquivado_em IS NULL'), json_encode($ind));
 confere('indicadores: exemplares físicos e linhas sem vínculo contados separadamente', $ind['exemplares'] === $num("SELECT COUNT(*) FROM exemplares WHERE situacao <> 'baixado'")
-    && $ind['linhas_sem_vinculo'] === $num('SELECT COUNT(*) FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL WHERE r.exemplar_id IS NULL') && $ind['sem_codigo'] === 0);
+    && $ind['linhas_sem_vinculo'] === $num("SELECT COUNT(*) FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL WHERE NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = r.livro_id AND e.situacao <> 'baixado')")
+    && $ind['linhas_sem_vinculo'] === 3 && $ind['sem_codigo'] === 0, json_encode($ind)); // Busca e as duas Poemas: obras sem cópia
 confere('progresso usa só exemplares deste inventário (linhas da planilha à parte)', $ind['ex_total'] === $ind['ex_encontrados'] + $ind['ex_pendentes'] + $ind['ex_nao_localizados'] + $ind['ex_emprestados']
     && $ind['linhas_total'] === $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND exemplar_id IS NULL', [$inv2]));
 $pg2 = 'admin/inventario-conferencia.php?id=' . $inv2;
@@ -405,7 +405,8 @@ confere('pesquisa paginada sem repetir resultados', count($pesq['livros']) === 2
 [$s, $frag] = $bib->ir($pg2 . '&obra=' . $mar, null, ['X-Conferencia' => '1']);
 confere('resposta parcial (X-Conferencia) traz só as regiões, sem o layout', $s === 200 && str_contains($frag, 'data-regiao="indicadores"') && str_contains($frag, 'data-regiao="area"') && str_contains($frag, 'data-regiao="estante"') && !str_contains($frag, '<nav'));
 [$s, $html] = $bib->ir($pg2 . '&obra=' . $mar);
-confere('ficha da obra: linhas da planilha com vínculo, exemplares e indicadores', $s === 200 && str_contains($html, 'Linhas da planilha desta obra') && str_contains($html, 'Ligada ao ' . $x1['codigo']) && str_contains($html, 'Linhas sem vínculo físico'));
+confere('ficha da obra: associação confirmada, indicadores, exemplares e referências da planilha', $s === 200 && str_contains($html, 'Referências da planilha') && str_contains($html, 'Associação bibliográfica confirmada')
+    && str_contains($html, 'Exemplares registrados') && str_contains($html, $x1['codigo']) && str_contains($html, 'Registros de obras sem exemplar'));
 $cons = new TesteNavegador($base);
 $cons->entrar('cons@teste.br', $senha);
 [$s] = $cons->ir($pg2, ['csrf' => $cons->csrf('admin/perfil.php'), 'id' => $inv2, 'acao' => 'finalizar_estante', 'localizacao_id' => $loc1]);

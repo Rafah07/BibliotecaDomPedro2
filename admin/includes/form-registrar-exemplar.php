@@ -12,9 +12,9 @@
  * formulário aberto). Outra aba ou "Registrar outra cópia" recebem sempre outro número.
  * Sem JavaScript, o botão envia o formulário (acao=gerar_codigo) e a página volta com o código.
  *
- * Linha da planilha: quando a obra tem linhas importadas, a equipe escolhe CONSCIENTEMENTE qual
- * linha este exemplar representa, ou "Exemplar adicional, sem linha correspondente". Nada vem
- * escolhido sozinho; linhas já ligadas a um exemplar aparecem desativadas, com o código.
+ * Linha da planilha (migração 170): a linha descreve a OBRA, não um exemplar. Ela aparece só como
+ * informação ("aproveitada automaticamente") e vale para quantas cópias forem registradas: nada
+ * é escolhido de novo a cada cópia e não há limite pela quantidade de linhas.
  *
  * Localização definitiva: campos dependentes Setor → Estante → Prateleira (Organização Física).
  * A localização antiga da planilha nunca é usada. Conservação: começa em "Não avaliado" e não é
@@ -29,8 +29,6 @@ $rxLivroId = (int)($rxLivroId ?? 0);
 $rxOrigem = $rxOrigem ?? 'registrar';
 $rxId = 'rx-' . $rxOrigem;
 $rxProcesso = CodigoBdpService::processoValido((string)$rx['processo_bdp']) ?? CodigoBdpService::novoProcesso();
-$rxLivres = array_values(array_filter($rxRegistros, fn ($r) => $r['exemplar_id'] === null));
-$rxVinculo = (string)$rx['vinculo'];
 $rxSugestao = isset($rxSugestao) && is_array($rxSugestao) ? $rxSugestao
     : ['id' => isset($rxSugestao) && $rxSugestao ? (int)$rxSugestao : null, 'origem' => 'estante atual / última utilizada', 'aviso' => null];
 $rxCarimbo = in_array($rx['carimbo'] ?? '', ['aguardando', 'carimbado'], true) ? $rx['carimbo'] : '';
@@ -54,40 +52,18 @@ $rxLocal = (string)$rx['localizacao_id'] !== '' ? (int)$rx['localizacao_id'] : n
             <p class="adm-codigo-bdp__status" id="<?= $rxId ?>-codigo-status" role="status" aria-live="polite" data-codigo-status><?= !empty($rx['codigo_gerado']) ? 'Código reservado para este formulário (ainda não atribuído): <strong>' . e((string)$rx['codigo_bdp']) . '</strong>. Ele fica definitivo ao salvar.' : '' ?></p>
             <p class="adm-field__hint" id="<?= $rxId ?>-codigo-dica">Já carimbado? Digite o código do carimbo. Ainda sem carimbo? <strong>Gerar código BDP</strong> reserva o próximo número só para este formulário: dá para carimbar agora ou depois, por lote, na Planilha de Códigos BDP. O código nunca se repete.</p>
         </div>
-        <?php if ($rxRegistros): ?>
-            <fieldset class="adm-escolha adm-escolha--lista adm-linhas-planilha" data-escolha-linha>
-                <legend class="adm-field__sublabel">Este exemplar corresponde a qual linha da planilha? <span class="adm-required" aria-hidden="true">*</span></legend>
-                <p class="adm-field__hint"><?= count($rxLivres) ?> linha(s) ainda sem exemplar. Compare com o livro em mãos e escolha. Nada é escolhido automaticamente.</p>
-                <?php foreach ($rxRegistros as $reg): $livre = $reg['exemplar_id'] === null; $valor = 'r:' . (int)$reg['id']; ?>
-                    <label class="adm-escolha__opcao adm-linha-planilha<?= $livre ? '' : ' is-ligada' ?>">
-                        <input type="radio" name="vinculo" value="<?= e($valor) ?>"<?= $livre ? '' : ' disabled' ?><?= $livre && $rxVinculo === $valor ? ' checked' : '' ?> required>
-                        <span class="adm-linha-planilha__corpo">
-                            <span class="adm-linha-planilha__topo">
-                                <strong class="adm-linha-planilha__titulo"><?= e($reg['titulo_original'] ? mb_strimwidth($reg['titulo_original'], 0, 90, '…') : 'Linha sem título') ?></strong>
-                                <?php if ($livre): ?>
-                                    <span class="adm-status adm-tone--<?= $reg['nao_localizado_em'] ? 'red' : 'amber' ?>"><?= $reg['nao_localizado_em'] ? 'Sem exemplar · não localizada' : 'Sem exemplar' ?></span>
-                                <?php else: ?>
-                                    <span class="adm-status adm-tone--green">Ligada ao <?= e((string)$reg['codigo_individual']) ?></span>
-                                <?php endif; ?>
-                            </span>
-                            <small class="adm-linha-planilha__origem">Linha <?= (int)$reg['linha'] ?> · <?= e($reg['arquivo']) ?></small>
-                            <small class="adm-block-muted">
-                                <?= e(implode(' · ', array_filter([
-                                    $reg['autor_original'] ? 'Autor: ' . mb_strimwidth($reg['autor_original'], 0, 50, '…') : null,
-                                    $reg['localizacao_antiga'] ? 'Local antigo: ' . $reg['localizacao_antiga'] : null,
-                                    $reg['quantidade_informada'] !== null ? 'Qtd. na planilha: ' . (int)$reg['quantidade_informada'] : null,
-                                ]))) ?>
-                                <?php foreach ($reg['extras'] as $k => $v): ?> · <?= e($k) ?>: <?= e($v) ?><?php endforeach; ?>
-                            </small>
-                        </span>
-                    </label>
-                <?php endforeach; ?>
-                <label class="adm-escolha__opcao adm-linha-planilha adm-linha-planilha--adicional">
-                    <input type="radio" name="vinculo" value="<?= InventarioService::VINCULO_ADICIONAL ?>"<?= $rxVinculo === InventarioService::VINCULO_ADICIONAL || !$rxLivres ? ' checked' : '' ?> required>
-                    <span class="adm-linha-planilha__corpo"><strong>Exemplar adicional, sem linha correspondente</strong>
-                        <small class="adm-block-muted">Uma cópia física além das que aparecem na planilha. As linhas continuam “sem exemplar”.</small></span>
-                </label>
-            </fieldset>
+        <?php if ($rxRegistros): $rxPrimeira = $rxRegistros[0]; $rxArquivos = array_values(array_unique(array_column($rxRegistros, 'arquivo'))); ?>
+            <div class="adm-associacao-info" data-associacao-obra>
+                <p class="adm-associacao-info__titulo"><?= icon('file-spreadsheet') ?> <strong>Associação bibliográfica aproveitada automaticamente</strong></p>
+                <p class="adm-associacao-info__texto">
+                    Origem: linha <?= (int)$rxPrimeira['linha'] ?><?= count($rxRegistros) > 1 ? ' (e mais ' . (count($rxRegistros) - 1) . ' linha(s))' : '' ?> da planilha
+                    “<?= e(implode('”, “', array_slice($rxArquivos, 0, 2))) ?>”<?= count($rxArquivos) > 2 ? ' e outras' : '' ?>.
+                    A linha descreve a <strong>obra</strong>: vale para todas as cópias, sem escolher de novo e sem limite de exemplares.
+                </p>
+                <input type="hidden" name="vinculo" value="<?= e('r:' . (int)$rxPrimeira['id']) ?>">
+            </div>
+        <?php else: ?>
+            <p class="adm-field__hint adm-registro-direto"><?= icon('info') ?> Obra sem planilha: esta obra não tem linhas da planilha importada (por exemplo, foi cadastrada na conferência). O exemplar é registrado direto como cópia física da obra.</p>
         <?php endif; ?>
     </section>
 

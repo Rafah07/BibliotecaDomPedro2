@@ -27,7 +27,7 @@ final class PendenciasRepository
 
     public const TIPOS = [
         'nao_verificadas' => ['Obras com dados não verificados', 'circle-help', 'amber'],
-        'linhas_sem_vinculo' => ['Registros importados sem exemplar', 'file-spreadsheet', 'muted'],
+        'linhas_sem_vinculo' => ['Registros de obras ainda sem exemplar', 'file-spreadsheet', 'muted'],
         'sem_localizacao' => ['Exemplares sem localização definida', 'map-pin-off', 'amber'],
         'conservacao' => ['Conservação não avaliada', 'list-checks', 'indigo'],
         'quantidade' => ['Divergências de quantidade', 'git-compare-arrows', 'red'],
@@ -37,7 +37,7 @@ final class PendenciasRepository
     ];
 
     /** Agregado das linhas da planilha por obra (para a comparação de quantidades). */
-    private const AGREGADO_PLANILHA = 'SELECT r.livro_id, COUNT(*) AS linhas, COUNT(r.quantidade_informada) AS linhas_qtd,
+    public const AGREGADO_PLANILHA = 'SELECT r.livro_id, COUNT(*) AS linhas, COUNT(r.quantidade_informada) AS linhas_qtd,
                                               MAX(r.quantidade_informada) AS qmax, COALESCE(SUM(r.quantidade_informada), 0) AS qsoma
                                        FROM registros_legados r GROUP BY r.livro_id';
 
@@ -161,7 +161,7 @@ final class PendenciasRepository
             'duplicadas', 'alertas' => ["l.id, l.id AS livro_id, $titulo, l.dados_verificados_em, $autores,
                                          (SELECT GROUP_CONCAT(p.mensagem ORDER BY p.id SEPARATOR ' · ') FROM livro_pendencias p WHERE p.livro_id = l.id AND p.resolvida_em IS NULL" . ($tipo === 'duplicadas' ? " AND p.tipo = 'duplicidade'" : " AND p.tipo <> 'duplicidade'") . ") AS mensagens", 'l.titulo IS NULL, l.titulo, l.id'],
             default => ["l.id, l.id AS livro_id, $titulo, l.isbn, l.isbn_original, l.editora, l.ano_publicacao, $autores,
-                         (SELECT COUNT(*) FROM registros_legados rr WHERE rr.livro_id = l.id AND rr.exemplar_id IS NULL) AS linhas_sem_vinculo,
+                         (SELECT COUNT(*) FROM registros_legados rr WHERE rr.livro_id = l.id AND NOT EXISTS (SELECT 1 FROM exemplares ex2 WHERE ex2.livro_id = l.id AND ex2.situacao <> 'baixado')) AS linhas_sem_vinculo,
                          (SELECT COUNT(*) FROM exemplares ee WHERE ee.livro_id = l.id AND ee.situacao <> 'baixado') AS exemplares", 'l.titulo IS NULL, l.titulo, l.id'],
         };
         $itens = $this->todas("SELECT $colunas $from WHERE $where ORDER BY $ordem LIMIT $porPagina OFFSET " . (($pagina - 1) * $porPagina), $params);
@@ -180,7 +180,8 @@ final class PendenciasRepository
         $ativa = 'l.arquivado_em IS NULL';
         return match ($tipo) {
             'nao_verificadas' => ['FROM livros l', "$ativa AND l.dados_verificados_em IS NULL", []],
-            'linhas_sem_vinculo' => ['FROM registros_legados r JOIN livros l ON l.id = r.livro_id', "$ativa AND r.exemplar_id IS NULL", []],
+            // A linha descreve a OBRA: só é pendência enquanto a obra não tem nenhum exemplar físico.
+            'linhas_sem_vinculo' => ['FROM registros_legados r JOIN livros l ON l.id = r.livro_id', "$ativa AND NOT EXISTS (SELECT 1 FROM exemplares ex2 WHERE ex2.livro_id = r.livro_id AND ex2.situacao <> 'baixado')", []],
             'sem_localizacao' => ['FROM exemplares e JOIN livros l ON l.id = e.livro_id LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id',
                 "e.situacao <> 'baixado' AND (e.localizacao_id IS NULL OR lo.estante_id IS NULL)", []],
             'conservacao' => ['FROM exemplares e JOIN livros l ON l.id = e.livro_id LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id',
@@ -226,8 +227,10 @@ final class PendenciasRepository
                            FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL
                            LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id
                            WHERE e.situacao <> 'baixado'") ?? [];
-        $r = $this->linha('SELECT COUNT(*) AS registros, COALESCE(SUM(r.exemplar_id IS NOT NULL), 0) AS registros_vinculados
-                           FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL') ?? [];
+        // Registro da planilha "com exemplar" = a OBRA dele já tem pelo menos uma cópia física (migração 170).
+        $r = $this->linha("SELECT COUNT(*) AS registros,
+                                  COALESCE(SUM(EXISTS (SELECT 1 FROM exemplares ex2 WHERE ex2.livro_id = r.livro_id AND ex2.situacao <> 'baixado')), 0) AS registros_vinculados
+                           FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL") ?? [];
         $f = $this->linha('SELECT (SELECT COUNT(*) FROM estantes WHERE ativa = 1) AS estantes, (SELECT COUNT(*) FROM localizacoes lo JOIN estantes es ON es.id = lo.estante_id WHERE lo.ativa = 1 AND es.ativa = 1) AS prateleiras') ?? [];
         $x = array_map('intval', $o + $e + $r + $f);
         $x['obras_nao_verificadas'] = $x['obras'] - $x['obras_verificadas'];

@@ -197,7 +197,7 @@ return [
         ],
         'cuidados' => ['Nada é resolvido sozinho: nenhum livro vira “Não localizado” automaticamente.'],
         'relacionados' => ['conservacao-exemplar', 'quantidade-planilha', 'mover-exemplar'],
-        'confere' => ['inventario-conferencia.php' => ['Pendências de conferência', 'Definir localização', 'Avaliar', 'Abrir obra', 'Verificar dados'], '../src/Repositories/PendenciasRepository.php' => ['Obras com dados não verificados', 'Registros importados sem exemplar', 'Exemplares sem localização definida', 'Conservação não avaliada', 'Divergências de quantidade', 'Possíveis obras duplicadas']],
+        'confere' => ['inventario-conferencia.php' => ['Pendências de conferência', 'Definir localização', 'Avaliar', 'Abrir obra', 'Verificar dados'], '../src/Repositories/PendenciasRepository.php' => ['Obras com dados não verificados', 'Registros de obras ainda sem exemplar', 'Exemplares sem localização definida', 'Conservação não avaliada', 'Divergências de quantidade', 'Possíveis obras duplicadas']],
     ],
     [
         'id' => 'conservacao-exemplar',

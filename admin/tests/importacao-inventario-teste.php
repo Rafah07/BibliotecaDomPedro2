@@ -234,7 +234,7 @@ $ids = array_map(fn ($i) => (int)$i['id'], $pendA02['itens']);
 $n = $invServ->marcarNaoLocalizados($inv, $ids, 'estante A-02 conferida', $bibId);
 $r = $invRepo->resumo($inv);
 confere('marca em lote como não localizados', $n === 3 && $r['nao_localizados'] === 3);
-confere('nada vira não localizado sozinho (os outros continuam pendentes)', $r['a_conferir'] === $r['itens'] - $r['encontrados'] - 3);
+confere('nada vira não localizado sozinho (os outros continuam pendentes)', $r['a_conferir'] === $r['itens'] - $r['encontrados'] - 3 - $r['obra_localizada']);
 confere('marcar de novo não altera nada', $invServ->marcarNaoLocalizados($inv, $ids, '', $bibId) === 0);
 $invServ->voltarPendente($ids[0], $bibId);
 confere('"Voltar para pendente" desfaz a marcação', $invRepo->item($ids[0])['nao_localizado_em'] === null && $invRepo->resumo($inv)['nao_localizados'] === 2);
@@ -252,10 +252,11 @@ foreach ($invRepo->itens($inv, 'pendentes', '', 1, 0)['itens'] as $p) {
 }
 $invServ->concluir($inv, $bibId);
 confere('inventário concluído fica no histórico', $val('SELECT status FROM inventarios WHERE id = ?', [$inv]) === 'concluido');
-// Migração 130: cada linha da planilha é conferida individualmente (vínculo registros_legados.exemplar_id),
-// e não mais "só se a obra não tiver nenhum exemplar".
+// Migração 170: a linha descreve a OBRA. Entram as linhas de obras que ainda não têm nenhum exemplar;
+// obras com cópias entram pelos exemplares (código BDP).
 $semExemplar = $num("SELECT COUNT(*) FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL
-                     JOIN importacao_itens it ON it.id = r.importacao_item_id AND it.resultado_importacao <> 'vinculado' WHERE r.exemplar_id IS NULL");
+                     JOIN importacao_itens it ON it.id = r.importacao_item_id AND it.resultado_importacao <> 'vinculado'
+                     WHERE NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = r.livro_id AND e.situacao <> 'baixado')");
 $inv2 = $invServ->criar(['titulo' => 'Inventário Fictício 2027', 'data_inicio' => date('Y-m-d'), 'responsavel_id' => $bibId], $bibId);
 $prev = $invServ->iniciar($inv2, $bibId);
 confere('ao iniciar: exemplares ativos + registros importados sem exemplar, todos Pendentes', $prev === $num("SELECT COUNT(*) FROM exemplares WHERE situacao NOT IN ('baixado', 'extraviado')") + $semExemplar
@@ -271,9 +272,9 @@ confere('contas entram no painel', $bib->entrar('bib@teste.br', $senha) === 200 
 $tk = $bib->csrf('admin/perfil.php');
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2);
 confere('conferência mostra progresso, indicadores e "Cadastrar livro não listado"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'dos exemplares deste inventário')
-    && str_contains($html, 'Não localizados') && str_contains($html, 'Linhas sem vínculo físico') && str_contains($html, 'Cadastrar livro não listado'));
+    && str_contains($html, 'Não localizados') && str_contains($html, 'Registros de obras sem exemplar') && str_contains($html, 'Cadastrar livro não listado'));
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&q=' . rawurlencode('Poemas de Teste'));
-confere('pesquisa por título mostra a obra, as linhas da planilha sem exemplar e "Abrir obra"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'linha(s) sem exemplar') && str_contains($html, '#obra">Abrir</a>'));
+confere('pesquisa por título mostra a obra, as linhas da planilha sem exemplar e "Abrir obra"', $s === 200 && teste_sem_erro_tecnico($html) && str_contains($html, 'registro(s) da planilha, nenhum exemplar ainda') && str_contains($html, '#obra">Abrir</a>'));
 $itPoema = (int)$val('SELECT i.id FROM inventario_itens i JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id WHERE i.inventario_id = ? AND r.linha = 6 ORDER BY i.id LIMIT 1', [$inv2]);
 [$s, , $locItem] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&item=' . $itPoema);
 $livroPoema = (int)$val('SELECT livro_id FROM inventario_itens WHERE id = ?', [$itPoema]);
@@ -281,7 +282,7 @@ confere('endereço antigo do registro (&item=) leva à ficha da obra', $s === 30
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&obra=' . $livroPoema);
 confere('ficha da obra: dados, "Dados não verificados", linhas da planilha e registro bloqueado até verificar', $s === 200 && teste_sem_erro_tecnico($html)
     && str_contains($html, 'Dados não verificados') && str_contains($html, 'Verificar e corrigir dados') && str_contains($html, '<strong>Linha 6</strong>')
-    && str_contains($html, 'não conta como exemplar encontrado') && !str_contains($html, 'id="painel-registrar"'));
+    && str_contains($html, 'não contam como exemplares encontrados') && !str_contains($html, 'id="painel-registrar"'));
 confere('painel de verificação com os dois botões e os alertas', str_contains($html, 'id="painel-verificar"') && str_contains($html, 'Salvar e marcar dados como verificados')
     && str_contains($html, 'Salvar alterações') && str_contains($html, 'alerta(s) cadastral(is)'));
 $postVer = ['csrf' => $tk, 'id' => $inv2, 'acao' => 'verificar_obra', 'livro_id' => $livroPoema, 'editar_livro' => '1', 'titulo' => 'Poemas de Teste', 'autores' => 'Lima, Carla Fictícia', 'ano_publicacao' => '2001', 'isbn' => ''];
@@ -293,14 +294,14 @@ confere('"Salvar e marcar dados como verificados" verifica a obra (ISBN pode fic
     && $val('SELECT isbn FROM livros WHERE id = ?', [$livroPoema]) === null);
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&obra=' . $livroPoema . '&painel=registrar');
 confere('obra verificada libera "+ Registrar exemplar" com "Gerar código BDP" e a escolha da linha da planilha', $s === 200 && str_contains($html, 'id="painel-registrar"') && str_contains($html, 'Gerar código BDP')
-    && str_contains($html, 'Este exemplar corresponde a qual linha da planilha?') && str_contains($html, 'data-painel-auto'));
+    && str_contains($html, 'Associação bibliográfica aproveitada automaticamente') && str_contains($html, 'data-painel-auto'));
 $postReg = ['csrf' => $tk, 'id' => $inv2, 'acao' => 'registrar_exemplar', 'livro_id' => $livroPoema, 'codigo_bdp' => 'BDP-000300', 'estado_conservacao' => 'bom',
     'localizacao_id' => (string)$localE01, 'situacao_inventario' => 'encontrado', 'item_id' => (string)$itPoema];
 [$s] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, $postReg);
 [$s2, $html2] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2, $postReg);
-confere('formulário grava o exemplar ligado à linha da planilha; o segundo envio não duplica', $s === 303 && $s2 === 200 && str_contains($html2, 'Nada foi gravado')
-    && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-000300'") === 1 && $invRepo->item($itPoema)['codigo_individual'] === 'BDP-000300'
-    && $invRepo->item($itPoema)['conferido_em'] !== null, "$s/$s2 " . (preg_match('/Nada foi gravado.{0,400}/su', (string)$html2, $mm) ? strip_tags($mm[0]) : 'sem msg') . ' ' . json_encode($invRepo->item($itPoema)['codigo_individual']));
+confere('formulário grava o exemplar da obra (a linha fica "Obra localizada"); o segundo envio não duplica', $s === 303 && $s2 === 200 && str_contains($html2, 'Nada foi gravado')
+    && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-000300'") === 1 && $invRepo->item($itPoema)['obra_localizada_em'] !== null
+    && $num("SELECT COUNT(*) FROM inventario_itens i JOIN exemplares e ON e.id = i.exemplar_id WHERE i.inventario_id = ? AND e.codigo_individual = 'BDP-000300' AND i.conferido_em IS NOT NULL", [$inv2]) === 1, "$s/$s2 " . (preg_match('/Nada foi gravado.{0,400}/su', (string)$html2, $mm) ? strip_tags($mm[0]) : 'sem msg') . ' ' . json_encode($invRepo->item($itPoema)['codigo_individual']));
 // Correção dos dados da obra depois de verificada: histórico e nova verificação.
 [$s, $html] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv2 . '&q=' . rawurlencode('Poemas de Teste'));
 confere('resultado da pesquisa tem "Abrir obra" e o status da obra', $s === 200 && str_contains($html, '&amp;obra=' . $livroPoema) && str_contains($html, 'Dados verificados'));

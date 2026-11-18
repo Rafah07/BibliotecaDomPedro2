@@ -123,14 +123,15 @@ final class InventarioRepository
     public function resumo(int $id): array
     {
         $r = $this->linha("SELECT COUNT(*) AS itens,
-                                  COALESCE(SUM(i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio'), 0) AS a_conferir,
+                                  COALESCE(SUM(i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND i.obra_localizada_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio'), 0) AS a_conferir,
+                                  COALESCE(SUM(i.obra_localizada_em IS NOT NULL AND i.conferido_em IS NULL), 0) AS obra_localizada,
                                   COALESCE(SUM(i.conferido_em IS NULL AND (i.nao_localizado_em IS NOT NULL OR i.decisao = 'registrar_extravio')), 0) AS nao_localizados,
                                   COALESCE(SUM(i.exemplar_id IS NULL), 0) AS sem_codigo,
                                   COALESCE(SUM(EXISTS (SELECT 1 FROM livro_pendencias p WHERE p.livro_id = i.livro_id AND p.resolvida_em IS NULL)), 0) AS com_alertas,
                                   COALESCE(SUM(i.previsto), 0) AS previstos,
                                   COALESCE(SUM(i.conferido_em IS NOT NULL), 0) AS conferidos,
                                   COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NOT NULL), 0) AS previstos_conferidos,
-                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND m.id IS NULL), 0) AS nao_conferidos,
+                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND i.obra_localizada_em IS NULL AND m.id IS NULL), 0) AS nao_conferidos,
                                   COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND m.id IS NOT NULL), 0) AS em_circulacao,
                                   COALESCE(SUM(i.divergencia_local), 0) AS local_diferente,
                                   COALESCE(SUM(i.divergencia_estado), 0) AS estado_divergente,
@@ -139,7 +140,7 @@ final class InventarioRepository
                                   COALESCE(SUM(i.previsto = 0 AND i.cadastrado_no_inventario = 0 AND i.conferido_em IS NOT NULL), 0) AS fora_lista,
                                   COALESCE(SUM(i.conferido_em IS NOT NULL AND (i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao)), 0) AS divergencias,
                                   COALESCE(SUM(i.conferido_em IS NOT NULL AND (i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao) AND i.decisao IS NULL), 0) AS divergencias_pendentes,
-                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND i.decisao IS NULL AND i.nao_localizado_em IS NULL AND m.id IS NULL), 0) AS ausentes_pendentes,
+                                  COALESCE(SUM(i.previsto = 1 AND i.conferido_em IS NULL AND i.decisao IS NULL AND i.nao_localizado_em IS NULL AND i.obra_localizada_em IS NULL AND m.id IS NULL), 0) AS ausentes_pendentes,
                                   COALESCE(SUM(i.decisao = 'registrar_extravio'), 0) AS extravios,
                                   COALESCE(SUM(i.correcoes), 0) AS correcoes
                            FROM inventario_itens i
@@ -152,8 +153,8 @@ final class InventarioRepository
         $r['obras'] = (int)($obras['obras'] ?? 0);
         $r['obras_verificadas'] = (int)($obras['obras_verificadas'] ?? 0);
         $r['encontrados'] = $r['conferidos'] ?? 0;
-        // Progresso: itens com resultado (encontrado ou não localizado) sobre o total.
-        $r['percentual'] = !empty($r['itens']) ? (int)floor((($r['encontrados'] + $r['nao_localizados']) / $r['itens']) * 100) : 0;
+        // Progresso: itens com resultado (encontrado, não localizado ou linha de obra já localizada) sobre o total.
+        $r['percentual'] = !empty($r['itens']) ? (int)floor((($r['encontrados'] + $r['nao_localizados'] + $r['obra_localizada']) / $r['itens']) * 100) : 0;
         return $r;
     }
 
@@ -173,15 +174,18 @@ final class InventarioRepository
                            FROM livros l WHERE l.arquivado_em IS NULL") ?? [];
         $e = $this->linha("SELECT COUNT(*) AS exemplares, COALESCE(SUM(e.codigo_individual IS NULL OR e.codigo_individual NOT REGEXP '^BDP-[0-9]{6}$'), 0) AS sem_codigo
                            FROM exemplares e JOIN livros l ON l.id = e.livro_id AND l.arquivado_em IS NULL WHERE e.situacao <> 'baixado'") ?? [];
-        $linhas = (int)$this->valor('SELECT COUNT(*) FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL WHERE r.exemplar_id IS NULL');
+        // Linhas da planilha de obras que ainda não têm nenhum exemplar físico (a linha descreve a obra).
+        $linhas = (int)$this->valor("SELECT COUNT(*) FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL
+                                     WHERE NOT EXISTS (SELECT 1 FROM exemplares ee WHERE ee.livro_id = r.livro_id AND ee.situacao <> 'baixado')");
         $i = $this->linha("SELECT COALESCE(SUM(i.exemplar_id IS NOT NULL), 0) AS ex_total,
                                   COALESCE(SUM(i.exemplar_id IS NOT NULL AND i.conferido_em IS NOT NULL), 0) AS ex_encontrados,
                                   COALESCE(SUM(i.exemplar_id IS NOT NULL AND i.conferido_em IS NULL AND (i.nao_localizado_em IS NOT NULL OR i.decisao = 'registrar_extravio')), 0) AS ex_nao_localizados,
                                   COALESCE(SUM(i.exemplar_id IS NOT NULL AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio' AND m.id IS NOT NULL), 0) AS ex_emprestados,
                                   COALESCE(SUM(i.exemplar_id IS NOT NULL AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio' AND m.id IS NULL), 0) AS ex_pendentes,
                                   COALESCE(SUM(i.exemplar_id IS NULL), 0) AS linhas_total,
-                                  COALESCE(SUM(i.exemplar_id IS NULL AND i.nao_localizado_em IS NOT NULL), 0) AS linhas_nao_localizadas,
-                                  COALESCE(SUM(i.exemplar_id IS NULL AND i.nao_localizado_em IS NULL), 0) AS linhas_pendentes
+                                  COALESCE(SUM(i.exemplar_id IS NULL AND i.nao_localizado_em IS NOT NULL AND i.obra_localizada_em IS NULL), 0) AS linhas_nao_localizadas,
+                                  COALESCE(SUM(i.exemplar_id IS NULL AND i.obra_localizada_em IS NOT NULL), 0) AS linhas_obra_localizada,
+                                  COALESCE(SUM(i.exemplar_id IS NULL AND i.nao_localizado_em IS NULL AND i.obra_localizada_em IS NULL AND i.conferido_em IS NULL), 0) AS linhas_pendentes
                            FROM inventario_itens i
                            LEFT JOIN emprestimos m ON m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL
                            WHERE i.inventario_id = ?", [$id]) ?? [];
@@ -250,26 +254,32 @@ final class InventarioRepository
      * (qual), ou ainda sem exemplar (e a situação neste inventário). Dados importados relevantes
      * vêm junto (título, autor, local antigo, quantidade) para a escolha consciente da linha.
      */
-    /** Total de linhas da planilha da obra e quantas ainda não têm exemplar (para mostrar "N de M"). */
+    /**
+     * Linhas da planilha da obra. "livres" = linhas sem vínculo antigo direto com um exemplar
+     * (antes da migração 170 cada linha era ligada a uma cópia; esse vínculo fica como histórico).
+     * Uma linha nunca é "consumida": vale para quantas cópias forem encontradas.
+     */
     public function contarRegistrosDaObra(int $livroId): array
     {
-        $r = $this->linha('SELECT COUNT(*) AS total, COALESCE(SUM(exemplar_id IS NULL), 0) AS livres FROM registros_legados WHERE livro_id = ?', [$livroId]) ?? [];
-        return ['total' => (int)($r['total'] ?? 0), 'livres' => (int)($r['livres'] ?? 0)];
+        $r = $this->linha('SELECT COUNT(*) AS total, COALESCE(SUM(exemplar_id IS NULL), 0) AS livres, SUM(quantidade_informada) AS quantidade,
+                                  COUNT(DISTINCT arquivo) AS arquivos FROM registros_legados WHERE livro_id = ?', [$livroId]) ?? [];
+        return ['total' => (int)($r['total'] ?? 0), 'livres' => (int)($r['livres'] ?? 0),
+            'quantidade' => isset($r['quantidade']) ? (int)$r['quantidade'] : null, 'arquivos' => (int)($r['arquivos'] ?? 0)];
     }
 
     public function registrosDaObra(int $inventarioId, int $livroId, int $limite = 100): array
     {
         $linhas = $this->todas('SELECT r.id, r.importacao_item_id, r.arquivo, r.linha, r.titulo_original, r.autor_original, r.localizacao_antiga, r.quantidade_informada,
-                                       r.cdd_original, r.dados_originais, r.exemplar_id, r.vinculado_em, r.livro_original_id, vp.nome AS vinculado_por_nome,
+                                       r.cdd_original, r.dados_originais, r.exemplar_id, r.vinculado_em, r.livro_original_id, vp.nome AS vinculado_por_nome, r.importado_em,
                                        e.codigo_individual, e.situacao AS exemplar_situacao, COALESCE(lo.titulo, \'Sem título (a conferir)\') AS livro_original_titulo,
-                                       i.id AS item_id, i.conferido_em, i.nao_localizado_em, i.nao_localizado_obs, i.decisao
+                                       i.id AS item_id, i.conferido_em, i.nao_localizado_em, i.nao_localizado_obs, i.obra_localizada_em, i.decisao
                                 FROM registros_legados r
                                 LEFT JOIN exemplares e ON e.id = r.exemplar_id
                                 LEFT JOIN administradores vp ON vp.id = r.vinculado_por
                                 LEFT JOIN livros lo ON lo.id = r.livro_original_id
                                 LEFT JOIN inventario_itens i ON i.inventario_id = ? AND i.importacao_item_id = r.importacao_item_id
                                 WHERE r.livro_id = ?
-                                ORDER BY r.exemplar_id IS NOT NULL, r.linha, r.id LIMIT ' . max(1, $limite), [$inventarioId, $livroId]);
+                                ORDER BY r.linha, r.id LIMIT ' . max(1, $limite), [$inventarioId, $livroId]);
         foreach ($linhas as &$l) {
             $orig = json_decode((string)$l['dados_originais'], true) ?: [];
             $l['dados_originais'] = $orig;
@@ -293,13 +303,14 @@ final class InventarioRepository
         $divergente = '(i.divergencia_local OR i.divergencia_estado OR i.divergencia_situacao)';
         $aberto = 'EXISTS (SELECT 1 FROM emprestimos m WHERE m.exemplar_id = i.exemplar_id AND m.data_devolucao IS NULL)';
         return match ($filtro) {
-            'a_conferir' => "i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio'",
+            'a_conferir' => "i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND i.obra_localizada_em IS NULL AND COALESCE(i.decisao, '') <> 'registrar_extravio'",
+            'obra_localizada' => 'i.exemplar_id IS NULL AND i.conferido_em IS NULL AND i.obra_localizada_em IS NOT NULL',
             'encontrados' => 'i.conferido_em IS NOT NULL',
             'nao_localizados' => "i.conferido_em IS NULL AND (i.nao_localizado_em IS NOT NULL OR i.decisao = 'registrar_extravio')",
             'com_alertas' => 'EXISTS (SELECT 1 FROM livro_pendencias p WHERE p.livro_id = i.livro_id AND p.resolvida_em IS NULL)',
             'sem_codigo' => 'i.exemplar_id IS NULL',
-            'pendentes' => "i.decisao IS NULL AND ((i.conferido_em IS NOT NULL AND $divergente) OR (i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND NOT $aberto))",
-            'nao_conferidos' => "i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND NOT $aberto",
+            'pendentes' => "i.decisao IS NULL AND ((i.conferido_em IS NOT NULL AND $divergente) OR (i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND i.obra_localizada_em IS NULL AND NOT $aberto))",
+            'nao_conferidos' => "i.previsto = 1 AND i.conferido_em IS NULL AND i.nao_localizado_em IS NULL AND i.obra_localizada_em IS NULL AND NOT $aberto",
             'em_circulacao' => "i.previsto = 1 AND i.conferido_em IS NULL AND $aberto",
             'conferidos' => 'i.conferido_em IS NOT NULL',
             'local' => 'i.divergencia_local = 1',
@@ -414,7 +425,8 @@ final class InventarioRepository
 
     /**
      * Exemplares físicos de uma obra, com a situação de cada um NESTE inventário
-     * (Encontrado, Não localizado ou Pendente) e a linha da planilha a que foi ligado, se houver.
+     * (Encontrado, Não localizado ou Pendente), o lote de cadastro e a linha da planilha (vínculo antigo,
+     * anterior à migração 170, ou a linha do item do inventário), se houver.
      */
     public function exemplaresDaObra(int $inventarioId, int $livroId): array
     {
@@ -422,10 +434,13 @@ final class InventarioRepository
                                     (SELECT COUNT(*) FROM exemplar_ocorrencias oc WHERE oc.exemplar_id = e.id AND oc.status = 'aberta') AS ocorrencias_abertas,
                                     lo.setor, lo.estante, lo.prateleira, lo.complemento,
                                     i.id AS item_id, i.conferido_em, i.nao_localizado_em, i.decisao, i.previsto, i.cadastrado_no_inventario,
-                                    r.linha AS origem_linha, r.arquivo AS origem_arquivo,
+                                    COALESCE(r.linha, rl.linha) AS origem_linha, COALESCE(r.arquivo, rl.arquivo) AS origem_arquivo,
+                                    e.lote_id, cl.numero AS lote_numero,
                                     (SELECT m.id FROM emprestimos m WHERE m.exemplar_id = e.id AND m.data_devolucao IS NULL LIMIT 1) AS emprestimo_aberto
                              FROM exemplares e
                              LEFT JOIN localizacoes lo ON lo.id = e.localizacao_id
+                             LEFT JOIN cadastro_lotes cl ON cl.id = e.lote_id
+                             LEFT JOIN registros_legados rl ON rl.exemplar_id = e.id
                              LEFT JOIN inventario_itens i ON i.exemplar_id = e.id AND i.inventario_id = ?
                              LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
                              WHERE e.livro_id = ? ORDER BY e.situacao = 'baixado', e.codigo_individual", [$inventarioId, $livroId]);
@@ -437,7 +452,7 @@ final class InventarioRepository
      */
     public function registrosSemExemplar(int $inventarioId, int $livroId): array
     {
-        return $this->todas('SELECT i.id, i.conferido_em, i.nao_localizado_em, i.nao_localizado_obs, i.decisao, r.arquivo AS origem_arquivo, r.linha AS origem_linha,
+        return $this->todas('SELECT i.id, i.conferido_em, i.nao_localizado_em, i.nao_localizado_obs, i.obra_localizada_em, i.decisao, r.arquivo AS origem_arquivo, r.linha AS origem_linha,
                                     r.localizacao_antiga, r.quantidade_informada, np.nome AS nao_localizado_por_nome
                              FROM inventario_itens i
                              LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
@@ -491,7 +506,7 @@ final class InventarioRepository
                                        (SELECT COUNT(*) FROM livro_pendencias p WHERE p.livro_id = l.id AND p.resolvida_em IS NULL) AS alertas,
                                        (SELECT GROUP_CONCAT(au.nome ORDER BY la.ordem SEPARATOR ", ") FROM livro_autores la JOIN autores au ON au.id = la.autor_id WHERE la.livro_id = l.id) AS autores,
                                        (SELECT SUM(r.quantidade_informada) FROM registros_legados r WHERE r.livro_id = l.id) AS quantidade_planilha,
-                                       (SELECT COUNT(*) FROM registros_legados r WHERE r.livro_id = l.id AND r.exemplar_id IS NULL) AS linhas_sem_vinculo,
+                                       (SELECT COUNT(*) FROM registros_legados r WHERE r.livro_id = l.id AND NOT EXISTS (SELECT 1 FROM exemplares ee WHERE ee.livro_id = l.id AND ee.situacao <> \'baixado\')) AS linhas_sem_vinculo,
                                        (SELECT r.localizacao_antiga FROM registros_legados r WHERE r.livro_id = l.id AND r.localizacao_antiga IS NOT NULL ORDER BY r.id DESC LIMIT 1) AS localizacao_antiga
                                 FROM livros l WHERE ' . implode(' AND ', $where) . ' ORDER BY l.titulo IS NULL, l.titulo NOT LIKE ?, l.titulo, l.id LIMIT ' . ($limite + 1) . ' OFFSET ' . (($pagina - 1) * $limite), array_merge($params, [addcslashes(trim($q), '%_\\') . '%']));
         $mais = count($livros) > $limite;
@@ -512,7 +527,7 @@ final class InventarioRepository
             $porLivro[(int)$ex['livro_id']][] = $ex;
         }
         // Registros ainda sem exemplar neste inventário (linhas da planilha a conferir).
-        $registros = $this->todas("SELECT i.id, i.livro_id, i.conferido_em, i.nao_localizado_em, r.arquivo, r.linha, r.localizacao_antiga
+        $registros = $this->todas("SELECT i.id, i.livro_id, i.conferido_em, i.nao_localizado_em, i.obra_localizada_em, r.arquivo, r.linha, r.localizacao_antiga
                                    FROM inventario_itens i LEFT JOIN registros_legados r ON r.importacao_item_id = i.importacao_item_id
                                    WHERE i.inventario_id = ? AND i.exemplar_id IS NULL AND i.livro_id IN ($marcas) ORDER BY i.id", array_merge([$inventarioId], $ids));
         $regPorLivro = [];

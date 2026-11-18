@@ -246,8 +246,11 @@ confere('em preparação ainda não tem lista prevista', $num('SELECT COUNT(*) F
 confere('não pode ser concluído sem ter começado', recusa(fn () => $invServ->concluir($inv, $bibId)) !== null);
 $ativosAntes = $num("SELECT COUNT(*) FROM exemplares WHERE situacao NOT IN ('baixado', 'extraviado')");
 $previstos = $invServ->iniciar($inv, $bibId);
-$linhasSemVinculo = $num('SELECT COUNT(*) FROM registros_legados WHERE exemplar_id IS NULL');
-confere('ao iniciar, a lista prevista é congelada (exemplares ativos + linhas da planilha sem exemplar)', $previstos === $ativosAntes + $linhasSemVinculo
+// Migração 170: entram as linhas de obras que ainda não têm nenhum exemplar (a linha descreve a obra).
+$linhasSemVinculo = $num("SELECT COUNT(*) FROM registros_legados r JOIN livros l ON l.id = r.livro_id AND l.arquivado_em IS NULL
+                          JOIN importacao_itens it ON it.id = r.importacao_item_id AND it.resultado_importacao <> 'vinculado'
+                          WHERE NOT EXISTS (SELECT 1 FROM exemplares e WHERE e.livro_id = r.livro_id AND e.situacao <> 'baixado')");
+confere('ao iniciar, a lista prevista é congelada (exemplares ativos + linhas da planilha de obras sem exemplar)', $previstos === $ativosAntes + $linhasSemVinculo
     && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND previsto = 1 AND exemplar_id IS NOT NULL', [$inv]) === $ativosAntes, "$previstos / $ativosAntes + $linhasSemVinculo");
 $inv2 = $invServ->criar(['titulo' => 'Segundo inventário', 'data_inicio' => $hoje, 'responsavel_id' => $bibId, 'setor' => 'Literatura'], $bibId);
 confere('só um inventário em andamento por vez', recusa(fn () => $invServ->iniciar($inv2, $bibId)) !== null);

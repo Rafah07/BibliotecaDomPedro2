@@ -62,6 +62,11 @@ final class RelatorioService
         'sem_exemplar' => 'Sem exemplar físico cadastrado', 'duplicidade' => 'Possíveis duplicidades',
     ];
 
+    /** Origem do cadastro da obra (livros.origem_cadastro). Todas fazem parte do mesmo acervo. */
+    public const ORIGENS = ['planilha' => 'Importada da planilha', 'manual' => 'Cadastrada manualmente (acervo)', 'inventario' => 'Cadastrada manualmente (conferência)'];
+    /** Opções do filtro de origem (manual = acervo + conferência). */
+    public const FILTRO_ORIGENS = ['planilha' => 'Importada da planilha', 'manual' => 'Cadastrada manualmente (todas)', 'inventario' => 'Cadastrada na conferência do inventário'];
+
     public const SITUACOES_EMPRESTIMO = ['todos' => 'Todos', 'ativos' => 'Ativos', 'atrasados' => 'Atrasados', 'concluidos' => 'Concluídos (devolvidos)'];
     public const FAIXAS_ATRASO = ['1_7' => '1 a 7 dias', '8_15' => '8 a 15 dias', '16' => 'Mais de 15 dias'];
     public const TURNOS = ['manha' => 'Manhã', 'tarde' => 'Tarde', 'noite' => 'Noite', 'integral' => 'Integral', 'nao_informado' => 'Não informado'];
@@ -103,7 +108,7 @@ final class RelatorioService
     {
         return [
             'livros' => ['secao' => 'acervo', 'titulo' => 'Registros bibliográficos', 'colunas' => ['id' => 'ID', 'titulo' => 'Título', 'autores' => 'Autor(es)', 'categorias' => 'Categoria',
-                'editora' => 'Editora', 'ano' => 'Ano', 'isbn' => 'ISBN', 'exemplares' => 'Exemplares físicos', 'historica' => 'Quantidade na planilha (histórica)', 'status' => 'Situação do registro'],
+                'editora' => 'Editora', 'ano' => 'Ano', 'isbn' => 'ISBN', 'exemplares' => 'Exemplares físicos', 'historica' => 'Quantidade na planilha (histórica)', 'status' => 'Situação do registro', 'origem' => 'Origem do cadastro'],
                 'tipos' => ['id' => 'numero', 'isbn' => 'codigo', 'exemplares' => 'numero', 'ano' => 'codigo']],
             'duplicidades' => ['secao' => 'acervo', 'titulo' => 'Possíveis duplicidades (mesmo título e mesmo autor principal)', 'colunas' => ['titulo' => 'Título', 'autores' => 'Autor(es)',
                 'registros' => 'Registros', 'ids' => 'IDs dos registros', 'editoras' => 'Editoras', 'anos' => 'Anos'], 'tipos' => ['registros' => 'numero']],
@@ -113,7 +118,7 @@ final class RelatorioService
             'cadastros' => ['secao' => 'acervo', 'titulo' => 'Registros cadastrados no sistema ao longo do tempo', 'colunas' => ['rotulo' => 'Período', 'valor' => 'Registros cadastrados'], 'tipos' => ['valor' => 'numero']],
 
             'exemplares' => ['secao' => 'exemplares', 'titulo' => 'Exemplares físicos', 'colunas' => ['codigo' => 'Código BDP', 'titulo' => 'Título', 'autores' => 'Autor(es)', 'situacao' => 'Situação',
-                'conservacao' => 'Conservação', 'localizacao' => 'Localização', 'conferido' => 'Última conferência', 'cadastrado' => 'Cadastrado em'], 'tipos' => ['codigo' => 'codigo']],
+                'conservacao' => 'Conservação', 'localizacao' => 'Localização', 'conferido' => 'Última conferência', 'cadastrado' => 'Cadastrado em', 'origem' => 'Origem da obra'], 'tipos' => ['codigo' => 'codigo']],
             'localizacoes' => ['secao' => 'exemplares', 'titulo' => 'Exemplares por estante, setor e prateleira', 'colunas' => ['localizacao' => 'Localização', 'codigo' => 'Código da localização',
                 'total' => 'Exemplares', 'disponiveis' => 'Disponíveis', 'emprestados' => 'Emprestados', 'outros' => 'Outras situações'],
                 'tipos' => ['codigo' => 'codigo', 'total' => 'numero', 'disponiveis' => 'numero', 'emprestados' => 'numero', 'outros' => 'numero']],
@@ -235,7 +240,7 @@ final class RelatorioService
             'exemplares' => array_map(fn ($e) => [
                 'codigo' => $e['codigo_individual'], 'titulo' => $e['titulo'], 'autores' => self::ni($e['autores']), 'situacao' => ExemplarService::rotuloSituacao($e['situacao']),
                 'conservacao' => ExemplarService::rotuloConservacao($e['estado_conservacao']), 'localizacao' => self::local($e), 'conferido' => self::data($e['conferido_em'], true, 'Nunca conferido'),
-                'cadastrado' => self::data($e['criado_em']), '_exemplar_id' => (int)$e['id'], '_livro_id' => (int)$e['livro_id'],
+                'cadastrado' => self::data($e['criado_em']), 'origem' => self::ORIGENS[$e['origem_cadastro']] ?? (string)$e['origem_cadastro'], '_exemplar_id' => (int)$e['id'], '_livro_id' => (int)$e['livro_id'],
             ], $this->repo->exemplares($f, $offset, $limite)),
             'localizacoes' => array_map(fn ($l) => [
                 'localizacao' => $l['id'] === null ? 'Sem localização definida' : self::local($l) . ((int)$l['ativa'] ? '' : ' (desativada)'), 'codigo' => (string)($l['codigo'] ?? ''),
@@ -343,8 +348,16 @@ final class RelatorioService
                     self::card('Sem ano de publicação', $a['sem_ano'], 'Ano não informado', 'calendar', 'amber', ['pendencia' => 'sem_ano']),
                     self::card('Informações incompletas', $a['incompletos'], 'Falta autor, editora ou ano', 'triangle-alert', 'red', ['pendencia' => 'incompletos']),
                     self::card('Possíveis duplicidades', $a['duplicidade'], 'Registros com mesmo título e autor', 'copy', 'red', ['pendencia' => 'duplicidade']),
-                    self::card('Sem exemplar físico', $a['sem_exemplar'], 'Registros ainda sem código BDP', 'book-x', 'red', ['pendencia' => 'sem_exemplar']),
+                    self::card('Sem exemplar físico', $a['sem_exemplar'], 'Obras ainda sem nenhuma cópia com código BDP', 'book-x', 'red', ['pendencia' => 'sem_exemplar']),
                     self::card('Quantidade histórica das planilhas', $a['quantidade_historica'], 'Só referência: não confirmada fisicamente', 'file-spreadsheet', 'muted'),
+                    self::card('Importadas da planilha', $a['origem_planilha'], $pct($a['origem_planilha'], $a['total']) . ' dos registros', 'file-spreadsheet', 'blue', ['origem' => 'planilha']),
+                    self::card('Cadastradas manualmente', $a['origem_manual'], $a['origem_conferencia'] . ' na conferência do inventário', 'book-plus', 'indigo', ['origem' => 'manual']),
+                    self::card('Obras verificadas', $a['verificadas'], $pct($a['verificadas'], $a['total']) . ' das obras (dados conferidos com o livro)', 'circle-check', 'green'),
+                    self::card('Registros originais da planilha', $a['registros_originais'], 'Linhas importadas (descrevem obras, não exemplares)', 'file-spreadsheet', 'muted'),
+                    self::card('Registros associados', $a['registros_associados'], 'De obras já verificadas · ' . $a['registros_com_exemplar'] . ' de obras com exemplar', 'link', 'green'),
+                    self::card('Exemplares registrados', $a['exemplares_registrados'], 'Cópias físicas com código BDP (no acervo)', 'book-copy', 'blue'),
+                    self::card('Exemplares encontrados', $a['exemplares_encontrados'], 'Conferidos fisicamente ao menos uma vez', 'square-check', 'green'),
+                    self::card('Divergências de quantidade', $a['divergencias_quantidade'], 'Obras verificadas com quantidade histórica diferente da física (investigar)', 'git-compare-arrows', 'amber'),
                 ];
                 if ($p->limitado()) {
                     $cards[] = self::card('Cadastrados no sistema no período', $this->repo->contarLivros(['periodo' => $p]), 'Data de cadastro, não de aquisição', 'book-plus', 'indigo');
@@ -634,7 +647,7 @@ final class RelatorioService
             'id' => (int)$l['id'], 'titulo' => $l['titulo'] . ($l['subtitulo'] ? ': ' . $l['subtitulo'] : ''), 'autores' => self::ni($l['autores']),
             'categorias' => self::ni($l['categorias']), 'editora' => self::ni($l['editora']), 'ano' => self::ni($l['ano_publicacao']), 'isbn' => self::ni($l['isbn']),
             'exemplares' => (int)$l['exemplares'], 'historica' => $l['quantidade_historica'] === null ? 'Não informado' : (string)(int)$l['quantidade_historica'],
-            'status' => self::STATUS_LIVRO[$l['status_validacao']] ?? $l['status_validacao'], '_livro_id' => (int)$l['id'],
+            'status' => self::STATUS_LIVRO[$l['status_validacao']] ?? $l['status_validacao'], 'origem' => self::ORIGENS[$l['origem_cadastro']] ?? (string)$l['origem_cadastro'], '_livro_id' => (int)$l['id'],
         ];
     }
 
