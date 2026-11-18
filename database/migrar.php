@@ -10,8 +10,9 @@
  * Cada arquivo roda uma única vez e fica registrado em "schema_migracoes".
  * As migrações só criam ou acrescentam estruturas: nenhuma apaga dados existentes.
  * Observação: no MySQL, comandos de estrutura (CREATE/ALTER) confirmam a transação
- * automaticamente; se um arquivo falhar no meio, corrija o problema e consulte
- * o estado do banco antes de rodar de novo.
+ * automaticamente. Se um arquivo falhar no meio, basta corrigir o problema e rodar de novo:
+ * tabelas, colunas, índices e gatilhos que ele já tinha criado são reconhecidos e pulados
+ * (migracao_ja_existe). Colunas só são puladas quando TODAS as do comando já existem.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -90,11 +91,21 @@ foreach ($pendentes as $arquivo) {
     $nome = basename($arquivo);
     echo "Aplicando $nome... ";
     try {
+        $pulados = 0;
         foreach (migracao_comandos(file_get_contents($arquivo)) as $sql) {
-            $pdo->exec($sql);
+            try {
+                $pdo->exec($sql);
+            } catch (PDOException $e) {
+                // Arquivo que parou no meio numa tentativa anterior: o que ele já criou é reconhecido
+                // e pulado (só quando a estrutura existe por inteiro); qualquer outro erro interrompe.
+                if (!migracao_ja_existe($pdo, $sql, (int)($e->errorInfo[1] ?? 0))) {
+                    throw $e;
+                }
+                $pulados++;
+            }
         }
         $pdo->prepare('INSERT INTO schema_migracoes (arquivo) VALUES (?)')->execute([$nome]);
-        echo "ok\n";
+        echo $pulados ? "ok ($pulados comando(s) já aplicado(s) antes, pulado(s))\n" : "ok\n";
     } catch (PDOException $e) {
         echo "ERRO\n";
         fwrite(STDERR, $e->getMessage() . "\n");
@@ -135,4 +146,33 @@ function migracao_comandos(string $sql): array
         $comandos[] = trim($atual);
     }
     return $comandos;
+}
+
+/**
+ * Diz se um comando recusado só falhou porque o que ele cria já existe (aplicação anterior
+ * interrompida no meio). Nunca apaga nem altera nada: apenas consulta a estrutura.
+ *   1050 tabela já existe · 1060 coluna já existe · 1061 índice já existe
+ *   1359 gatilho já existe · 1826 chave estrangeira já existe
+ */
+function migracao_ja_existe(PDO $pdo, string $sql, int $codigo): bool
+{
+    $sql = preg_replace('/\s+/', ' ', trim($sql));
+    if (in_array($codigo, [1050, 1061, 1359, 1826], true)) {
+        return (bool)preg_match('/^(CREATE (TABLE|TRIGGER|(UNIQUE )?INDEX)|ALTER TABLE)\b/i', $sql);
+    }
+    if ($codigo !== 1060 || !preg_match('/^ALTER TABLE `?(\w+)`?/i', $sql, $t)) {
+        return false;
+    }
+    preg_match_all('/\bADD (?:COLUMN )?(?!INDEX\b|KEY\b|UNIQUE\b|CONSTRAINT\b|FOREIGN\b|PRIMARY\b|FULLTEXT\b)`?(\w+)`?/i', $sql, $m);
+    if (!$m[1] || preg_match('/\b(MODIFY|CHANGE|DROP|RENAME)\b/i', $sql)) {
+        return false;
+    }
+    $existe = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+    foreach (array_unique($m[1]) as $coluna) {
+        $existe->execute([$t[1], $coluna]);
+        if (!(int)$existe->fetchColumn()) {
+            return false; // falta uma coluna: não é só repetição, o erro precisa aparecer
+        }
+    }
+    return true;
 }
