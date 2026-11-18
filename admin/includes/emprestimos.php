@@ -34,6 +34,7 @@ const EMPRESTIMOS_MOVIMENTOS = [
     'baixa' => ['label' => 'Baixa', 'icone' => 'archive', 'tom' => 'red'],
     'conservacao' => ['label' => 'Conservação', 'icone' => 'wrench', 'tom' => 'blue'],
     'situacao' => ['label' => 'Situação', 'icone' => 'refresh-cw', 'tom' => 'blue'],
+    'obra' => ['label' => 'Obra corrigida', 'icone' => 'book-copy', 'tom' => 'indigo'],
 ];
 
 function emprestimos_regras(): RegrasCirculacao

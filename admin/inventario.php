@@ -35,6 +35,7 @@ admin_page_start('inventario', 'Inventário', 'Inventário', 'Conferência digit
         <p>Confira os exemplares físicos digitando o código BDP escrito na etiqueta (ex.: BDP-000001). Ausências e divergências nunca alteram o cadastro sozinhas: cada uma pede uma decisão.</p>
     </div>
     <div class="adm-page-head__actions">
+        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-comparacao')) ?>"><?= icon('git-compare') ?> Comparar com planilha original</a>
         <?php if ($podeGerenciar): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-editar')) ?>"><?= icon('plus') ?> Novo inventário</a><?php endif; ?>
     </div>
 </section>

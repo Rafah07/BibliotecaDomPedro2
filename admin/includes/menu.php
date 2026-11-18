@@ -48,6 +48,7 @@ const ADMIN_MENU = [
         'lotes-produtividade' => ['label' => 'Relatório de Produtividade', 'icon' => 'chart-column', 'arquivo' => 'lotes-produtividade.php', 'pronta' => true, 'pai' => 'inventario', 'permissao' => 'lotes.gerenciar'],
         'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-relatorio' => ['label' => 'Relatório do inventário', 'icon' => 'file-chart-column', 'arquivo' => 'inventario-relatorio.php', 'pronta' => true, 'oculto' => true],
+        'inventario-comparacao' => ['label' => 'Comparar com planilha original', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'oculto' => true],
     ],
     'Circulação' => [
         // Circulação: só para quem pode ver empréstimos (dados pessoais dos alunos).
