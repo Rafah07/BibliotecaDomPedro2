@@ -12,6 +12,9 @@ const ADMIN_MENU = [
         'acervo' => ['label' => 'Acervo', 'icon' => 'library-big', 'arquivo' => 'livros.php', 'pronta' => true],
         // Submenu Acervo → Classificação CDD (Etapa 4).
         'classificacao' => ['label' => 'Classificação CDD', 'icon' => 'list-tree', 'arquivo' => 'classificacao.php', 'pronta' => true, 'pai' => 'acervo'],
+        // Gestão permanente do acervo (migração 190): qualidade dos dados e novas entradas.
+        'qualidade' => ['label' => 'Qualidade do acervo', 'icon' => 'sparkles', 'arquivo' => 'qualidade.php', 'pronta' => true, 'pai' => 'acervo', 'permissao' => 'qualidade.ver'],
+        'aquisicoes' => ['label' => 'Aquisições', 'icon' => 'inbox', 'arquivo' => 'aquisicoes.php', 'pronta' => true, 'pai' => 'acervo'],
         'classificar-livro' => ['label' => 'Classificar livro', 'icon' => 'book-marked', 'arquivo' => 'classificar-livro.php', 'pronta' => true, 'oculto' => true],
         'revisao-cdd' => ['label' => 'Fila de aprovação CDD', 'icon' => 'list-checks', 'arquivo' => 'revisao-cdd.php', 'pronta' => true, 'oculto' => true],
         'historico-cdd' => ['label' => 'Histórico CDD', 'icon' => 'history', 'arquivo' => 'historico-cdd.php', 'pronta' => true, 'oculto' => true],
@@ -21,6 +24,8 @@ const ADMIN_MENU = [
         'planilha-bdp' => ['label' => 'Planilha de Códigos BDP', 'icon' => 'stamp', 'arquivo' => 'planilha-bdp.php', 'pronta' => true, 'pai' => 'exemplares'],
         'ocorrencias' => ['label' => 'Ocorrências e Conservação', 'icon' => 'triangle-alert', 'arquivo' => 'ocorrencias.php', 'pronta' => true, 'pai' => 'exemplares'],
         'acoes-recentes' => ['label' => 'Ações recentes (desfazer)', 'icon' => 'undo-2', 'arquivo' => 'acoes-recentes.php', 'pronta' => true, 'pai' => 'exemplares'],
+        'baixas' => ['label' => 'Baixas do acervo', 'icon' => 'package-x', 'arquivo' => 'baixas.php', 'pronta' => true, 'pai' => 'exemplares'],
+        'planilha-bdp-versoes' => ['label' => 'Versões da Planilha BDP', 'icon' => 'file-text', 'arquivo' => 'planilha-bdp-versoes.php', 'pronta' => true, 'oculto' => true],
         'cadastrar-exemplar' => ['label' => 'Cadastrar exemplar', 'icon' => 'book-plus', 'arquivo' => 'cadastrar-exemplar.php', 'pronta' => true, 'oculto' => true],
         // Organização Física (migração 140): setores, estantes, prateleiras, responsáveis e etiquetas.
         'organizacao-fisica' => ['label' => 'Organização Física', 'icon' => 'columns-3', 'arquivo' => 'organizacao-fisica.php', 'pronta' => true],
@@ -47,8 +52,8 @@ const ADMIN_MENU = [
         'lote' => ['label' => 'Relatório do lote', 'icon' => 'layers', 'arquivo' => 'lote.php', 'pronta' => true, 'oculto' => true],
         'lotes-produtividade' => ['label' => 'Relatório de Produtividade', 'icon' => 'chart-column', 'arquivo' => 'lotes-produtividade.php', 'pronta' => true, 'pai' => 'inventario', 'permissao' => 'lotes.gerenciar'],
         'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
+        'inventario-comparacao' => ['label' => 'Comparação com planilha', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-relatorio' => ['label' => 'Relatório do inventário', 'icon' => 'file-chart-column', 'arquivo' => 'inventario-relatorio.php', 'pronta' => true, 'oculto' => true],
-        'inventario-comparacao' => ['label' => 'Comparar com planilha original', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'oculto' => true],
     ],
     'Circulação' => [
         // Circulação: só para quem pode ver empréstimos (dados pessoais dos alunos).
@@ -76,6 +81,7 @@ const ADMIN_MENU = [
         'importar-alunos' => ['label' => 'Importar Alunos', 'icon' => 'users', 'arquivo' => 'importar-alunos.php', 'pronta' => true, 'permissao' => 'alunos.importar'],
         // Central de relatórios (Etapa 5). "Atividades" abre a seção de atividades da mesma página.
         'relatorios' => ['label' => 'Relatórios', 'icon' => 'chart-column', 'arquivo' => 'relatorios.php', 'pronta' => true, 'permissao' => 'relatorios.ver'],
+        'relatorio-circulacao' => ['label' => 'Circulação do acervo', 'icon' => 'book-open-check', 'arquivo' => 'relatorio-circulacao.php', 'pronta' => true, 'pai' => 'relatorios', 'permissao' => 'relatorios.ver'],
         'relatorio-atividades' => ['label' => 'Relatório de Atividades', 'icon' => 'activity', 'arquivo' => 'relatorio-atividades.php', 'pronta' => true, 'permissao' => 'relatorios.ver'],
         'atividades' => ['label' => 'Atividades', 'icon' => 'history', 'arquivo' => 'relatorios.php?secao=atividades', 'pronta' => true, 'permissao' => 'relatorios.atividades'],
     ],
@@ -88,7 +94,8 @@ const ADMIN_MENU = [
         // Configurações gerais, perfis e manutenção (Etapa 6).
         'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings', 'arquivo' => 'configuracoes.php', 'pronta' => true, 'permissao' => 'configuracoes.ver'],
         'permissoes' => ['label' => 'Perfis e permissões', 'icon' => 'shield-check', 'arquivo' => 'permissoes.php', 'pronta' => true, 'pai' => 'configuracoes'],
-        'manutencao' => ['label' => 'Manutenção', 'icon' => 'wrench', 'arquivo' => 'manutencao.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
+        'manutencao' => ['label' => 'Manutenção e backups', 'icon' => 'wrench', 'arquivo' => 'manutencao.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
+        'diagnostico' => ['label' => 'Diagnóstico do sistema', 'icon' => 'activity', 'arquivo' => 'diagnostico.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
         // Central de Ajuda (Etapa 10): agrupada em Configurações, mas aberta a todos os perfis (painel.ver),
         // inclusive a quem não pode ver as configurações. Também fica no menu do perfil (header.php).
         'ajuda' => ['label' => 'Tutorial do Sistema', 'icon' => 'circle-help', 'arquivo' => 'ajuda.php', 'pronta' => true, 'pai' => 'configuracoes'],

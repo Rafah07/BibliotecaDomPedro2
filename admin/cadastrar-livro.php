@@ -10,6 +10,9 @@ $duplicados = [];
 $valores = ['idioma' => 'Português', 'status_validacao' => 'aguardando_conferencia'];
 $simulado = false;
 $falha = null;
+// Vindo de uma aquisição (migração 190): depois de salvar a obra, abre o registro dos exemplares recebidos.
+$aquisicaoId = (int)($_POST['aquisicao'] ?? $_GET['aquisicao'] ?? 0) ?: null;
+$camposOcultos = $aquisicaoId ? ['aquisicao' => (string)$aquisicaoId] : [];
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     admin_exigir_csrf();
@@ -34,13 +37,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 if ($r['cdd']) {
                     admin_flash('aviso', 'CDD não registrada', $r['cdd']);
                 }
-                admin_redirecionar(admin_param($_POST, 'acao') === 'salvar_novo'
-                    ? admin_url('cadastrar-livro')
-                    : admin_url('detalhes-livro') . '?id=' . $r['id']);
+                admin_redirecionar($aquisicaoId
+                    ? admin_url('cadastrar-exemplar') . '?livro=' . $r['id'] . '&modo=varios&aquisicao=' . $aquisicaoId
+                    : (admin_param($_POST, 'acao') === 'salvar_novo' ? admin_url('cadastrar-livro') : admin_url('detalhes-livro') . '?id=' . $r['id']));
             }
         } catch (PDOException $e) {
-            error_log('[biblioteca] Erro ao cadastrar livro: ' . $e->getMessage());
-            $falha = 'Não foi possível gravar o livro. Tente novamente; se o problema continuar, avise o responsável pelo sistema.';
+            $id = Biblioteca\Support\RegistroErros::registrar($e, 'cadastro de obra', ['usuario_id' => $usuario['id'] ?? null]);
+            $falha = Biblioteca\Support\RegistroErros::mensagemUsuario($e, $id);
         }
     }
 }

@@ -162,7 +162,7 @@ admin_page_start('organizacao-mapa', 'Mapa das estantes', 'Organização Física
                      <?= $podeEditar ? 'tabindex="0" aria-label="Estante ' . e($e['identificacao']) . ': use as setas para mover"' : '' ?>>
                     <span class="adm-mapa__id"><?= e($e['identificacao']) ?></span>
                     <strong class="adm-mapa__nome"><?= e($e['nome'] ?: 'Estante ' . $e['identificacao']) ?></strong>
-                    <span class="adm-mapa__info"><?= fisico_numero((int)$e['prateleiras']) ?> prat. · <?= fisico_numero((int)$e['exemplares']) ?> ex.<?= (int)$e['ativa'] ? '' : ' · desativada' ?></span>
+                    <span class="adm-mapa__info"><?= fisico_numero((int)$e['prateleiras']) ?> prat. · <?= fisico_numero((int)$e['exemplares']) ?> ex.<?= !empty($e['capacidade']) ? ' · ~' . (int)round((int)$e['exemplares'] * 100 / max(1, (int)$e['capacidade'])) . '% ocupada' : '' ?><?= !empty($e['lotadas']) ? ' · ' . (int)$e['lotadas'] . ' prat. lotada(s)' : '' ?><?= (int)$e['ativa'] ? '' : ' · desativada' ?></span>
                     <a class="adm-mapa__abrir" href="<?= e(admin_url('organizacao-fisica') . '?estante=' . $eid) ?>" draggable="false"><?= icon('eye') ?> Abrir</a>
                 </div>
             <?php endforeach; ?>

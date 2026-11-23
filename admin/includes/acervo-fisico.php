@@ -40,6 +40,19 @@ use Biblioteca\Services\VinculoObraService;
 const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261118a', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261115mob'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261115des'];
 
+/** Origem das novas entradas no acervo (Aquisições, migração 190). */
+const AQUISICAO_TIPOS = ['compra' => 'Compra', 'doacao' => 'Doação', 'transferencia' => 'Transferência', 'outro' => 'Outra origem'];
+
+/** Motivos da baixa administrativa (migração 190). */
+const BAIXA_TIPOS = [
+    'extravio' => 'Extravio confirmado',
+    'dano' => 'Dano irreparável',
+    'descarte' => 'Descarte autorizado',
+    'doacao' => 'Doação a outra instituição',
+    'substituicao' => 'Substituição por outro exemplar',
+    'outro' => 'Outro motivo justificado',
+];
+
 const INVENTARIO_TONS = ['aberto' => 'blue', 'em_andamento' => 'green', 'pausado' => 'amber', 'concluido' => 'indigo', 'cancelado' => 'muted'];
 
 function exemplares_repo(): ExemplarRepository
@@ -551,15 +564,18 @@ function fisico_exigir(string $permissao): void
 }
 
 /** Só o tipo do erro vai para o log; a tela recebe uma mensagem genérica. */
-function fisico_erro_tecnico(Throwable $e, string $contexto): string
+function fisico_erro_tecnico(Throwable $e, string $contexto, bool $resultadoIncerto = false): string
 {
-    $codigo = $e instanceof PDOException ? ' ' . ($e->errorInfo[1] ?? $e->getCode()) : '';
-    error_log('[biblioteca] Erro em ' . $contexto . ': ' . get_class($e) . $codigo . ' em ' . basename($e->getFile()) . ':' . $e->getLine());
+    // Registro técnico protegido (storage/logs) com um código que a equipe pode informar.
+    $id = Biblioteca\Support\RegistroErros::registrar($e, $contexto, ['usuario_id' => auth_usuario()['id'] ?? null]);
     if ($e instanceof PDOException && (int)($e->errorInfo[1] ?? 0) === 1644) {
         // Regra do banco (gatilho): a mensagem foi escrita para a tela.
         return (string)($e->errorInfo[2] ?? 'Operação recusada pelo banco de dados.');
     }
-    return 'Não foi possível concluir a operação. Nada foi gravado. Tente novamente; se o problema continuar, verifique se as migrações foram aplicadas (php database/migrar.php).';
+    if (Biblioteca\Support\Migracoes::conexaoPerdida($e) || ($e instanceof PDOException && in_array((int)($e->errorInfo[1] ?? 0), [1054, 1146, 1142, 1143], true))) {
+        return Biblioteca\Support\RegistroErros::mensagemUsuario($e, $id, true, $resultadoIncerto);
+    }
+    return 'Não foi possível concluir a operação. Nada foi gravado e suas informações foram preservadas. Tente novamente; se o problema continuar, informe o código ' . $id . ' ao responsável pelo sistema.';
 }
 
 function fisico_numero(int|float $n): string
@@ -632,6 +648,17 @@ function fisico_select_situacao(string $nome, string $selecionada = 'disponivel'
         $html .= '<option value="' . $valor . '"' . ($valor === $selecionada ? ' selected' : '') . '>' . e($dicas[$valor]) . '</option>';
     }
     return $html . '</select>';
+}
+
+/** Barra de ocupação estimada da prateleira (migração 190). Vazio quando a capacidade não foi informada. */
+function fisico_ocupacao_html(int $exemplares, $capacidade): string
+{
+    if ($capacidade === null || $capacidade === '') {
+        return '';
+    }
+    $o = Biblioteca\Services\OrganizacaoFisicaService::ocupacao($exemplares, (int)$capacidade);
+    return ' <span class="adm-ocupacao is-' . e($o['estado']) . '" title="Estimativa: os livros têm tamanhos diferentes"><span class="adm-ocupacao__barra"><span style="width:' . min(100, (int)$o['pct']) . '%"></span></span>'
+        . e($o['rotulo']) . ' · ' . (int)$o['pct'] . '% de ~' . (int)$capacidade . ($o['livres'] > 0 ? ' · ~' . (int)$o['livres'] . ' vaga(s)' : '') . '</span>';
 }
 
 /** Cartão de número (mesmo visual do dashboard e dos empréstimos). */

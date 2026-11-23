@@ -152,6 +152,139 @@ final class ExemplarService
         });
     }
 
+    /** Máximo de cópias físicas num único "Registrar vários exemplares". */
+    public const LIMITE_EM_QUANTIDADE = 50;
+
+    /**
+     * "Registrar vários exemplares" (migração 190): cria $copias exemplares físicos INDIVIDUAIS da mesma
+     * obra, cada um com o próprio código BDP gerado pelo servidor, numa ÚNICA transação: ou todos são
+     * gravados, ou nenhum (falha no meio não deixa parte gravada).
+     *
+     * $comuns: situacao ('disponivel' | 'aguardando'), localizacao_id (sugerida a todos), observacoes,
+     *          estado_conservacao (só quando a pessoa conferiu todas as cópias e escolheu aplicar a mesma
+     *          avaliação; senão cada cópia nasce "Não avaliado" ou com a avaliação própria).
+     * $copias: uma entrada por cópia física: [estado_conservacao?, observacoes?, localizacao_id?] — o que
+     *          vier preenchido vale só para aquela cópia.
+     * $chave:  identificador único do envio do formulário (gerado pelo servidor ao abrir a página). É
+     *          gravado na mesma transação: se o mesmo envio chegar de novo (clique duplo, conexão perdida,
+     *          página recarregada), nada é criado outra vez e OperacaoJaConcluidaException devolve os
+     *          códigos já atribuídos. Dois envios simultâneos com a mesma chave: o segundo espera o
+     *          primeiro e recebe o resultado dele.
+     * $entrada: aquisicao_id e data_entrada (Aquisições), opcionais.
+     *
+     * A vaga no lote ativo é conferida com a linha do lote bloqueada (LoteCapacidadeException quando não
+     * cabem todos — nunca distribui entre lotes sozinho) e a sequência BDP é a mesma de todos os cadastros.
+     * @return list<array{id: int, codigo: string, carimbo: string, situacao: string, lote_id: ?int, lote_ordem: ?int, lote_fechou: bool}>
+     */
+    public function cadastrarEmQuantidade(int $livroId, array $comuns, array $copias, int $responsavelId, ?string $chave = null, array $entrada = []): array
+    {
+        $quantidade = count($copias);
+        if ($quantidade < 1 || $quantidade > self::LIMITE_EM_QUANTIDADE) {
+            throw new AcervoException('Informe de 1 a ' . self::LIMITE_EM_QUANTIDADE . ' exemplares por registro.');
+        }
+        $situacao = (string)($comuns['situacao'] ?? 'disponivel');
+        if (!in_array($situacao, self::SITUACOES_MANUAIS, true)) {
+            throw new AcervoException('Escolha a situação inicial dos exemplares.');
+        }
+        $estadoComum = (string)($comuns['estado_conservacao'] ?? '');
+        if ($estadoComum !== '' && !in_array($estadoComum, self::CONSERVACAO, true)) {
+            throw new AcervoException('Escolha um estado de conservação válido.');
+        }
+        $obsComum = self::textoLimpo($comuns['observacoes'] ?? null);
+        $localComum = $this->localizacaoValida($comuns['localizacao_id'] ?? null);
+        $linhas = [];
+        foreach (array_values($copias) as $i => $c) {
+            $estado = (string)($c['estado_conservacao'] ?? '') ?: ($estadoComum ?: self::NAO_AVALIADO);
+            if (!in_array($estado, self::CONSERVACAO, true)) {
+                throw new AcervoException('Cópia ' . ($i + 1) . ': escolha um estado de conservação válido.');
+            }
+            $obs = self::textoLimpo($c['observacoes'] ?? null);
+            $linhas[] = [
+                'estado' => $estado,
+                'obs' => $obs !== null && $obsComum !== null ? mb_substr($obsComum . ' · ' . $obs, 0, 500) : ($obs ?? $obsComum),
+                'local' => isset($c['localizacao_id']) && (string)$c['localizacao_id'] !== '' ? $this->localizacaoValida($c['localizacao_id']) : $localComum,
+            ];
+        }
+        $chave = $chave !== null && preg_match('/^[a-f0-9]{32}$/', $chave) ? $chave : null;
+        $aquisicaoId = !empty($entrada['aquisicao_id']) ? (int)$entrada['aquisicao_id'] : null;
+        $dataEntrada = !empty($entrada['data_entrada']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$entrada['data_entrada']) ? (string)$entrada['data_entrada'] : null;
+
+        try {
+            return $this->transacao(function () use ($livroId, $situacao, $linhas, $responsavelId, $quantidade, $chave, $aquisicaoId, $dataEntrada) {
+                if ($chave !== null) {
+                    $feito = $this->valor('SELECT resultado FROM requisicoes_idempotentes WHERE chave = ?', [$chave]);
+                    if ($feito !== false) {
+                        throw new OperacaoJaConcluidaException(json_decode((string)$feito, true) ?: []);
+                    }
+                    // Gravada junto com os exemplares: some se a transação for desfeita. Um envio repetido ao
+                    // mesmo tempo espera neste INSERT (mesma chave) e recebe 1062 quando este terminar.
+                    $this->executar('INSERT INTO requisicoes_idempotentes (chave, administrador_id, operacao) VALUES (?, ?, ?)', [$chave, $responsavelId, 'exemplares_quantidade']);
+                }
+                $livro = $this->linha('SELECT id, titulo, arquivado_em FROM livros WHERE id = ? LOCK IN SHARE MODE', [$livroId]);
+                if (!$livro) {
+                    throw new AcervoException('Livro não encontrado.');
+                }
+                if ($livro['arquivado_em'] !== null) {
+                    throw new AcervoException('Este livro está arquivado. Restaure o cadastro antes de registrar exemplares.');
+                }
+                if ($aquisicaoId !== null && !$this->valor('SELECT 1 FROM aquisicoes WHERE id = ?', [$aquisicaoId])) {
+                    throw new AcervoException('Aquisição não encontrada.');
+                }
+                $ultimo = (int)$this->valor('SELECT ultimo FROM exemplar_codigo_seq WHERE id = 1 FOR UPDATE');
+                if ($ultimo + $quantidade > self::CODIGO_MAXIMO) {
+                    throw new AcervoException('A numeração BDP chegou ao limite de ' . self::CODIGO_MAXIMO . ' exemplares.');
+                }
+                $this->executar('UPDATE exemplar_codigo_seq SET ultimo = ? WHERE id = 1', [$ultimo + $quantidade]);
+                [$loteId, $ordem, $gerenciado] = $this->reservarOrdemNoLote($responsavelId, $quantidade);
+
+                $criados = [];
+                foreach ($linhas as $i => $l) {
+                    $n = $i + 1;
+                    [$situacaoFinal, $pendente] = $this->situacaoInicial($situacao, 'aguardando', $l['local'], $gerenciado);
+                    $codigo = CodigoBdp::formatar($ultimo + $n);
+                    $id = $this->inserir($livroId, $codigo, $l['local'], $l['estado'], $responsavelId, $situacaoFinal, $pendente, $l['obs'], null, 'aguardando', $loteId, $ordem + $n);
+                    if ($aquisicaoId !== null || $dataEntrada !== null) {
+                        $this->executar('UPDATE exemplares SET aquisicao_id = ?, data_entrada = ? WHERE id = ?', [$aquisicaoId, $dataEntrada, $id]);
+                    }
+                    $this->movimentacao($id, 'cadastro', 'Exemplar físico cadastrado (registro de ' . $quantidade . ' cópia(s) de uma vez' . ($aquisicaoId ? ', aquisição nº ' . $aquisicaoId : '') . ') · '
+                        . self::CARIMBO['aguardando'] . ($pendente ? ' · aguardando liberação para empréstimo' : ''), $responsavelId, null,
+                        ['estado' => $l['estado'], 'situacao' => $situacaoFinal, 'localizacao_id' => $l['local'], 'carimbo' => 'aguardando', 'lote_id' => $loteId, 'aquisicao_id' => $aquisicaoId]);
+                    $criados[] = ['id' => $id, 'codigo' => $codigo, 'carimbo' => 'aguardando', 'situacao' => $situacaoFinal, 'lote_id' => $loteId, 'lote_ordem' => $ordem + $n, 'lote_fechou' => $this->loteFechou];
+                }
+                $this->lembrarLocal($responsavelId, $linhas[0]['local']);
+                $this->registrarAcao($responsavelId, 'exemplar.cadastrar', 'livro', $livroId, [
+                    'titulo' => $livro['titulo'], 'codigos' => array_column($criados, 'codigo'), 'em_quantidade' => true, 'aquisicao_id' => $aquisicaoId,
+                ]);
+                if ($chave !== null) {
+                    $this->executar('UPDATE requisicoes_idempotentes SET resultado = ? WHERE chave = ?', [json_encode($criados, JSON_UNESCAPED_UNICODE), $chave]);
+                }
+                return $criados;
+            });
+        } catch (\PDOException $e) {
+            // Mesmo envio chegando ao mesmo tempo: o outro terminou primeiro. Devolve o resultado dele.
+            if ($chave !== null && (int)($e->errorInfo[1] ?? 0) === 1062) {
+                $feito = $this->valor('SELECT resultado FROM requisicoes_idempotentes WHERE chave = ?', [$chave]);
+                if ($feito !== false) {
+                    throw new OperacaoJaConcluidaException(json_decode((string)$feito, true) ?: []);
+                }
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Resultado de um envio anterior com esta chave (null = nunca foi concluído). Usado quando a
+     * resposta se perdeu: "verificar se o registro anterior chegou a ser concluído".
+     */
+    public function resultadoAnterior(string $chave): ?array
+    {
+        if (!preg_match('/^[a-f0-9]{32}$/', $chave)) {
+            return null;
+        }
+        $r = $this->valor('SELECT resultado FROM requisicoes_idempotentes WHERE chave = ?', [$chave]);
+        return $r === false || $r === null ? null : (json_decode((string)$r, true) ?: []);
+    }
+
     /**
      * Cadastra UM exemplar com o código BDP já carimbado no livro (conferência do inventário).
      * Código vazio = próximo número livre da sequência. O código precisa estar completo
@@ -499,22 +632,40 @@ final class ExemplarService
         });
     }
 
-    /** Baixa definitiva: o exemplar sai do acervo, mas o código e o histórico ficam. */
-    public function baixar(int $id, int $responsavelId, string $motivo): void
+    /** Motivos da baixa administrativa (migração 190). */
+    public const BAIXA_TIPOS = ['extravio', 'dano', 'descarte', 'doacao', 'substituicao', 'outro'];
+
+    /**
+     * Baixa administrativa definitiva: o exemplar sai do acervo ativo e da disponibilidade para
+     * empréstimo, mas o cadastro, o código BDP (nunca reaproveitado) e todo o histórico ficam.
+     * Recusada com empréstimo ativo (registre a devolução ou o extravio pelo empréstimo antes).
+     * Uma ausência no inventário NÃO gera baixa sozinha: só esta ação explícita.
+     * $tipo: extravio | dano | descarte | doacao | substituicao | outro (null = baixa antiga, só com motivo).
+     */
+    public function baixar(int $id, int $responsavelId, string $motivo, ?string $tipo = null, ?string $observacao = null): void
     {
         $motivo = self::textoLimpo($motivo, 255);
         if ($motivo === null) {
             throw new AcervoException('Informe o motivo da baixa.');
         }
-        $this->transacao(function () use ($id, $responsavelId, $motivo) {
+        if ($tipo !== null && !in_array($tipo, self::BAIXA_TIPOS, true)) {
+            throw new AcervoException('Escolha o motivo da baixa.');
+        }
+        $obs = self::textoLimpo($observacao, 1000);
+        $this->transacao(function () use ($id, $responsavelId, $motivo, $tipo, $obs) {
             $ex = $this->bloquear($id);
             $this->recusarSeEmprestado($ex);
             if ($ex['situacao'] === 'baixado') {
                 throw new AcervoException('Este exemplar já foi baixado.');
             }
-            $this->executar("UPDATE exemplares SET situacao = 'baixado', baixado_em = NOW(), motivo_baixa = ? WHERE id = ?", [$motivo, $id]);
-            $this->movimentacao($id, 'baixa', 'Baixa do acervo · ' . $motivo, $responsavelId, null, ['de' => $ex['situacao']]);
-            $this->registrarAcao($responsavelId, 'exemplar.baixar', 'exemplar', $id, ['codigo' => $ex['codigo_individual'], 'motivo' => $motivo]);
+            if ($tipo !== null) {
+                $this->executar("UPDATE exemplares SET situacao = 'baixado', liberacao_pendente = 0, baixado_em = NOW(), motivo_baixa = ?, baixa_tipo = ?, baixado_por = ?, baixa_observacao = ? WHERE id = ?",
+                    [$motivo, $tipo, $responsavelId, $obs, $id]);
+            } else {
+                $this->executar("UPDATE exemplares SET situacao = 'baixado', baixado_em = NOW(), motivo_baixa = ? WHERE id = ?", [$motivo, $id]);
+            }
+            $this->movimentacao($id, 'baixa', 'Baixa do acervo · ' . $motivo . ($obs ? ' · ' . $obs : ''), $responsavelId, null, ['de' => $ex['situacao'], 'tipo' => $tipo]);
+            $this->registrarAcao($responsavelId, 'exemplar.baixar', 'exemplar', $id, ['codigo' => $ex['codigo_individual'], 'motivo' => $motivo, 'tipo' => $tipo]);
         });
     }
 
@@ -636,6 +787,10 @@ final class ExemplarService
     private function ocuparVagas(array $lote, int $responsavelId, int $quantidade): array
     {
         $nome = 'Lote ' . self::numeroLote($lote['numero']);
+        if ($lote['status'] === 'fechado' && $lote['capacidade'] !== null && (int)$lote['total'] >= (int)$lote['capacidade']) {
+            // Outra pessoa ocupou as últimas vagas (o lote fechou sozinho): mesma resposta de "sem vagas".
+            throw new LoteCapacidadeException($nome . ' já está completo (fechado ao atingir ' . (int)$lote['capacidade'] . ' exemplares). Nada foi gravado. Escolha outro lote em “Meus lotes”.', (int)$lote['id'], 0);
+        }
         if ($lote['status'] !== 'aberto') {
             throw new AcervoException($nome . ' não recebe novos exemplares (' . self::rotuloStatusLote($lote['status']) . '). Escolha outro lote em “Meus lotes”. Nada foi gravado.');
         }
@@ -647,9 +802,9 @@ final class ExemplarService
         if ($lote['capacidade'] !== null) {
             $restam = (int)$lote['capacidade'] - $total;
             if ($quantidade > $restam) {
-                throw new AcervoException($restam <= 0
+                throw new LoteCapacidadeException($restam <= 0
                     ? $nome . ' já está completo. Nada foi gravado. Escolha outro lote em “Meus lotes”.'
-                    : $nome . ' tem só ' . $restam . ' vaga(s). Registre no máximo ' . $restam . ' exemplar(es) aqui ou escolha outro lote. Nada foi gravado.');
+                    : $nome . ' tem só ' . $restam . ' vaga(s). Registre no máximo ' . $restam . ' exemplar(es) aqui ou escolha outro lote. Nada foi gravado.', (int)$lote['id'], max(0, $restam));
             }
         }
         $this->executar('UPDATE cadastro_lotes SET total = total + ? WHERE id = ?', [$quantidade, $lote['id']]);

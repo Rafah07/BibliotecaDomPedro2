@@ -68,9 +68,11 @@ function config_iniciar(string $permissao): array
 /** Erro técnico: detalhe só no log; mensagem genérica na tela. */
 function config_erro_tecnico(Throwable $e, string $contexto): string
 {
-    $codigo = $e instanceof PDOException ? ' ' . ($e->errorInfo[1] ?? $e->getCode()) : '';
-    error_log('[biblioteca] Erro em ' . $contexto . ': ' . get_class($e) . $codigo . ' em ' . basename($e->getFile()) . ':' . $e->getLine());
-    return 'Não foi possível concluir a operação. Nada foi gravado. Se o problema continuar, verifique se as migrações foram aplicadas (php database/migrar.php).';
+    $id = Biblioteca\Support\RegistroErros::registrar($e, $contexto, ['usuario_id' => auth_usuario()['id'] ?? null]);
+    if (Biblioteca\Support\Migracoes::conexaoPerdida($e)) {
+        return Biblioteca\Support\RegistroErros::mensagemUsuario($e, $id, false);
+    }
+    return 'Não foi possível concluir a operação. Nada foi gravado. Se o problema continuar, confira o Diagnóstico do sistema (código ' . $id . ').';
 }
 
 /** Selo com a origem do valor em uso. */

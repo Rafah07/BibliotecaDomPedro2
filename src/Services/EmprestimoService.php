@@ -172,11 +172,24 @@ final class EmprestimoService
      * $manutencao manda o exemplar para manutenção em vez de liberá-lo.
      * @return array{id: int, codigo: string, titulo: string, dias_atraso: int, situacao_exemplar: string}
      */
-    public function devolver(int $emprestimoId, int $responsavelId, ?string $quando = null, bool $manutencao = false, string $observacao = ''): array
+    /**
+     * $conservacao (migração 190, opcional): estado (novo estado de conservação avaliado na devolução),
+     * ocorrencia (tipo, quando há dano), descricao e bloquear ('1' deixa indisponível; '0' mantém emprestável).
+     * Um dano leve não bloqueia sozinho: a pessoa decide. A liberação respeita os outros impedimentos ativos.
+     */
+    public function devolver(int $emprestimoId, int $responsavelId, ?string $quando = null, bool $manutencao = false, string $observacao = '', array $conservacao = []): array
     {
-        return $this->transacao(function () use ($emprestimoId, $responsavelId, $quando, $manutencao, $observacao) {
+        $estadoNovo = (string)($conservacao['estado'] ?? '');
+        if ($estadoNovo !== '' && !in_array($estadoNovo, ExemplarService::CONSERVACAO, true)) {
+            throw new CirculacaoException('Escolha o estado de conservação do exemplar devolvido.');
+        }
+        $tipoOcorrencia = (string)($conservacao['ocorrencia'] ?? '');
+        if ($tipoOcorrencia !== '' && !isset(OcorrenciaService::TIPOS[$tipoOcorrencia])) {
+            throw new CirculacaoException('Escolha o tipo do dano.');
+        }
+        return $this->transacao(function () use ($emprestimoId, $responsavelId, $quando, $manutencao, $observacao, $estadoNovo, $tipoOcorrencia, $conservacao) {
             $m = $this->linha('SELECT m.id, m.exemplar_id, m.data_emprestimo, m.data_prevista, m.data_devolucao, m.observacoes,
-                                      e.codigo_individual, e.situacao, l.titulo
+                                      e.codigo_individual, e.situacao, e.estado_conservacao, l.titulo
                                FROM emprestimos m JOIN exemplares e ON e.id = m.exemplar_id JOIN livros l ON l.id = e.livro_id
                                WHERE m.id = ? FOR UPDATE', [$emprestimoId]);
             if (!$m) {
@@ -199,12 +212,14 @@ final class EmprestimoService
             }
 
             $obs = $this->texto($observacao);
-            $mudou = $this->executar('UPDATE emprestimos SET data_devolucao = ?, recebido_por = ?, observacoes = ?
-                                      WHERE id = ? AND data_devolucao IS NULL', [
+            // Conservação registrada no próprio empréstimo (o gatilho impede alterar um empréstimo depois de devolvido).
+            $comConservacao = $estadoNovo !== '' && self::temColunasConservacao($this->pdo);
+            $mudou = $this->executar('UPDATE emprestimos SET data_devolucao = ?, recebido_por = ?, observacoes = ?'
+                                      . ($comConservacao ? ', conservacao_anterior = ?, conservacao_devolucao = ?' : '') . '
+                                      WHERE id = ? AND data_devolucao IS NULL', array_merge([
                 $quando, $responsavelId,
                 $obs === null ? $m['observacoes'] : trim(($m['observacoes'] ? $m['observacoes'] . "\n" : '') . 'Devolução: ' . $obs),
-                $emprestimoId,
-            ]);
+            ], $comConservacao ? [$m['estado_conservacao'], $estadoNovo] : [], [$emprestimoId]));
             if ($mudou !== 1) {
                 throw new CirculacaoException('Este empréstimo já foi devolvido.');
             }
@@ -228,8 +243,26 @@ final class EmprestimoService
             if ($situacao === 'manutencao' && $manutencao) {
                 $this->movimentacao((int)$m['exemplar_id'], $emprestimoId, 'manutencao', 'Enviado para manutenção na devolução' . ($obs ? ': ' . $obs : ''), $responsavelId, $agora);
             }
-            $this->acao($responsavelId, 'devolucao.registrar', $emprestimoId, ['codigo' => $m['codigo_individual'], 'titulo' => $m['titulo'], 'dias_atraso' => $atraso, 'situacao_exemplar' => $situacao]);
-            return ['id' => $emprestimoId, 'codigo' => $m['codigo_individual'], 'titulo' => $m['titulo'], 'dias_atraso' => $atraso, 'situacao_exemplar' => $situacao];
+            // Conservação avaliada na devolução e dano (ocorrência), com a decisão de bloquear ou não.
+            $ocorrenciaId = null;
+            if ($estadoNovo !== '' && $estadoNovo !== $m['estado_conservacao']) {
+                $avaliado = $estadoNovo === ExemplarService::NAO_AVALIADO;
+                $this->executar('UPDATE exemplares SET estado_conservacao = ?, conservacao_avaliada_em = ' . ($avaliado ? 'NULL' : 'NOW()') . ', conservacao_avaliada_por = ' . ($avaliado ? 'NULL' : '?') . ' WHERE id = ?',
+                    $avaliado ? [$estadoNovo, $m['exemplar_id']] : [$estadoNovo, $responsavelId, $m['exemplar_id']]);
+                $this->movimentacao((int)$m['exemplar_id'], $emprestimoId, 'conservacao', 'Conservação na devolução: ' . ExemplarService::rotuloConservacao((string)$m['estado_conservacao']) . ' → ' . ExemplarService::rotuloConservacao($estadoNovo), $responsavelId, $agora);
+            }
+            if ($tipoOcorrencia !== '') {
+                $ex = new ExemplarService($this->pdo);
+                $oc = (new OcorrenciaService($this->pdo, $ex))->registrar((int)$m['exemplar_id'], [
+                    'tipo' => $tipoOcorrencia, 'descricao' => trim('Registrada na devolução do empréstimo nº ' . $emprestimoId . '. ' . (string)($conservacao['descricao'] ?? '')),
+                    'bloquear' => ($conservacao['bloquear'] ?? '0') === '1' ? '1' : '0',
+                ], $responsavelId);
+                $ocorrenciaId = $oc['id'];
+                $situacao = $oc['situacao'];
+            }
+            $this->acao($responsavelId, 'devolucao.registrar', $emprestimoId, ['codigo' => $m['codigo_individual'], 'titulo' => $m['titulo'], 'dias_atraso' => $atraso, 'situacao_exemplar' => $situacao,
+                'conservacao' => $estadoNovo ?: null, 'ocorrencia_id' => $ocorrenciaId]);
+            return ['id' => $emprestimoId, 'codigo' => $m['codigo_individual'], 'titulo' => $m['titulo'], 'dias_atraso' => $atraso, 'situacao_exemplar' => $situacao, 'ocorrencia_id' => $ocorrenciaId];
         });
     }
 
@@ -329,6 +362,17 @@ final class EmprestimoService
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->rowCount();
+    }
+
+    /** As colunas de conservação da devolução existem (migração 190)? Consultado uma vez por requisição. */
+    private static function temColunasConservacao(PDO $pdo): bool
+    {
+        static $tem = null;
+        if ($tem === null) {
+            $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'emprestimos' AND COLUMN_NAME = 'conservacao_devolucao'");
+            $tem = (int)$stmt->fetchColumn() > 0;
+        }
+        return $tem;
     }
 
     private function movimentacao(int $exemplarId, int $emprestimoId, string $tipo, string $descricao, int $responsavelId, string $quando): void

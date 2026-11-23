@@ -285,22 +285,68 @@ final class LivroRepository
         });
     }
 
+    /** Campos comparados no controle de edição simultânea (mesmos nomes do formulário "Editar livro"). */
+    public const CAMPOS_EDICAO = ['titulo', 'subtitulo', 'autores', 'isbn', 'editora', 'ano_publicacao', 'edicao', 'idioma', 'categoria', 'assunto',
+        'numero_paginas', 'palavras_chave', 'sinopse', 'observacoes_internas', 'status_validacao'];
+
     /**
-     * Atualiza um livro ativo. $versao é o atualizado_em lido pelo formulário: se outra
-     * pessoa salvou nesse meio-tempo, nada é gravado.
+     * Dados bibliográficos da obra no formato do formulário (autores em lista, categoria principal),
+     * usados para comparar o que foi carregado, o que está salvo e o que foi digitado.
+     */
+    public function instantaneo(int $id): ?array
+    {
+        $l = $this->buscar($id);
+        if (!$l) {
+            return null;
+        }
+        return self::normalizarInstantaneo($l + ['categoria' => $l['categorias'][0] ?? null]);
+    }
+
+    /** Valores comparáveis (texto sem espaços extras; vazio = ''). */
+    public static function normalizarInstantaneo(array $d): array
+    {
+        $saida = [];
+        foreach (self::CAMPOS_EDICAO as $c) {
+            $v = $d[$c] ?? null;
+            if ($c === 'autores') {
+                $lista = is_array($v) ? $v : array_filter(array_map('trim', explode(';', (string)$v)));
+                $saida[$c] = array_values(array_map(fn ($n) => trim(preg_replace('/\s+/u', ' ', (string)$n)), array_filter($lista, fn ($n) => trim((string)$n) !== '')));
+            } elseif ($c === 'categoria') {
+                $saida[$c] = $v ? (string)(int)$v : '';
+            } else {
+                $saida[$c] = trim(preg_replace('/\s+/u', ' ', (string)($v ?? '')));
+            }
+        }
+        return $saida;
+    }
+
+    /**
+     * Atualiza um livro ativo. $versao é a versão (livros.versao, migração 190) lida quando o
+     * formulário foi aberto; se outra pessoa salvou nesse meio-tempo, nada é gravado e
+     * ConflitoEdicaoException traz os dados atuais para a comparação. Formulários antigos que
+     * enviam a data de atualização continuam sendo conferidos por ela.
+     * $marcarVerificado: "Salvar e marcar dados como verificados".
      * @return array<string, array{0: mixed, 1: mixed}> campos alterados [antes, depois]
      */
-    public function atualizar(int $id, array $dados, ?string $versao = null, ?int $usuarioId = null): array
+    public function atualizar(int $id, array $dados, ?string $versao = null, ?int $usuarioId = null, bool $marcarVerificado = false): array
     {
-        return $this->transacao(function () use ($id, $dados, $versao, $usuarioId) {
+        return $this->transacao(function () use ($id, $dados, $versao, $usuarioId, $marcarVerificado) {
             $stmt = $this->pdo->prepare('SELECT * FROM livros WHERE id = ? FOR UPDATE');
             $stmt->execute([$id]);
             $atual = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$atual || $atual['arquivado_em'] !== null) {
                 throw new RuntimeException('Livro não encontrado ou arquivado.');
             }
-            if ($versao !== null && $versao !== '' && $versao !== $atual['atualizado_em']) {
-                throw new RuntimeException('Este livro foi alterado por outra pessoa enquanto você editava. Recarregue a página para ver a versão atual.');
+            $versao = trim((string)$versao);
+            $mudou = $versao !== '' && (ctype_digit($versao) && array_key_exists('versao', $atual)
+                ? (int)$versao !== (int)$atual['versao']
+                : $versao !== $atual['atualizado_em']);
+            if ($mudou) {
+                $quem = $this->pdo->prepare('SELECT a.nome, v.criado_em FROM livro_verificacoes v LEFT JOIN administradores a ON a.id = v.administrador_id
+                                             WHERE v.livro_id = ? ORDER BY v.id DESC LIMIT 1');
+                $quem->execute([$id]);
+                $ultimo = $quem->fetch(PDO::FETCH_ASSOC) ?: [];
+                throw new \Biblioteca\Services\ConflitoEdicaoException($this->instantaneo($id), (int)($atual['versao'] ?? 0), $ultimo['nome'] ?? null, $ultimo['criado_em'] ?? $atual['atualizado_em']);
             }
             $antes = $this->buscar($id);
 
@@ -330,9 +376,12 @@ final class LivroRepository
             if ($alteracoes) {
                 // Garante nova versão mesmo quando só autores/categoria mudaram.
                 $this->pdo->prepare('UPDATE livros SET atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')->execute([$id]);
-                // Histórico da obra; mudar título, autor, ISBN, editora, ano ou edição de uma obra
-                // verificada a devolve para "Dados não verificados" (migração 120).
-                (new ObraVerificacaoService($this->pdo))->registrar($id, $alteracoes, $usuarioId, false, 'editar_livro');
+            }
+            if ($alteracoes || $marcarVerificado) {
+                // Histórico da obra (campo, antes, depois, quem e quando) e nova versão do registro;
+                // mudar título, autor, ISBN, editora, ano ou edição de uma obra verificada sem marcar de
+                // novo como verificada a devolve para "Dados não verificados" (migração 120).
+                (new ObraVerificacaoService($this->pdo))->registrar($id, $alteracoes, $usuarioId, $marcarVerificado, 'editar_livro');
             }
             return $alteracoes;
         });

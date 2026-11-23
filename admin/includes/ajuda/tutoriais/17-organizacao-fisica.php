@@ -55,7 +55,7 @@ return [
     [
         'id' => 'gerenciar-prateleiras',
         'titulo' => 'Como adicionar, renomear, reordenar, desativar ou excluir prateleiras e estantes',
-        'resumo' => 'Na página da estante: Adicionar prateleiras, Renomear, as setas de ordem, Desativar e Excluir (só quando vazia). Para esvaziar, use Transferir exemplares.',
+        'resumo' => 'Na página da estante: Adicionar prateleiras, Editar (nome, descrição e capacidade estimada), as setas de ordem, Desativar e Excluir (só quando vazia). Para esvaziar, use Transferir exemplares.',
         'palavras' => ['prateleira', 'renomear prateleira', 'ordem das prateleiras', 'desativar estante', 'excluir estante', 'excluir prateleira', 'transferir exemplares', 'esvaziar prateleira'],
         'paginas' => [],
         'permissao' => 'localizacoes.gerenciar',
@@ -65,7 +65,7 @@ return [
         'passos' => [
             ['titulo' => 'Abra a estante', 'texto' => 'Em Organização Física, clique na estante. A tabela mostra as prateleiras, na ordem de exibição, com o número de exemplares.'],
             ['titulo' => 'Adicionar', 'texto' => 'Clique em **Adicionar prateleiras**: informe a **Quantidade** (a numeração continua: 6, 7...) ou **Ou um nome específico** (ex.: `Topo`). A identificação não se repete dentro da mesma estante.'],
-            ['titulo' => 'Renomear e reordenar', 'texto' => 'Use **Renomear** para mudar a identificação ou a descrição, e as setas para subir ou descer a prateleira na lista. Os exemplares continuam no mesmo lugar.'],
+            ['titulo' => 'Editar e reordenar', 'texto' => 'Use **Editar** para mudar a identificação, a descrição ou a **Capacidade estimada** (veja [[tutorial:capacidade-prateleiras|capacidade das prateleiras]]), e as setas para subir ou descer a prateleira na lista. Os exemplares continuam no mesmo lugar.'],
             ['titulo' => 'Desativar', 'texto' => '**Desativar** tira a prateleira (ou a estante, em **Desativar estante**) da escolha de localização. Os exemplares que estão nela continuam lá. **Reativar** desfaz.'],
             ['titulo' => 'Excluir', 'texto' => '**Excluir** só funciona com a prateleira vazia e nunca usada em inventário. Se houver exemplares, use antes **Transferir exemplares** (escolha a prateleira de destino e clique em **Transferir todos**). Cada transferência fica no histórico do exemplar.'],
         ],
@@ -76,7 +76,7 @@ return [
         ],
         'cuidados' => ['O sistema nunca apaga registros físicos sozinho e nunca deixa excluir uma prateleira com exemplares.'],
         'relacionados' => ['mover-exemplar', 'organizacao-fisica-visao-geral'],
-        'confere' => ['organizacao-fisica.php' => ['Adicionar prateleiras', 'Quantidade', 'Ou um nome específico', 'Renomear', 'Desativar', 'Desativar estante', 'Reativar', 'Excluir', 'Transferir exemplares', 'Transferir todos']],
+        'confere' => ['organizacao-fisica.php' => ['Adicionar prateleiras', 'Quantidade', 'Ou um nome específico', 'Editar', 'Capacidade estimada', 'Desativar', 'Desativar estante', 'Reativar', 'Excluir', 'Transferir exemplares', 'Transferir todos']],
     ],
     [
         'id' => 'localizacao-no-registro',

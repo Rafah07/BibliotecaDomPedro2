@@ -82,6 +82,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 break;
             case 'prateleira_editar':
                 $org->editarPrateleira((int)admin_param($_POST, 'prateleira_id'), admin_param($_POST, 'identificacao'), admin_param($_POST, 'descricao'), $uid);
+                $org->definirCapacidade((int)admin_param($_POST, 'prateleira_id'), admin_param($_POST, 'capacidade') !== '' ? (int)admin_param($_POST, 'capacidade') : null, $uid);
                 admin_flash('sucesso', 'Prateleira atualizada.', 'Os exemplares dela continuam no mesmo lugar e passam a mostrar o novo nome.');
                 break;
             case 'prateleira_ordem':
@@ -170,6 +171,13 @@ try {
     $movs = $estante ? null : $repo->movimentacoes($mq, max(1, (int)admin_param($_GET, 'mpagina', '1')), 15);
     $pessoas = $podeGerenciar ? $repo->pessoasAtivas() : [];
     $opcoesLocal = $repo->opcoesLocal();
+    // Ocupação estimada das prateleiras (migração 190; só as que têm capacidade informada).
+    $filtroOcupacao = in_array(admin_param($_GET, 'ocupacao'), ['disponivel', 'proxima', 'lotada', 'vazia'], true) ? admin_param($_GET, 'ocupacao') : '';
+    try {
+        $ocupacao = $estante ? null : $repo->ocupacaoPrateleiras($filtroOcupacao, 30);
+    } catch (PDOException) {
+        $ocupacao = null; // migração 190 ainda não aplicada
+    }
 } catch (PDOException $e) {
     http_response_code(500);
     admin_pagina_erro('Não foi possível abrir a Organização Física', fisico_erro_tecnico($e, 'organização física') . ' Se acabou de atualizar o sistema, rode a migração 140 (php database/migrar.php).');
@@ -191,7 +199,7 @@ $campoSetor = function (string $nome, $atual) use ($setores): string {
     return $h . '</select>';
 };
 
-admin_page_start('organizacao-fisica', 'Organização Física', 'Organização Física', 'Estantes, prateleiras e localização dos exemplares', FISICO_CSS);
+admin_page_start('organizacao-fisica', 'Organização Física', 'Organização Física', 'Estantes, prateleiras e localização dos exemplares', array_merge(FISICO_CSS, ['assets/css/gestao.css?v=20261118']));
 ?>
 
 <?= acervo_breadcrumb(array_values(array_filter([['Administração', admin_url('dashboard')], ['Organização Física', $estante ? $base : null], $estante ? [fisico_rotulo_estante($estante, false), $prateleira ? $base . '?estante=' . (int)$estante['id'] : null] : null, $prateleira ? [fisico_rotulo_prateleira($prateleira)] : null]))) ?>
@@ -259,7 +267,7 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
                 <?php foreach ($estante['prateleiras'] as $i => $p): $pid = (int)$p['id']; $vazia = (int)$p['exemplares'] === 0; ?>
                     <tr class="<?= $prateleira && (int)$prateleira['id'] === $pid ? 'is-selecionada' : '' ?>">
                         <td class="adm-td-title"><a class="adm-link" href="<?= e($base . '?estante=' . (int)$estante['id'] . '&prateleira=' . $pid) ?>#exemplares-prateleira"><?= e(fisico_rotulo_estante($estante, false)) ?> — <?= e(fisico_rotulo_prateleira($p)) ?></a></td>
-                        <td data-label="Exemplares"><strong><?= fisico_numero((int)$p['exemplares']) ?></strong> exemplar(es)</td>
+                        <td data-label="Exemplares"><strong><?= fisico_numero((int)$p['exemplares']) ?></strong> exemplar(es)<?= fisico_ocupacao_html((int)$p['exemplares'], $p['capacidade_estimada'] ?? null) ?></td>
                         <td data-label="Situação"><?= (int)$p['ativa'] ? '<span class="adm-status adm-tone--green">Ativa</span>' : '<span class="adm-status adm-tone--muted">Desativada</span>' ?></td>
                         <td class="adm-actions-col">
                             <div class="adm-actions-inline">
@@ -271,11 +279,12 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
                                         <button class="adm-button adm-button--ghost adm-button--sm" type="submit" name="direcao" value="descer"<?= $i === count($estante['prateleiras']) - 1 ? ' disabled' : '' ?> aria-label="Descer <?= e(fisico_rotulo_prateleira($p)) ?>" title="Descer"><?= icon('arrow-down') ?></button>
                                     </form>
                                     <details class="adm-acao">
-                                        <summary class="adm-button adm-button--ghost adm-button--sm"><?= icon('pencil') ?> Renomear</summary>
+                                        <summary class="adm-button adm-button--ghost adm-button--sm"><?= icon('pencil') ?> Editar</summary>
                                         <form method="post" action="<?= e($base) ?>" class="adm-acao__form">
                                             <?= csrf_campo() ?><input type="hidden" name="acao" value="prateleira_editar"><input type="hidden" name="prateleira_id" value="<?= $pid ?>"><input type="hidden" name="voltar" value="<?= e($aqui) ?>">
                                             <label class="adm-field"><span class="adm-field__sublabel">Identificação *</span><input class="adm-input adm-input--sm" name="identificacao" maxlength="20" required value="<?= e($p['prateleira']) ?>"></label>
                                             <label class="adm-field"><span class="adm-field__sublabel">Descrição <span class="adm-optional">(opcional)</span></span><input class="adm-input adm-input--sm" name="descricao" maxlength="255" value="<?= e((string)$p['descricao']) ?>" placeholder="Ex.: Poesia brasileira"></label>
+                                            <label class="adm-field"><span class="adm-field__sublabel">Capacidade estimada <span class="adm-optional">(opcional, em exemplares)</span></span><input class="adm-input adm-input--sm" type="number" name="capacidade" min="1" max="5000" inputmode="numeric" value="<?= e((string)($p['capacidade_estimada'] ?? '')) ?>" placeholder="Ex.: 50"></label>
                                             <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('save') ?> Salvar</button>
                                         </form>
                                     </details>
@@ -416,6 +425,29 @@ admin_page_start('organizacao-fisica', 'Organização Física', 'Organização F
             <?= admin_paginacao($lista['total'], $lista['pagina'], 50, $base, $filtros, [50]) ?>
         <?php endif; ?>
     </section>
+
+    <?php if ($ocupacao !== null): $oc = $ocupacao['contagem']; ?>
+    <section class="adm-card adm-panel" aria-labelledby="titulo-ocupacao" id="ocupacao">
+        <div class="adm-panel__header"><div><h2 id="titulo-ocupacao"><?= icon('ruler') ?> Ocupação estimada das prateleiras</h2>
+            <p>Só para as prateleiras com capacidade estimada (informe em “Editar”, na estante). É uma estimativa: os livros têm tamanhos diferentes e nada é bloqueado.
+                <?= $oc['sem_capacidade'] ? fisico_numero($oc['sem_capacidade']) . ' prateleira(s) com exemplares ainda sem capacidade informada.' : '' ?></p></div></div>
+        <nav class="adm-tabs adm-tabs--sub" aria-label="Filtrar ocupação">
+            <?php foreach (['' => ['Todas', array_sum($oc) - $oc['sem_capacidade']], 'disponivel' => ['Com espaço', $oc['disponivel']], 'proxima' => ['Próximas da capacidade', $oc['proxima']], 'lotada' => ['Possivelmente lotadas', $oc['lotada']], 'vazia' => ['Sem exemplares', $oc['vazia']]] as $ov => [$or, $on]): ?>
+                <a class="adm-tab<?= $filtroOcupacao === $ov ? ' is-active' : '' ?>" href="<?= e(admin_url_filtros($base, $filtros, ['ocupacao' => $ov])) ?>#ocupacao"><?= e($or) ?> <span class="adm-tab__count"><?= fisico_numero((int)$on) ?></span></a>
+            <?php endforeach; ?>
+        </nav>
+        <?php if (!$ocupacao['itens']): ?>
+            <p class="adm-field__hint">Nenhuma prateleira nesta situação.</p>
+        <?php else: ?>
+            <ul class="adm-versao-diff">
+                <?php foreach ($ocupacao['itens'] as $pr): ?>
+                    <li><a class="adm-link" href="<?= e($base . '?estante=' . (int)$pr['estante_id'] . '&prateleira=' . (int)$pr['id']) ?>#exemplares-prateleira"><?= e($pr['estante_nome']) ?> — Prateleira <?= e($pr['prateleira']) ?></a>
+                        · <?= fisico_numero((int)$pr['exemplares']) ?> exemplar(es)<?= fisico_ocupacao_html((int)$pr['exemplares'], $pr['capacidade_estimada']) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </section>
+    <?php endif; ?>
 
     <div class="adm-org-colunas">
         <section class="adm-card adm-panel" aria-labelledby="titulo-andamento">

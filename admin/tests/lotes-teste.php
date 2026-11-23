@@ -118,7 +118,8 @@ $lote1 = $repo->lote($l1);
 confere('4. três exemplares de Dom Casmurro ocupam três vagas', (int)$lote1['total'] === 3 && (int)$lote1['exemplares'] === 3);
 confere('4. ao atingir o limite: "Lote fechado — Aguardando carimbagem" automaticamente', $lote1['status'] === 'fechado' && $lote1['fechamento_tipo'] === 'automatico' && $lote1['fechado_em'] !== null && end($r2)['lote_fechou'] === true);
 confere('4. rótulo do status', ExemplarService::rotuloStatusLote('fechado') === 'Lote fechado — Aguardando carimbagem');
-confere('4. lote fechado não recebe novos exemplares', ($m = $recusa(fn () => $novo($livro2, $c1))) !== null && str_contains($m, 'não recebe novos exemplares'));
+// Lote fechado por ter enchido responde como "sem vagas" (LoteCapacidadeException, migração 190); fechado à mão: "não recebe novos exemplares".
+confere('4. lote fechado não recebe novos exemplares', ($m = $recusa(fn () => $novo($livro2, $c1))) !== null && (str_contains($m, 'não recebe novos exemplares') || str_contains($m, 'já está completo')));
 confere('4. fechar não bloqueia correções nos registros existentes', $recusa(fn () => $ex->editar($r1['id'], ['estado_conservacao' => 'regular', 'observacoes' => 'corrigido depois do fechamento'], $c1)) === null
     && $val('SELECT observacoes FROM exemplares WHERE id = ?', [$r1['id']]) === 'corrigido depois do fechamento');
 confere('4. lote fechado não pode ser escolhido como ativo', $recusa(fn () => $lotes->escolherAtivo($l1, $c2)) !== null);

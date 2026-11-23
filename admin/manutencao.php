@@ -91,6 +91,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         header('Cache-Control: no-store, private');
         readfile($caminho);
         exit;
+    } elseif ($acao === 'testar_restauracao') {
+        // Teste de recuperação (migração 190): restaura num banco SEPARADO e temporário, confere e apaga o temporário.
+        @set_time_limit(0);
+        try {
+            $r = backup_servico()->testarRestauracao((int)($_POST['backup_id'] ?? 0), backup_pasta(), app_config());
+            registrar_acao('sistema.backup_teste', 'sistema', null, ['backup_id' => (int)($_POST['backup_id'] ?? 0), 'ok' => $r['ok']]);
+            admin_flash($r['ok'] === true ? 'sucesso' : ($r['ok'] === null ? 'aviso' : 'erro'), $r['ok'] === true ? 'A cópia pode ser recuperada.' : ($r['ok'] === null ? 'Teste não realizado.' : 'A cópia NÃO passou no teste de recuperação.'), $r['detalhe']);
+        } catch (Throwable $e) {
+            admin_flash('erro', 'O teste de recuperação não foi concluído.', config_erro_tecnico($e, 'teste de recuperação da cópia'));
+        }
+        admin_redirecionar($base . '#titulo-copias');
     } elseif ($acao === 'limpar_tentativas') {
         try {
             $apagadas = $diagnostico->limparTentativasAntigas($dias);
@@ -130,6 +141,7 @@ admin_page_start('manutencao', 'Manutenção', 'Manutenção', 'Diagnóstico e c
         <h1>Manutenção do sistema</h1>
         <p>Confira se o servidor está pronto, gere cópias de segurança do banco e faça limpezas que não afetam o acervo, os alunos nem os históricos.</p>
     </div>
+    <div class="adm-page-head__actions"><a class="adm-button adm-button--primary" href="<?= e(admin_url('diagnostico')) ?>"><?= icon('activity') ?> Diagnóstico do sistema</a></div>
 </section>
 
 <?= admin_flash_html() ?>
@@ -199,6 +211,7 @@ admin_page_start('manutencao', 'Manutenção', 'Manutenção', 'Diagnóstico e c
                 <li>Ou, no Prompt de Comando: <code>C:\xampp\mysql\bin\mysql.exe -u root -p banco_novo &lt; copia.sql</code></li>
                 <li>Aponte DB_NAME no .env para o banco novo e confira os totais acima.</li>
             </ol>
+            <p>“Testar recuperação” (na lista de cópias) faz esse procedimento automaticamente num banco separado e temporário, confere tabelas e linhas e apaga o temporário — o banco da biblioteca não é tocado. Veja também docs/backup-recuperacao.md.</p>
             <p>A cópia não apaga tabelas: importar sobre um banco que já tem dados falha em vez de sobrescrever. O sistema não restaura cópias sozinho: a restauração é sempre manual, num banco novo, para não apagar dados atuais por engano.</p>
             <p>Cópias salvas no servidor ficam em <code><?= e(str_replace(realpath(APP_RAIZ) ?: APP_RAIZ, '', backup_pasta()) ?: backup_pasta()) ?></code> (pasta bloqueada para a internet). Baixe-as por esta página.</p>
         </details>
@@ -226,7 +239,7 @@ admin_page_start('manutencao', 'Manutenção', 'Manutenção', 'Diagnóstico e c
     <div class="adm-panel__header"><div><h2 id="titulo-copias">Cópias registradas</h2><p>As 15 mais recentes. “Conferida” = o arquivo foi lido de volta e está completo.</p></div></div>
     <div class="adm-table-wrap adm-table-wrap--flush">
         <table class="adm-table adm-table--cards">
-            <thead><tr><th scope="col">Data</th><th scope="col">Tipo</th><th scope="col">Quem</th><th scope="col">Tamanho</th><th scope="col">Situação</th><th scope="col"><span class="adm-visually-hidden">Ações</span></th></tr></thead>
+            <thead><tr><th scope="col">Data</th><th scope="col">Tipo</th><th scope="col">Quem</th><th scope="col">Tamanho</th><th scope="col">Situação</th><th scope="col">Teste de recuperação</th><th scope="col"><span class="adm-visually-hidden">Ações</span></th></tr></thead>
             <tbody>
             <?php foreach ($copias as $c): ?>
                 <tr>
@@ -234,14 +247,21 @@ admin_page_start('manutencao', 'Manutenção', 'Manutenção', 'Diagnóstico e c
                     <td data-label="Tipo"><?= e(['servidor' => 'Salva no servidor', 'automatico' => 'Automática (antes de operação)', 'migracao' => 'Automática (antes de migração)', 'download' => 'Baixada pelo navegador'][$c['origem']] ?? $c['origem']) ?></td>
                     <td data-label="Quem"><?= e((string)($c['administrador_nome'] ?? 'Linha de comando')) ?></td>
                     <td data-label="Tamanho"><?= $c['tamanho'] !== null ? e(number_format((int)$c['tamanho'] / 1048576, 2, ',', '.')) . ' MB' : '—' ?></td>
-                    <td data-label="Situação"><?= (int)$c['verificado'] ? '<span class="adm-status adm-tone--green">' . icon('check') . ' Conferida</span>' : '<span class="adm-status adm-tone--muted">Não conferida no servidor</span>' ?></td>
+                    <td data-label="Situação"><?= (int)$c['verificado'] ? '<span class="adm-status adm-tone--green">' . icon('check') . ' Conferida</span>' : '<span class="adm-status adm-tone--muted">Não conferida no servidor</span>' ?>
+                        <?php if ($c['origem'] !== 'download' && !is_file(backup_pasta() . DIRECTORY_SEPARATOR . basename((string)$c['arquivo']))): ?><span class="adm-status adm-tone--red">Arquivo ausente</span><?php endif; ?></td>
+                    <td data-label="Teste de recuperação"><?php if (!empty($c['restauracao_testada_em'])): ?>
+                        <span class="adm-status adm-tone--<?= $c['restauracao_ok'] === null ? 'muted' : ((int)$c['restauracao_ok'] ? 'green' : 'red') ?>"><?= $c['restauracao_ok'] === null ? 'Não realizado' : ((int)$c['restauracao_ok'] ? 'Recuperável' : 'Falhou') ?></span>
+                        <small class="adm-block-muted"><?= e(admin_data_hora($c['restauracao_testada_em'])) ?> · <?= e((string)$c['restauracao_detalhe']) ?></small>
+                    <?php else: ?><span class="adm-table__muted">Não testada</span><?php endif; ?></td>
                     <td class="adm-td-actions"><?php if ($c['origem'] !== 'download'): ?>
+                        <form method="post" action="<?= e($base) ?>" class="adm-inline-form" data-loading-form><?= csrf_campo() ?><input type="hidden" name="acao" value="testar_restauracao"><input type="hidden" name="backup_id" value="<?= (int)$c['id'] ?>">
+                            <button class="adm-button adm-button--ghost adm-button--sm" type="submit" title="Restaura num banco separado e temporário, confere e apaga o temporário"><?= icon('shield-check') ?> Testar recuperação</button></form>
                         <form method="post" action="<?= e($base) ?>" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="baixar_copia"><input type="hidden" name="backup_id" value="<?= (int)$c['id'] ?>">
                             <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('download') ?> Baixar</button></form>
                     <?php endif; ?></td>
                 </tr>
             <?php endforeach; ?>
-            <?php if (!$copias): ?><tr><td colspan="6"><div class="adm-empty"><?= icon('database-backup') ?><strong>Nenhuma cópia registrada.</strong><span>Faça a primeira agora.</span></div></td></tr><?php endif; ?>
+            <?php if (!$copias): ?><tr><td colspan="7"><div class="adm-empty"><?= icon('database-backup') ?><strong>Nenhuma cópia registrada.</strong><span>Faça a primeira agora.</span></div></td></tr><?php endif; ?>
             </tbody>
         </table>
     </div>

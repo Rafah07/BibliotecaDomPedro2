@@ -8,13 +8,20 @@
  */
 require_once __DIR__ . '/db.php';
 
-/** Carrega todas as tabelas usadas pelas páginas do acervo uma única vez por requisição. */
+/**
+ * Carrega as tabelas usadas pelas páginas do acervo uma única vez por requisição.
+ * Desempenho (migração 190): páginas de UMA obra (detalhes, classificação) chamam acervo_escopo_livro()
+ * antes; então só a obra, os exemplares, o histórico e as linhas da planilha dela são lidos — não o
+ * acervo inteiro (milhares de livros e todo o histórico de movimentações).
+ */
 function acervo_mysql_dados(): array
 {
     static $dados = null;
     if ($dados !== null) {
         return $dados;
     }
+    $escopo = isset($GLOBALS['acervo_escopo_livro']) ? (int)$GLOBALS['acervo_escopo_livro'] : null;
+    $soLivro = fn (string $coluna) => $escopo !== null ? " WHERE $coluna = " . $escopo : '';
 
     $categorias = [];
     foreach (db_query('SELECT id, nome, descricao FROM categorias WHERE arquivado_em IS NULL ORDER BY nome')->fetchAll() as $c) {
@@ -22,7 +29,7 @@ function acervo_mysql_dados(): array
     }
 
     $autores = [];
-    foreach (db_query('SELECT id, nome FROM autores ORDER BY nome')->fetchAll() as $a) {
+    foreach (db_query('SELECT id, nome FROM autores' . ($escopo !== null ? ' WHERE id IN (SELECT autor_id FROM livro_autores WHERE livro_id = ' . $escopo . ')' : '') . ' ORDER BY nome')->fetchAll() as $a) {
         $autores[(int)$a['id']] = ['id' => (int)$a['id'], 'nome' => $a['nome']];
     }
 
@@ -32,11 +39,11 @@ function acervo_mysql_dados(): array
     }
 
     $autoresPorLivro = [];
-    foreach (db_query('SELECT livro_id, autor_id FROM livro_autores ORDER BY livro_id, ordem, autor_id')->fetchAll() as $r) {
+    foreach (db_query('SELECT livro_id, autor_id FROM livro_autores' . $soLivro('livro_id') . ' ORDER BY livro_id, ordem, autor_id')->fetchAll() as $r) {
         $autoresPorLivro[(int)$r['livro_id']][] = (int)$r['autor_id'];
     }
     $categoriasPorLivro = [];
-    foreach (db_query('SELECT livro_id, categoria_id FROM livro_categorias ORDER BY livro_id, principal DESC, categoria_id')->fetchAll() as $r) {
+    foreach (db_query('SELECT livro_id, categoria_id FROM livro_categorias' . $soLivro('livro_id') . ' ORDER BY livro_id, principal DESC, categoria_id')->fetchAll() as $r) {
         if (isset($categorias[(int)$r['categoria_id']])) {
             $categoriasPorLivro[(int)$r['livro_id']][] = (int)$r['categoria_id'];
         }
@@ -45,7 +52,7 @@ function acervo_mysql_dados(): array
     $livros = [];
     $sql = 'SELECT id, titulo, subtitulo, isbn, editora, ano_publicacao, edicao, idioma, numero_paginas, sinopse, palavras_chave,
                    assunto, observacoes_internas, capa, status_validacao, origem_cadastro, criado_em
-            FROM livros WHERE arquivado_em IS NULL ORDER BY titulo, id';
+            FROM livros WHERE arquivado_em IS NULL' . ($escopo !== null ? ' AND id = ' . $escopo : '') . ' ORDER BY titulo, id';
     foreach (db_query($sql)->fetchAll() as $l) {
         $id = (int)$l['id'];
         $livros[$id] = [
@@ -75,7 +82,7 @@ function acervo_mysql_dados(): array
 
     $exemplares = [];
     $sql = 'SELECT id, livro_id, codigo_individual, localizacao_id, estado_conservacao, situacao, criado_em, conferido_em, observacoes
-            FROM exemplares ORDER BY id';
+            FROM exemplares' . $soLivro('livro_id') . ' ORDER BY id';
     foreach (db_query($sql)->fetchAll() as $e) {
         if (!isset($livros[(int)$e['livro_id']])) {
             continue;
@@ -95,7 +102,8 @@ function acervo_mysql_dados(): array
 
     $movimentacoes = [];
     $sql = 'SELECT m.exemplar_id, m.tipo, m.descricao, m.criado_em, a.nome AS responsavel
-            FROM movimentacoes m LEFT JOIN administradores a ON a.id = m.responsavel_id
+            FROM movimentacoes m LEFT JOIN administradores a ON a.id = m.responsavel_id'
+            . ($escopo !== null ? ' WHERE m.exemplar_id IN (SELECT id FROM exemplares WHERE livro_id = ' . $escopo . ')' : '') . '
             ORDER BY m.criado_em DESC, m.id DESC';
     foreach (db_query($sql)->fetchAll() as $m) {
         $movimentacoes[] = [
@@ -109,7 +117,7 @@ function acervo_mysql_dados(): array
 
     $conferencias = [];
     $sql = 'SELECT c.livro_id, c.realizado_em, c.esperado, c.encontrados, c.observacao, a.nome AS responsavel
-            FROM inventario_conferencias c LEFT JOIN administradores a ON a.id = c.responsavel_id';
+            FROM inventario_conferencias c LEFT JOIN administradores a ON a.id = c.responsavel_id' . ($escopo !== null ? ' WHERE c.livro_id = ' . $escopo : '');
     foreach (db_query($sql)->fetchAll() as $c) {
         $conferencias[] = [
             'livro_id' => (int)$c['livro_id'],
@@ -127,7 +135,7 @@ function acervo_mysql_dados(): array
         'localizacoes' => $localizacoes,
         'livros' => $livros,
         'exemplares' => $exemplares,
-        'registros_planilha' => acervo_mysql_registros_planilha(),
+        'registros_planilha' => acervo_mysql_registros_planilha($escopo),
         'movimentacoes' => $movimentacoes,
         'conferencias' => $conferencias,
     ];
@@ -138,7 +146,7 @@ function acervo_mysql_dados(): array
  * Um livro pode ter várias linhas: a quantidade é somada e os demais dados vêm da linha mais recente.
  * A quantidade é só referência — não vira exemplar.
  */
-function acervo_mysql_registros_planilha(): array
+function acervo_mysql_registros_planilha(?int $livroId = null): array
 {
     $existe = (bool)db_query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'registros_legados'")->fetchColumn();
     if (!$existe) {
@@ -148,7 +156,7 @@ function acervo_mysql_registros_planilha(): array
                    r.assunto_original, r.importacao_id, t.quantidade_informada, t.total_linhas
             FROM registros_legados r
             JOIN (SELECT livro_id, MAX(id) AS ultimo, SUM(quantidade_informada) AS quantidade_informada, COUNT(*) AS total_linhas
-                  FROM registros_legados WHERE livro_id IS NOT NULL GROUP BY livro_id) t ON t.ultimo = r.id';
+                  FROM registros_legados WHERE livro_id IS NOT NULL' . ($livroId !== null ? ' AND livro_id = ' . (int)$livroId : '') . ' GROUP BY livro_id) t ON t.ultimo = r.id';
     $lista = [];
     foreach (db_query($sql)->fetchAll() as $r) {
         $lista[] = [

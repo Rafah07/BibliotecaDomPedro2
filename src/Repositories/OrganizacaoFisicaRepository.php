@@ -110,13 +110,36 @@ final class OrganizacaoFisicaRepository
     {
         $w = $setor === 'sem' ? 'e.setor_id IS NULL' : 'e.setor_id = ?';
         return $this->todas("SELECT e.id, e.identificacao, e.nome, e.categoria, e.ativa, e.ordem, e.mapa_x, e.mapa_y, e.mapa_largura, e.mapa_altura,
-                                    COUNT(lo.id) AS prateleiras, COALESCE(SUM(x.n), 0) AS exemplares
+                                    COUNT(lo.id) AS prateleiras, COALESCE(SUM(x.n), 0) AS exemplares,
+                                    SUM(lo.capacidade_estimada) AS capacidade, SUM(lo.capacidade_estimada IS NOT NULL AND COALESCE(x.n, 0) >= lo.capacidade_estimada) AS lotadas
                              FROM estantes e
                              LEFT JOIN localizacoes lo ON lo.estante_id = e.id
                              LEFT JOIN (SELECT localizacao_id, COUNT(*) AS n FROM exemplares WHERE situacao <> 'baixado' AND localizacao_id IS NOT NULL GROUP BY localizacao_id) x ON x.localizacao_id = lo.id
                              WHERE $w
                              GROUP BY e.id
                              ORDER BY e.ordem, e.identificacao, e.id", $setor === 'sem' ? [] : [(int)$setor]);
+    }
+
+    /**
+     * Ocupação estimada das prateleiras com capacidade informada (migração 190): uma consulta agregada.
+     * $estado: disponivel | proxima | lotada | vazia | '' (todas). Até $limite prateleiras.
+     */
+    public function ocupacaoPrateleiras(string $estado = '', int $limite = 200): array
+    {
+        $linhas = $this->todas("SELECT lo.id, lo.prateleira, lo.capacidade_estimada, e.id AS estante_id, e.identificacao AS estante_identificacao, e.nome AS estante_nome,
+                                       COALESCE(x.n, 0) AS exemplares
+                                FROM localizacoes lo JOIN estantes e ON e.id = lo.estante_id AND e.ativa = 1
+                                LEFT JOIN (SELECT localizacao_id, COUNT(*) AS n FROM exemplares WHERE situacao <> 'baixado' AND localizacao_id IS NOT NULL GROUP BY localizacao_id) x ON x.localizacao_id = lo.id
+                                WHERE lo.ativa = 1 ORDER BY e.ordem, e.identificacao, lo.ordem, lo.id");
+        $saida = ['contagem' => ['disponivel' => 0, 'proxima' => 0, 'lotada' => 0, 'vazia' => 0, 'sem_capacidade' => 0], 'itens' => []];
+        foreach ($linhas as $l) {
+            $o = \Biblioteca\Services\OrganizacaoFisicaService::ocupacao((int)$l['exemplares'], $l['capacidade_estimada'] !== null ? (int)$l['capacidade_estimada'] : null);
+            $saida['contagem'][$o['estado']]++;
+            if (($estado === '' || $o['estado'] === $estado) && count($saida['itens']) < $limite && $o['estado'] !== 'sem_capacidade') {
+                $saida['itens'][] = $l + ['ocupacao' => $o];
+            }
+        }
+        return $saida;
     }
 
     /** Setores que têm estantes, mais "sem setor" se houver estantes sem setor. @return list<array{chave: string, nome: string, estantes: int}> */

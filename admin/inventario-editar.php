@@ -32,6 +32,8 @@ $dados = [
     'responsavel_id' => (string)($inv['responsavel_id'] ?? $usuario['id']),
     'setor' => (string)($inv['setor'] ?? ''),
     'descricao' => (string)($inv['descricao'] ?? ''),
+    // Inventário periódico (migração 190): depois da reorganização inicial, o padrão é periódico.
+    'tipo' => (string)($inv['tipo'] ?? (db_query("SELECT COUNT(*) FROM inventarios WHERE status = 'concluido'")->fetchColumn() ? 'periodico' : 'inicial')),
 ];
 $setorEditavel = !$inv || $inv['status'] === 'aberto';
 
@@ -94,6 +96,11 @@ admin_page_start('inventario', $titulo, 'Inventário', 'Conferência digital do 
             <span class="adm-field__hint"><?= $setorEditavel
                 ? 'Com um setor, só os exemplares com localização nesse setor entram na lista prevista. Exemplares sem localização entram apenas no inventário do acervo inteiro.'
                 : 'O setor não muda depois que a conferência começou (a lista prevista já foi definida).' ?></span></label>
+        <fieldset class="adm-field adm-field--full adm-escolha"<?= $setorEditavel ? '' : ' disabled' ?>><legend class="adm-field__label">Tipo de inventário</legend>
+            <label class="adm-escolha__opcao"><input type="radio" name="tipo" value="periodico"<?= $dados['tipo'] === 'periodico' ? ' checked' : '' ?>> <span><strong>Periódico</strong> <small>confere os exemplares já cadastrados, pelo código BDP, usando a localização atual como referência. Não gera códigos novos, não usa a planilha original e não exige lotes.</small></span></label>
+            <label class="adm-escolha__opcao"><input type="radio" name="tipo" value="inicial"<?= $dados['tipo'] === 'inicial' ? ' checked' : '' ?>> <span><strong>Inicial (reorganização)</strong> <small>inclui também as linhas da planilha original de obras ainda sem exemplar, para identificar o acervo.</small></span></label>
+            <?php if (!$setorEditavel): ?><input type="hidden" name="tipo" value="<?= e($dados['tipo']) ?>"><?php endif; ?>
+        </fieldset>
         <label class="adm-field adm-field--full"><span class="adm-field__label">Observações <span class="adm-optional">(opcional)</span></span>
             <textarea class="adm-textarea" name="descricao" rows="3" maxlength="2000" placeholder="Ex.: equipe, turnos combinados, cuidados"><?= e($dados['descricao']) ?></textarea></label>
     </div>
