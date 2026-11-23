@@ -6,14 +6,17 @@ um tutorial, edite o arquivo, rode o teste e faça commit.
 
 ```
 admin/includes/ajuda/
-├── modulos.php            19 módulos (ordem, nome, ícone, descrição, arquivo, palavras-chave)
+├── modulos.php            20 módulos (ordem, nome, ícone, descrição, arquivo, palavras-chave)
 ├── tutoriais/
 │   ├── 01-primeiros-passos.php
 │   ├── ...
 │   ├── 16-solucao-problemas.php   perguntas frequentes
 │   ├── 17-organizacao-fisica.php   estantes, prateleiras, localização e pendências
 │   ├── 18-preparo-exemplares.php   carimbo, Planilha de Códigos BDP, lotes, triagem, ocorrências, mapa, desfazer
-│   └── 19-gerenciamento-lotes.php  lotes gerenciados: capacidade, lote ativo, carimbagem, organização, encerramento, histórico
+│   ├── 19-gerenciamento-lotes.php  lotes gerenciados: capacidade, lote ativo, carimbagem, organização, encerramento, histórico
+│   └── 20-gestao-permanente.php    dados compartilhados, edição simultânea e conflitos, Central de Qualidade, versões da
+│                                    Planilha BDP, diagnóstico, backup, falhas, ficha do exemplar, aquisições, inventário
+│                                    periódico, circulação, conservação na devolução e capacidade das prateleiras
 └── LEIA-ME.md             este guia
 admin/assets/ajuda/        capturas de tela (só dados fictícios)
 admin/includes/ajuda.php   funções: carregar, pesquisar, formatar, "voltar", ajuda contextual

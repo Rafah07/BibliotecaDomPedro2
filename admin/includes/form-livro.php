@@ -35,7 +35,13 @@ if (($capaLivro['titulo'] ?? '') === '') {
 ?>
 <form class="adm-book-form" method="post" novalidate data-livro-form data-modo="<?= $modo ?>"<?= $editando ? ' data-livro-id="' . (int)$livroForm['id'] . '"' : '' ?><?= $persistir ? ' data-persistir="1"' : '' ?>>
     <?= csrf_campo() ?>
-    <?php if ($editando): ?><input type="hidden" name="versao" value="<?= e($versao ?? '') ?>"><?php endif; ?>
+    <?php foreach (($camposOcultos ?? []) as $nomeOculto => $valorOculto): ?><input type="hidden" name="<?= e($nomeOculto) ?>" value="<?= e($valorOculto) ?>"><?php endforeach; ?>
+    <?php if ($editando): ?>
+        <input type="hidden" name="versao" value="<?= e((string)($versao ?? '')) ?>">
+        <?php // Dados como estavam ao abrir o formulário: base da comparação se outra pessoa salvar antes (migração 190). ?>
+        <input type="hidden" name="base" value="<?= e(json_encode($baseEdicao ?? [], JSON_UNESCAPED_UNICODE)) ?>">
+        <?php if (!empty($conflito)) { include __DIR__ . '/conflito-edicao.php'; } ?>
+    <?php endif; ?>
     <?php if ($duplicados): ?>
         <div class="adm-notice adm-notice--amber" role="alert">
             <?= icon('copy') ?>
@@ -123,7 +129,9 @@ if (($capaLivro['titulo'] ?? '') === '') {
 
                     <label class="adm-field">
                         <span class="adm-field__label">Editora <span class="adm-optional">opcional</span></span>
-                        <input class="adm-input" type="text" name="editora" maxlength="150" value="<?= $v('editora') ?>">
+                        <input class="adm-input" type="text" name="editora" maxlength="150" value="<?= $v('editora') ?>" list="sugestoes-editora" data-sugestoes="editora" autocomplete="off">
+                        <datalist id="sugestoes-editora"></datalist>
+                        <span class="adm-field__hint">Ao digitar, aparecem as editoras já cadastradas (padronização). Um nome novo também é aceito.</span>
                     </label>
 
                     <label class="adm-field<?= $invalido('ano_publicacao') ?>">
@@ -289,7 +297,10 @@ if (($capaLivro['titulo'] ?? '') === '') {
         <?php if (!$persistir): ?><p class="adm-form-actions__note"><?= icon('info') ?> Versão demonstrativa: o salvamento é apenas simulado.</p><?php endif; ?>
         <a class="adm-button adm-button--ghost" href="<?= htmlspecialchars($editando ? admin_url('detalhes-livro') . '?id=' . (int)$livroForm['id'] : admin_url('acervo')) ?>">Cancelar</a>
         <?php if ($editando): ?>
-            <button type="submit" class="adm-button adm-button--primary" name="acao" value="salvar" data-submit><?= icon('check') ?> <span data-submit-label>Salvar alterações</span></button>
+            <button type="submit" class="adm-button adm-button--ghost" name="acao" value="salvar" data-submit><?= icon('check') ?> <span data-submit-label>Salvar alterações</span></button>
+            <?php if ($persistir): ?>
+                <button type="submit" class="adm-button adm-button--primary" name="acao" value="verificar" data-submit title="Confirma que os dados foram conferidos com o livro em mãos"><?= icon('check-check') ?> <span data-submit-label>Salvar e marcar dados como verificados</span></button>
+            <?php endif; ?>
         <?php else: ?>
             <?php if ($persistir): ?>
                 <button type="submit" class="adm-button adm-button--ghost" name="acao" value="salvar_novo" data-submit><?= icon('plus') ?> <span data-submit-label>Salvar e cadastrar outro</span></button>

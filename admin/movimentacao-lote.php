@@ -82,9 +82,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
             exemplares_servico()->localizacaoValida($destino);
             $etapa = 'revisar';
+            // Capacidade estimada da prateleira (migração 190): só aviso; quem tem permissão confirma e segue.
+            $avisoCapacidade = organizacao_servico()->avisoCapacidade($destino, count($selecionados));
             if ($acao === 'confirmar') {
                 if (admin_param($_POST, 'confirmo') !== '1') {
                     throw new AcervoException('Marque a confirmação para mover os exemplares.');
+                }
+                if ($avisoCapacidade !== null && admin_param($_POST, 'confirmar_capacidade') !== '1') {
+                    throw new AcervoException($avisoCapacidade . ' Marque “Mover mesmo assim” para confirmar.');
                 }
                 if (admin_param($_POST, 'fazer_backup') === '1') {
                     backup_antes_de($usuario, 'Antes da movimentação em lote de ' . count($selecionados) . ' exemplares');
@@ -259,6 +264,10 @@ admin_page_start('movimentacao-lote', 'Movimentação em lote', 'Organização F
                     <?= backup_aviso_html(count($selecionados) >= 30) ?>
                     <?php if ($podeBackup && count($selecionados) >= 30): ?>
                         <label class="adm-check-confirm"><input type="checkbox" name="fazer_backup" value="1"<?= backup_recente() ? '' : ' checked' ?>> <span>Fazer uma cópia de segurança no servidor antes de mover (recomendado para alterações em massa).</span></label>
+                    <?php endif; ?>
+                    <?php if (!empty($avisoCapacidade)): ?>
+                        <?= admin_aviso('aviso', 'A prateleira pode ficar lotada.', $avisoCapacidade) ?>
+                        <label class="adm-check-confirm"><input type="checkbox" name="confirmar_capacidade" value="1"> <span>Conferi o espaço físico: mover mesmo assim.</span></label>
                     <?php endif; ?>
                     <label class="adm-check-confirm"><input type="checkbox" name="confirmo" value="1" required> <span>Conferi: os <?= fisico_numero(count($selecionados)) ?> exemplares vão para <?= e(fisico_local_id($destino)) ?>.</span></label>
                     <div class="adm-form-actions">

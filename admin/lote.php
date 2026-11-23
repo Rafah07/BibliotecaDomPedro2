@@ -194,6 +194,13 @@ $imprimir = $saida === 'relatorio';
 $atribuiveis = $podeGerenciar ? lotes_repo()->usuariosAtribuiveis() : [];
 $participaIds = array_map('intval', array_column(array_filter($participantes, fn ($p) => $p['removido_em'] === null), 'administrador_id'));
 
+// Versões oficiais da Planilha BDP (migração 190): avisa quando a versão impressa ficou desatualizada.
+try {
+    $situacaoPlanilha = (new Biblioteca\Services\PlanilhaBdpVersaoService(db()))->situacao((int)$lote['id']);
+} catch (PDOException) {
+    $situacaoPlanilha = null;
+}
+
 admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS);
 ?>
 
@@ -205,7 +212,8 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
         <p><?= $lote['descricao'] ? e($lote['descricao']) . ' · ' : '' ?>do cadastro à estante definitiva. O lote e a planilha BDP nunca são apagados.</p>
     </div>
     <div class="adm-page-head__actions adm-no-print">
-        <a class="adm-button adm-button--ghost" href="<?= e($base . '&saida=planilha') ?>" target="_blank" rel="noopener"><?= icon('printer') ?> Imprimir planilha</a>
+        <a class="adm-button adm-button--primary" href="<?= e(admin_url('planilha-bdp-versoes') . '?lote=' . (int)$lote['id']) ?>"><?= icon('file-text') ?> Planilha BDP (versões)</a>
+        <a class="adm-button adm-button--ghost" href="<?= e($base . '&saida=planilha') ?>" target="_blank" rel="noopener"><?= icon('printer') ?> Imprimir lista atual</a>
         <a class="adm-button adm-button--ghost" href="<?= e($base . '&saida=planilha_excel') ?>"><?= icon('file-spreadsheet') ?> Exportar para Excel</a>
         <button class="adm-button adm-button--ghost" type="button" data-imprimir><?= icon('printer') ?> Imprimir relatório</button>
         <?php if (auth_pode('relatorios.exportar')): ?>
@@ -216,6 +224,14 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
 </section>
 
 <?= admin_flash_html() ?>
+
+<?php if ($situacaoPlanilha && $situacaoPlanilha['desatualizada']): ?>
+    <div class="adm-notice adm-notice--amber adm-notice--compact adm-no-print" role="status"><?= icon('triangle-alert') ?>
+        <p><strong>Existe uma versão mais recente da planilha BDP deste lote.</strong> A <?= e(Biblioteca\Services\PlanilhaBdpVersaoService::rotulo($situacaoPlanilha['ultima']['versao'])) ?> impressa ficou desatualizada (<?= count($situacaoPlanilha['diferencas']) ?> alteração(ões)).
+            <a class="adm-link" href="<?= e(admin_url('planilha-bdp-versoes') . '?lote=' . (int)$lote['id']) ?>">Ver o que mudou e emitir a versão atualizada</a></p></div>
+<?php elseif ($situacaoPlanilha && $situacaoPlanilha['ultima']): ?>
+    <p class="adm-field__hint adm-no-print"><?= icon('circle-check') ?> Planilha BDP: <?= e(Biblioteca\Services\PlanilhaBdpVersaoService::rotulo($situacaoPlanilha['ultima']['versao'])) ?> emitida em <?= e(admin_data_hora($situacaoPlanilha['ultima']['emitida_em'])) ?> continua atual.</p>
+<?php endif; ?>
 
 <?= lote_etapas_html($lote) ?>
 

@@ -311,6 +311,56 @@ final class OrganizacaoFisicaService
         });
     }
 
+    /**
+     * Capacidade ESTIMADA da prateleira (migração 190), opcional: null = não informada. É só uma
+     * estimativa (os livros têm tamanhos diferentes) e nunca impede guardar um livro.
+     */
+    public function definirCapacidade(int $id, ?int $capacidade, int $responsavelId): void
+    {
+        if ($capacidade !== null && ($capacidade < 1 || $capacidade > 5000)) {
+            throw new AcervoException('Informe uma capacidade estimada entre 1 e 5.000 exemplares, ou deixe em branco.');
+        }
+        $this->transacao(function () use ($id, $capacidade, $responsavelId) {
+            $p = $this->prateleiraBloqueada($id);
+            $this->executar('UPDATE localizacoes SET capacidade_estimada = ? WHERE id = ?', [$capacidade, $id]);
+            $this->registrarAcao($responsavelId, 'organizacao.prateleira_capacidade', 'localizacao', $id, ['antes' => $p['capacidade_estimada'] ?? null, 'depois' => $capacidade]);
+        });
+    }
+
+    /**
+     * Ocupação estimada: vazia | sem_capacidade | disponivel | proxima (85% ou mais) | lotada (100% ou mais).
+     * @return array{estado: string, pct: ?int, livres: ?int, rotulo: string}
+     */
+    public static function ocupacao(int $exemplares, ?int $capacidade): array
+    {
+        if ($capacidade === null || $capacidade <= 0) {
+            return ['estado' => $exemplares === 0 ? 'vazia' : 'sem_capacidade', 'pct' => null, 'livres' => null, 'rotulo' => $exemplares === 0 ? 'Sem exemplares' : 'Capacidade não informada'];
+        }
+        $pct = (int)round($exemplares * 100 / $capacidade);
+        $estado = $exemplares === 0 ? 'vazia' : ($pct >= 100 ? 'lotada' : ($pct >= 85 ? 'proxima' : 'disponivel'));
+        $rotulos = ['vazia' => 'Sem exemplares', 'disponivel' => 'Com espaço', 'proxima' => 'Próxima da capacidade', 'lotada' => 'Possivelmente lotada'];
+        return ['estado' => $estado, 'pct' => $pct, 'livres' => $capacidade - $exemplares, 'rotulo' => $rotulos[$estado]];
+    }
+
+    /**
+     * Aviso (sem bloquear) quando $novos exemplares a mais passam da capacidade estimada da prateleira.
+     * @return ?string texto do aviso, ou null quando cabe (ou a capacidade não foi informada)
+     */
+    public function avisoCapacidade(?int $localId, int $novos): ?string
+    {
+        if (!$localId || $novos < 1) {
+            return null;
+        }
+        $l = $this->linha("SELECT lo.capacidade_estimada, (SELECT COUNT(*) FROM exemplares x WHERE x.localizacao_id = lo.id AND x.situacao <> 'baixado') AS atuais FROM localizacoes lo WHERE lo.id = ?", [$localId]);
+        if (!$l || $l['capacidade_estimada'] === null) {
+            return null;
+        }
+        $total = (int)$l['atuais'] + $novos;
+        return $total > (int)$l['capacidade_estimada']
+            ? 'A prateleira tem capacidade estimada de ' . (int)$l['capacidade_estimada'] . ' exemplares e ficará com ' . $total . ' (' . (int)$l['atuais'] . ' já estão nela). É só uma estimativa: confira o espaço físico.'
+            : null;
+    }
+
     /** Sobe (-1) ou desce (+1) a prateleira na ordem de exibição da estante. */
     public function moverPrateleira(int $id, int $direcao, int $responsavelId): void
     {

@@ -1577,7 +1577,7 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
 
 <section class="adm-page-head">
     <div>
-        <h1>Conferência <?= fisico_badge_inventario($inv['status']) ?></h1>
+        <h1>Conferência <?= fisico_badge_inventario($inv['status']) ?><?= ($inv['tipo'] ?? '') === 'periodico' ? ' <span class="adm-status adm-tone--blue">Inventário periódico</span>' : '' ?></h1>
         <p><?= e($inv['titulo']) ?> · pesquise, verifique a obra uma vez e registre cada exemplar com o seu código BDP, sem sair desta página</p>
     </div>
     <div class="adm-page-head__actions" data-acoes-visiveis="0">

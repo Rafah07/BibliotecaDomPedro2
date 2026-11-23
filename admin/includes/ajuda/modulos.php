@@ -90,6 +90,13 @@ return [
         'arquivo' => '19-gerenciamento-lotes.php',
         'palavras' => ['lote', 'lotes', 'meus lotes', 'lote ativo', 'capacidade', 'carimbagem', 'encerrar lote', 'historico de lotes', 'produtividade', 'duvida', 'rascunho'],
     ],
+    'gestao-permanente' => [
+        'nome' => 'Gestão permanente do acervo',
+        'icone' => 'sparkles',
+        'descricao' => 'Dados compartilhados entre as cópias, edição simultânea, Central de Qualidade, versões da Planilha BDP, diagnóstico, backups, falhas, ficha do exemplar, aquisições, inventário periódico, circulação, devolução e capacidade das prateleiras.',
+        'arquivo' => '20-gestao-permanente.php',
+        'palavras' => ['qualidade', 'duplicidade', 'padronizacao', 'conflito', 'versao da planilha', 'diagnostico', 'aquisicao', 'baixa', 'inventario periodico', 'circulacao', 'capacidade', 'ficha do exemplar'],
+    ],
     'etiquetas' => [
         'nome' => 'Etiquetas',
         'icone' => 'tag',

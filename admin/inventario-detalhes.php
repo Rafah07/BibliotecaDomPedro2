@@ -155,7 +155,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
 
 <section class="adm-page-head">
     <div>
-        <h1><?= e($inv['titulo']) ?> <?= fisico_badge_inventario($inv['status']) ?></h1>
+        <h1><?= e($inv['titulo']) ?> <?= fisico_badge_inventario($inv['status']) ?><?= ($inv['tipo'] ?? '') === 'periodico' ? ' <span class="adm-status adm-tone--blue">Inventário periódico</span>' : '' ?></h1>
         <p>Nº <?= (int)$inv['id'] ?> · Responsável: <?= e($inv['responsavel_nome'] ?? '—') ?> · <?= $inv['setor'] ? 'Setor: ' . e($inv['setor']) : 'Acervo inteiro' ?> · Início em <?= admin_data_hora($inv['data_inicio'] ?? $inv['iniciado_em'], false) ?>
             <?php if ($inv['concluido_em']): ?> · Concluído em <?= admin_data_hora($inv['concluido_em']) ?><?= $inv['concluido_por_nome'] ? ' por ' . e($inv['concluido_por_nome']) : '' ?><?php endif; ?>
             <?php if ($inv['cancelado_em']): ?> · Cancelado em <?= admin_data_hora($inv['cancelado_em']) ?><?= $inv['cancelado_por_nome'] ? ' por ' . e($inv['cancelado_por_nome']) : '' ?><?php endif; ?></p>

@@ -36,6 +36,7 @@ admin_page_start('inventario', 'Inventário', 'Inventário', 'Conferência digit
     </div>
     <div class="adm-page-head__actions">
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-comparacao')) ?>"><?= icon('git-compare') ?> Comparar com planilha original</a>
+        <?php if (auth_pode('qualidade.ver')): ?><a class="adm-button adm-button--ghost" href="<?= e(admin_url('qualidade')) ?>"><?= icon('sparkles') ?> Qualidade do acervo</a><?php endif; ?>
         <?php if ($podeGerenciar): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario-editar')) ?>"><?= icon('plus') ?> Novo inventário</a><?php endif; ?>
     </div>
 </section>

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/livros.php';
 
+acervo_escopo_livro((int)($_GET['id'] ?? 0)); // só esta obra é lida do banco (desempenho)
 $livro = acervo_livro((int)($_GET['id'] ?? 0));
 
 admin_page_start('acervo', $livro ? $livro['titulo'] : 'Livro não encontrado', 'Acervo', 'Livros, exemplares e categorias da biblioteca', ['assets/css/acervo.css?v=20261115mob', 'assets/css/classificacao.css?v=20261115mob', 'assets/css/inventario.css?v=20261115mob']);
@@ -36,6 +37,23 @@ $precisaConferir = in_array($livro['status_validacao'], ['aguardando_conferencia
 $persistir = livros_persistem();
 // Linhas das planilhas que originaram o cadastro, com os valores exatamente como vieram.
 $origem = $persistir && $planilha ? livros_repo()->origemImportacao($id) : [];
+// Gestão permanente (migração 190): histórico bibliográfico, edição simultânea e unificação.
+$historicoObra = [];
+$editandoAgora = [];
+$unificacoes = [];
+$unificadoEm = null;
+if ($persistir) {
+    try {
+        $historicoObra = (new Biblioteca\Services\ObraVerificacaoService(db()))->historico($id, 50);
+        $editandoAgora = (new Biblioteca\Services\ObraEdicaoService(db()))->outros($id, (int)(auth_usuario()['id'] ?? 0));
+        $unificacoes = db_query('SELECT u.*, a.nome AS administrador_nome, lm.titulo AS mantido_titulo FROM obra_unificacoes u
+                                 JOIN livros lm ON lm.id = u.livro_mantido_id LEFT JOIN administradores a ON a.id = u.administrador_id
+                                 WHERE u.livro_mantido_id = ? OR u.livro_unificado_id = ? ORDER BY u.id DESC', [$id, $id])->fetchAll();
+        $unificadoEm = db_query('SELECT unificado_em_id FROM livros WHERE id = ?', [$id])->fetchColumn() ?: null;
+    } catch (PDOException) {
+        // Antes da migração 190: a página continua sem essas seções.
+    }
+}
 
 // Os três números ficam separados: quantidade da planilha (referência), exemplares físicos e disponíveis.
 $podeCadastrarExemplar = $persistir && auth_pode('exemplares.gerenciar') && empty($livro['arquivado_em']);
@@ -83,7 +101,7 @@ $meta = [
         </dl>
         <div class="adm-book-hero__actions">
             <?php if (auth_pode('livros.editar')): ?>
-                <a class="adm-button adm-button--primary" href="<?= e(admin_url('editar-livro') . '?id=' . $id) ?>"><?= icon('pencil') ?> Editar livro</a>
+                <a class="adm-button adm-button--primary" href="<?= e(admin_url('editar-livro') . '?id=' . $id) ?>"><?= icon('pencil') ?> Editar dados da obra</a>
                 <?php if ($persistir && empty($livro['arquivado_em'])): ?>
                     <a class="adm-button adm-button--ghost" href="<?= e(admin_url('capa-livro') . '?id=' . $id) ?>"><?= icon('image') ?> Capa</a>
                 <?php endif; ?>
@@ -94,7 +112,8 @@ $meta = [
             <?php if (!$persistir): ?>
                 <button type="button" class="adm-button adm-button--ghost" data-add-exemplares="<?= $id ?>"><?= icon('plus') ?> Adicionar exemplares</button>
             <?php elseif ($podeCadastrarExemplar): ?>
-                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('cadastrar-exemplar') . '?livro=' . $id) ?>"><?= icon('plus') ?> Cadastrar exemplar</a>
+                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('cadastrar-exemplar') . '?livro=' . $id) ?>"><?= icon('plus') ?> Registrar exemplar</a>
+                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('cadastrar-exemplar') . '?livro=' . $id . '&modo=varios') ?>"><?= icon('book-copy') ?> Registrar vários exemplares</a>
             <?php endif; ?>
             <?php if ($podeEtiquetas): ?>
                 <a class="adm-button adm-button--ghost" href="<?= e(admin_url('etiquetas') . '?origem=filtro&livro=' . $id) ?>"><?= icon('printer') ?> Imprimir etiquetas</a>
@@ -107,6 +126,15 @@ $meta = [
         </div>
     </div>
 </section>
+
+<?php if ($unificadoEm): ?>
+    <?= admin_aviso('aviso', 'Este cadastro foi unificado em outra obra.', 'Os exemplares e as linhas da planilha passaram para a obra nº ' . (int)$unificadoEm . '. Este registro fica arquivado só como histórico.') ?>
+    <p><a class="adm-button adm-button--primary adm-button--sm" href="<?= e(admin_url('detalhes-livro') . '?id=' . (int)$unificadoEm) ?>"><?= icon('arrow-right') ?> Abrir a obra que ficou</a></p>
+<?php endif; ?>
+<?php if ($editandoAgora): ?>
+    <div class="adm-notice adm-notice--amber adm-notice--compact" role="status"><?= icon('users') ?>
+        <p><?= e(Biblioteca\Services\ObraEdicaoService::aviso($editandoAgora, auth_pode('livros.editar'))) ?> A consulta e o registro de exemplares continuam normais.</p></div>
+<?php endif; ?>
 
 <?php if ($precisaConferir): ?>
     <section class="adm-notice adm-notice--amber adm-notice--action" aria-labelledby="aviso-conferencia">
@@ -346,6 +374,45 @@ $meta = [
     </div>
     <?php endif; ?>
 </section>
+
+<?php if ($persistir): ?>
+<section class="adm-card adm-panel" aria-labelledby="titulo-historico-obra" id="historico-obra">
+    <div class="adm-panel__header"><div><h2 id="titulo-historico-obra">Histórico dos dados bibliográficos</h2>
+        <p>Cada correção da obra: campo, valor anterior, novo valor, responsável e data. Vale para todos os exemplares desta obra; relatórios e planilhas BDP já emitidos guardam os dados da época.</p></div>
+        <?php if ($origem): ?><a class="adm-button adm-button--ghost adm-button--sm" href="#origem"><?= icon('file-spreadsheet') ?> Comparar com a planilha original</a><?php endif; ?></div>
+    <?php if (!$historicoObra): ?>
+        <p class="adm-field__hint">Nenhuma alteração registrada desde o cadastro.</p>
+    <?php else: ?>
+        <div class="adm-table-wrap">
+            <table class="adm-table adm-table--compact">
+                <thead><tr><th scope="col">Data</th><th scope="col">Responsável</th><th scope="col">O que aconteceu</th><th scope="col">Campo</th><th scope="col">Antes</th><th scope="col">Depois</th></tr></thead>
+                <tbody>
+                <?php foreach ($historicoObra as $h): $alt = $h['alteracoes'] ?: [null => null]; $primeiro = true; foreach ($alt as $campo => $par): ?>
+                    <tr>
+                        <?php if ($primeiro): ?>
+                            <td data-label="Data" rowspan="<?= count($alt) ?>"><?= e(admin_data_hora($h['criado_em'])) ?></td>
+                            <td data-label="Responsável" rowspan="<?= count($alt) ?>"><?= e((string)($h['administrador_nome'] ?? 'Sistema')) ?></td>
+                            <td data-label="O que aconteceu" rowspan="<?= count($alt) ?>"><?= e(Biblioteca\Services\ObraVerificacaoService::descrever($h)) ?><?= $h['origem'] !== 'editar_livro' ? ' <small class="adm-table__muted">(' . e((string)$h['origem']) . ')</small>' : '' ?></td>
+                        <?php endif; $primeiro = false; ?>
+                        <td data-label="Campo"><?= $campo !== '' && $campo !== null ? e(Biblioteca\Services\ObraVerificacaoService::ROTULOS[$campo] ?? (string)$campo) : '—' ?></td>
+                        <td data-label="Antes"><?= is_array($par) && ($par['antes'] ?? null) !== null && $par['antes'] !== '' ? e(mb_strimwidth((string)$par['antes'], 0, 120, '…')) : '<span class="adm-missing">—</span>' ?></td>
+                        <td data-label="Depois"><?= is_array($par) && ($par['depois'] ?? null) !== null && $par['depois'] !== '' ? e(mb_strimwidth((string)$par['depois'], 0, 120, '…')) : '<span class="adm-missing">—</span>' ?></td>
+                    </tr>
+                <?php endforeach; endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+    <?php if ($unificacoes): ?>
+        <h3 class="adm-subtitle">Unificações</h3>
+        <ul class="adm-versao-diff">
+            <?php foreach ($unificacoes as $u): $ex = json_decode((string)$u['exemplares'], true) ?: []; ?>
+                <li><?= e(admin_data_hora($u['criado_em'])) ?> · <?= e((string)($u['administrador_nome'] ?? '')) ?>: obra nº <?= (int)$u['livro_unificado_id'] ?> unificada na nº <?= (int)$u['livro_mantido_id'] ?> (<?= count($ex) ?> exemplar(es)<?= $ex ? ': ' . e(implode(', ', array_column($ex, 'codigo'))) : '' ?>). Motivo: <?= e($u['motivo']) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
 
 <?php
 $livroModal = $livro;

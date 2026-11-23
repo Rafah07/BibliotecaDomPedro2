@@ -3,12 +3,18 @@
  * Detalhes de um exemplar físico: dados, localização confirmada (e a antiga da planilha, só como
  * referência), histórico, conferências de inventário e ações (conservação, transferência,
  * situação, extravio e baixa). Aceita ?id= ou ?codigo= (ex.: BDP-000001, digitado pela bibliotecária).
+ *
+ * Ficha individual completa (migração 190): obra e dados bibliográficos atuais (lidos da obra), entrada
+ * no acervo e aquisição, lote, quem cadastrou, carimbagem, localização atual e histórico de localizações,
+ * conservação, ocorrências, resumo dos empréstimos, inventários e situação atual. Baixa administrativa
+ * com motivo padronizado e "Corrigir a obra deste exemplar" (só esta cópia, mesmo código BDP).
  * Sem banco configurado, mostra a versão demonstrativa (includes/demo/detalhes-exemplar.php).
  */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/acervo-fisico.php';
 
 use Biblioteca\Services\AcervoException;
+use Biblioteca\Services\ComparacaoPlanilhaService;
 
 if (!acervo_usa_mysql()) {
     require __DIR__ . '/includes/demo/detalhes-exemplar.php';
@@ -38,9 +44,15 @@ try {
                     break;
                 case 'transferir':
                     fisico_exigir('exemplares.gerenciar');
+                    // Capacidade estimada (migração 190): só avisa, não impede.
+                    $destinoLocal = (int)admin_param($_POST, 'localizacao_id') ?: null;
+                    $avisoCap = $destinoLocal && (int)(exemplares_repo()->buscar($id)['localizacao_id'] ?? 0) !== $destinoLocal ? organizacao_servico()->avisoCapacidade($destinoLocal, 1) : null;
                     $op = operacoes_servico()->realizar('localizacao', 'Localização alterada no exemplar nº ' . $id, $usuario['id'],
                         fn () => $servico->transferir($id, (int)admin_param($_POST, 'localizacao_id') ?: null, $usuario['id'], admin_param($_POST, 'motivo')));
                     admin_flash('sucesso', 'Localização atualizada.', 'Só este exemplar mudou de lugar; os outros exemplares do livro continuam onde estão.' . ($op['total'] ? ' Errou? Use “Desfazer” em Ações recentes.' : ''));
+                    if ($avisoCap) {
+                        admin_flash('aviso', 'Prateleira possivelmente lotada.', $avisoCap);
+                    }
                     break;
                 case 'carimbar':
                     fisico_exigir('exemplares.gerenciar');
@@ -71,8 +83,21 @@ try {
                     if (admin_param($_POST, 'confirmar') !== '1') {
                         throw new AcervoException('Marque a confirmação para dar baixa.');
                     }
-                    $servico->baixar($id, $usuario['id'], admin_param($_POST, 'motivo'));
-                    admin_flash('sucesso', 'Baixa registrada.', 'O exemplar saiu do acervo ativo. O código e o histórico continuam guardados e o código não será reaproveitado.');
+                    $tipoBaixa = admin_param($_POST, 'baixa_tipo');
+                    if (!isset(BAIXA_TIPOS[$tipoBaixa])) {
+                        throw new AcervoException('Escolha o motivo da baixa.');
+                    }
+                    $justificativa = trim(admin_param($_POST, 'justificativa'));
+                    $servico->baixar($id, $usuario['id'], BAIXA_TIPOS[$tipoBaixa] . ($justificativa !== '' ? ': ' . $justificativa : ''), $tipoBaixa, admin_param($_POST, 'observacao'));
+                    admin_flash('sucesso', 'Baixa registrada.', 'O exemplar saiu do acervo ativo e da disponibilidade para empréstimo. O cadastro, o código e o histórico continuam guardados e o código não será reaproveitado.');
+                    break;
+                case 'corrigir_obra':
+                    // Esta cópia é de outra edição: só ela muda de obra (mesmo código BDP, lote, carimbo, histórico).
+                    fisico_exigir('exemplares.gerenciar');
+                    fisico_exigir('livros.editar');
+                    $destino = (int)admin_param($_POST, 'destino');
+                    $r = (new ComparacaoPlanilhaService(db()))->corrigirObraExemplar($id, $destino, $usuario['id'], admin_param($_POST, 'confirmo') === '1', admin_param($_POST, 'motivo'));
+                    admin_flash('sucesso', 'Obra do exemplar ' . $r['exemplar']['codigo_individual'] . ' corrigida.', 'Só esta cópia passou para a obra nº ' . $destino . '. O código BDP, o lote, o carimbo, a localização, a conservação, as ocorrências, os empréstimos e o histórico continuam os mesmos.');
                     break;
                 default:
                     throw new AcervoException('Ação desconhecida.');
@@ -92,6 +117,18 @@ try {
         $locais = localizacoes_servico()->ativas($ex['localizacao_id'] !== null ? (int)$ex['localizacao_id'] : null);
         $ocorrencias = preparo_repo()->ocorrenciasDoExemplar($id);
         $loteEx = $ex['lote_id'] !== null ? preparo_repo()->lote((int)$ex['lote_id']) : null;
+        // Ciclo de vida (migração 190): entrada, aquisição, baixa, localizações e empréstimos (só números).
+        $vida = db_query('SELECT e.data_entrada, e.aquisicao_id, e.baixa_tipo, e.baixa_observacao, e.organizado_em, bp.nome AS baixado_por_nome,
+                                 aq.tipo AS aquisicao_tipo, aq.origem AS aquisicao_origem, aq.data_recebimento AS aquisicao_data, aq.documento AS aquisicao_documento,
+                                 (SELECT COUNT(*) FROM emprestimos m WHERE m.exemplar_id = e.id) AS emprestimos_total,
+                                 (SELECT MAX(m.data_emprestimo) FROM emprestimos m WHERE m.exemplar_id = e.id) AS ultimo_emprestimo,
+                                 (SELECT COUNT(*) FROM emprestimos m WHERE m.exemplar_id = e.id AND m.data_devolucao IS NULL AND m.data_prevista < CURDATE()) AS emprestimo_atrasado
+                          FROM exemplares e LEFT JOIN administradores bp ON bp.id = e.baixado_por LEFT JOIN aquisicoes aq ON aq.id = e.aquisicao_id
+                          WHERE e.id = ?', [$id])->fetch() ?: [];
+        $locaisHistorico = array_values(array_filter($historico, fn ($m) => $m['tipo'] === 'localizacao'));
+        $correcoesObra = db_query('SELECT c.*, la.titulo AS anterior_titulo, ln.titulo AS nova_titulo, a.nome AS administrador_nome FROM exemplar_obra_correcoes c
+                                   JOIN livros la ON la.id = c.livro_anterior_id JOIN livros ln ON ln.id = c.livro_novo_id LEFT JOIN administradores a ON a.id = c.administrador_id
+                                   WHERE c.exemplar_id = ? ORDER BY c.id DESC', [$id])->fetchAll();
     }
 } catch (PDOException $e) {
     http_response_code(500);
@@ -110,14 +147,20 @@ $podeGerenciar = auth_pode('exemplares.gerenciar');
 $podeBaixar = auth_pode('exemplares.baixar');
 $tipos = ACERVO_MOVIMENTOS;
 
-admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades físicas do acervo', FISICO_CSS);
+admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades físicas do acervo', array_merge(FISICO_CSS, ['assets/css/gestao.css?v=20261118']));
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Exemplares', admin_url('exemplares')], [$ex['codigo_individual']]]) ?>
 
+<form class="adm-toolbar adm-toolbar--search" method="get" action="<?= e(admin_url('detalhes-exemplar')) ?>" role="search">
+    <label class="adm-field-search adm-toolbar__q"><?= icon('search') ?><span class="adm-visually-hidden">Abrir a ficha de outro exemplar pelo código BDP</span>
+        <input type="search" name="codigo" placeholder="Abrir outra ficha pelo código BDP (ex.: BDP-000123)" autocomplete="off" spellcheck="false"></label>
+    <button class="adm-button adm-button--ghost adm-button--sm" type="submit"><?= icon('arrow-right') ?> Abrir ficha</button>
+</form>
+
 <section class="adm-page-head">
     <div>
-        <p class="adm-eyebrow">Exemplar físico</p>
+        <p class="adm-eyebrow">Ficha do exemplar</p>
         <h1 class="adm-mono"><?= e($ex['codigo_individual']) ?></h1>
         <p><a class="adm-link" href="<?= e(admin_url('detalhes-livro') . '?id=' . (int)$ex['livro_id']) ?>"><?= e($ex['titulo']) ?> <?= icon('arrow-right') ?></a></p>
     </div>
@@ -138,7 +181,7 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
 <?php if ($emprestado): ?>
     <div class="adm-notice adm-notice--indigo" role="note"><?= icon('book-open-check') ?><div><strong>Este exemplar está emprestado.</strong><p>A situação, a baixa e o extravio ficam bloqueados até a devolução ser registrada no módulo de empréstimos.</p></div></div>
 <?php elseif ($baixado): ?>
-    <div class="adm-notice adm-notice--red" role="note"><?= icon('package-x') ?><div><strong>Exemplar baixado em <?= admin_data_hora($ex['baixado_em']) ?>.</strong><p><?= e($ex['motivo_baixa'] ?? '') ?> O código continua reservado e não será reaproveitado.</p></div></div>
+    <div class="adm-notice adm-notice--red" role="note"><?= icon('package-x') ?><div><strong>Exemplar baixado em <?= admin_data_hora($ex['baixado_em']) ?><?= !empty($vida['baixado_por_nome']) ? ' por ' . e($vida['baixado_por_nome']) : '' ?>.</strong><p><?= e($ex['motivo_baixa'] ?? '') ?><?= !empty($vida['baixa_observacao']) ? ' · ' . e($vida['baixa_observacao']) : '' ?> O cadastro, o histórico e o código continuam guardados; o código não será reaproveitado.</p></div></div>
 <?php endif; ?>
 
 <div class="adm-columns">
@@ -160,6 +203,9 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
                 <div><dt>Localização física confirmada</dt><dd><?= $ex['localizacao_id'] ? e(fisico_local($ex)) . ($ex['local_codigo'] ? ' <span class="adm-mono">(' . e($ex['local_codigo']) . ')</span>' : '') : '<span class="adm-missing">Aguardando organização (área de triagem)</span>' ?></dd></div>
                 <div><dt>Localização antiga (planilha)</dt><dd><?= $planilha['localizacoes'] ? e($planilha['localizacoes']) . ' <small class="adm-table__muted">— histórica, não confirmada</small>' : '<span class="adm-missing">Não informada</span>' ?></dd></div>
                 <div><dt>Cadastrado em</dt><dd><?= admin_data_hora($ex['criado_em']) ?><?= $ex['cadastrado_por_nome'] ? ' por ' . e($ex['cadastrado_por_nome']) : '' ?></dd></div>
+                <div><dt>Entrada no acervo</dt><dd><?= !empty($vida['data_entrada']) ? e(date('d/m/Y', strtotime($vida['data_entrada']))) : e(date('d/m/Y', strtotime($ex['criado_em']))) . ' <small class="adm-table__muted">(data do cadastro)</small>' ?></dd></div>
+                <div><dt>Origem da aquisição</dt><dd><?= !empty($vida['aquisicao_id']) ? '<a class="adm-link" href="' . e(admin_url('aquisicoes') . '?id=' . (int)$vida['aquisicao_id']) . '">' . e((AQUISICAO_TIPOS[$vida['aquisicao_tipo']] ?? $vida['aquisicao_tipo']) . ' · ' . $vida['aquisicao_origem']) . '</a> · ' . e(date('d/m/Y', strtotime($vida['aquisicao_data']))) . ($vida['aquisicao_documento'] ? ' · ' . e($vida['aquisicao_documento']) : '') : '<span class="adm-missing">Acervo existente (inventário inicial)</span>' ?></dd></div>
+                <div><dt>Empréstimos</dt><dd><?= (int)($vida['emprestimos_total'] ?? 0) ?> no total<?= !empty($vida['ultimo_emprestimo']) ? ' · último em ' . admin_data_hora($vida['ultimo_emprestimo']) : '' ?><?= !empty($vida['emprestimo_atrasado']) ? ' · <span class="adm-status adm-tone--red">em atraso</span>' : '' ?></dd></div>
                 <div><dt>Origem do cadastro</dt><dd><?= $ex['inventario_id'] ? 'Conferência do <a class="adm-link" href="' . e(admin_url('inventario-detalhes') . '?id=' . (int)$ex['inventario_id']) . '">inventário nº ' . (int)$ex['inventario_id'] . '</a>' : 'Cadastro manual' ?></dd></div>
                 <div><dt>Última conferência</dt><dd><?= $ex['conferido_em'] ? admin_data_hora($ex['conferido_em']) : '<span class="adm-missing">Ainda não conferido</span>' ?></dd></div>
                 <div><dt>Etiqueta</dt><dd><?= $ex['etiqueta_gerada_em'] ? 'Gerada em ' . admin_data_hora($ex['etiqueta_gerada_em']) : '<span class="adm-missing">Ainda não gerada</span>' ?></dd></div>
@@ -188,6 +234,23 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
                     <?php endforeach; ?>
                 </ul>
                 <a class="adm-link" href="<?= e(admin_url('ocorrencias') . '?' . http_build_query(['q' => $ex['codigo_individual'], 'status' => 'todas'])) ?>"><?= icon('list') ?> Consultar, editar ou resolver em Ocorrências e Conservação</a>
+            <?php endif; ?>
+        </section>
+
+        <section class="adm-card adm-panel" aria-labelledby="titulo-locais">
+            <div class="adm-panel__header"><div><h2 id="titulo-locais">Histórico de localizações</h2><p>Onde este exemplar esteve, da mudança mais recente para a mais antiga.<?= !empty($vida['organizado_em']) ? ' Organizado na estante definitiva pela primeira vez em ' . e(admin_data_hora($vida['organizado_em'])) . '.' : '' ?></p></div></div>
+            <?php if (!$locaisHistorico): ?>
+                <p class="adm-field__hint">Nenhuma mudança de localização registrada.</p>
+            <?php else: ?>
+                <ol class="adm-linha-tempo">
+                    <?php foreach ($locaisHistorico as $m): ?><li><time><?= admin_data_hora($m['criado_em']) ?> · <?= e($m['responsavel'] ?? 'Sistema') ?></time><?= e($m['descricao']) ?></li><?php endforeach; ?>
+                </ol>
+            <?php endif; ?>
+            <?php if ($correcoesObra): ?>
+                <h3 class="adm-subtitle">Correções da obra associada</h3>
+                <ol class="adm-linha-tempo">
+                    <?php foreach ($correcoesObra as $c): ?><li><time><?= admin_data_hora($c['criado_em']) ?> · <?= e($c['administrador_nome'] ?? 'Sistema') ?></time>De “<?= e($c['anterior_titulo']) ?>” para “<?= e($c['nova_titulo']) ?>” · <?= e($c['motivo']) ?></li><?php endforeach; ?>
+                </ol>
             <?php endif; ?>
         </section>
 
@@ -267,6 +330,24 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
                     </form>
                 </details>
 
+                <?php if (auth_pode('livros.editar')): ?>
+                <details class="adm-acao"<?= admin_param($_GET, 'acao') === 'obra' ? ' open' : '' ?>>
+                    <summary><?= icon('git-compare-arrows') ?> Corrigir a obra deste exemplar</summary>
+                    <?php if ($emprestado): ?>
+                        <p class="adm-field__hint">Bloqueado: registre a devolução antes de corrigir a obra.</p>
+                    <?php else: ?>
+                        <form method="post" data-loading-form data-confirm="Mudar só este exemplar para a outra obra? O código BDP continua o mesmo.">
+                            <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="corrigir_obra">
+                            <p class="adm-field__hint">Use quando ESTA cópia é de outra edição ou obra. Os outros exemplares de “<?= e($ex['titulo']) ?>” não mudam. Para corrigir os dados de todas as cópias, use “Editar dados da obra”.</p>
+                            <label class="adm-field"><span class="adm-field__label">Número da obra correta <span class="adm-required" aria-hidden="true">*</span></span><input class="adm-input" type="number" name="destino" min="1" required inputmode="numeric" placeholder="Nº da obra (aparece na página da obra)"></label>
+                            <label class="adm-field"><span class="adm-field__label">Motivo <span class="adm-required" aria-hidden="true">*</span></span><input class="adm-input" name="motivo" maxlength="300" required placeholder="Ex.: esta cópia é a 2ª edição (ISBN diferente)"></label>
+                            <label class="adm-check-confirm"><input type="checkbox" name="confirmo" value="1" required><span>Confirmo que este exemplar físico é da obra informada.</span></label>
+                            <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('check') ?> Corrigir só este exemplar</button>
+                        </form>
+                    <?php endif; ?>
+                </details>
+                <?php endif; ?>
+
                 <details class="adm-acao">
                     <summary><?= icon('pencil') ?> Conservação e observações</summary>
                     <form method="post" data-loading-form>
@@ -317,13 +398,14 @@ admin_page_start('exemplares', $ex['codigo_individual'], 'Exemplares', 'Unidades
                             <form method="post" data-loading-form data-confirm="Dar baixa definitiva no exemplar <?= e($ex['codigo_individual']) ?>? Esta ação não pode ser desfeita.">
                                 <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="baixa">
                                 <label class="adm-field"><span class="adm-field__label">Motivo da baixa <span class="adm-required" aria-hidden="true">*</span></span>
-                                    <select class="adm-select" name="motivo" required>
+                                    <select class="adm-select" name="baixa_tipo" required>
                                         <option value="">Selecione</option>
-                                        <?php foreach (['Danificado sem possibilidade de reparo', 'Extraviado e não recuperado', 'Conteúdo desatualizado', 'Doado ou transferido para outra instituição', 'Cadastro feito por engano'] as $m): ?>
-                                            <option><?= e($m) ?></option>
-                                        <?php endforeach; ?>
+                                        <?php foreach (BAIXA_TIPOS as $bv => $br): ?><option value="<?= e($bv) ?>"<?= $ex['situacao'] === 'extraviado' && $bv === 'extravio' ? ' selected' : '' ?>><?= e($br) ?></option><?php endforeach; ?>
                                     </select>
                                 </label>
+                                <label class="adm-field"><span class="adm-field__label">Justificativa / autorização <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="justificativa" maxlength="150" placeholder="Ex.: autorizado pela direção em 18/11/2026"></label>
+                                <label class="adm-field"><span class="adm-field__label">Observações <span class="adm-optional">(opcional)</span></span><textarea class="adm-textarea" name="observacao" rows="2" maxlength="1000"></textarea></label>
+                                <p class="adm-field__hint">Uma ausência temporária no inventário não é motivo de baixa: use “Registrar extravio” e aguarde.</p>
                                 <label class="adm-check-confirm"><input type="checkbox" name="confirmar" value="1" required><span>Entendo que a baixa é definitiva. O código <strong class="adm-mono"><?= e($ex['codigo_individual']) ?></strong> não será reaproveitado.</span></label>
                                 <button class="adm-button adm-button--danger adm-button--sm" type="submit"><?= icon('package-x') ?> Dar baixa</button>
                             </form>

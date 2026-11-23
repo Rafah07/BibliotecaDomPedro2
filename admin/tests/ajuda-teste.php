@@ -4,7 +4,7 @@
  *
  * Uso: php admin/tests/ajuda-teste.php
  *
- * 1. Conteúdo (sem banco): 19 módulos, ids únicos, seções A–J, tutoriais relacionados e links
+ * 1. Conteúdo (sem banco): 20 módulos, ids únicos, seções A–J, tutoriais relacionados e links
  *    internos existentes, páginas do painel existentes, imagens com texto alternativo e, para cada
  *    tutorial, os nomes de campos, botões e mensagens citados (campo 'confere') encontrados no
  *    código-fonte das páginas — assim a documentação não descola do sistema.
@@ -26,7 +26,7 @@ echo "\n1. Conteúdo dos tutoriais\n";
 confere('PHP 8.2 ou mais novo', PHP_VERSION_ID >= 80200, PHP_VERSION);
 $modulos = ajuda_modulos();
 $tutoriais = ajuda_tutoriais();
-confere('19 módulos', count($modulos) === 19, (string)count($modulos));
+confere('20 módulos', count($modulos) === 20, (string)count($modulos));
 $semTutorial = array_keys(array_filter($modulos, fn ($m) => empty($m['tutoriais'])));
 confere('todo módulo tem tutoriais', !$semTutorial, implode(', ', $semTutorial));
 $semCampos = array_keys(array_filter($modulos, fn ($m) => empty($m['nome']) || empty($m['descricao']) || empty($m['icone'])));
@@ -253,7 +253,7 @@ $antes = $retrato();
 foreach ($nav as $perfil => $n) {
     [$s, $html] = $n->ir('admin/ajuda.php');
     $cards = preg_match_all('/class="adm-card ajd-modulo"/', $html);
-    confere("$perfil: abre a Central de Ajuda com os 19 módulos", $s === 200 && str_contains($html, 'Central de Ajuda') && $cards === 19 && teste_sem_erro_tecnico($html), "status $s, $cards cartões");
+    confere("$perfil: abre a Central de Ajuda com os 20 módulos", $s === 200 && str_contains($html, 'Central de Ajuda') && $cards === 20 && teste_sem_erro_tecnico($html), "status $s, $cards cartões");
     confere("$perfil: cabeçalho, subtítulo e campo de pesquisa com os textos pedidos", str_contains($html, 'Aprenda a utilizar as ferramentas da Biblioteca Dom Pedro II com tutoriais passo a passo.') && str_contains($html, 'Pesquisar uma dúvida ou funcionalidade...'));
     confere("$perfil: link Tutorial do Sistema visível (menu ou perfil)", substr_count($html, 'Tutorial do Sistema') >= 1 && str_contains($html, 'ajuda.php'));
     [$s, $html] = $n->ir('admin/ajuda.php?q=' . rawurlencode('emprestimo'));

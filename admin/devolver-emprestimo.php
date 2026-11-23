@@ -14,6 +14,7 @@ $erro = null;
 $observacao = '';
 $quando = emprestimos_regras()->agora()->format('Y-m-d\TH:i');
 $manutencao = false;
+$cons = ['estado' => '', 'ocorrencia' => '', 'descricao' => '', 'bloquear' => '0'];
 
 try {
     $m = emprestimos_repo()->buscar($id, $hoje);
@@ -21,6 +22,8 @@ try {
         admin_exigir_csrf();
         $observacao = mb_substr(admin_param($_POST, 'observacao'), 0, 500);
         $manutencao = admin_param($_POST, 'manutencao') === '1';
+        $cons = ['estado' => admin_param($_POST, 'estado_conservacao'), 'ocorrencia' => admin_param($_POST, 'ocorrencia'),
+            'descricao' => mb_substr(admin_param($_POST, 'ocorrencia_descricao'), 0, 500), 'bloquear' => admin_param($_POST, 'bloquear') === '1' ? '1' : '0'];
         $data = null;
         if ($podePrazo && admin_param($_POST, 'quando') !== '') {
             $quando = admin_param($_POST, 'quando');
@@ -35,10 +38,13 @@ try {
             $erro = 'Marque a confirmação para registrar a devolução.';
         } else {
             try {
-                $r = emprestimos_servico()->devolver($id, $usuario['id'], $data, $manutencao, $observacao);
+                $r = emprestimos_servico()->devolver($id, $usuario['id'], $data, $manutencao, $observacao, $cons);
                 $msg = $r['titulo'] . ' (' . $r['codigo'] . ') ' . ($r['situacao_exemplar'] === 'disponivel' ? 'já está disponível para novo empréstimo.' : ($r['situacao_exemplar'] === 'manutencao' ? 'foi enviado para manutenção.' : 'continua como ' . mb_strtolower(emprestimos_situacao_exemplar($r['situacao_exemplar'])) . '.'));
                 if ($r['dias_atraso'] > 0) {
                     $msg .= ' Devolvido com ' . $r['dias_atraso'] . ' dia(s) de atraso.';
+                }
+                if (!empty($r['ocorrencia_id'])) {
+                    $msg .= ' Ocorrência nº ' . (int)$r['ocorrencia_id'] . ' registrada' . ($cons['bloquear'] === '1' ? ': o exemplar ficou indisponível para empréstimo.' : '; o exemplar continua emprestável.');
                 }
                 admin_flash('sucesso', 'Devolução registrada.', $msg);
                 admin_redirecionar(admin_url('emprestimo') . '?id=' . $id);
@@ -101,6 +107,25 @@ admin_page_start('devolucoes', 'Registrar devolução', 'Devoluções', 'Circula
                             <input class="adm-input" type="text" value="Agora (<?= e(emprestimos_regras()->agora()->format('d/m/Y H:i')) ?>)" readonly>
                         <?php endif; ?>
                     </label>
+                    <fieldset class="adm-field adm-devolucao-conservacao">
+                        <legend class="adm-field__label">Conservação do exemplar</legend>
+                        <p class="adm-field__hint">Estado registrado antes: <strong><?= e(Biblioteca\Services\ExemplarService::rotuloConservacao((string)($m['estado_conservacao'] ?? 'nao_avaliado'))) ?></strong>.</p>
+                        <label class="adm-field"><span class="adm-field__sublabel">Estado agora</span>
+                            <select class="adm-select" name="estado_conservacao">
+                                <option value="">Sem mudança (não avaliar agora)</option>
+                                <?php foreach (['excelente' => 'Excelente', 'bom' => 'Bom', 'regular' => 'Regular', 'ruim' => 'Ruim'] as $cv => $cr): ?><option value="<?= $cv ?>"<?= $cons['estado'] === $cv ? ' selected' : '' ?>><?= $cr ?></option><?php endforeach; ?>
+                            </select></label>
+                        <label class="adm-field"><span class="adm-field__sublabel">Dano encontrado <span class="adm-optional">(opcional — registra uma ocorrência)</span></span>
+                            <select class="adm-select" name="ocorrencia">
+                                <option value="">Nenhum</option>
+                                <?php foreach (Biblioteca\Services\OcorrenciaService::TIPOS as $ov => $or): ?><option value="<?= e($ov) ?>"<?= $cons['ocorrencia'] === $ov ? ' selected' : '' ?>><?= e($or) ?></option><?php endforeach; ?>
+                            </select></label>
+                        <label class="adm-field"><span class="adm-field__sublabel">Descrição do dano <span class="adm-optional">(opcional)</span></span><input class="adm-input" name="ocorrencia_descricao" maxlength="500" value="<?= e($cons['descricao']) ?>" placeholder="Ex.: capa descolando"></label>
+                        <fieldset class="adm-escolha"><legend class="adm-field__sublabel">Se houver dano: deixar indisponível para novos empréstimos?</legend>
+                            <label class="adm-escolha__opcao"><input type="radio" name="bloquear" value="0"<?= $cons['bloquear'] !== '1' ? ' checked' : '' ?>> <span><strong>Não</strong> <small>dano leve: continua emprestável</small></span></label>
+                            <label class="adm-escolha__opcao"><input type="radio" name="bloquear" value="1"<?= $cons['bloquear'] === '1' ? ' checked' : '' ?>> <span><strong>Sim</strong> <small>fica “Danificado” até a ocorrência ser resolvida</small></span></label>
+                        </fieldset>
+                    </fieldset>
                     <label class="adm-check-confirm">
                         <input type="checkbox" name="manutencao" value="1"<?= $manutencao ? ' checked' : '' ?>>
                         <span><strong>O exemplar precisa de reparo.</strong> Ele vai para "Em manutenção" em vez de ficar disponível.</span>

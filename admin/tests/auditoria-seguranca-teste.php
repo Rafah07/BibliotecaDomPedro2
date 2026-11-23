@@ -106,6 +106,9 @@ $esperado = [
     'acoes-recentes.php' => $equipe, 'movimentacao-lote.php' => $equipe,
     'lotes.php' => $todos, 'lote.php?id=' . $loteCad => $todos, 'duvidas.php' => $todos, 'lotes-produtividade.php' => $gestao,   // migração 160
     'inventario-comparacao.php' => $todos,   // migração 180 (somente consulta para todos os perfis)
+    // migração 190 (gestão permanente): consulta aberta; gravar exige a permissão própria (conferido no servidor)
+    'qualidade.php' => $equipe, 'aquisicoes.php' => $todos, 'baixas.php' => $todos, 'relatorio-circulacao.php' => $todos,
+    'planilha-bdp-versoes.php?lote=' . $loteCad => $todos, 'diagnostico.php' => $soAdmin,
     'administradores.php' => $soAdmin, 'administrador.php?id=' . $contas['auxiliar'] => $soAdmin, 'manutencao.php' => $soAdmin,
 ];
 $paginasExistentes = array_map('basename', glob(__DIR__ . '/../*.php'));
@@ -113,6 +116,9 @@ $cobertas = array_unique(array_map(fn ($p) => strtok($p, '?'), array_keys($esper
 $semRegra = array_diff($paginasExistentes, $cobertas, ['login.php', 'logout.php', 'detalhes-importacao.php', 'isbn-invalidos.php']);
 confere('toda página do painel tem uma regra de acesso conferida aqui', !$semRegra, implode(', ', $semRegra));
 $perfis = array_keys($navs);
+// Diagnóstico e Manutenção ensinam os comandos de manutenção ("C:\xampp\php\php.exe database/migrar.php ..."):
+// é instrução fixa ao funcionário, não caminho vazado de erro. Só esse comando documentado é desconsiderado.
+$semComandos = fn (string $html): string => str_replace('C:\xampp\php\php.exe database/', 'php database/', $html);
 foreach ($esperado as $pagina => $codigos) {
     $obtido = [];
     $vazamento = false;
@@ -122,7 +128,7 @@ foreach ($esperado as $pagina => $codigos) {
         if ($s === 302 && !str_contains($local, 'login.php')) {
             $obtido[$i] = "302→$local";
         }
-        if (!teste_sem_erro_tecnico($html) && !str_contains($html, 'mysql.exe')) {
+        if (!teste_sem_erro_tecnico($semComandos($html)) && !str_contains($html, 'mysql.exe')) {
             $obtido[$i] .= '!erro';
         }
         if ($s !== 200 && (str_contains($html, 'Aluna Fictícia Sigilosa') || str_contains($html, 'FIC-SIG-01'))) {
@@ -335,7 +341,7 @@ foreach (array_merge(array_keys($esperado), ['../biblioteca_php/catalogo.php', '
     foreach ($sujos as $q) {
         $url = 'admin/' . strtok($pagina, '?') . '?' . $q;
         [$s, $html] = $navs['administrador']->ir($url);
-        if ($s >= 500 || !teste_sem_erro_tecnico($html) || str_contains($html, '<script>alert(1)</script>')) {
+        if ($s >= 500 || !teste_sem_erro_tecnico($semComandos($html)) || str_contains($html, '<script>alert(1)</script>')) {
             if (!str_contains($html, 'mysql.exe')) {
                 $errosTecnicos[] = "$url → $s";
             }

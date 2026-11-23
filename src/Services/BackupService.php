@@ -35,6 +35,9 @@ final class BackupService
     public function exportar($saida): array
     {
         $resumo = ['tabelas' => 0, 'linhas' => 0, 'views' => 0, 'rotinas' => 0, 'gatilhos' => 0];
+        // Cópias grandes: tempos de espera maiores na sessão evitam "MySQL server has gone away" (2006)
+        // enquanto o arquivo é gravado em blocos.
+        \Biblioteca\Support\Migracoes::prepararSessaoLonga($this->pdo);
         $banco = (string)$this->pdo->query('SELECT DATABASE()')->fetchColumn();
         $fusoAnterior = (string)$this->pdo->query('SELECT @@session.time_zone')->fetchColumn();
         $this->pdo->exec("SET time_zone = '+00:00'"); // colunas TIMESTAMP saem em UTC, como no mysqldump
@@ -198,6 +201,118 @@ final class BackupService
         if (!is_file($idx)) {
             @file_put_contents($idx, '');
         }
+    }
+
+    /**
+     * Teste de recuperação (migração 190): restaura a cópia num banco SEPARADO e temporário
+     * ("<banco>_verifica_xxxxxx"), confere tabelas e linhas com o que a cópia registrou e apaga o banco
+     * temporário. O banco da biblioteca nunca é usado como destino. Se o usuário do banco não puder
+     * criar outro banco (comum em hospedagem compartilhada), devolve ok = null com a explicação.
+     * O resultado fica gravado na linha da cópia (backups.restauracao_*).
+     * @param array{host: string, port: int, database: string, username: string, password: string} $config
+     * @return array{ok: ?bool, detalhe: string, tabelas?: int, linhas?: int}
+     */
+    public function testarRestauracao(int $backupId, string $pasta, array $config): array
+    {
+        $b = $this->pdo->prepare('SELECT * FROM backups WHERE id = ?');
+        $b->execute([$backupId]);
+        $copia = $b->fetch(PDO::FETCH_ASSOC);
+        if (!$copia || $copia['origem'] === 'download') {
+            return ['ok' => false, 'detalhe' => 'Cópia não encontrada no servidor (cópias baixadas pelo navegador ficam só no computador de quem baixou).'];
+        }
+        $caminho = rtrim($pasta, '/\\') . DIRECTORY_SEPARATOR . basename((string)$copia['arquivo']);
+        if (!is_file($caminho)) {
+            return $this->gravarTeste($backupId, false, 'O arquivo não está mais na pasta de backups.');
+        }
+        if ($copia['sha256'] && !hash_equals((string)$copia['sha256'], (string)hash_file('sha256', $caminho))) {
+            return $this->gravarTeste($backupId, false, 'O arquivo foi alterado ou corrompido depois de gerado (a soma SHA-256 não confere).');
+        }
+        $temp = substr(preg_replace('/[^A-Za-z0-9_]/', '', (string)$config['database']), 0, 40) . '_verifica_' . bin2hex(random_bytes(3));
+        if (strcasecmp($temp, (string)$config['database']) === 0) {
+            return ['ok' => false, 'detalhe' => 'Recusado: o destino seria o banco da biblioteca.'];
+        }
+        try {
+            $raiz = new PDO(sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $config['host'], $config['port']), $config['username'], (string)$config['password'],
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 10]);
+            $raiz->exec('CREATE DATABASE `' . $temp . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        } catch (\PDOException $e) {
+            return $this->gravarTeste($backupId, null, 'Não foi possível testar automaticamente: o usuário do banco não pode criar um banco separado para o teste. Faça o teste manual descrito em docs/backup-recuperacao.md.');
+        }
+        try {
+            $destino = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $config['host'], $config['port'], $temp), $config['username'], (string)$config['password'],
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 10]);
+            $comandos = self::importar($destino, $caminho);
+            $tabelas = 0;
+            $linhas = 0;
+            foreach ($destino->query("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'")->fetchAll(PDO::FETCH_NUM) as [$t]) {
+                $tabelas++;
+                $linhas += (int)$destino->query('SELECT COUNT(*) FROM `' . str_replace('`', '``', $t) . '`')->fetchColumn();
+            }
+            $confere = ($copia['tabelas'] === null || (int)$copia['tabelas'] === $tabelas) && ($copia['linhas'] === null || (int)$copia['linhas'] === $linhas);
+            $detalhe = $confere
+                ? 'Restaurada num banco separado: ' . $tabelas . ' tabelas e ' . number_format($linhas, 0, ',', '.') . ' linhas, iguais às registradas na cópia (' . $comandos . ' comandos).'
+                : 'Restaurada, mas os números não conferem: ' . $tabelas . ' tabelas/' . $linhas . ' linhas restauradas; a cópia registrou ' . $copia['tabelas'] . '/' . $copia['linhas'] . '.';
+            return $this->gravarTeste($backupId, $confere, $detalhe) + ['tabelas' => $tabelas, 'linhas' => $linhas];
+        } catch (\Throwable $e) {
+            return $this->gravarTeste($backupId, false, 'A restauração de teste falhou: ' . \Biblioteca\Support\RegistroErros::limpar($e->getMessage()));
+        } finally {
+            $destino = null;
+            try {
+                $raiz->exec('DROP DATABASE IF EXISTS `' . $temp . '`'); // só o banco temporário criado acima
+            } catch (\Throwable) {
+            }
+        }
+    }
+
+    private function gravarTeste(int $backupId, ?bool $ok, string $detalhe): array
+    {
+        try {
+            $this->pdo->prepare('UPDATE backups SET restauracao_testada_em = NOW(), restauracao_ok = ?, restauracao_detalhe = ? WHERE id = ?')
+                ->execute([$ok === null ? null : (int)$ok, mb_substr($detalhe, 0, 500), $backupId]);
+        } catch (\Throwable) {
+            // Antes da migração 190 o resultado só aparece na tela.
+        }
+        return ['ok' => $ok, 'detalhe' => $detalhe];
+    }
+
+    /**
+     * Executa um arquivo gerado por exportar() (comando a comando, respeitando "DELIMITER ;;").
+     * Usado SÓ no teste de restauração, num banco temporário.
+     * @return int comandos executados
+     */
+    public static function importar(PDO $destino, string $caminho): int
+    {
+        $f = fopen($caminho, 'rb');
+        if (!$f) {
+            throw new \RuntimeException('Não foi possível ler a cópia.');
+        }
+        $delimitador = ';';
+        $buffer = '';
+        $n = 0;
+        try {
+            while (($linha = fgets($f)) !== false) {
+                $t = rtrim($linha, "\r\n");
+                if ($buffer === '' && (trim($t) === '' || str_starts_with($t, '--'))) {
+                    continue;
+                }
+                if ($buffer === '' && preg_match('/^DELIMITER\s+(\S+)\s*$/i', $t, $m)) {
+                    $delimitador = $m[1];
+                    continue;
+                }
+                $buffer .= $linha;
+                if (str_ends_with(rtrim($t), $delimitador)) {
+                    $sql = substr(rtrim($buffer), 0, -strlen($delimitador));
+                    if (trim($sql) !== '') {
+                        $destino->exec($sql);
+                        $n++;
+                    }
+                    $buffer = '';
+                }
+            }
+        } finally {
+            fclose($f);
+        }
+        return $n;
     }
 
     /** O arquivo termina com "-- Fim da cópia de segurança." (a cópia não parou no meio). */

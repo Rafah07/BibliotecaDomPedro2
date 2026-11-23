@@ -78,7 +78,11 @@ final class InventarioService
             $this->executar("INSERT INTO inventarios (titulo, descricao, data_inicio, status, aberto_por, responsavel_id, setor) VALUES (?, ?, ?, 'aberto', ?, ?, ?)",
                 [$d['titulo'], $d['descricao'], $d['data_inicio'], $responsavelId, $d['responsavel_id'], $d['setor']]);
             $id = (int)$this->pdo->lastInsertId();
-            $this->registrarAcao($responsavelId, 'inventario.criar', 'inventario', $id, ['titulo' => $d['titulo'], 'setor' => $d['setor']]);
+            if ($d['tipo'] === 'periodico') {
+                // Inventário periódico (migração 190): coluna própria; antes da migração todos são "inicial".
+                $this->executar("UPDATE inventarios SET tipo = 'periodico' WHERE id = ?", [$id]);
+            }
+            $this->registrarAcao($responsavelId, 'inventario.criar', 'inventario', $id, ['titulo' => $d['titulo'], 'setor' => $d['setor'], 'tipo' => $d['tipo']]);
             return $id;
         });
     }
@@ -93,6 +97,9 @@ final class InventarioService
             $setor = $inv['status'] === 'aberto' ? $d['setor'] : $inv['setor'];
             $this->executar('UPDATE inventarios SET titulo = ?, descricao = ?, data_inicio = ?, responsavel_id = ?, setor = ? WHERE id = ?',
                 [$d['titulo'], $d['descricao'], $d['data_inicio'], $d['responsavel_id'], $setor, $id]);
+            if ($inv['status'] === 'aberto' && array_key_exists('tipo', $inv)) {
+                $this->executar('UPDATE inventarios SET tipo = ? WHERE id = ?', [$d['tipo'], $id]);
+            }
             $this->registrarAcao($responsavelId, 'inventario.editar', 'inventario', $id, ['titulo' => $d['titulo']]);
         });
     }
@@ -123,7 +130,9 @@ final class InventarioService
             // Registros importados de planilha que ainda não têm exemplar: um item "Pendente" por linha
             // da planilha. Eles não têm localização cadastrada, por isso só entram no inventário do
             // acervo inteiro. Livros cadastrados à mão sem exemplar não entram (nada a procurar).
-            if ($setorSql === '') {
+            // Inventário PERIÓDICO (migração 190): confere só os exemplares físicos já identificados,
+            // pelo código BDP e com a localização atual como referência; a planilha original não entra.
+            if ($setorSql === '' && ($inv['tipo'] ?? 'inicial') !== 'periodico') {
                 $previstos += $this->incluirRegistrosSemExemplar($id);
             }
             $this->registrarAcao($responsavelId, 'inventario.iniciar', 'inventario', $id, ['titulo' => $inv['titulo'], 'previstos' => $previstos]);
@@ -172,6 +181,9 @@ final class InventarioService
             $this->exigirStatus($inv, ['em_andamento', 'pausado'], 'alterado');
             if ($inv['setor'] !== null && $inv['setor'] !== '') {
                 throw new AcervoException('Este inventário é só do setor "' . $inv['setor'] . '". As linhas da planilha não têm localização confiável e só entram no inventário do acervo inteiro.');
+            }
+            if (($inv['tipo'] ?? 'inicial') === 'periodico') {
+                throw new AcervoException('Inventário periódico: confere só os exemplares já cadastrados. As linhas da planilha original não entram.');
             }
             $n = $this->incluirRegistrosSemExemplar($id);
             $this->registrarAcao($responsavelId, 'inventario.incluir_registros', 'inventario', $id, ['incluidos' => $n]);
@@ -928,7 +940,7 @@ final class InventarioService
         }
     }
 
-    /** @return array{titulo: string, descricao: ?string, data_inicio: string, responsavel_id: int, setor: ?string} */
+    /** @return array{titulo: string, descricao: ?string, data_inicio: string, responsavel_id: int, setor: ?string, tipo: string} */
     private function validar(array $dados, bool $comSetor): array
     {
         $titulo = self::textoLimpo($dados['titulo'] ?? null, 150);
@@ -949,6 +961,7 @@ final class InventarioService
             throw new AcervoException('Setor não encontrado. Cadastre o setor em Localizações ou deixe em branco para conferir o acervo inteiro.');
         }
         $descricao = trim((string)($dados['descricao'] ?? ''));
-        return ['titulo' => $titulo, 'descricao' => $descricao === '' ? null : mb_substr($descricao, 0, 2000), 'data_inicio' => $data, 'responsavel_id' => $resp, 'setor' => $setor];
+        $tipo = ($dados['tipo'] ?? 'inicial') === 'periodico' ? 'periodico' : 'inicial';
+        return ['titulo' => $titulo, 'descricao' => $descricao === '' ? null : mb_substr($descricao, 0, 2000), 'data_inicio' => $data, 'responsavel_id' => $resp, 'setor' => $setor, 'tipo' => $tipo];
     }
 }

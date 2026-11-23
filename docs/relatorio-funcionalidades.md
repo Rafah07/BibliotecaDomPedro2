@@ -139,13 +139,27 @@ Central com 9 seções: visão geral, acervo, exemplares, empréstimos e devolu�
 
 Site público e painel modernizados (etapas 8 e 9): azul institucional com detalhes dourados, menu lateral recolhível, cartões, rodapé e versão para celular.
 
+### 3.15 Gestão permanente do acervo (migração 190)
+
+Detalhes técnicos em [`gestao-permanente.md`](gestao-permanente.md).
+
+- **Editar dados da obra** a qualquer momento (verificada, com exemplares carimbados, lotes encerrados, empréstimos): a correção aparece em todas as cópias; códigos BDP, lotes, carimbos, localizações e históricos não mudam. **Salvar e marcar dados como verificados**. Histórico campo a campo na ficha da obra.
+- **Edição simultânea**: aviso “Esta obra está sendo editada por …” (expira sozinho) e controle de versão no servidor; quem salva por último vê a comparação (quando abriu / salvo agora / sua alteração) e escolhe campo a campo, sem perder o que digitou.
+- **Registrar vários exemplares** numa única operação atômica: um código BDP por cópia, dados comuns e diferenças por cópia, vagas do lote respeitadas (reduzir, outro lote ou cancelar), resultado confirmado pelo banco, e reenvio seguro (chave da operação: nada é duplicado).
+- **Planilha BDP com versões** (Versão 01, 02…): cópia do que foi impresso, aviso de versão desatualizada, comparação entre versões, reimpressão com lote/versão/data/quantidade/páginas.
+- **Central de Qualidade do Acervo**: pendências críticas, de atenção e informativas, filtros, justificativas, padronização de autores/editoras/categorias, comparação e unificação de obras duplicadas (preservando exemplares e códigos).
+- **Diagnóstico do sistema** (funciona com o banco fora do ar), migrações com verificação prévia, registro de cada etapa e retomada segura, **teste de recuperação** do backup num banco separado e registro técnico protegido dos erros (código ERR-… na tela).
+- **Ficha completa do exemplar**, **Aquisições**, **Baixas do acervo**, **inventário periódico**, **relatório de circulação**, **conservação na devolução** e **capacidade estimada das prateleiras**.
+- Menu: Acervo → Qualidade do acervo e Aquisições; Exemplares → Baixas do acervo; Inventário → Comparação com planilha; Relatórios → Circulação do acervo; Configurações → Diagnóstico do sistema.
+
 ---
 
 ## 4. Qualidade e documentação
 
 - **16 testes automáticos** em `admin/tests/` (importação, CDD, ISBN, painel, alunos, empréstimos, inventário, site público, relatórios, configurações, etiquetas, fluxo completo, segurança, backup, desempenho com 10.000 livros e, na `main`, a ajuda). Todos usam bancos temporários e dados fictícios.
 - Manuais em `docs/`: manual da bibliotecária, publicação, backup e recuperação, segurança e LGPD, e guias de cada módulo.
-- 11 migrações de banco que só criam ou acrescentam estruturas (nenhuma apaga dados).
+- Migrações de banco que só criam ou acrescentam estruturas (nenhuma apaga dados); a 190 traz a gestão permanente do acervo.
+- `gestao-permanente-teste.php`: teste da migração 190 (concorrência real com processos paralelos, conexão perdida, migração interrompida, restauração de backup).
 
 ---
 

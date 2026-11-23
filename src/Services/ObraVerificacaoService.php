@@ -52,13 +52,19 @@ final class ObraVerificacaoService
      * "Salvar e marcar dados como verificados".
      * @return string status final: 'verificado' | 'nao_verificado'
      */
-    public function registrar(int $livroId, array $alteracoes, ?int $responsavelId, bool $marcarVerificado, string $origem = 'inventario', ?int $inventarioId = null): string
+    public function registrar(int $livroId, array $alteracoes, ?int $responsavelId, bool $marcarVerificado, string $origem = 'inventario', ?int $inventarioId = null, bool $manterVerificacao = false): string
     {
         $atual = $this->linha('SELECT dados_verificados_em FROM livros WHERE id = ? FOR UPDATE', [$livroId]);
         if (!$atual) {
             throw new AcervoException('Obra não encontrada.');
         }
         $antes = $atual['dados_verificados_em'] !== null ? 'verificado' : 'nao_verificado';
+        if ($alteracoes || $marcarVerificado) {
+            // Nova versão do registro bibliográfico (migração 190): formulários abertos antes desta
+            // gravação recebem o aviso de conflito em vez de sobrescrever. Os exemplares leem os dados
+            // da obra pelo vínculo exemplares.livro_id, então a correção aparece em todos eles.
+            self::novaVersao($this->pdo, $livroId);
+        }
         $json = $alteracoes ? json_encode(array_map(fn ($p) => ['antes' => $p[0] ?? null, 'depois' => $p[1] ?? null], $alteracoes), JSON_UNESCAPED_UNICODE) : null;
         $historico = 'INSERT INTO livro_verificacoes (livro_id, acao, status_anterior, status_novo, alteracoes, origem, inventario_id, administrador_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
@@ -72,7 +78,9 @@ final class ObraVerificacaoService
             return $antes;
         }
         $relevantes = array_values(array_intersect(array_keys($alteracoes), self::CAMPOS_RELEVANTES));
-        if ($antes === 'verificado' && $relevantes) {
+        // $manterVerificacao: padronização confirmada na Central de Qualidade (mesma informação escrita de
+        // forma padronizada, ex.: "ASSIS, Machado de" → "Machado de Assis"); fica no histórico sem retirar a verificação.
+        if ($antes === 'verificado' && $relevantes && !$manterVerificacao) {
             $this->executar('UPDATE livros SET dados_verificados_em = NULL, dados_verificados_por = NULL WHERE id = ?', [$livroId]);
             $this->executar($historico, [$livroId, 'verificacao_retirada', 'verificado', 'nao_verificado', $json, $origem, $inventarioId, $responsavelId]);
             $this->registrarAcao($responsavelId, 'livro.verificacao_retirada', 'livro', $livroId, ['origem' => $origem, 'campos' => $relevantes]);
@@ -80,6 +88,18 @@ final class ObraVerificacaoService
         }
         $this->executar($historico, [$livroId, 'alterado', $antes, $antes, $json, $origem, $inventarioId, $responsavelId]);
         return $antes;
+    }
+
+    /** Soma 1 à versão da obra (ignorado antes da migração 190, quando a coluna ainda não existe). */
+    public static function novaVersao(PDO $pdo, int $livroId): void
+    {
+        try {
+            $pdo->prepare('UPDATE livros SET versao = versao + 1 WHERE id = ?')->execute([$livroId]);
+        } catch (\PDOException $e) {
+            if ((int)($e->errorInfo[1] ?? 0) !== 1054) {
+                throw $e;
+            }
+        }
     }
 
     /** Histórico de verificação da obra (mais recente primeiro). */

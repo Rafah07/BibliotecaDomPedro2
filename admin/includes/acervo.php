@@ -157,6 +157,15 @@ function acervo_livros(): array
     return $cache;
 }
 
+/**
+ * Restringe a leitura do acervo (MySQL) a uma única obra nesta requisição. Chamar antes do primeiro
+ * acervo_livro()/acervo_exemplares() nas páginas que mostram só uma obra.
+ */
+function acervo_escopo_livro(int $id): void
+{
+    $GLOBALS['acervo_escopo_livro'] = max(0, $id);
+}
+
 function acervo_livro(int $id): ?array
 {
     return acervo_livros()[$id] ?? null;

@@ -113,6 +113,7 @@ return [
         'requisitos' => ['Perfil Administrador.'],
         'passos' => [
             ['titulo' => 'Leia o Diagnóstico', 'texto' => 'Cada item mostra **OK**, **Atenção** ou **Problema**, com uma explicação: versão do PHP, extensões, arquivo .env, ambiente, banco de dados, migrações, pastas graváveis, proteção das planilhas, prazo de empréstimo e site público.'],
+            ['titulo' => 'Diagnóstico completo', 'texto' => 'Para migrações, permissões do banco, espaço em disco, situação dos backups e erros recentes, clique em **Diagnóstico do sistema** (veja [[tutorial:diagnostico-completo|Como usar o diagnóstico do sistema]]).'],
             ['titulo' => 'Aja nos itens com Atenção ou Problema', 'texto' => 'Os itens de configuração (como o prazo provisório) são resolvidos nas Configurações. Itens do servidor (PHP, extensões, .env, pastas) são tarefas do responsável técnico.'],
             ['titulo' => 'Limpe as tentativas antigas', 'texto' => 'Em **Limpeza de tentativas de login**, clique em **Apagar tentativas antigas**. Só registros de tentativas com mais de 30 dias são apagados; o histórico de ações, de empréstimos e de configurações nunca é apagado.'],
         ],
@@ -122,7 +123,7 @@ return [
             ['Item "Problema" no banco de dados.', 'O servidor do banco está parado ou o .env está errado.', 'Chame o responsável técnico. Não altere o banco diretamente.'],
         ],
         'cuidados' => ['A limpeza não afeta o acervo, os alunos nem os históricos.'],
-        'relacionados' => ['gerar-backup', 'faq-pagina-nao-carrega'],
+        'relacionados' => ['diagnostico-completo', 'gerar-backup', 'faq-pagina-nao-carrega'],
         'confere' => ['manutencao.php' => ['Diagnóstico', 'Limpeza de tentativas de login', 'Apagar tentativas antigas', 'O histórico de ações, de empréstimos e de configurações nunca é apagado.']],
     ],
     [

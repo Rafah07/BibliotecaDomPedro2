@@ -299,5 +299,17 @@ function dashboard_alertas(): array
     if ($c['manutencao'] > 0) {
         $alertas[] = ['titulo' => 'Exemplares em manutenção', 'mensagem' => "{$c['manutencao']} exemplar(es) indisponível(is) por manutenção.", 'botao' => 'Consultar exemplares', 'href' => 'exemplares', 'icone' => 'wrench', 'gravidade' => 'media'];
     }
+    // Central de Qualidade (migração 190): só lê o resultado da última análise (uma consulta pequena).
+    if (function_exists('auth_pode') && auth_pode('qualidade.ver')) {
+        try {
+            $q = db_query("SELECT SUM(gravidade = 'critico') AS criticas, SUM(gravidade = 'atencao') AS atencao FROM qualidade_pendencias WHERE situacao = 'aberta'")->fetch();
+            if ((int)($q['criticas'] ?? 0) > 0 || (int)($q['atencao'] ?? 0) > 0) {
+                $alertas[] = ['titulo' => 'Qualidade do acervo', 'mensagem' => (int)$q['criticas'] . ' pendência(s) crítica(s) e ' . (int)$q['atencao'] . ' de atenção na última análise.',
+                    'botao' => 'Abrir a Central de Qualidade', 'href' => 'qualidade', 'icone' => 'sparkles', 'gravidade' => (int)$q['criticas'] > 0 ? 'alta' : 'media'];
+            }
+        } catch (Throwable) {
+            // Migração 190 ainda não aplicada.
+        }
+    }
     return $alertas;
 }

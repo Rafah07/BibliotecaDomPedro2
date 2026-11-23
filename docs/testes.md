@@ -35,7 +35,15 @@ php admin/tests/ajuda-teste.php                 # Central de Ajuda (Etapa 10)
 php admin/tests/alunos-categorias-teste.php     # Alunos e categorias (Etapa 11)
 php admin/tests/importacao-inventario-teste.php  # Importar todos e conferir no Inventário
 php admin/tests/obra-exemplares-teste.php       # Obra verificada, exemplares e gerador de código BDP
+php admin/tests/gestao-permanente-teste.php     # Migração 190: edição simultânea, vários exemplares, qualidade, versões BDP, backup, aquisições...
 ```
+
+`gestao-permanente-teste.php` sobe processos paralelos (disputa pelas últimas vagas do lote e mesma chave
+de operação ao mesmo tempo), derruba de propósito a própria conexão de teste (KILL) para simular
+“MySQL server has gone away”, apaga uma tabela da migração 190 **no banco temporário** para simular uma
+migração interrompida e restaura uma cópia de segurança num segundo banco temporário. Os cenários F14/F15
+criam um usuário de banco temporário e só rodam com `TESTE_USUARIO_LIMITADO=1` — no XAMPP da escola o
+`GRANT` derrubou o MariaDB (tabelas de sistema danificadas), por isso ficam desligados por padrão.
 
 No **Prompt de Comando do Windows (XAMPP)**, dentro de `C:\xampp\htdocs\BibliotecaDomPedro2`:
 

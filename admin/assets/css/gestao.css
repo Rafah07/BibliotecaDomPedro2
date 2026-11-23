@@ -1,0 +1,108 @@
+/*
+ * Gestão permanente do acervo (migração 190): registro de vários exemplares, conflito de edição,
+ * Central de Qualidade, versões da Planilha BDP, diagnóstico, aquisições, baixas e circulação.
+ * Usa os mesmos tokens e componentes do painel (admin.css / acervo.css): só acrescenta o que falta.
+ */
+
+/* Elementos escondidos pelo JavaScript (o display dos componentes não pode vencer o atributo hidden). */
+.adm-gestao-conservacao [hidden], .adm-gestao-copia [hidden], [data-aviso-edicao][hidden], [data-copia][hidden] { display: none !important; }
+
+/* Abas fora de um painel (Central de Qualidade, ocupação): sem a margem negativa das abas internas. */
+.adm-tabs.adm-tabs--pagina, .adm-tabs.adm-tabs--sub { margin: 0 0 16px; padding: 0; max-width: 100%; }
+
+/* ---------- Registro de vários exemplares ---------- */
+.adm-gestao-fixo { display: flex; align-items: center; gap: 8px; margin: 0; min-height: 40px; color: var(--adm-text); font-size: 14px; }
+.adm-gestao-fixo small { color: var(--adm-muted); }
+.adm-gestao-fixo .icon { width: 18px; height: 18px; color: var(--adm-amber-text); flex: none; }
+.adm-gestao-conservacao { display: grid; gap: 8px; }
+.adm-gestao-copias { margin: 16px 0; border: 1px solid var(--adm-border); border-radius: var(--adm-radius); background: var(--adm-bg); }
+.adm-gestao-copias > summary { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+.adm-gestao-copias > summary .icon { width: 16px; height: 16px; }
+.adm-gestao-copias > .adm-field__hint { margin: 0 14px 8px; }
+.adm-gestao-copias__lista { display: grid; gap: 8px; padding: 0 14px 14px; max-height: 520px; overflow-y: auto; }
+.adm-gestao-copia { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(160px, 1.4fr) minmax(160px, 2fr); gap: 8px 12px; margin: 0; padding: 8px 12px 10px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-white); }
+.adm-gestao-copia legend { padding: 0 4px; font-size: 12px; font-weight: 700; color: var(--adm-navy); }
+.adm-gestao-copia[hidden] { display: none; }
+.adm-gestao-resumo { margin: 12px 0; padding: 12px 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius); }
+.adm-gestao-resumo p { margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* ---------- Conflito de edição ---------- */
+.adm-conflito { margin-bottom: 16px; }
+.adm-conflito__tabela th[scope="row"] { white-space: nowrap; }
+.adm-conflito__tabela tr.is-conflito { background: var(--adm-red-50); }
+.adm-conflito__tabela tr.is-so_outro { background: var(--adm-amber-50); }
+.adm-conflito__escolha { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 13px; }
+.adm-conflito__escolha label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+
+/* ---------- Listas compactas de pendências / versões / backups ---------- */
+.adm-gestao-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.adm-gestao-item { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 10px 14px; padding: 12px 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius); background: var(--adm-white); }
+.adm-gestao-item__icone { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 8px; }
+.adm-gestao-item__icone .icon { width: 16px; height: 16px; }
+.adm-gestao-item__corpo { min-width: 0; }
+.adm-gestao-item__corpo p { margin: 2px 0 0; color: var(--adm-muted); font-size: 13px; overflow-wrap: anywhere; }
+.adm-gestao-item__corpo strong { color: var(--adm-text); overflow-wrap: anywhere; }
+.adm-gestao-item__acoes { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.adm-gestao-item.is-critico { border-left: 4px solid var(--adm-red); }
+.adm-gestao-item.is-atencao { border-left: 4px solid var(--adm-amber); }
+.adm-gestao-item.is-informativo { border-left: 4px solid var(--adm-blue-100); }
+.adm-gestao-item.is-resolvida, .adm-gestao-item.is-justificada { opacity: .8; }
+.adm-gestao-item form.adm-gestao-justificar { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.adm-gestao-item form.adm-gestao-justificar .adm-field { flex: 1 1 260px; margin: 0; }
+
+/* ---------- Comparação lado a lado ---------- */
+.adm-comparar-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+.adm-comparar-form .adm-filter { display: grid; gap: 4px; flex: 0 1 160px; }
+/* As tabelas dos painéis encostam na borda de baixo (margem negativa); com algo depois, devolve o espaço. */
+.adm-table-wrap:has(+ .adm-actions-inline), .adm-table-wrap:has(+ .adm-versao-diff), .adm-table-wrap:has(+ h3) { margin-bottom: 0; }
+.adm-table-wrap + .adm-actions-inline { margin-top: 12px; }
+.adm-comparar + .adm-panel, .adm-panel + .adm-comparar, .adm-actions-inline + .adm-comparar { margin-top: 16px; }
+.adm-comparar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.adm-comparar__tabela td.is-diferente { background: var(--adm-amber-50); font-weight: 600; }
+.adm-comparar__tabela th { width: 22%; }
+
+/* ---------- Diagnóstico ---------- */
+.adm-diag { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.adm-diag li { display: grid; grid-template-columns: 22px minmax(140px, 220px) 1fr; gap: 8px 12px; align-items: start; padding: 8px 10px; border-radius: var(--adm-radius-sm); }
+.adm-diag li:nth-child(odd) { background: var(--adm-bg); }
+.adm-diag .icon { width: 18px; height: 18px; }
+.adm-diag .is-ok .icon { color: var(--adm-green); }
+.adm-diag .is-aviso .icon { color: var(--adm-amber-text); }
+.adm-diag .is-erro .icon { color: var(--adm-red); }
+.adm-diag .is-nao_verificado .icon { color: var(--adm-muted); }
+.adm-diag strong { font-size: 14px; }
+.adm-diag span { color: var(--adm-muted); font-size: 13px; overflow-wrap: anywhere; }
+
+/* ---------- Ocupação das prateleiras ---------- */
+.adm-ocupacao { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--adm-muted); white-space: nowrap; }
+.adm-ocupacao__barra { display: inline-block; width: 56px; height: 6px; border-radius: 3px; background: var(--adm-border); overflow: hidden; }
+.adm-ocupacao__barra span { display: block; height: 100%; background: var(--adm-green); }
+.adm-ocupacao.is-proxima .adm-ocupacao__barra span { background: var(--adm-amber); }
+.adm-ocupacao.is-lotada .adm-ocupacao__barra span { background: var(--adm-red); }
+
+/* ---------- Ficha do exemplar: linha do tempo ---------- */
+.adm-linha-tempo { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--adm-border); display: grid; gap: 10px; }
+.adm-linha-tempo li { position: relative; padding-left: 10px; font-size: 13px; }
+.adm-linha-tempo li::before { content: ""; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--adm-blue-100); border: 2px solid var(--adm-white); }
+.adm-linha-tempo time { display: block; color: var(--adm-muted); font-size: 12px; }
+
+/* ---------- Versões da planilha ---------- */
+.adm-versao-diff { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.adm-versao-diff li { padding: 6px 10px; border-radius: var(--adm-radius-sm); background: var(--adm-amber-50); overflow-wrap: anywhere; }
+.adm-versao-diff li.is-incluido { background: var(--adm-green-50); }
+.adm-versao-diff li.is-removido { background: var(--adm-red-50); }
+
+@media (max-width: 900px) {
+    .adm-gestao-copia { grid-template-columns: 1fr 1fr; }
+    .adm-gestao-copia__obs { grid-column: 1 / -1; }
+    .adm-comparar { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+    .adm-gestao-copia { grid-template-columns: 1fr; }
+    .adm-gestao-item { grid-template-columns: 1fr; }
+    .adm-gestao-item__icone { display: none; }
+    .adm-gestao-item__acoes { justify-content: flex-start; }
+    .adm-gestao-item form.adm-gestao-justificar { grid-column: 1; }
+    .adm-diag li { grid-template-columns: 22px 1fr; }
+    .adm-diag li span { grid-column: 2; }
+}

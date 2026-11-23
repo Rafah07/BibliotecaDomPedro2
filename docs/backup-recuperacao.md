@@ -82,6 +82,19 @@ Na hospedagem, o equivalente é uma tarefa **cron** com o mesmo `mysqldump`, gra
 
 Faça isto pelo menos uma vez por mês e sempre antes de uma atualização.
 
+### Pelo painel (automático, migração 190)
+
+Em **Configurações → Manutenção e backups**, na lista **Cópias registradas**, clique em
+**Testar recuperação** na linha da cópia salva no servidor. O sistema:
+
+1. confere a soma SHA-256 do arquivo (detecta arquivo alterado ou corrompido);
+2. cria um banco **separado e temporário** (`<seu banco>_verifica_xxxxxx`) — nunca usa o banco da biblioteca;
+3. importa a cópia, conta tabelas e linhas e compara com o que foi registrado quando a cópia foi gerada;
+4. apaga o banco temporário e grava o resultado na coluna **Teste de recuperação** (Recuperável, Falhou ou Não realizado).
+
+Se o usuário do banco não puder criar outro banco (comum em hospedagem compartilhada), o resultado é
+“Não realizado”: faça o teste manual abaixo. O Diagnóstico do sistema mostra a data do último teste.
+
 ### Pelo phpMyAdmin
 
 1. Abra `http://localhost/phpmyadmin`.
