@@ -105,6 +105,7 @@ $esperado = [
     'planilha-bdp.php' => $todos, 'ocorrencias.php' => $todos, 'organizacao-mapa.php' => $todos, 'relatorio-atividades.php' => $todos,   // migração 150
     'acoes-recentes.php' => $equipe, 'movimentacao-lote.php' => $equipe,
     'lotes.php' => $todos, 'lote.php?id=' . $loteCad => $todos, 'duvidas.php' => $todos, 'lotes-produtividade.php' => $gestao,   // migração 160
+    'coleta.php?lote=' . $loteCad => $todos,   // migração 210 (revisão dos pré-cadastros das equipes)
     'inventario-comparacao.php' => $todos,   // migração 180 (somente consulta para todos os perfis)
     // migração 190 (gestão permanente): consulta aberta; gravar exige a permissão própria (conferido no servidor)
     'qualidade.php' => $equipe, 'aquisicoes.php' => $todos, 'baixas.php' => $todos, 'relatorio-circulacao.php' => $todos,

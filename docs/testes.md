@@ -35,6 +35,7 @@ php admin/tests/ajuda-teste.php                 # Central de Ajuda (Etapa 10)
 php admin/tests/alunos-categorias-teste.php     # Alunos e categorias (Etapa 11)
 php admin/tests/importacao-inventario-teste.php  # Importar todos e conferir no Inventário
 php admin/tests/obra-exemplares-teste.php       # Obra verificada, exemplares e gerador de código BDP
+php admin/tests/coleta-teste.php              # Migração 210: equipes por link (coleta, revisão, carimbagem, pausa)
 php admin/tests/gestao-permanente-teste.php     # Migração 190: edição simultânea, vários exemplares, qualidade, versões BDP, backup, aquisições...
 ```
 

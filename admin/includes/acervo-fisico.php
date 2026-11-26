@@ -179,6 +179,34 @@ function lotes_repo(): LoteRepository
     return $r ??= new LoteRepository(db());
 }
 
+/** Equipes por links sem login (migração 210): coleta, revisão e carimbagem. */
+function coleta_servico(): Biblioteca\Services\ColetaService
+{
+    static $s = null;
+    return $s ??= new Biblioteca\Services\ColetaService(db(), exemplares_servico(), lotes_servico());
+}
+
+/** Endereço completo do link de uma equipe (o token só existe no momento em que o link é criado). */
+function coleta_url_publica(string $token): string
+{
+    $host = preg_replace('/[^A-Za-z0-9.\-:\[\]]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    return (app_https() ? 'https' : 'http') . '://' . $host . url('coleta/') . '?t=' . $token;
+}
+
+/** A migração 210 foi aplicada? (as telas de coleta não quebram num banco desatualizado) */
+function coleta_disponivel(): bool
+{
+    static $ok = null;
+    if ($ok === null) {
+        try {
+            $ok = (bool)db_query("SHOW TABLES LIKE 'coleta_links'")->fetchColumn();
+        } catch (PDOException) {
+            $ok = false;
+        }
+    }
+    return $ok;
+}
+
 function duvidas_servico(): DuvidaService
 {
     static $s = null;

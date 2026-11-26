@@ -50,6 +50,8 @@ const ADMIN_MENU = [
         // Gerenciamento de lotes e etapas de trabalho (migração 160).
         'lotes' => ['label' => 'Histórico de Lotes', 'icon' => 'layers', 'arquivo' => 'lotes.php', 'pronta' => true, 'pai' => 'inventario'],
         'lote' => ['label' => 'Relatório do lote', 'icon' => 'layers', 'arquivo' => 'lote.php', 'pronta' => true, 'oculto' => true],
+        // Equipes por link (migração 210): revisão dos pré-cadastros, aberta pela página do lote.
+        'coleta' => ['label' => 'Revisão da coleta', 'icon' => 'list-checks', 'arquivo' => 'coleta.php', 'pronta' => true, 'oculto' => true],
         'lotes-produtividade' => ['label' => 'Relatório de Produtividade', 'icon' => 'chart-column', 'arquivo' => 'lotes-produtividade.php', 'pronta' => true, 'pai' => 'inventario', 'permissao' => 'lotes.gerenciar'],
         'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-comparacao' => ['label' => 'Comparação com planilha', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'pai' => 'inventario'],

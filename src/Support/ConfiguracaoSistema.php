@@ -67,6 +67,9 @@ final class ConfiguracaoSistema
         'EXEMPLAR_EMPRESTAR_SEM_ORGANIZACAO' => ['grupo' => 'preparo', 'rotulo' => 'Emprestar exemplar que ainda está na área de triagem (sem estante)', 'tipo' => 'opcao',
             'padrao' => 'não (só depois de organizado)', 'permissao' => 'configuracoes.editar',
             'ajuda' => 'Com "não", o exemplar novo fica Aguardando liberação até receber estante e prateleira definitivas.'],
+        'COLETA_LINKS_ATIVOS' => ['grupo' => 'preparo', 'rotulo' => 'Aceitar os links das equipes (coleta e carimbagem sem login)', 'tipo' => 'opcao',
+            'padrao' => 'sim (links válidos funcionam)', 'permissao' => 'configuracoes.editar',
+            'ajuda' => 'Usado só na organização inicial do acervo. Com "não", nenhum link de equipe abre, mesmo dentro da validade; os pré-cadastros e o histórico continuam guardados.'],
 
         'ALUNOS_EMAIL_DOMINIO' => ['grupo' => 'alunos', 'rotulo' => 'Domínio do e-mail institucional dos alunos', 'tipo' => 'dominio', 'max' => 120,
             'padrao' => 'qualquer e-mail válido', 'permissao' => 'configuracoes.editar',

@@ -279,6 +279,7 @@ Todos os testes com banco criam e apagam bancos temporários `bdp_teste_*`: o ba
 
 - [`docs/publicacao.md`](docs/publicacao.md): requisitos de hospedagem e checklist de produção (HTTPS, permissões, Nginx/IIS, migrações, logs, atualização).
 - [`docs/backup-recuperacao.md`](docs/backup-recuperacao.md): cópia de segurança e recuperação no XAMPP.
+- [`docs/coleta-equipes.md`](docs/coleta-equipes.md): migração 210 — equipes por link sem login na organização inicial (pré-cadastro dos livros, revisão, carimbagem e pausa por etapa).
 - [`docs/administradores.md`](docs/administradores.md): migração 200 — um único perfil (Administrador) e cadastro rápido de administradores.
 - [`docs/gestao-permanente.md`](docs/gestao-permanente.md): migração 190 — edição de obras com vários colaboradores, registro de vários exemplares, Central de Qualidade, versões da Planilha BDP, diagnóstico, aquisições, baixas, inventário periódico e circulação.
 - [`docs/seguranca-lgpd.md`](docs/seguranca-lgpd.md): medidas técnicas de proteção de dados e decisões que cabem à escola.

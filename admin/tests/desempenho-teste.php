@@ -124,6 +124,12 @@ confere('dados fictícios gerados só no banco temporário', $pdo->query('SELECT
 
 // ---------------------------------------------------------------
 echo "\nTempos das páginas (servidor PHP embutido; limite folgado por página)\n";
+// O banco temporário recebe as migrações vazio e só depois milhares de linhas: as estatísticas que o
+// MariaDB guardou com as tabelas vazias (as chaves estrangeiras da migração 210 fazem isso) levariam a
+// planos de consulta ruins que não acontecem num banco real. Atualiza as estatísticas antes de medir.
+foreach (['livros', 'exemplares', 'livro_autores', 'livro_categorias', 'emprestimos'] as $tabela) {
+    $pdo->query("ANALYZE TABLE $tabela")->fetchAll();
+}
 $base = teste_servidor($env);
 $anon = new TesteNavegador($base);
 $anon->ir(''); // aquece o servidor
