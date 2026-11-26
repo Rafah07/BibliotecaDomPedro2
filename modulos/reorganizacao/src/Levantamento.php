@@ -2,9 +2,13 @@
 
 namespace Biblioteca\Reorganizacao;
 
+use Biblioteca\Repositories\InventarioRepository;
 use Biblioteca\Repositories\LivroRepository;
 use Biblioteca\Services\AcervoException;
+use Biblioteca\Services\ConferenciaCadastroService;
 use Biblioteca\Services\ExemplarService;
+use Biblioteca\Services\InventarioService;
+use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OperacaoJaConcluidaException;
 use Biblioteca\Support\Isbn;
 use PDO;
@@ -27,9 +31,25 @@ final class Levantamento
 {
     use Apoio;
 
-    /** Campos bibliográficos: os mesmos da revisão administrativa (Inventário → Verificar e corrigir dados). */
-    public const CAMPOS = ['titulo', 'subtitulo', 'autores', 'autor_nao_indicado', 'editora', 'editora_nao_indicada', 'isbn', 'isbn_nao_encontrado',
-        'cdd', 'cdd_nao_encontrada', 'cdd_fonte', 'ano_publicacao', 'edicao', 'idioma', 'categoria_id', 'assunto', 'quantidade', 'observacoes'];
+    /**
+     * Campos bibliográficos: os mesmos da revisão administrativa (admin/includes/form-conferencia-livro.php:
+     * título, subtítulo, autores, ISBN, editora, ano, edição, idioma, categoria, assunto, CDD e fonte da CDD),
+     * mais as opções "encontrado / não encontrado" de ISBN e CDD, a quantidade e as observações.
+     * (As colunas antigas autor_nao_indicado e editora_nao_indicada não são mais usadas: autor e editora
+     * são obrigatórios.)
+     */
+    public const CAMPOS = ['titulo', 'subtitulo', 'autores', 'editora', 'isbn', 'isbn_nao_encontrado', 'isbn_situacao',
+        'cdd', 'cdd_nao_encontrada', 'cdd_situacao', 'cdd_fonte', 'ano_publicacao', 'edicao', 'idioma', 'categoria_id', 'assunto', 'quantidade', 'observacoes'];
+
+    /** Campos comparados com a obra do acervo quando o registro é vinculado a uma obra existente. */
+    public const CAMPOS_OBRA = ['titulo', 'subtitulo', 'autores', 'editora', 'isbn', 'ano_publicacao', 'edicao', 'idioma', 'categoria_id', 'assunto'];
+
+    public const ROTULOS = [
+        'titulo' => 'Título', 'subtitulo' => 'Subtítulo', 'autores' => 'Autor(es)', 'editora' => 'Editora', 'isbn' => 'ISBN', 'isbn_nao_encontrado' => 'ISBN não encontrado',
+        'isbn_situacao' => 'ISBN encontrado?', 'cdd' => 'CDD', 'cdd_nao_encontrada' => 'CDD não encontrada', 'cdd_situacao' => 'CDD encontrada?', 'cdd_fonte' => 'Fonte da CDD',
+        'ano_publicacao' => 'Ano', 'edicao' => 'Edição', 'idioma' => 'Idioma', 'categoria_id' => 'Categoria', 'assunto' => 'Assunto', 'quantidade' => 'Quantidade',
+        'observacoes' => 'Observações', 'estados' => 'Conservação',
+    ];
 
     public const STATUS = [
         'rascunho' => ['Em levantamento', 'muted'],
@@ -63,12 +83,15 @@ final class Levantamento
                 $autores[] = mb_substr($a, 0, 150);
             }
         }
+        // "Informação encontrada / não encontrada" (ISBN e CDD). Aceita também o indicador antigo.
+        $isbnSit = in_array($p['isbn_situacao'] ?? '', ['encontrado', 'nao_encontrado'], true) ? $p['isbn_situacao'] : ($sim('isbn_nao_encontrado') ? 'nao_encontrado' : null);
+        $cddSit = in_array($p['cdd_situacao'] ?? '', ['encontrada', 'nao_encontrada'], true) ? $p['cdd_situacao'] : ($sim('cdd_nao_encontrada') ? 'nao_encontrada' : null);
         $d = [
             'titulo' => $t('titulo', 255), 'subtitulo' => $t('subtitulo', 255),
-            'autores' => $autores ? implode('; ', array_slice($autores, 0, 10)) : null, 'autor_nao_indicado' => $sim('autor_nao_indicado') ? 1 : 0,
-            'editora' => $t('editora', 150), 'editora_nao_indicada' => $sim('editora_nao_indicada') ? 1 : 0,
-            'isbn' => $t('isbn', 30), 'isbn_nao_encontrado' => $sim('isbn_nao_encontrado') ? 1 : 0,
-            'cdd' => $t('cdd', 30), 'cdd_nao_encontrada' => $sim('cdd_nao_encontrada') ? 1 : 0, 'cdd_fonte' => $t('cdd_fonte', 255),
+            'autores' => $autores ? implode('; ', array_slice($autores, 0, 10)) : null,
+            'editora' => $t('editora', 150),
+            'isbn' => $t('isbn', 30), 'isbn_nao_encontrado' => $isbnSit === 'nao_encontrado' ? 1 : 0, 'isbn_situacao' => $isbnSit,
+            'cdd' => $t('cdd', 30), 'cdd_nao_encontrada' => $cddSit === 'nao_encontrada' ? 1 : 0, 'cdd_situacao' => $cddSit, 'cdd_fonte' => $t('cdd_fonte', 255),
             'ano_publicacao' => $t('ano_publicacao', 10), 'edicao' => $t('edicao', 60), 'idioma' => $t('idioma', 30),
             'categoria_id' => (int)($p['categoria_id'] ?? 0) ?: null, 'assunto' => $t('assunto', 255),
             'quantidade' => (string)($p['quantidade'] ?? '1'), 'observacoes' => $t('observacoes', 1000),
@@ -77,21 +100,18 @@ final class Levantamento
         if ($d['titulo'] === null) {
             $e['titulo'] = 'Informe o título.';
         }
-        if ($d['autor_nao_indicado']) {
-            $d['autores'] = null;
-        } elseif ($d['autores'] === null) {
-            $e['autores'] = 'Informe o autor ou marque “Autor não indicado no livro”.';
+        if ($d['autores'] === null) {
+            $e['autores'] = 'Informe o autor (como aparece na capa ou na folha de rosto).';
         }
-        if ($d['editora_nao_indicada']) {
-            $d['editora'] = null;
-        } elseif ($d['editora'] === null) {
-            $e['editora'] = 'Informe a editora ou marque “Editora não indicada no livro”.';
+        if ($d['editora'] === null) {
+            $e['editora'] = 'Informe a editora (geralmente na lombada, na folha de rosto ou na ficha catalográfica).';
         }
-        if ($d['isbn_nao_encontrado']) {
+        if ($d['isbn_situacao'] === 'nao_encontrado') {
             $d['isbn'] = null; // a ausência fica no indicador, nunca escrita no campo
         } elseif ($d['isbn'] === null) {
-            $e['isbn'] = 'Digite o ISBN ou marque “ISBN não encontrado”.';
+            $e['isbn'] = $d['isbn_situacao'] === 'encontrado' ? 'Digite o ISBN.' : 'Informe se o ISBN foi encontrado no livro.';
         } else {
+            $d['isbn_situacao'] = 'encontrado';
             $limpo = Isbn::normalizar($d['isbn']);
             if (!preg_match('/^[\d\-\s.Xx]+$/', $d['isbn']) || !Isbn::valido($limpo)) {
                 $e['isbn'] = strlen($limpo) === 10 || strlen($limpo) === 13
@@ -100,11 +120,12 @@ final class Levantamento
             }
             $d['isbn'] = mb_substr($limpo, 0, 20);
         }
-        if ($d['cdd_nao_encontrada']) {
+        if ($d['cdd_situacao'] === 'nao_encontrada') {
             $d['cdd'] = null;
         } elseif ($d['cdd'] === null) {
-            $e['cdd'] = 'Digite a CDD ou marque “CDD não encontrada”.';
+            $e['cdd'] = $d['cdd_situacao'] === 'encontrada' ? 'Digite a CDD.' : 'Informe se a CDD foi encontrada no livro.';
         } else {
+            $d['cdd_situacao'] = 'encontrada';
             $d['cdd'] = str_replace(',', '.', preg_replace('/\s+/', '', $d['cdd']));
             if (!preg_match('/^\d{3}(\.\d{1,10})?$/', $d['cdd'])) {
                 $e['cdd'] = 'A CDD começa com 3 números (ex.: 869 ou 869.3).';
@@ -394,7 +415,7 @@ final class Levantamento
             if ($livroId !== null && !$this->valor('SELECT 1 FROM livros WHERE id = ? AND arquivado_em IS NULL', [$livroId])) {
                 throw new AcervoException('Obra não encontrada ou arquivada.');
             }
-            $this->executar('UPDATE reorg_registros SET livro_sugerido_id = ?, versao = versao + 1' . ($r['status'] === 'aprovado' ? ", status = 'aguardando_revisao', aprovado_por = NULL, aprovado_em = NULL" : '') . ' WHERE id = ?', [$livroId, $id]);
+            $this->executar('UPDATE reorg_registros SET livro_sugerido_id = ?, escolhas_obra = NULL, versao = versao + 1' . ($r['status'] === 'aprovado' ? ", status = 'aguardando_revisao', aprovado_por = NULL, aprovado_em = NULL" : '') . ' WHERE id = ?', [$livroId, $id]);
         });
     }
 
@@ -519,9 +540,11 @@ final class Levantamento
         foreach ($this->todas('SELECT ordem, estado_conservacao FROM reorg_registro_exemplares WHERE registro_id = ? AND removido_em IS NULL ORDER BY ordem', [$r['id']]) as $x) {
             $f['estados'][(int)$x['ordem']] = $x['estado_conservacao'];
         }
-        foreach (['autor_nao_indicado', 'editora_nao_indicada', 'isbn_nao_encontrado', 'cdd_nao_encontrada'] as $c) {
+        foreach (['isbn_nao_encontrado', 'cdd_nao_encontrada'] as $c) {
             $f[$c] = (int)$f[$c] ? '1' : '';
         }
+        $f['isbn_situacao'] = (string)($f['isbn_situacao'] ?? '');
+        $f['cdd_situacao'] = (string)($f['cdd_situacao'] ?? '');
         $f['quantidade'] = (string)(int)$f['quantidade'];
         return $f;
     }
@@ -593,9 +616,9 @@ final class Levantamento
      * Destino: a obra escolhida (livro_sugerido_id) ou uma obra nova. Com obra do acervo de mesmo ISBN
      * e nenhuma escolhida, exige $confirmarNova (evita duplicar a obra sem querer).
      */
-    public function aprovar(int $adminId, int $id, bool $confirmarNova = false): void
+    public function aprovar(int $adminId, int $id, bool $confirmarNova = false, ?int $versao = null): void
     {
-        $this->transacao(function () use ($adminId, $id, $confirmarNova) {
+        $this->transacao(function () use ($adminId, $id, $confirmarNova, $versao) {
             $r = $this->linha('SELECT * FROM reorg_registros WHERE id = ? FOR UPDATE', [$id]);
             if (!$r) {
                 throw new AcervoException('Registro não encontrado.');
@@ -612,6 +635,9 @@ final class Levantamento
             if ($this->reservadoPorOutro($r, null, $adminId)) {
                 throw new AcervoException('Outro administrador está revisando o registro nº ' . $r['numero'] . '.');
             }
+            if ($versao !== null && $versao > 0 && $versao !== (int)$r['versao']) {
+                throw new AcervoException('Os dados do registro nº ' . $r['numero'] . ' mudaram depois que a tela foi aberta (ou ainda havia alterações sendo salvas). Nada foi aprovado: confira os dados atuais e aprove de novo.');
+            }
             $problemas = $this->problemasAprovacao($r, $confirmarNova);
             if ($problemas) {
                 throw new AcervoException('Registro nº ' . $r['numero'] . ': ' . implode(' ', $problemas));
@@ -622,32 +648,20 @@ final class Levantamento
         });
     }
 
-    /** @return list<string> */
+    /**
+     * O que impede aprovar: os mesmos requisitos do formulário do Grupo 1 (título, autor, editora, ISBN
+     * válido ou "não encontrado", CDD válida ou "não encontrada", estado de cada exemplar) e as regras
+     * da obra escolhida (sem duplicar obra sem querer).
+     * @return list<string>
+     */
     public function problemasAprovacao(array $r, bool $confirmarNova = false): array
     {
-        $p = [];
-        if (trim((string)$r['titulo']) === '') {
-            $p[] = 'Informe o título.';
-        }
-        if ($r['isbn'] !== null && !Isbn::valido($r['isbn'])) {
-            $p[] = 'O ISBN não confere: corrija ou apague o campo.';
-        }
-        if ($r['ano_publicacao'] !== null && (!preg_match('/^\d{4}$/', (string)$r['ano_publicacao']) || (int)$r['ano_publicacao'] < 1450 || (int)$r['ano_publicacao'] > (int)date('Y') + 1)) {
-            $p[] = 'Ano de publicação inválido.';
-        }
-        if ($r['cdd'] !== null && !preg_match('/^\d{3}(\.\d{1,10})?$/', (string)$r['cdd'])) {
-            $p[] = 'CDD inválida.';
-        }
-        $faltam = (int)$this->valor('SELECT COUNT(*) FROM reorg_registro_exemplares WHERE registro_id = ? AND removido_em IS NULL AND estado_conservacao IS NULL', [$r['id']]);
-        if ($faltam) {
-            $p[] = $faltam . ' exemplar(es) sem estado de conservação.';
-        }
+        [, $erros] = $this->validar($this->paraFormulario($r));
+        $p = array_values($erros);
         if ($r['livro_sugerido_id']) {
             $o = $this->linha('SELECT isbn, arquivado_em FROM livros WHERE id = ?', [$r['livro_sugerido_id']]);
             if (!$o || $o['arquivado_em'] !== null) {
                 $p[] = 'A obra escolhida não existe mais ou está arquivada.';
-            } elseif ($o['isbn'] && $r['isbn'] && Isbn::para13($o['isbn']) !== Isbn::para13($r['isbn'])) {
-                $p[] = 'O ISBN é diferente do ISBN da obra escolhida (outra edição): retire a obra escolhida para cadastrar como obra nova.';
             }
         } elseif (!$confirmarNova && $r['isbn'] && Isbn::valido($r['isbn'])
             && $this->valor('SELECT 1 FROM livros WHERE isbn IN (?, ?) AND arquivado_em IS NULL LIMIT 1', [$r['isbn'], Isbn::para13($r['isbn'])])) {
@@ -683,7 +697,7 @@ final class Levantamento
      * disponíveis ao Grupo 3.
      * @return array{livro_id: int, obra_nova: bool, codigos: list<string>, cdd: ?string, cdd_fonte: ?string, repetido: bool}
      */
-    public function cadastrar(int $adminId, int $id): array
+    public function cadastrar(int $adminId, int $id, ?callable $registrarCdd = null): array
     {
         // O administrador entra como participante do lote permanente ANTES da transação do cadastro:
         // assim cadastros simultâneos do mesmo administrador enxergam a participação já gravada.
@@ -701,7 +715,7 @@ final class Levantamento
             }
         }
         try {
-            return $this->transacao(function () use ($adminId, $id) {
+            return $this->transacao(function () use ($adminId, $id, $registrarCdd) {
                 $r = $this->linha('SELECT * FROM reorg_registros WHERE id = ? FOR UPDATE', [$id]);
                 if (!$r) {
                     throw new AcervoException('Registro não encontrado.');
@@ -724,7 +738,13 @@ final class Levantamento
                     throw new AcervoException('O registro não tem exemplares.');
                 }
                 $obraNova = !$r['livro_sugerido_id'];
-                $livroId = $obraNova ? $this->criarObra($r, $lote) : (int)$r['livro_sugerido_id'];
+                // Tudo na MESMA transação: obra (nova, ou existente com as correções aprovadas),
+                // verificação, CDD, exemplares e códigos BDP. Qualquer falha desfaz tudo e o registro
+                // continua "aprovado" (nada é liberado ao Grupo 3); repetir não duplica nada.
+                $livroId = $obraNova ? $this->criarObra($r, $lote, $adminId) : $this->atualizarObraExistente($r, $adminId);
+                if ($r['cdd'] !== null && $registrarCdd !== null) {
+                    $registrarCdd($livroId, (string)$r['cdd'], (string)($r['cdd_fonte'] ?? ''));
+                }
 
                 // O lote permanente fica ativo para o administrador só durante o cadastro.
                 $cadId = (int)$lote['cadastro_lote_id'];
@@ -759,21 +779,138 @@ final class Levantamento
         return ['livro_id' => (int)$r['livro_id'], 'obra_nova' => (bool)$r['obra_nova'], 'codigos' => $codigos, 'cdd' => $r['cdd'], 'cdd_fonte' => $r['cdd_fonte'], 'repetido' => $repetido, 'numero' => (int)$r['numero']];
     }
 
-    /** Obra nova pelo repositório permanente (os mesmos campos do cadastro manual). */
-    private function criarObra(array $r, array $lote): int
+    /** Serviço permanente da conferência (correção, alertas cadastrais e verificação da obra). */
+    private function conferencia(): ConferenciaCadastroService
+    {
+        return new ConferenciaCadastroService($this->pdo, new InventarioService($this->pdo, $this->exemplares, new InventarioRepository($this->pdo)));
+    }
+
+    /**
+     * Obra nova pelo repositório permanente (os mesmos campos do cadastro manual). A revisão do Grupo 2
+     * é a conferência: a obra sai com "Dados verificados" e os alertas cadastrais conferidos (o status
+     * deixa de ser "aguardando conferência"; sem alerta aberto fica "validado"). Nada é inventado: o
+     * idioma só é gravado se foi informado.
+     */
+    private function criarObra(array $r, array $lote, int $adminId): int
     {
         $autores = array_values(array_filter(array_map('trim', explode(';', (string)$r['autores']))));
-        return (new LivroRepository($this->pdo))->criar([
+        $livroId = (new LivroRepository($this->pdo))->criar([
             'titulo' => (string)$r['titulo'], 'subtitulo' => $r['subtitulo'], 'autores' => $autores, 'isbn' => $r['isbn'] ? Isbn::normalizar($r['isbn']) : null,
-            'editora' => $r['editora'], 'ano_publicacao' => $r['ano_publicacao'], 'edicao' => $r['edicao'], 'idioma' => $r['idioma'] ?: 'Português',
+            'editora' => $r['editora'], 'ano_publicacao' => $r['ano_publicacao'], 'edicao' => $r['edicao'], 'idioma' => $r['idioma'],
             'assunto' => $r['assunto'], 'categoria' => $r['categoria_id'], 'status_validacao' => 'aguardando_conferencia',
             'observacoes_internas' => 'Cadastrada na reorganização do acervo (' . $lote['nome'] . ', registro nº ' . $r['numero'] . ').'
                 . ($r['isbn_nao_encontrado'] && !$r['isbn'] ? ' ISBN não encontrado no livro.' : '') . ($r['cdd_nao_encontrada'] && !$r['cdd'] ? ' CDD não encontrada no livro.' : ''),
         ]);
+        if (trim((string)$r['idioma']) === '') {
+            $this->executar('UPDATE livros SET idioma = NULL WHERE id = ?', [$livroId]); // o repositório completaria com "Português"
+        }
+        $this->registrarAcao($adminId, 'livro.cadastrar', 'livro', $livroId, ['origem' => 'reorganizacao', 'reorg_registro_id' => (int)$r['id']]);
+        $this->conferencia()->reconferirAlertas($livroId, $adminId, true);
+        (new ObraVerificacaoService($this->pdo))->registrar($livroId, [], $adminId, true, 'reorganizacao');
+        return $livroId;
+    }
+
+    /**
+     * Vincula a uma obra existente aplicando, pelo mecanismo permanente da conferência
+     * (ConferenciaCadastroService::atualizarLivro), as informações que o Grupo 2 escolheu campo a campo.
+     * Campo sem informação no levantamento mantém o que a obra já tem (nada correto é apagado).
+     */
+    private function atualizarObraExistente(array $r, int $adminId): int
+    {
+        $livroId = (int)$r['livro_sugerido_id'];
+        $comp = $this->comparacaoObra($r);
+        if (!$comp) {
+            throw new AcervoException('A obra escolhida não existe mais ou está arquivada.');
+        }
+        $post = [];
+        foreach ($comp['campos'] as $campo => $c) {
+            $post[$campo] = $c['escolha'] === 'levantamento' && $c['levantamento'] !== null && $c['levantamento'] !== '' ? $c['levantamento'] : $c['obra'];
+        }
+        $svc = $this->conferencia();
+        $svc->atualizarLivro($livroId, $svc->dados($post), $adminId, true, true);
+        return $livroId;
+    }
+
+    /**
+     * Comparação do registro com a obra vinculada: valor da obra, valor levantado, divergência e a
+     * escolha atual (salva em escolhas_obra; padrão: manter o que a obra tem, completar o que falta).
+     * @return array{obra: array, campos: array<string, array{rotulo: string, obra: ?string, levantamento: ?string, divergente: bool, escolha: string}>}|null
+     */
+    public function comparacaoObra(array $r): ?array
+    {
+        if (!$r['livro_sugerido_id']) {
+            return null;
+        }
+        $o = $this->linha("SELECT l.*, (SELECT GROUP_CONCAT(a.nome ORDER BY la.ordem, a.id SEPARATOR '; ') FROM livro_autores la JOIN autores a ON a.id = la.autor_id WHERE la.livro_id = l.id) AS autores_txt,
+                                  (SELECT lc.categoria_id FROM livro_categorias lc WHERE lc.livro_id = l.id AND lc.principal = 1 LIMIT 1) AS categoria_id
+                           FROM livros l WHERE l.id = ? AND l.arquivado_em IS NULL", [$r['livro_sugerido_id']]);
+        if (!$o) {
+            return null;
+        }
+        $obra = ['titulo' => $o['titulo'], 'subtitulo' => $o['subtitulo'], 'autores' => $o['autores_txt'], 'editora' => $o['editora'], 'isbn' => $o['isbn'] ?: $o['isbn_original'],
+            'ano_publicacao' => $o['ano_publicacao'], 'edicao' => $o['edicao'], 'idioma' => $o['idioma'], 'categoria_id' => $o['categoria_id'], 'assunto' => $o['assunto']];
+        $salvas = json_decode((string)($r['escolhas_obra'] ?? ''), true) ?: [];
+        $campos = [];
+        foreach (self::CAMPOS_OBRA as $c) {
+            $vo = $obra[$c] === null || trim((string)$obra[$c]) === '' ? null : trim((string)$obra[$c]);
+            $vl = $r[$c] === null || trim((string)$r[$c]) === '' ? null : trim((string)$r[$c]);
+            $norm = fn ($v) => $v === null ? '' : ($c === 'isbn' ? Isbn::para13(Isbn::normalizar($v)) : mb_strtolower(preg_replace('/\s+/u', ' ', $v)));
+            $diverge = $vo !== null && $vl !== null && $norm($vo) !== $norm($vl);
+            $padrao = $vo === null && $vl !== null ? 'levantamento' : 'obra';
+            $escolha = in_array($salvas[$c] ?? '', ['obra', 'levantamento'], true) ? $salvas[$c] : $padrao;
+            if ($vl === null) {
+                $escolha = 'obra'; // levantamento sem informação nunca apaga o que a obra tem
+            }
+            $campos[$c] = ['rotulo' => self::ROTULOS[$c], 'obra' => $vo, 'levantamento' => $vl, 'divergente' => $diverge, 'escolha' => $escolha];
+        }
+        return ['obra' => $o, 'campos' => $campos];
+    }
+
+    /** Grava a escolha campo a campo (obra existente × levantamento). Só antes do cadastro. */
+    public function salvarEscolhasObra(int $adminId, int $id, array $escolhas): void
+    {
+        $this->transacao(function () use ($adminId, $id, $escolhas) {
+            $r = $this->linha('SELECT * FROM reorg_registros WHERE id = ? FOR UPDATE', [$id]);
+            if (!$r || !in_array($r['status'], ['aguardando_revisao', 'aprovado'], true) || !$r['livro_sugerido_id']) {
+                throw new AcervoException('Só é possível escolher as informações de um registro vinculado a uma obra e ainda não cadastrado.');
+            }
+            $lote = $this->linha('SELECT * FROM reorg_lotes WHERE id = ?', [$r['lote_id']]);
+            $this->exigirAdminDoLote($lote, $adminId);
+            $limpo = [];
+            foreach (self::CAMPOS_OBRA as $c) {
+                if (in_array($escolhas[$c] ?? '', ['obra', 'levantamento'], true)) {
+                    $limpo[$c] = $escolhas[$c];
+                }
+            }
+            $this->executar('UPDATE reorg_registros SET escolhas_obra = ?, versao = versao + 1, revisado_por = ?, revisado_em = COALESCE(revisado_em, NOW())'
+                . ($r['status'] === 'aprovado' ? ", status = 'aguardando_revisao', aprovado_por = NULL, aprovado_em = NULL" : '') . ' WHERE id = ?',
+                [json_encode($limpo), $adminId, $id]);
+            $troca = array_keys(array_filter($limpo, fn ($v) => $v === 'levantamento'));
+            $this->historico('escolhas_obra', 'Registro nº ' . $r['numero'] . ': informações da obra existente escolhidas' . ($troca ? ' (usar o levantamento em: ' . implode(', ', array_map(fn ($c) => self::ROTULOS[$c], $troca)) . ')' : ' (manter a obra)'), (int)$r['lote_id'], null, $adminId);
+        });
+    }
+
+    /** Possíveis duplicidades: outros registros do lote e obras do acervo com o mesmo ISBN ou o mesmo título e autor. */
+    public function possiveisDuplicidades(array $r): array
+    {
+        $saida = [];
+        if ($r['isbn'] && Isbn::valido($r['isbn'])) {
+            $isbns = array_values(array_unique([$r['isbn'], Isbn::para13($r['isbn'])]));
+            $ph = implode(',', array_fill(0, count($isbns), '?'));
+            foreach ($this->todas("SELECT numero FROM reorg_registros WHERE lote_id = ? AND id <> ? AND status <> 'descartado' AND isbn IN ($ph)", [$r['lote_id'], $r['id'], ...$isbns]) as $x) {
+                $saida[] = 'Registro nº ' . $x['numero'] . ' deste lote tem o mesmo ISBN.';
+            }
+        }
+        if ($r['titulo'] && !$r['livro_sugerido_id']) {
+            foreach ($this->todas('SELECT id, titulo, editora, edicao FROM livros WHERE arquivado_em IS NULL AND titulo = ? LIMIT 3', [$r['titulo']]) as $o) {
+                $saida[] = 'Já existe a obra “' . $o['titulo'] . '” (nº ' . $o['id'] . ($o['editora'] ? ', ' . $o['editora'] : '') . ($o['edicao'] ? ', ' . $o['edicao'] : '') . ') no acervo.';
+            }
+        }
+        return $saida;
     }
 
     /** Cadastra todos os aprovados do lote (cada um na própria transação). */
-    public function cadastrarAprovados(int $adminId, int $loteId, ?array $ids = null): array
+    public function cadastrarAprovados(int $adminId, int $loteId, ?array $ids = null, ?callable $registrarCdd = null): array
     {
         $resultados = [];
         $erros = [];
@@ -783,7 +920,7 @@ final class Levantamento
                 continue;
             }
             try {
-                $resultados[] = $this->cadastrar($adminId, (int)$r['id']);
+                $resultados[] = $this->cadastrar($adminId, (int)$r['id'], $registrarCdd);
             } catch (AcervoException $e) {
                 $erros[(int)$r['numero']] = $e->getMessage();
             }

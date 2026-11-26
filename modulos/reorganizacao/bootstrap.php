@@ -19,15 +19,31 @@ spl_autoload_register(function (string $classe): void {
     }
 });
 
-/** Configuração central (config.php). */
+/**
+ * Configuração central (config.php). Os tempos das sessões temporárias podem ser ajustados pelos
+ * administradores em Reorganização do Acervo → Configurações (tabela reorg_configuracoes, migração 230).
+ */
 function reorg_config(?string $chave = null): mixed
 {
     static $config = null;
-    $config ??= require __DIR__ . '/config.php';
+    if ($config === null) {
+        $config = require __DIR__ . '/config.php';
+        if ($config['ativo'] && db_modo() === 'mysql') {
+            try {
+                foreach (db()->query('SELECT chave, valor FROM reorg_configuracoes')->fetchAll(PDO::FETCH_KEY_PAIR) as $k => $v) {
+                    if (in_array($k, ['intervalo_sinal', 'tolerancia_desconexao', 'reserva_edicao'], true)) {
+                        $config[$k] = (int)$v;
+                    }
+                }
+            } catch (Throwable $e) {
+                // migração 230 ainda não aplicada: valem os tempos do config.php
+            }
+        }
+    }
     return $chave === null ? $config : ($config[$chave] ?? null);
 }
 
-/** O módulo está ligado (config.php) e a migração 220 foi aplicada? */
+/** O módulo está ligado (config.php) e as migrações 220 e 230 foram aplicadas? */
 function reorg_modulo_ativo(): bool
 {
     static $ativo = null;
@@ -38,7 +54,7 @@ function reorg_modulo_ativo(): bool
         return $ativo = false;
     }
     try {
-        return $ativo = (bool)db()->query("SHOW TABLES LIKE 'reorg_periodos'")->fetchColumn();
+        return $ativo = (bool)db()->query("SHOW TABLES LIKE 'reorg_configuracoes'")->fetchColumn();
     } catch (Throwable $e) {
         return $ativo = false;
     }
