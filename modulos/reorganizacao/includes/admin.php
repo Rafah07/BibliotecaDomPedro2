@@ -10,6 +10,7 @@
 require_once __DIR__ . '/../../../admin/includes/layout.php'; // exige login (auth_exigir)
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/comum.php';
+require_once __DIR__ . '/cdd.php';
 
 use Biblioteca\Reorganizacao\Reorganizacao;
 use Biblioteca\Services\AcervoException;
@@ -106,47 +107,6 @@ function reorg_admin_acao(callable $fn, string $sucesso, ?string $destino = null
     admin_redirecionar($destino ?? ($_SERVER['REQUEST_URI'] ?? reorg_url('admin/')));
 }
 
-/**
- * CDD do registro gravada na classificação permanente DENTRO da transação do cadastro (mesmas regras
- * da conferência do Inventário: aprovada para quem aprova CDD, sugestão para os demais). Se falhar,
- * o cadastro inteiro é desfeito: nenhum exemplar fica liberado ao Grupo 3 sem a classificação.
- */
-function reorg_registrar_cdd(array $usuario): callable
-{
-    require_once __DIR__ . '/../../../admin/includes/cdd.php';
-    return function (int $livroId, string $cdd, string $fonte) use ($usuario): void {
-        try {
-            $v = cdd_validar($cdd);
-            if (!$v['valida']) {
-                throw new AcervoException('CDD ' . $cdd . ': ' . $v['erro']);
-            }
-            cdd_itens(true);
-            $item = cdd_item($livroId);
-            if (!$item) {
-                throw new AcervoException('Obra não encontrada para registrar a CDD.');
-            }
-            $permissoes = AUTH_PERMISSOES[$usuario['perfil']] ?? [];
-            $acao = in_array('cdd.aprovar', $permissoes, true) ? 'aprovar' : (in_array('cdd.sugerir', $permissoes, true) ? 'sugerir' : null);
-            if ($acao === null) {
-                throw new AcervoException('Seu perfil não pode registrar classificações CDD.');
-            }
-            $atual = cdd_linha_bloqueada($livroId, $item);
-            $vigente = cdd_vigente(['cdd_aprovada' => $atual['cdd_aprovada'] ?? null, 'cdd_proposta' => $atual['cdd_proposta'] ?? null, 'cdd_original' => $atual['cdd_original'] ?? null]);
-            if ($vigente['numero'] === $v['numero'] && ($vigente['tipo'] === 'aprovada' || ($vigente['tipo'] === 'proposta' && $acao === 'sugerir'))) {
-                return;
-            }
-            [$nova, $historicos] = cdd_aplicar($acao, $atual, cdd_dados_limpos([
-                'cdd' => $v['numero'],
-                'fonte_nome' => trim($fonte) !== '' ? $fonte : 'Livro em mãos (reorganização do acervo)',
-                'justificativa' => 'CDD ' . ($vigente['numero'] !== '' ? 'corrigida (antes: ' . $vigente['numero'] . ')' : 'informada') . ' na reorganização do acervo, revisada por ' . $usuario['nome'] . '.',
-            ]), $usuario);
-            cdd_gravar_mysql($nova, $historicos, $usuario);
-        } catch (CddErro $e) {
-            throw new AcervoException('CDD não registrada: ' . $e->getMessage() . ' Nada foi cadastrado.');
-        }
-    };
-}
-
 function reorg_status_lote(array $l): string
 {
     return match ($l['status']) {
@@ -163,11 +123,6 @@ function reorg_estado_badge(string $estado): string
     return reorg_status_badge($r, $t);
 }
 
-function reorg_barra(int $feito, int $total, string $rotulo = ''): string
-{
-    $p = $total > 0 ? min(100, (int)floor(100 * $feito / $total)) : 0;
-    return '<div class="reorg-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' . $p . '" title="' . e($rotulo ?: "$feito de $total") . '"><span style="width:' . $p . '%"></span></div>';
-}
 
 /** Rótulos curtos das etapas. */
 const REORG_ETAPAS = [
@@ -198,4 +153,91 @@ function reorg_administradores(): array
 function reorg_categorias(): array
 {
     return db_query('SELECT id, nome FROM categorias WHERE arquivado_em IS NULL ORDER BY nome')->fetchAll();
+}
+
+
+/** Destaques do registro na revisão: campos vazios, ISBN/CDD não encontrados, conservação ruim, obra existente. */
+function reorg_destaques_registro(array $g): string
+{
+    $h = '';
+    if (!(int)$g['completo'] && in_array($g['status'], ['rascunho', 'correcao'], true)) {
+        $h .= reorg_status_badge('Incompleto', 'amber');
+    }
+    if ((int)$g['isbn_nao_encontrado'] && !$g['isbn']) {
+        $h .= reorg_status_badge('ISBN não encontrado', 'amber');
+    }
+    if ((int)$g['cdd_nao_encontrada'] && !$g['cdd']) {
+        $h .= reorg_status_badge('CDD não encontrada', 'amber');
+    }
+    if (str_contains((string)$g['estados'], 'ruim')) {
+        $h .= reorg_status_badge('Conservação ruim', 'red');
+    }
+    if ($g['livro_sugerido_id']) {
+        $h .= reorg_status_badge('Obra existente', 'indigo');
+    }
+    if ($g['status'] === 'correcao' && $g['correcao_motivo']) {
+        $h .= '<small class="reorg-motivo" title="' . e($g['correcao_motivo']) . '">Devolvido: ' . e(mb_strimwidth((string)$g['correcao_motivo'], 0, 60, '…')) . '</small>';
+    }
+    return $h;
+}
+
+/** Tabela de registros do levantamento (abas G1 e G2 do lote). $volta: endereço da aba/filtro atual. */
+function reorg_tabela_registros(array $regs, string $volta, bool $selecao): string
+{
+    ob_start(); ?>
+    <div class="adm-table-wrap adm-table-wrap--flush"><table class="adm-table adm-table--compact reorg-tabela-registros">
+        <thead><tr><?php if ($selecao): ?><th><input type="checkbox" data-reorg-todos aria-label="Marcar todos"></th><?php endif; ?><th>Nº</th><th>Título / autor</th><th>Editora · edição</th><th>ISBN</th><th>CDD</th><th class="reorg-num">Qtd.</th><th>Conservação</th><th>Situação</th><th>Por</th></tr></thead>
+        <tbody>
+        <?php if (!$regs): ?><tr><td colspan="<?= $selecao ? 10 : 9 ?>" class="adm-table__muted">Nenhum registro neste filtro.</td></tr><?php endif; ?>
+        <?php foreach ($regs as $g): [$st, $tom] = Biblioteca\Reorganizacao\Levantamento::STATUS[$g['status']]; $url = reorg_url('admin/registro.php?id=' . $g['id'] . '&volta=' . rawurlencode($volta)); ?>
+            <tr>
+                <?php if ($selecao): ?><td><input type="checkbox" name="ids[]" value="<?= (int)$g['id'] ?>" aria-label="Marcar registro <?= (int)$g['numero'] ?>"></td><?php endif; ?>
+                <td><a href="<?= e($url) ?>" class="adm-table__strong"><?= (int)$g['numero'] ?></a></td>
+                <td><a href="<?= e($url) ?>"><?= e($g['titulo'] ?: '(sem título)') ?></a><br><small><?= e($g['autores'] ?: '—') ?></small><div class="reorg-destaques"><?= reorg_destaques_registro($g) ?></div></td>
+                <td><?= e(($g['editora'] ?: '—') . ($g['edicao'] ? ' · ' . $g['edicao'] : '')) ?></td>
+                <td class="adm-mono"><?= $g['isbn'] ? e($g['isbn']) : ((int)$g['isbn_nao_encontrado'] ? '<small>não encontrado</small>' : '<span class="reorg-vazio-campo">vazio</span>') ?></td>
+                <td class="adm-mono"><?= $g['cdd'] ? e($g['cdd']) : ((int)$g['cdd_nao_encontrada'] ? '<small>não encontrada</small>' : '<span class="reorg-vazio-campo">vazio</span>') ?></td>
+                <td class="reorg-num"><?= (int)$g['quantidade'] ?></td>
+                <td><small><?= e(implode(', ', array_map(fn ($v) => explode(' — ', Reorganizacao::CONSERVACAO[$v] ?? '?')[0], array_filter(explode(',', (string)$g['estados']))))) ?></small></td>
+                <td><?= reorg_status_badge($st, $tom) ?><?= $g['editando_ate'] && strtotime($g['editando_ate']) > time() ? '<br><small>Em edição: ' . e($g['editando_nome'] ?? $g['editando_admin_nome'] ?? '') . '</small>' : '' ?></td>
+                <td><small><?= e($g['criado_nome'] ?? '—') ?></small></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table></div>
+    <?php return (string)ob_get_clean();
+}
+
+/** Tabela de pendências com resolução no próprio lugar. $campos: campos ocultos do formulário (aba, filtros). */
+function reorg_tabela_pendencias(array $lista, bool $mostrarLote, array $campos = []): string
+{
+    $ocultos = '';
+    foreach ($campos as $k => $v) {
+        $ocultos .= '<input type="hidden" name="' . e($k) . '" value="' . e((string)$v) . '">';
+    }
+    ob_start(); ?>
+    <div class="adm-table-wrap adm-table-wrap--flush"><table class="adm-table adm-table--compact">
+        <thead><tr><th>Nº</th><?php if ($mostrarLote): ?><th>Lote</th><?php endif; ?><th>Tipo</th><th>Descrição</th><th>Exemplar / registro</th><th>Informado por</th><th>Situação</th><th>Ação</th></tr></thead>
+        <tbody>
+        <?php if (!$lista): ?><tr><td colspan="<?= $mostrarLote ? 8 : 7 ?>" class="adm-table__muted">Nenhuma pendência.</td></tr><?php endif; ?>
+        <?php foreach ($lista as $p): ?>
+            <tr><td><?= (int)$p['id'] ?></td>
+                <?php if ($mostrarLote): ?><td><a href="<?= e(reorg_url('admin/lote.php?id=' . $p['lote_id'] . '&aba=pendencias')) ?>"><?= e($p['lote_nome']) ?></a></td><?php endif; ?>
+                <td><?= e(Reorganizacao::TIPOS_PENDENCIA[$p['tipo']] ?? $p['tipo']) ?><br><small><?= e(Reorganizacao::EQUIPES[$p['grupo']] ?? $p['grupo']) ?></small></td>
+                <td><?= e($p['descricao']) ?><?= $p['resolucao'] ? '<br><small><strong>Resolução:</strong> ' . e($p['resolucao']) . '</small>' : '' ?></td>
+                <td class="adm-mono"><?= e($p['codigo_individual'] ?? '') ?><?= $p['registro_numero'] ? ' <a href="' . e(reorg_url('admin/registro.php?id=' . $p['registro_id'])) . '">reg. ' . (int)$p['registro_numero'] . '</a>' : '' ?></td>
+                <td><small><?= e($p['nome'] ?? $p['admin_nome'] ?? '') ?><br><?= e(admin_data_hora($p['criado_em'])) ?></small></td>
+                <td><?= reorg_status_badge(['aberta' => 'Aberta', 'em_analise' => 'Em análise', 'resolvida' => 'Resolvida'][$p['status']] ?? $p['status'], ['aberta' => 'red', 'em_analise' => 'amber', 'resolvida' => 'green'][$p['status']] ?? 'muted') ?>
+                    <?= $p['resolvida_por_nome'] ? '<br><small>' . e($p['resolvida_por_nome']) . '</small>' : '' ?></td>
+                <td><form method="post" class="reorg-mini-form"><?= csrf_campo() ?><?= $ocultos ?><input type="hidden" name="acao" value="pendencia_status"><input type="hidden" name="pendencia_id" value="<?= (int)$p['id'] ?>">
+                    <?php if ($p['status'] !== 'resolvida'): ?>
+                        <input class="adm-input" name="resolucao" placeholder="Como foi resolvido" maxlength="1000" aria-label="Resolução da pendência <?= (int)$p['id'] ?>">
+                        <button class="adm-button adm-button--sm adm-button--primary" name="status" value="resolvida">Resolver</button>
+                        <?php if ($p['status'] === 'aberta'): ?><button class="adm-button adm-button--sm" name="status" value="em_analise">Em análise</button><?php endif; ?>
+                    <?php else: ?><button class="adm-button adm-button--sm" name="status" value="aberta">Reabrir</button><?php endif; ?>
+                </form></td></tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table></div>
+    <?php return (string)ob_get_clean();
 }

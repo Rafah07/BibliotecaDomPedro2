@@ -94,14 +94,14 @@
     return post({ acao: 'sinal', trabalhando: lote ? '1' : '0', registro: registroAberto() }).then(function (j) {
       if (!j.ok) { return; }
       falhas = 0;
-      if (!document.querySelector('[data-reorg-form]') && indicador) { indicador.textContent = 'Conectado'; indicador.setAttribute('data-estado', 'salvo'); }
+      if (indicador) { indicador.textContent = 'Conectado'; indicador.setAttribute('data-estado', 'salvo'); }
       mostrarNotificacoes(j.notificacoes || []);
       if (j.assinatura && assinatura && j.assinatura !== assinatura && !formPendente() && modal.hidden) {
         window.location.reload(); // lotes atribuídos, retirados, pausados ou troca de equipe: aparecem sozinhos
       }
     }).catch(function () {
       falhas++;
-      if (indicador) { indicador.textContent = formPendente() ? 'Sem conexão — alterações ainda não sincronizadas' : 'Sem conexão'; indicador.setAttribute('data-estado', 'offline'); }
+      if (indicador) { indicador.textContent = 'Sem conexão'; indicador.setAttribute('data-estado', 'offline'); }
     });
   }
 
@@ -125,12 +125,21 @@
 
   // ---------------------------------------------------------------- pausa, retomada e saída
   function aposSalvar() { return window.REORG_FORM && window.REORG_FORM.pendente() ? window.REORG_FORM.salvarAgora() : Promise.resolve(); }
+  /** Só segue se tudo o que foi digitado já foi confirmado pelo servidor. */
+  function exigirSalvo() {
+    return aposSalvar().then(function () {
+      if (formPendente()) { toast('Ainda há alterações não salvas (veja o indicador). Aguarde a confirmação e tente de novo; nada foi enviado.', 'erro'); return false; }
+      return true;
+    });
+  }
 
   function pausar() {
     aposSalvar().then(function () {
       if (formPendente()) { toast('Ainda há alterações não sincronizadas. Aguarde a conexão antes de pausar.', 'erro'); return; }
       post({ acao: 'pausar' }).then(function (j) {
         if (!j.ok) { toast(j.erro, 'erro'); return; }
+        if (window.REORG_FORM) { window.REORG_FORM.estado('pausado'); }
+        if (indicador) { indicador.textContent = 'Atividade pausada'; indicador.setAttribute('data-estado', 'pausado'); }
         abrirModal('<h2>Atividade pausada</h2><p>Tudo está salvo. Progresso no momento da pausa:</p><p class="reorg-resumo-pausa"></p><button type="button" class="adm-button adm-button--primary" data-ok>Ok</button>');
         conteudoModal.querySelector('.reorg-resumo-pausa').textContent = j.resumo;
         conteudoModal.querySelector('[data-ok]').addEventListener('click', function () { window.location.href = base; });
@@ -183,12 +192,19 @@
   document.querySelector('[data-reorg-ajuda]').addEventListener('click', function () {
     abrirModal(''); conteudoModal.appendChild(document.querySelector('[data-reorg-tpl="ajuda-atalhos"]').content.cloneNode(true));
   });
+  var bInstr = document.querySelector('[data-reorg-instrucoes]');
+  if (bInstr) {
+    bInstr.addEventListener('click', function () {
+      abrirModal(''); conteudoModal.appendChild(document.querySelector('[data-reorg-tpl="instrucoes"]').content.cloneNode(true));
+    });
+  }
 
   // ---------------------------------------------------------------- Grupo 1
   function novoRegistro() {
     var bt = document.querySelector('[data-reorg-novo]');
     if (!bt || bt.disabled) { return; }
-    aposSalvar().then(function () {
+    exigirSalvo().then(function (ok) {
+      if (!ok) { return; }
       post({ acao: 'novo', lote: lote }).then(function (j) {
         if (!j.ok) { toast(j.erro, 'erro'); return; }
         window.location.href = j.url;
@@ -201,7 +217,8 @@
   document.querySelectorAll('[data-reorg-encaminhar]').forEach(function (bt) {
     bt.addEventListener('click', function () {
       var g = bt.getAttribute('data-reorg-encaminhar');
-      aposSalvar().then(function () { return post({ acao: 'previa_' + g, lote: lote }); }).then(function (p) {
+      exigirSalvo().then(function (ok) { return ok ? post({ acao: 'previa_' + g, lote: lote }) : null; }).then(function (p) {
+        if (!p) { return; }
         if (!p.ok) { toast(p.erro, 'erro'); return; }
         if (!p.exemplares) { toast(g === 'g2' ? 'Nenhum registro completo para encaminhar agora.' : 'Nenhum exemplar carimbado para encaminhar agora.', 'erro'); return; }
         var texto = g === 'g2'
@@ -350,6 +367,7 @@
     else if (k === 'o') { if (fConf) { fConf.querySelector('[name=codigo]').focus(); } else if (window.REORG_FORM) { window.REORG_FORM.abrirPesquisa(); } }
     else if (k === 'p') { if (bPausar) { pausar(); } }
     else if (k === 'h') { document.querySelector('[data-reorg-ajuda]').click(); }
+    else if (k === 'enter') { var av = document.querySelector('[data-reorg-avancar]'); if (av) { av.click(); } }
     else { feito = false; }
     if (feito) { ev.preventDefault(); }
   });

@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     reorg_admin_acao(fn () => $r->marcarLidasAdmin($adminId), 'Notificações marcadas como lidas.');
 }
 $lista = $r->notificacoesAdmin($adminId, false, 200);
-reorg_admin_inicio('inicio', 'Notificações');
+reorg_admin_inicio('inicio', 'Notificações', [['Notificações', null]]);
 ?>
 <section class="adm-page-head"><div><h1>Notificações</h1><p>Entradas e saídas de participantes, pedidos, problemas informados, registros enviados para revisão, etapas concluídas e perdas de conexão.</p></div>
     <div class="adm-page-head__actions"><form method="post"><?= csrf_campo() ?><button class="adm-button" type="submit"><?= icon('check-check') ?> Marcar todas como lidas</button></form></div></section>

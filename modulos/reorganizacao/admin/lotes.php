@@ -29,7 +29,7 @@ reorg_admin_inicio('lotes', 'Lotes da reorganização');
         <select class="adm-select" name="responsavel"><option value="">Todos</option><?= reorg_opcoes($admins, $responsavel ?: '') ?></select></label>
     <label class="adm-field"><span class="adm-field__label">Etapa com trabalho esperando</span>
         <select class="adm-select" name="etapa"><option value="">Todas</option><?php foreach (REORG_ETAPAS as $k => [$g, $rot]): ?><option value="<?= $k ?>"<?= $etapa === $k ? ' selected' : '' ?>><?= e($g . ' — ' . $rot) ?></option><?php endforeach; ?></select></label>
-    <div class="reorg-filtros-barra__acoes"><button class="adm-button" type="submit"><?= icon('filter') ?> Filtrar</button>
+    <div class="reorg-filtros-barra__acoes"><button class="adm-button" type="submit"><?= icon('search') ?> Filtrar</button>
         <?php if ($status || $responsavel || $etapa): ?><a class="adm-link" href="<?= e(reorg_url('admin/lotes.php')) ?>">Limpar</a><?php endif; ?></div>
 </form>
 

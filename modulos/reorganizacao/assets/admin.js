@@ -8,14 +8,60 @@
   // Confirmação antes de ações com efeito em vários registros (códigos BDP, encaminhamentos, descarte).
   document.addEventListener('click', function (ev) {
     var bt = ev.target.closest('[data-reorg-confirmar]');
+    if (bt && bt.hasAttribute('data-reorg-salvar-antes')) { return; } // registro.js confirma e salva antes
     if (bt && !window.confirm(bt.getAttribute('data-reorg-confirmar'))) { ev.preventDefault(); }
   });
 
-  // Selecionar todos (revisão do Grupo 2).
-  document.querySelectorAll('[data-reorg-todos]').forEach(function (chk) {
-    chk.addEventListener('change', function () {
-      chk.closest('form').querySelectorAll('input[name="ids[]"]').forEach(function (c) { c.checked = chk.checked; });
+  // Selecionar todos e contagem dos marcados (revisão do Grupo 2).
+  document.querySelectorAll('[data-reorg-selecao]').forEach(function (f) {
+    var info = f.querySelector('[data-reorg-marcados]');
+    function contar() {
+      if (!info) { return; }
+      var n = f.querySelectorAll('input[name="ids[]"]:checked').length;
+      info.textContent = n ? n + ' registro(s) marcado(s).' : 'Nenhum marcado.';
+    }
+    f.addEventListener('change', function (ev) {
+      if (ev.target.matches('[data-reorg-todos]')) {
+        f.querySelectorAll('input[name="ids[]"]').forEach(function (c) { c.checked = ev.target.checked; });
+      }
+      contar();
     });
+    contar();
+  });
+
+  // Criar lote: resumo ao vivo (identificação, quantidade, responsável, participantes por grupo).
+  var novo = document.querySelector('[data-reorg-novo-lote]');
+  if (novo) {
+    var resumo = novo.querySelector('[data-reorg-resumo]');
+    var semEquipe = novo.querySelector('[data-r="sem"]');
+    var atualizarResumo = function () {
+      ['nome', 'quantidade', 'observacoes'].forEach(function (k) {
+        var el = novo.querySelector('[data-resumo="' + k + '"]');
+        resumo.querySelector('[data-r="' + k + '"]').textContent = el && el.value.trim() ? el.value.trim() : '—';
+      });
+      var resp = novo.querySelector('[data-resumo="responsavel"]');
+      var nomeResp = resp && resp.selectedOptions[0] ? resp.selectedOptions[0].textContent : '';
+      resumo.querySelector('[data-r="responsavel"]').textContent = nomeResp || '—';
+      var fixo = novo.querySelector('[data-resumo-responsavel]'); if (fixo) { fixo.textContent = nomeResp; }
+      var vazios = [];
+      novo.querySelectorAll('[data-grupo]').forEach(function (g) {
+        var eq = g.getAttribute('data-grupo');
+        var nomes = Array.prototype.map.call(g.querySelectorAll('input[type=checkbox]:checked'), function (c) { return c.getAttribute('data-nome'); });
+        g.querySelector('[data-contagem]').textContent = nomes.length;
+        resumo.querySelector('[data-r="' + eq + '"]').textContent = nomes.length ? nomes.join(', ') : '—';
+        if (!nomes.length && eq !== 'grupo2') { vazios.push(g.querySelector('legend').firstChild.textContent.split(' — ')[0].trim()); }
+      });
+      semEquipe.hidden = !vazios.length;
+      semEquipe.textContent = vazios.length ? 'Ainda sem participantes: ' + vazios.join(', ') + '. O lote pode ser criado assim; atribua depois na aba Participantes do lote.' : '';
+    };
+    novo.addEventListener('input', atualizarResumo);
+    novo.addEventListener('change', atualizarResumo);
+    atualizarResumo();
+  }
+
+  // Filtros que se aplicam ao escolher (sem script embutido no HTML).
+  document.querySelectorAll('[data-reorg-auto-submit]').forEach(function (el) {
+    el.addEventListener('change', function () { el.form.submit(); });
   });
 
   // Contadores do lote atualizados sozinhos (a cada 15 s).

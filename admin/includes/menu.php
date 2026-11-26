@@ -56,8 +56,11 @@ const ADMIN_MENU = [
         'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-comparacao' => ['label' => 'Comparação com planilha', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-relatorio' => ['label' => 'Relatório do inventário', 'icon' => 'file-chart-column', 'arquivo' => 'inventario-relatorio.php', 'pronta' => true, 'oculto' => true],
-        // Módulo TEMPORÁRIO (modulos/reorganizacao): o item some sozinho quando o módulo é desligado ou removido.
-        'reorganizacao' => ['label' => 'Reorganização do Acervo', 'icon' => 'layers', 'url' => 'modulos/reorganizacao/admin/', 'pronta' => true, 'modulo' => 'reorganizacao'],
+    ],
+    // Módulo TEMPORÁRIO (modulos/reorganizacao), separado do Inventário. O grupo inteiro some quando o
+    // módulo é desligado ou removido (a barra lateral não mostra grupos sem itens visíveis).
+    'Reorganização do acervo' => [
+        'reorganizacao' => ['label' => 'Reorganização do Acervo', 'icon' => 'archive-restore', 'url' => 'modulos/reorganizacao/admin/', 'pronta' => true, 'modulo' => 'reorganizacao'],
     ],
     'Circulação' => [
         // Circulação: só para quem pode ver empréstimos (dados pessoais dos alunos).

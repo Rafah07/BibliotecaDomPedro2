@@ -40,55 +40,75 @@ $lista = $r->participantesAtivos($equipe, $estado);
 $lotes = array_merge($r->lotes('em_andamento'), $r->lotes('pausado'));
 $anteriores = $r->sessoesAnteriores(150);
 
-reorg_admin_inicio('participantes', 'Participantes');
+$grupos = [
+    'disponiveis' => ['Disponíveis (sem lote)', 'green', array_filter($lista, fn ($s) => $s['equipe'] !== null && !$s['lotes'] && $s['estado'] !== 'interrompida')],
+    'trabalhando' => ['Trabalhando em lotes', 'blue', array_filter($lista, fn ($s) => $s['lotes'] && $s['estado'] !== 'interrompida')],
+    'escolhendo' => ['Escolhendo a equipe', 'muted', array_filter($lista, fn ($s) => $s['equipe'] === null && $s['estado'] !== 'interrompida')],
+    'interrompidas' => ['Conexão interrompida', 'amber', array_filter($lista, fn ($s) => $s['estado'] === 'interrompida')],
+];
+reorg_admin_inicio('participantes', 'Equipes e participantes');
 ?>
-<section class="adm-page-head">
-    <div><h1>Participantes</h1>
-        <p>Cada entrada é uma sessão temporária (identificador S-0000), sem conta, e-mail ou senha. Nomes iguais aparecem como sessões diferentes. A página atualiza sozinha a cada 20 segundos.</p></div>
+<section class="adm-page-head reorg-head">
+    <div><h1>Equipes e participantes</h1>
+        <p>Cada entrada é uma sessão temporária (S-0000), sem conta, e-mail ou senha. Nomes iguais aparecem como sessões diferentes. A página atualiza sozinha a cada 20 segundos (exceto enquanto você escolhe algo).</p></div>
 </section>
-<form class="adm-card adm-filters reorg-filtros-form" method="get" data-reorg-auto-refresh="20">
-    <label class="adm-field"><span class="adm-field__label">Equipe</span><select class="adm-select" name="equipe" onchange="this.form.submit()"><option value="">Todas</option>
+<form class="adm-card reorg-filtros-barra" method="get" data-reorg-auto-refresh="20" role="search" aria-label="Filtrar participantes">
+    <label class="adm-field"><span class="adm-field__label">Equipe</span><select class="adm-select" name="equipe" data-reorg-auto-submit><option value="">Todas</option>
         <?php foreach (Reorganizacao::EQUIPES_PARTICIPANTES as $eq): ?><option value="<?= $eq ?>"<?= $equipe === $eq ? ' selected' : '' ?>><?= e(Reorganizacao::EQUIPES[$eq]) ?></option><?php endforeach; ?></select></label>
-    <label class="adm-field"><span class="adm-field__label">Estado</span><select class="adm-select" name="estado" onchange="this.form.submit()"><option value="">Todos</option>
+    <label class="adm-field"><span class="adm-field__label">Estado</span><select class="adm-select" name="estado" data-reorg-auto-submit><option value="">Todos</option>
         <?php foreach (Reorganizacao::ESTADOS_CONEXAO as $k => [$rot]): if (in_array($k, ['desconectado', 'encerrada'], true)) continue; ?><option value="<?= $k ?>"<?= $estado === $k ? ' selected' : '' ?>><?= e($rot) ?></option><?php endforeach; ?></select></label>
+    <div class="reorg-filtros-barra__acoes"><button class="adm-button" type="submit"><?= icon('search') ?> Filtrar</button>
+        <?php if ($equipe || $estado): ?><a class="adm-link" href="<?= e(reorg_url('admin/participantes.php')) ?>">Limpar</a><?php endif; ?></div>
 </form>
 
+<section class="reorg-resumo-grade reorg-resumo-grade--4" aria-label="Resumo das equipes">
+    <?php foreach (Reorganizacao::EQUIPES_PARTICIPANTES as $eq): $daEquipe = array_filter($lista, fn ($s) => $s['equipe'] === $eq && $s['estado'] !== 'interrompida'); ?>
+        <div class="adm-card reorg-bloco"><h2><?= e(Reorganizacao::EQUIPES[$eq]) ?></h2>
+            <dl class="reorg-numeros"><div><dt>Conectados</dt><dd><?= count($daEquipe) ?></dd></div><div><dt>Sem lote</dt><dd><?= count(array_filter($daEquipe, fn ($s) => !$s['lotes'])) ?></dd></div></dl></div>
+    <?php endforeach; ?>
+</section>
+
+<?php foreach ($grupos as $k => [$titulo, $tom, $pessoas]): if (!$pessoas && in_array($k, ['escolhendo', 'interrompidas'], true)) continue; ?>
 <section class="adm-card adm-panel">
-    <h2>Sessões ativas <span class="adm-tabs__count"><?= count($lista) ?></span></h2>
-    <div class="adm-table-wrap adm-table-wrap--flush"><table class="adm-table adm-table--compact">
-        <thead><tr><th>Nome</th><th>Equipe</th><th>Estado</th><th>Atividade atual</th><th>Lotes</th><th>Produção</th><th>Últ. comunicação</th><th>Ações</th></tr></thead>
+    <div class="adm-panel__header"><h2><?= reorg_status_badge((string)count($pessoas), $tom) ?> <?= e($titulo) ?></h2></div>
+    <?php if (!$pessoas): ?><p class="adm-table__muted">Ninguém neste grupo agora.</p><?php else: ?>
+    <div class="adm-table-wrap adm-table-wrap--flush"><table class="adm-table adm-table--compact reorg-tabela-pessoas">
+        <thead><tr><th>Nome</th><th>Equipe</th><th>Estado</th><th>Atividade atual</th><th>Lotes</th><th>Produção</th><th>Ações</th></tr></thead>
         <tbody>
-        <?php if (!$lista): ?><tr><td colspan="8" class="adm-table__muted">Ninguém conectado com estes filtros.</td></tr><?php endif; ?>
-        <?php foreach ($lista as $s): ?>
+        <?php foreach ($pessoas as $s): ?>
             <tr>
                 <td><strong><?= e($s['nome']) ?></strong> <small class="adm-mono"><?= e(Reorganizacao::rotuloSessao($s['id'])) ?></small>
-                    <?php if ($s['mesmo_nome']): ?><br><span class="adm-status adm-tone--amber">mais <?= (int)$s['mesmo_nome'] ?> sessão(ões) com este nome</span><?php endif; ?>
+                    <?php if ($s['mesmo_nome']): ?><br><span class="adm-status adm-tone--amber">nome repetido (+<?= (int)$s['mesmo_nome'] ?>)</span><?php endif; ?>
                     <?php if ($s['solicitacoes']): ?><br><a class="adm-status adm-tone--red" href="<?= e(reorg_url('admin/solicitacoes.php')) ?>"><?= (int)$s['solicitacoes'] ?> solicitação(ões)</a><?php endif; ?></td>
                 <td><?= e($s['equipe'] ? Reorganizacao::EQUIPES[$s['equipe']] : 'Escolhendo') ?></td>
-                <td><?= reorg_estado_badge($s['estado']) ?></td>
+                <td><?= reorg_estado_badge($s['estado']) ?><br><small>últ. sinal <?= e(date('H:i:s', strtotime((string)$s['ultimo_sinal_em']))) ?></small></td>
                 <td><small><?= e($s['atividade']) ?></small></td>
-                <td><small><?= $s['lotes'] ? implode('<br>', array_map(fn ($l) => '<a href="' . e(reorg_url('admin/lote.php?id=' . $l['id'])) . '">' . e($l['nome']) . '</a>', $s['lotes'])) : '—' ?></small></td>
+                <td><small><?= $s['lotes'] ? implode('<br>', array_map(fn ($l) => '<a href="' . e(reorg_url('admin/lote.php?id=' . $l['id'] . '&aba=participantes')) . '">' . e($l['nome']) . '</a>', $s['lotes'])) : '—' ?></small></td>
                 <td><small><?= (int)$s['registros'] ?> reg. · <?= (int)$s['carimbos'] ?> carimb. · <?= (int)$s['conferencias'] ?> conf.</small></td>
-                <td><small><?= e(admin_data_hora($s['ultimo_sinal_em'])) ?></small></td>
                 <td class="reorg-acoes">
                     <?php if ($s['equipe'] && $lotes): ?>
                     <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="atribuir"><input type="hidden" name="sessao_id" value="<?= (int)$s['id'] ?>">
-                        <select class="adm-select adm-select--sm" name="lote_id" aria-label="Lote"><?= reorg_opcoes($lotes, null) ?></select><button class="adm-button adm-button--sm" type="submit">Atribuir</button></form>
+                        <select class="adm-select adm-select--sm" name="lote_id" aria-label="Lote para <?= e($s['nome']) ?>"><?= reorg_opcoes($lotes, null) ?></select><button class="adm-button adm-button--sm" type="submit">Atribuir</button></form>
                     <?php endif; ?>
-                    <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="equipe"><input type="hidden" name="sessao_id" value="<?= (int)$s['id'] ?>">
-                        <select class="adm-select adm-select--sm" name="equipe" aria-label="Nova equipe"><?php foreach (Reorganizacao::EQUIPES_PARTICIPANTES as $eq): if ($eq === $s['equipe']) continue; ?><option value="<?= $eq ?>"><?= e(Reorganizacao::EQUIPES[$eq]) ?></option><?php endforeach; ?></select>
-                        <button class="adm-button adm-button--sm" type="submit">Mudar equipe</button></form>
-                    <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="encerrar"><input type="hidden" name="sessao_id" value="<?= (int)$s['id'] ?>">
-                        <button class="adm-button adm-button--sm adm-button--danger-text" type="submit" data-reorg-confirmar="Encerrar a sessão de <?= e($s['nome']) ?>? O que foi feito continua salvo; a pessoa precisa entrar de novo e não recupera as permissões.">Encerrar sessão</button></form>
+                    <details class="reorg-mais"><summary class="adm-button adm-button--sm">Mais</summary>
+                        <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="equipe"><input type="hidden" name="sessao_id" value="<?= (int)$s['id'] ?>">
+                            <select class="adm-select adm-select--sm" name="equipe" aria-label="Nova equipe de <?= e($s['nome']) ?>"><?php foreach (Reorganizacao::EQUIPES_PARTICIPANTES as $eq): if ($eq === $s['equipe']) continue; ?><option value="<?= $eq ?>"><?= e(Reorganizacao::EQUIPES[$eq]) ?></option><?php endforeach; ?></select>
+                            <button class="adm-button adm-button--sm" type="submit">Mudar equipe</button></form>
+                        <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="encerrar"><input type="hidden" name="sessao_id" value="<?= (int)$s['id'] ?>">
+                            <button class="adm-button adm-button--sm adm-button--danger-text" type="submit" data-reorg-confirmar="Encerrar a sessão de <?= e($s['nome']) ?>? O que foi feito continua salvo; a pessoa precisa entrar de novo e não recupera as permissões.">Encerrar sessão</button></form>
+                        <a class="adm-link" href="<?= e(reorg_url('admin/historico.php?sessao_id=' . $s['id'])) ?>">Histórico</a>
+                    </details>
                 </td>
             </tr>
         <?php endforeach; ?>
         </tbody>
     </table></div>
+    <?php endif; ?>
 </section>
+<?php endforeach; ?>
 
-<section class="adm-card adm-panel">
-    <h2>Sessões anteriores</h2>
+<details class="adm-card adm-panel reorg-detalhes">
+    <summary>Sessões anteriores (<?= count($anteriores) ?>)</summary>
     <div class="adm-table-wrap adm-table-wrap--flush"><table class="adm-table adm-table--compact">
         <thead><tr><th>Nome</th><th>Equipe</th><th>Início</th><th>Fim</th><th>Motivo</th><th>Lotes</th><th>Produção</th><th></th></tr></thead>
         <tbody>
@@ -104,5 +124,5 @@ reorg_admin_inicio('participantes', 'Participantes');
         <?php endforeach; ?>
         </tbody>
     </table></div>
-</section>
+</details>
 <?php reorg_admin_fim();
