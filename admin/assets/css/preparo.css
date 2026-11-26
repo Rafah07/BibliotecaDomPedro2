@@ -240,3 +240,42 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 }
 .adm-ocorrencias__vazio { list-style: none; border: 1px dashed var(--adm-border-strong); border-radius: var(--adm-radius-sm); }
 .adm-ocorrencias__vazio .adm-empty span { max-width: 380px; font-size: 13px; }
+
+/* Meus lotes: cartões clicáveis e janela ampliada do lote (Conferência) */
+.adm-meus-lotes__lista > li { padding: 0; overflow: hidden; }
+.adm-meus-lotes__lista > li > form { padding: 0 12px 12px; }
+.adm-lote-cartao { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 12px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background var(--adm-duration) var(--adm-ease); }
+.adm-lote-cartao:hover { background: var(--adm-blue-50); }
+.adm-lote-cartao:focus-visible { outline: 2px solid var(--adm-blue-accent); outline-offset: -2px; }
+.adm-lote-cartao__topo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.adm-lote-cartao__topo strong { font-size: 15px; color: var(--adm-navy); }
+.adm-lote-cartao__barra { width: 100%; }
+.adm-lote-cartao__resumo { font-size: 12.5px; color: var(--adm-muted); line-height: 1.4; }
+.adm-lote-cartao__ver { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--adm-blue-accent); }
+.adm-lote-cartao__ver .icon { width: 14px; height: 14px; }
+.adm-lote-cartao__trabalhar { width: 100%; justify-content: center; }
+.adm-meus-lotes .adm-lote-ativo .adm-lote-progresso__numeros { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.adm-meus-lotes .adm-lote-ativo .adm-lote-progresso__numeros dd { font-size: 17px; }
+.adm-lote-ativo__ver { width: 100%; justify-content: center; margin-top: 8px; }
+
+.adm-lote-janela { width: min(760px, calc(100vw - 32px)); }
+.adm-lote-janela .adm-modal__header h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.adm-lote-janela .adm-lote-progresso__barra { height: 14px; }
+.adm-lote-janela .adm-lote-progresso__numeros { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.adm-lote-janela .adm-lote-progresso__numeros div,
+.adm-lote-janela__numeros div { padding: 10px 12px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-white); }
+.adm-lote-janela .adm-lote-progresso__numeros dt,
+.adm-lote-janela__numeros dt { font-size: 12.5px; color: var(--adm-muted); }
+.adm-lote-janela .adm-lote-progresso__numeros dd,
+.adm-lote-janela__numeros dd { margin: 2px 0 0; font-size: 22px; font-weight: 700; color: var(--adm-navy); font-variant-numeric: tabular-nums; }
+.adm-lote-janela__numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 0; }
+.adm-lote-janela__numeros--compacto dd { font-size: 17px; }
+.adm-lote-janela__bloco { padding: 14px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); background: var(--adm-bg); display: grid; gap: 10px; }
+.adm-lote-janela__bloco h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14.5px; color: var(--adm-navy); }
+.adm-lote-janela__bloco p { margin: 0; }
+.adm-lote-janela__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-lote-janela__rodape form { margin: 0; }
+.adm-lote-janela .adm-modal__close { border: 0; background: transparent; cursor: pointer; }
+@media (max-width: 600px) {
+    .adm-lote-janela__rodape > *, .adm-lote-janela__rodape .adm-button { width: 100%; justify-content: center; }
+}

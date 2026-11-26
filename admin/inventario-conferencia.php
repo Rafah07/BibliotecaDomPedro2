@@ -660,30 +660,33 @@ $voltarConf = $base . ($obra ? '&obra=' . (int)$obra['id'] : '');
             <?= lote_progresso($loteAtivo) ?>
             <?php if ($loteAtivo['status'] !== 'aberto'): ?><?= admin_aviso('aviso', 'Este lote não recebe novos exemplares.', 'Escolha outro lote abaixo para continuar registrando.') ?>
             <?php else: ?><p class="adm-field__hint">Cada exemplar que você registrar entra neste lote, com o seu nome.</p><?php endif; ?>
+            <button type="button" class="adm-button adm-button--ghost adm-button--sm adm-lote-ativo__ver" data-abrir-lote="lote-janela-<?= (int)$loteAtivo['id'] ?>"><?= icon('eye') ?> Ver detalhes do lote</button>
         </div>
     <?php elseif ($lotesEmUso): ?>
         <?= admin_aviso('aviso', 'Escolha o lote em que vai trabalhar.', $meusLotes ? 'Os exemplares só podem ser registrados num lote ativo.' : 'Você não participa de nenhum lote em cadastro. Peça a um administrador para incluí-lo.') ?>
     <?php endif; ?>
     <?php if ($meusLotes): ?>
         <ul class="adm-meus-lotes__lista">
-            <?php foreach ($meusLotes as $ml): ?>
-                <li class="<?= $loteAtivo && (int)$loteAtivo['id'] === (int)$ml['id'] ? 'is-ativo' : '' ?>">
-                    <div><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$ml['id']) ?>"><strong><?= e(\Biblioteca\Repositories\LoteRepository::nome($ml)) ?></strong></a> <?= lote_badge($ml['status']) ?>
-                        <small class="adm-block-muted"><?= fisico_numero((int)$ml['total']) ?><?= $ml['capacidade'] !== null ? ' de ' . fisico_numero((int)$ml['capacidade']) . ' · ' . fisico_numero(max(0, (int)$ml['capacidade'] - (int)$ml['total'])) . ' vaga(s)' : ' exemplar(es)' ?>
-                            <?= $ml['status'] === 'em_carimbagem' || $ml['status'] === 'fechado' ? ' · ' . fisico_numero((int)$ml['exemplares'] - (int)$ml['carimbados']) . ' a carimbar' : '' ?>
-                            <?= $ml['status'] === 'aguardando_organizacao' ? ' · ' . fisico_numero((int)$ml['exemplares'] - (int)$ml['organizados']) . ' a organizar' : '' ?></small></div>
-                    <div class="adm-actions-inline">
-                        <?php if ($ml['status'] === 'aberto' && $ml['modo'] === 'gerenciado' && (!$loteAtivo || (int)$loteAtivo['id'] !== (int)$ml['id'])): ?>
-                            <form method="post" action="<?= e(admin_url('lotes')) ?>" class="adm-inline-form">
-                                <?= csrf_campo() ?><input type="hidden" name="acao" value="ativo"><input type="hidden" name="lote_id" value="<?= (int)$ml['id'] ?>"><input type="hidden" name="voltar" value="<?= e($voltarConf) ?>">
-                                <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('square-check') ?> Trabalhar neste lote</button>
-                            </form>
-                        <?php endif; ?>
-                        <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('lote') . '?' . http_build_query(['id' => (int)$ml['id'], 'saida' => 'planilha'])) ?>" target="_blank" rel="noopener" title="Planilha BDP do lote"><?= icon('printer') ?> Planilha</a>
-                    </div>
+            <?php foreach ($meusLotes as $ml): $ehAtivo = $loteAtivo && (int)$loteAtivo['id'] === (int)$ml['id']; ?>
+                <li class="<?= $ehAtivo ? 'is-ativo' : '' ?>">
+                    <button type="button" class="adm-lote-cartao" data-abrir-lote="lote-janela-<?= (int)$ml['id'] ?>" aria-haspopup="dialog">
+                        <span class="adm-lote-cartao__topo"><strong><?= e(\Biblioteca\Repositories\LoteRepository::nome($ml)) ?></strong> <?= lote_badge($ml['status']) ?></span>
+                        <?= lote_mini_barra($ml) ?>
+                        <span class="adm-lote-cartao__resumo"><?= fisico_numero((int)$ml['total']) ?><?= $ml['capacidade'] !== null ? ' de ' . fisico_numero((int)$ml['capacidade']) . ' · ' . fisico_numero(max(0, (int)$ml['capacidade'] - (int)$ml['total'])) . ' vaga(s)' : ' exemplar(es)' ?><?= $ml['status'] === 'em_carimbagem' || $ml['status'] === 'fechado' ? ' · ' . fisico_numero((int)$ml['exemplares'] - (int)$ml['carimbados']) . ' a carimbar' : '' ?><?= $ml['status'] === 'aguardando_organizacao' ? ' · ' . fisico_numero((int)$ml['exemplares'] - (int)$ml['organizados']) . ' a organizar' : '' ?></span>
+                        <span class="adm-lote-cartao__ver"><?= icon('eye') ?> Ver detalhes</span>
+                    </button>
+                    <?php if ($ml['status'] === 'aberto' && $ml['modo'] === 'gerenciado' && !$ehAtivo): ?>
+                        <form method="post" action="<?= e(admin_url('lotes')) ?>">
+                            <?= csrf_campo() ?><input type="hidden" name="acao" value="ativo"><input type="hidden" name="lote_id" value="<?= (int)$ml['id'] ?>"><input type="hidden" name="voltar" value="<?= e($voltarConf) ?>">
+                            <button class="adm-button adm-button--primary adm-button--sm adm-lote-cartao__trabalhar" type="submit"><?= icon('square-check') ?> Trabalhar neste lote</button>
+                        </form>
+                    <?php endif; ?>
                 </li>
             <?php endforeach; ?>
         </ul>
+        <?php foreach ($meusLotes as $ml): ?>
+            <?= lote_janela_html($ml, $loteAtivo && (int)$loteAtivo['id'] === (int)$ml['id'], $voltarConf) ?>
+        <?php endforeach; ?>
     <?php elseif (!$lotesEmUso): ?>
         <p class="adm-field__hint">Ainda não há lotes gerenciados. Enquanto nenhum lote for aberto, cada pessoa registra no seu lote automático, como antes.</p>
     <?php endif; ?>
@@ -1623,4 +1626,4 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
 </div>
 
 <?php
-admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261115mob', 'assets/js/rascunhos.js?v=20261115', 'assets/js/nova-obra.js?v=20261117']));
+admin_page_end(array_merge(FISICO_JS, ['assets/js/conferencia.js?v=20261115mob', 'assets/js/rascunhos.js?v=20261115', 'assets/js/nova-obra.js?v=20261117', 'assets/js/meus-lotes.js?v=20261126']));
