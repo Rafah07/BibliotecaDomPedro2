@@ -1,0 +1,34 @@
+/* Equipes por links (migração 210): página pública de coleta/carimbagem e seção "Equipes" do lote. */
+.adm-senha-gerada { display: flex; gap: 8px; align-items: stretch; margin-top: 6px; }
+.adm-senha-gerada .adm-input { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+.coleta-body { background: var(--adm-bg, #f4f6fb); min-height: 100vh; margin: 0; }
+.coleta-topo { background: var(--adm-navy, #10204a); color: #fff; padding: 14px 16px; }
+.coleta-topo__in { max-width: 980px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.coleta-topo strong { font-size: 17px; }
+.coleta-topo small { opacity: .85; }
+.coleta-main { max-width: 980px; margin: 0 auto; padding: 18px 16px 48px; display: grid; gap: 16px; }
+.coleta-vagas { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.coleta-vagas div { background: #fff; border: 1px solid var(--adm-border, #dbe2ef); border-radius: 10px; padding: 10px 12px; }
+.coleta-vagas dt { font-size: 12px; color: var(--adm-muted, #5b6782); }
+.coleta-vagas dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; }
+.coleta-escolha { display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 0; }
+.coleta-escolha label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.coleta-ok { color: #157347; }
+.coleta-erro { color: #b42318; }
+.coleta-aviso-pausa { border-left: 4px solid #d97706; }
+.coleta-tabela td, .coleta-tabela th { vertical-align: top; }
+.coleta-codigo { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; white-space: nowrap; }
+.coleta-acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+@media (max-width: 720px) {
+    .adm-senha-gerada { flex-direction: column; }
+    .coleta-main .adm-form-grid { grid-template-columns: 1fr; }
+}
+
+@media print {
+    .coleta-topo, .coleta-nao-imprimir, .adm-no-print { display: none !important; }
+    .coleta-body { background: #fff; }
+    .coleta-main { padding: 0; max-width: none; }
+    .coleta-tabela { font-size: 11px; }
+}

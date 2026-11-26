@@ -208,13 +208,13 @@ function importar_mesma_edicao(array $a, array $b): bool
     return $igual($editora($a), $editora($b)) && $igual($ano($a), $ano($b)) && $igual($edicao($a), $edicao($b));
 }
 
-/** Administrador responsável: o e-mail informado ou o primeiro administrador/bibliotecária ativo. */
+/** Administrador responsável: o e-mail informado ou o primeiro administrador ativo. */
 function importar_admin(PDO $pdo, ?string $email): array
 {
-    $sql = "SELECT id, nome, email FROM administradores WHERE ativo = 1 AND perfil IN ('administrador', 'bibliotecaria')";
+    $sql = "SELECT id, nome, email FROM administradores WHERE ativo = 1";
     $stmt = $email
         ? $pdo->prepare($sql . ' AND email = ?')
-        : $pdo->prepare($sql . " ORDER BY perfil = 'administrador' DESC, id LIMIT 1");
+        : $pdo->prepare($sql . " ORDER BY id LIMIT 1");
     $stmt->execute($email ? [mb_strtolower($email)] : []);
     $admin = $stmt->fetch();
     if (!$admin) {

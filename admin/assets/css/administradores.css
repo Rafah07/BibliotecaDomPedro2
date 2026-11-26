@@ -1,0 +1,14 @@
+/* Cadastro rápido de administradores (Administradores e Meu perfil). */
+.adm-cadastro-rapido { margin-bottom: 20px; }
+.adm-cadastro-rapido__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.adm-senha-gerada { display: flex; gap: 8px; align-items: stretch; }
+.adm-senha-gerada .adm-input { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .02em; }
+.adm-senha-gerada .adm-button { flex: 0 0 auto; white-space: nowrap; }
+
+@media (max-width: 1180px) {
+    .adm-cadastro-rapido__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+    .adm-cadastro-rapido__grid { grid-template-columns: 1fr; }
+    .adm-senha-gerada { flex-direction: column; }
+}

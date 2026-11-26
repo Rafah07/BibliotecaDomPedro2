@@ -286,11 +286,11 @@ $t = $tok($nav, 'admin/organizacao-mapa.php');
 confere('13. salvar o mapa pela página', $s === 303 && (int)$val('SELECT mapa_x FROM estantes WHERE id = ?', [$estA]) === 0 && (int)$val('SELECT mapa_largura FROM estantes WHERE id = ?', [$estA]) === 4);
 $cons = new TesteNavegador($base);
 $cons->entrar('cons@teste.br', $senha);
-$t = $tok($cons, 'admin/organizacao-mapa.php');
-[$s] = $cons->ir('admin/organizacao-mapa.php', ['csrf' => $t, 'setor' => 'sem', 'acao' => 'salvar', 'posicao' => [$estA => ['x' => 9]]]);
-confere('13. perfil consulta vê o mapa mas não salva', (int)$val('SELECT mapa_x FROM estantes WHERE id = ?', [$estA]) === 0);
+// Único perfil (migração 200): sem o token CSRF nada é salvo; a conta antiga "consulta" é administradora.
+[$s] = $cons->ir('admin/organizacao-mapa.php', ['csrf' => 'falso', 'setor' => 'sem', 'acao' => 'salvar', 'posicao' => [$estA => ['x' => 9]]]);
+confere('13. sem o token CSRF o mapa não é salvo', (int)$val('SELECT mapa_x FROM estantes WHERE id = ?', [$estA]) === 0);
 [$s] = $cons->ir('admin/movimentacao-lote.php');
-confere('9. perfil consulta não abre a movimentação em lote (403)', $s === 403);
+confere('9. conta antiga "consulta" abre a movimentação em lote', $s === 200);
 
 $log = (string)@file_get_contents(sys_get_temp_dir() . '/bdp-teste-servidor-' . parse_url($base, PHP_URL_PORT) . '.log');
 confere('nenhum erro de PHP registrado pelo servidor', !preg_match('/PHP (Fatal|Warning|Notice|Deprecated)/', $log), implode(' | ', array_slice(preg_grep('/PHP (Fatal|Warning|Notice|Deprecated)/', explode("\n", $log)) ?: [], 0, 3)));

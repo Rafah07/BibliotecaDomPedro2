@@ -1,5 +1,8 @@
 <?php
-/** Meu perfil: dados da própria conta e troca de senha (exige a senha atual). */
+/**
+ * Meu perfil: dados da própria conta, troca de senha (exige a senha atual) e cadastro rápido de
+ * outros administradores (ação cadastro_rapido, com CSRF e usuarios.gerenciar conferidos no servidor).
+ */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/administradores.php';
 
@@ -7,8 +10,17 @@ $usuario = auth_exigir('painel.ver');
 $mysql = db_modo() === 'mysql';
 $conta = $mysql ? administradores_repo()->buscar($usuario['id']) : null;
 $erro = null;
+$cadastro = [];
+$podeCadastrar = $mysql && auth_pode('usuarios.gerenciar');
 
-if ($mysql && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+if ($mysql && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && admin_param($_POST, 'acao') === 'cadastro_rapido') {
+    admin_exigir_csrf();
+    auth_exigir('usuarios.gerenciar');
+    $cadastro = administradores_cadastrar_rapido($_POST);
+    if ($cadastro['ok']) {
+        admin_redirecionar(admin_url('perfil'));
+    }
+} elseif ($mysql && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     admin_exigir_csrf();
     $hashAtual = administradores_repo()->senhaHash($usuario['id']);
     $nova = (string)($_POST['senha'] ?? '');
@@ -29,7 +41,7 @@ if ($mysql && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 }
 
-admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao painel', ['assets/css/acervo.css?v=20261115mob']);
+admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao painel', ['assets/css/acervo.css?v=20261115mob', 'assets/css/administradores.css?v=20261125']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Meu perfil']]) ?>
@@ -37,7 +49,7 @@ admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao p
 <section class="adm-page-head">
     <div>
         <h1>Meu perfil</h1>
-        <p>Seus dados de acesso. Para mudar nome, e-mail ou perfil, fale com um administrador.</p>
+        <p>Seus dados de acesso. Para mudar nome ou e-mail, use Administradores ou peça a outro administrador.</p>
     </div>
 </section>
 
@@ -54,8 +66,8 @@ admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao p
                 </div>
             </div>
             <dl class="adm-meta adm-meta--stack">
-                <div><dt>Perfil</dt><dd><?= administradores_badge_perfil($usuario['perfil']) ?></dd></div>
-                <div><dt>Permissões</dt><dd><?= e(ADMINISTRADORES_PERFIS_DESCRICAO[$usuario['perfil']] ?? '') ?></dd></div>
+                <div><dt>Função</dt><dd><?= e(administradores_funcao($usuario)) ?></dd></div>
+                <div><dt>Acesso</dt><dd>Administrador. <?= e(ADMINISTRADORES_ACESSO) ?></dd></div>
                 <?php if ($conta): ?>
                     <div><dt>Conta criada em</dt><dd><?= admin_data_hora($conta['criado_em'], false) ?></dd></div>
                     <div><dt>Último acesso registrado</dt><dd><?= admin_data_hora($conta['ultimo_acesso']) ?></dd></div>
@@ -64,6 +76,11 @@ admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao p
                 <?php endif; ?>
             </dl>
         </section>
+
+        <?php if ($podeCadastrar): ?>
+            <?= administradores_form_rapido(admin_url('perfil'), $cadastro, true) ?>
+            <p class="adm-table__muted"><a href="<?= e(admin_url('administradores')) ?>">Ver todos os administradores</a> para editar, desativar ou redefinir a senha de uma conta.</p>
+        <?php endif; ?>
     </div>
 
     <aside class="adm-form-layout__side">
@@ -96,4 +113,4 @@ admin_page_start('perfil', 'Meu perfil', 'Meu perfil', 'Sua conta de acesso ao p
 </div>
 
 <?php
-admin_page_end();
+admin_page_end($podeCadastrar ? ['assets/js/administradores.js?v=20261125'] : []);

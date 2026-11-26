@@ -82,9 +82,9 @@ echo "\n1. Acesso direto às páginas do painel, por perfil\n";
 // Esperado: [anônimo, administrador, bibliotecária, auxiliar, consulta]. 302 = vai para o login.
 $L = 302;
 $todos = [$L, 200, 200, 200, 200];
-$equipe = [$L, 200, 200, 200, 403];          // circulação/dados de alunos e cadastro: não para "consulta"
-$gestao = [$L, 200, 200, 403, 403];          // bibliotecária e administrador
-$soAdmin = [$L, 200, 403, 403, 403];
+// Único perfil (migração 200): as contas criadas com perfis antigos (bibliotecária, auxiliar, consulta) entram
+// como administradoras. Os grupos continuam nomeados para documentar o assunto de cada página.
+$equipe = $gestao = $soAdmin = $todos;
 $loteCad = (new \Biblioteca\Services\LoteService($pdo))->abrirNovo($contas['administrador'], 'Equipe fictícia');   // lote automático (migração 160)
 $esperado = [
     'index.php' => $todos, 'livros.php' => $todos, 'detalhes-livro.php?id=' . $livro => $todos, 'categorias.php' => $todos,
@@ -92,7 +92,7 @@ $esperado = [
     'inventario.php' => $todos, 'inventario-detalhes.php?id=' . $inv => $todos, 'inventario-relatorio.php?id=' . $inv => $todos,
     'classificacao.php' => $todos, 'revisao-cdd.php' => $todos, 'historico-cdd.php' => $todos, 'classificar-livro.php?id=' . $livro => $todos,
     'relatorio-cdd.php' => $todos, 'importacao.php' => $todos, 'historico-importacoes.php' => $todos, 'relatorios.php' => $todos,
-    'perfil.php' => $todos, 'permissoes.php' => $todos, 'em-desenvolvimento.php' => $todos, 'ajuda.php' => $todos, 'ajuda.php?t=registrar-emprestimo' => $todos,
+    'perfil.php' => $todos, 'em-desenvolvimento.php' => $todos, 'ajuda.php' => $todos, 'ajuda.php?t=registrar-emprestimo' => $todos,
     'cadastrar-livro.php' => $equipe, 'editar-livro.php?id=' . $livro => $equipe, 'capa-livro.php?id=' . $livro => $equipe,
     'cadastrar-exemplar.php?livro=' . $livro => $equipe, 'etiquetas.php' => $equipe, 'inventario-conferencia.php?id=' . $inv => $equipe,
     'emprestimos.php' => $equipe, 'emprestimo.php?id=' . $emp => $equipe, 'novo-emprestimo.php' => $equipe, 'devolucoes.php' => $equipe,
@@ -105,6 +105,7 @@ $esperado = [
     'planilha-bdp.php' => $todos, 'ocorrencias.php' => $todos, 'organizacao-mapa.php' => $todos, 'relatorio-atividades.php' => $todos,   // migração 150
     'acoes-recentes.php' => $equipe, 'movimentacao-lote.php' => $equipe,
     'lotes.php' => $todos, 'lote.php?id=' . $loteCad => $todos, 'duvidas.php' => $todos, 'lotes-produtividade.php' => $gestao,   // migração 160
+    'coleta.php?lote=' . $loteCad => $todos,   // migração 210 (revisão dos pré-cadastros das equipes)
     'inventario-comparacao.php' => $todos,   // migração 180 (somente consulta para todos os perfis)
     // migração 190 (gestão permanente): consulta aberta; gravar exige a permissão própria (conferido no servidor)
     'qualidade.php' => $equipe, 'aquisicoes.php' => $todos, 'baixas.php' => $todos, 'relatorio-circulacao.php' => $todos,
@@ -146,14 +147,15 @@ foreach (['api/cdd.php?acao=fila', 'api/importacoes/validar.php?acao=buscar_livr
     [$s, $corpo] = $navs['anonimo']->ir('admin/' . $api);
     confere("API sem login recusada: $api", in_array($s, [401, 403, 405], true) && !str_contains($corpo, 'Livro Fictício'), "status $s");
 }
-[$s] = $navs['auxiliar']->ir('admin/api/alunos/importar.php?acao=modelo');
-confere('API de alunos: auxiliar recebe 403', $s === 403);
-[$s, $corpo] = $navs['consulta']->ir('admin/relatorios.php?secao=alunos');
-confere('relatório nominal de alunos bloqueado para consulta', $s === 403 && !str_contains($corpo, 'Aluna Fictícia Sigilosa'));
-[$s, $corpo, , , $disp] = $navs['auxiliar']->ir('admin/relatorios.php?secao=atrasos&formato=csv&tabela=atrasos');
-confere('exportação com nomes de alunos bloqueada sem relatorios.exportar_pessoais', !str_contains($corpo, 'Aluna Fictícia Sigilosa'));
-[$s, $corpo] = $navs['bibliotecaria']->ir('admin/manutencao.php', ['csrf' => $navs['bibliotecaria']->csrf('admin/perfil.php'), 'acao' => 'backup', 'ciente' => '1']);
-confere('cópia de segurança: bibliotecária não baixa (403, sem SQL na resposta)', $s === 403 && !str_contains($corpo, 'INSERT INTO'));
+// Único perfil (migração 200): os dados pessoais e a cópia de segurança ficam protegidos pelo login.
+[$s, $corpo] = $navs['anonimo']->ir('admin/api/alunos/importar.php?acao=modelo');
+confere('API de alunos: sem login, recusada', in_array($s, [302, 401], true) && !str_contains($corpo, 'Aluna Fictícia Sigilosa'));
+[$s, $corpo] = $navs['anonimo']->ir('admin/relatorios.php?secao=alunos');
+confere('relatório nominal de alunos: sem login, vai para o login', $s === 302 && !str_contains($corpo, 'Aluna Fictícia Sigilosa'));
+[$s, $corpo] = $navs['anonimo']->ir('admin/relatorios.php?secao=atrasos&formato=csv&tabela=atrasos');
+confere('exportação com nomes de alunos: sem login, nada é entregue', $s === 302 && !str_contains($corpo, 'Aluna Fictícia Sigilosa'));
+[$s, $corpo] = $navs['anonimo']->ir('admin/manutencao.php', ['csrf' => '', 'acao' => 'backup', 'ciente' => '1']);
+confere('cópia de segurança: sem login, nada é entregue (sem SQL na resposta)', in_array($s, [302, 419], true) && !str_contains($corpo, 'INSERT INTO'));
 
 // ---------------------------------------------------------------
 echo "\n2. Formulários reenviados à força (sem permissão, sem login, sem CSRF)\n";
@@ -215,11 +217,12 @@ $retrato = function () use ($pdo, $tabelas): array {
     }
     return $r;
 };
-$tokenCons = $navs['consulta']->csrf('admin/perfil.php');
+// Único perfil (migração 200): não há mais conta "sem permissão"; quem não pode gravar é quem não entrou
+// ou quem envia sem o token CSRF da própria sessão.
 $tokenBib = $navs['bibliotecaria']->csrf('admin/perfil.php');
-$falhasForm = ['consulta' => [], 'anonimo' => [], 'sem_csrf' => []];
+$falhasForm = ['anonimo' => [], 'sem_csrf' => []];
 foreach ($formularios as [$acao, $campos]) {
-    foreach (['consulta' => [$navs['consulta'], $tokenCons], 'anonimo' => [$navs['anonimo'], ''], 'sem_csrf' => [$navs['bibliotecaria'], 'token-falso']] as $quem => [$nav, $tok]) {
+    foreach (['anonimo' => [$navs['anonimo'], ''], 'sem_csrf' => [$navs['bibliotecaria'], 'token-falso']] as $quem => [$nav, $tok]) {
         $antes = $retrato();
         [$s, $html] = $nav->ir($acao, ['csrf' => $tok] + $campos);
         if ($retrato() !== $antes || !in_array($s, [302, 403, 419], true) || !teste_sem_erro_tecnico($html)) {
@@ -227,7 +230,6 @@ foreach ($formularios as [$acao, $campos]) {
         }
     }
 }
-confere('perfil consulta: nenhum formulário grava nada (403)', !$falhasForm['consulta'], implode('; ', $falhasForm['consulta']));
 confere('sem login: nenhum formulário grava nada (vai para o login)', !$falhasForm['anonimo'], implode('; ', $falhasForm['anonimo']));
 confere('sem token CSRF válido: nenhum formulário grava nada (419)', !$falhasForm['sem_csrf'], implode('; ', $falhasForm['sem_csrf']));
 // Controle positivo: o mesmo mecanismo, com token válido e perfil autorizado, grava.

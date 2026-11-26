@@ -1,38 +1,52 @@
 <?php
-/** Listagem das contas de acesso ao painel. Somente para quem tem a permissão usuarios.gerenciar. */
+/**
+ * Administradores: cadastro rápido no topo e lista das contas de acesso ao painel.
+ * Único perfil (migração 200): toda conta é de administrador. Exige usuarios.gerenciar.
+ * Ação (POST com CSRF): cadastro_rapido.
+ */
 require_once __DIR__ . '/includes/layout.php';
 require_once __DIR__ . '/includes/administradores.php';
 
 $usuario = administradores_iniciar();
-$filtros = administradores_filtros($_GET);
 $base = admin_url('administradores');
+$cadastro = [];
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    admin_exigir_csrf();
+    if (admin_param($_POST, 'acao') === 'cadastro_rapido') {
+        $cadastro = administradores_cadastrar_rapido($_POST);
+        if ($cadastro['ok']) {
+            admin_redirecionar($base);
+        }
+    }
+}
+
+$filtros = administradores_filtros($_GET);
 $resultado = administradores_repo()->listar($filtros, max(1, (int)admin_param($_GET, 'pagina', '1')), (int)$filtros['por_pagina']);
 $resumo = administradores_repo()->resumo();
-$temFiltro = $filtros['q'] !== '' || $filtros['perfil'] !== '' || $filtros['status'] !== '';
+$temFiltro = $filtros['q'] !== '' || $filtros['status'] !== '';
 
-admin_page_start('administradores', 'Administradores', 'Administradores', 'Contas de acesso ao painel', ['assets/css/acervo.css?v=20261115mob']);
+admin_page_start('administradores', 'Administradores', 'Administradores', 'Contas de acesso ao painel', ['assets/css/acervo.css?v=20261115mob', 'assets/css/administradores.css?v=20261125']);
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Administradores']]) ?>
 
 <section class="adm-page-head">
     <div>
-        <h1>Administradores e bibliotecárias</h1>
-        <p>Quem pode entrar no painel e o que cada pessoa pode fazer. Alunos não têm conta: o site público continua aberto, sem login.</p>
-    </div>
-    <div class="adm-page-head__actions">
-        <a class="adm-button adm-button--primary" href="<?= e(admin_url('administrador')) ?>"><?= icon('user-plus') ?> Nova conta</a>
+        <h1>Administradores</h1>
+        <p>Quem pode entrar no painel. Todas as contas são de administrador, com acesso total. Alunos não têm conta: o site público continua aberto, sem login.</p>
     </div>
 </section>
 
 <?= admin_flash_html() ?>
 
+<?= administradores_form_rapido($base, $cadastro) ?>
+
 <section class="adm-stats" aria-label="Resumo das contas">
     <?php foreach ([
-        ['Contas ativas', $resumo['ativos'], 'de ' . $resumo['total'] . ' cadastradas', 'user-check', 'green'],
-        ['Administradores ativos', $resumo['administradores'], 'Gerenciam as contas de acesso', 'shield-check', 'indigo'],
-        ['Bibliotecárias ativas', $resumo['bibliotecarias'], 'Gerenciam o acervo', 'library-big', 'blue'],
+        ['Administradores ativos', $resumo['ativos'], 'de ' . $resumo['total'] . ' cadastrados', 'user-check', 'green'],
         ['Contas inativas', $resumo['total'] - $resumo['ativos'], 'Sem acesso ao painel', 'user-x', 'amber'],
+        ['Ainda não entraram', $resumo['nunca_entraram'], 'Nunca acessaram o painel', 'clock', 'blue'],
     ] as [$titulo, $valor, $desc, $ic, $tom]): ?>
         <article class="adm-card adm-stat adm-stat--compact">
             <div class="adm-stat__top">
@@ -59,16 +73,7 @@ admin_page_start('administradores', 'Administradores', 'Administradores', 'Conta
             <span class="adm-visually-hidden">Pesquisar contas</span>
             <input type="search" name="q" placeholder="Pesquisar por nome ou e-mail..." value="<?= e($filtros['q']) ?>" autocomplete="off">
         </label>
-        <div class="adm-filters adm-filters--4">
-            <label class="adm-filter">
-                <span>Perfil</span>
-                <select class="adm-select<?= $filtros['perfil'] !== '' ? ' has-value' : '' ?>" name="perfil">
-                    <option value="">Todos</option>
-                    <?php foreach (AUTH_PERFIS as $valor => $rotulo): ?>
-                        <option value="<?= $valor ?>"<?= $filtros['perfil'] === $valor ? ' selected' : '' ?>><?= e($rotulo) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
+        <div class="adm-filters">
             <label class="adm-filter">
                 <span>Situação</span>
                 <select class="adm-select<?= $filtros['status'] !== '' ? ' has-value' : '' ?>" name="status">
@@ -90,7 +95,7 @@ admin_page_start('administradores', 'Administradores', 'Administradores', 'Conta
                 <tr>
                     <?= admin_th_ordenar('Nome', 'nome', $base, $filtros) ?>
                     <?= admin_th_ordenar('E-mail', 'email', $base, $filtros) ?>
-                    <th scope="col">Perfil</th>
+                    <th scope="col">Função</th>
                     <th scope="col">Situação</th>
                     <?= admin_th_ordenar('Cadastro', 'criado', $base, $filtros, 'desc') ?>
                     <?= admin_th_ordenar('Último acesso', 'acesso', $base, $filtros, 'desc') ?>
@@ -105,7 +110,7 @@ admin_page_start('administradores', 'Administradores', 'Administradores', 'Conta
                             <?php if ($a['id'] === $usuario['id']): ?><small>Você</small><?php endif; ?>
                         </td>
                         <td data-label="E-mail"><?= e($a['email']) ?></td>
-                        <td data-label="Perfil"><?= administradores_badge_perfil($a['perfil']) ?></td>
+                        <td data-label="Função"><?= e(administradores_funcao($a)) ?></td>
                         <td data-label="Situação"><?= administradores_badge_status($a['ativo']) ?></td>
                         <td data-label="Cadastro" class="adm-table__muted"><?= admin_data_hora($a['criado_em'], false) ?></td>
                         <td data-label="Último acesso" class="adm-table__muted"><?= $a['ultimo_acesso'] ? admin_data_hora($a['ultimo_acesso']) : 'Nunca entrou' ?></td>
@@ -119,7 +124,7 @@ admin_page_start('administradores', 'Administradores', 'Administradores', 'Conta
                         <div class="adm-empty">
                             <?= icon('users') ?>
                             <strong><?= $temFiltro ? 'Nenhuma conta encontrada' : 'Nenhuma conta cadastrada' ?></strong>
-                            <span><?= $temFiltro ? 'Revise a pesquisa ou os filtros.' : 'Cadastre a primeira conta de acesso.' ?></span>
+                            <span><?= $temFiltro ? 'Revise a pesquisa ou os filtros.' : 'Use o cadastro acima para criar a primeira conta.' ?></span>
                             <?php if ($temFiltro): ?><a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($base) ?>"><?= icon('filter-x') ?> Limpar filtros</a><?php endif; ?>
                         </div>
                     </td></tr>
@@ -131,23 +136,5 @@ admin_page_start('administradores', 'Administradores', 'Administradores', 'Conta
     <?= admin_paginacao($resultado['total'], $resultado['pagina'], (int)$filtros['por_pagina'], $base, $filtros) ?>
 </section>
 
-<section class="adm-card adm-panel" aria-labelledby="titulo-perfis">
-    <div class="adm-panel__header">
-        <div>
-            <h2 id="titulo-perfis">O que cada perfil pode fazer</h2>
-            <p>As permissões são conferidas pelo servidor em cada página e ação.</p>
-        </div>
-    </div>
-    <div class="adm-table-wrap adm-table-wrap--inset">
-        <table class="adm-table adm-table--compact">
-            <tbody>
-                <?php foreach (ADMINISTRADORES_PERFIS_DESCRICAO as $perfil => $descricao): ?>
-                    <tr><th scope="row"><?= administradores_badge_perfil($perfil) ?></th><td><?= e($descricao) ?></td></tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</section>
-
 <?php
-admin_page_end();
+admin_page_end(['assets/js/administradores.js?v=20261125']);

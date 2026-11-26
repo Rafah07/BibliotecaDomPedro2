@@ -50,6 +50,8 @@ const ADMIN_MENU = [
         // Gerenciamento de lotes e etapas de trabalho (migração 160).
         'lotes' => ['label' => 'Histórico de Lotes', 'icon' => 'layers', 'arquivo' => 'lotes.php', 'pronta' => true, 'pai' => 'inventario'],
         'lote' => ['label' => 'Relatório do lote', 'icon' => 'layers', 'arquivo' => 'lote.php', 'pronta' => true, 'oculto' => true],
+        // Equipes por link (migração 210): revisão dos pré-cadastros, aberta pela página do lote.
+        'coleta' => ['label' => 'Revisão da coleta', 'icon' => 'list-checks', 'arquivo' => 'coleta.php', 'pronta' => true, 'oculto' => true],
         'lotes-produtividade' => ['label' => 'Relatório de Produtividade', 'icon' => 'chart-column', 'arquivo' => 'lotes-produtividade.php', 'pronta' => true, 'pai' => 'inventario', 'permissao' => 'lotes.gerenciar'],
         'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-comparacao' => ['label' => 'Comparação com planilha', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'pai' => 'inventario'],
@@ -88,12 +90,11 @@ const ADMIN_MENU = [
     'Sistema' => [
         // 'permissao': o item só aparece para quem tem a permissão (a página confere de novo no servidor).
         'administradores' => ['label' => 'Administradores', 'icon' => 'users', 'arquivo' => 'administradores.php', 'pronta' => true, 'permissao' => 'usuarios.gerenciar'],
-        'administrador' => ['label' => 'Conta de acesso', 'icon' => 'user-round', 'arquivo' => 'administrador.php', 'pronta' => true, 'oculto' => true],
+        'administrador' => ['label' => 'Administrador', 'icon' => 'user-round', 'arquivo' => 'administrador.php', 'pronta' => true, 'oculto' => true],
         'site-publico' => ['label' => 'Site público', 'icon' => 'globe', 'arquivo' => 'site-publico.php', 'pronta' => true, 'permissao' => 'site.editar'],
         'capa-livro' => ['label' => 'Capa do livro', 'icon' => 'image', 'arquivo' => 'capa-livro.php', 'pronta' => true, 'oculto' => true],
-        // Configurações gerais, perfis e manutenção (Etapa 6).
+        // Configurações gerais e manutenção (Etapa 6). "Perfis e permissões" saiu na migração 200 (único perfil).
         'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings', 'arquivo' => 'configuracoes.php', 'pronta' => true, 'permissao' => 'configuracoes.ver'],
-        'permissoes' => ['label' => 'Perfis e permissões', 'icon' => 'shield-check', 'arquivo' => 'permissoes.php', 'pronta' => true, 'pai' => 'configuracoes'],
         'manutencao' => ['label' => 'Manutenção e backups', 'icon' => 'wrench', 'arquivo' => 'manutencao.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
         'diagnostico' => ['label' => 'Diagnóstico do sistema', 'icon' => 'activity', 'arquivo' => 'diagnostico.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
         // Central de Ajuda (Etapa 10): agrupada em Configurações, mas aberta a todos os perfis (painel.ver),

@@ -39,7 +39,7 @@ return [
         'permissao' => 'sistema.manutencao',
         'objetivo' => 'Baixar um arquivo com todos os dados do sistema.',
         'quando' => ['Antes de importar, atualizar ou aplicar migrações.', 'Periodicamente.'],
-        'requisitos' => ['Perfil Administrador.', 'Um local protegido para guardar o arquivo.'],
+        'requisitos' => ['Estar logado no painel.', 'Um local protegido para guardar o arquivo.'],
         'passos' => [
             ['titulo' => 'Abra Manutenção', 'texto' => 'Com o menu expandido, clique em **Manutenção** (abaixo de Configurações), ou use o botão **Manutenção** nas Configurações. A página se chama **Manutenção do sistema**.', 'imagem' => ['arquivo' => 'manutencao.png', 'alt' => 'Página Manutenção do sistema com o diagnóstico e a seção Cópia de segurança', 'legenda' => 'Manutenção do sistema.']],
             ['titulo' => 'Confirme que vai proteger o arquivo', 'texto' => 'Em **Cópia de segurança**, marque **Entendo que o arquivo contém nomes e matrículas dos alunos e as senhas criptografadas das contas...**.'],
@@ -110,7 +110,7 @@ return [
         'permissao' => 'sistema.manutencao',
         'objetivo' => 'Saber se o servidor está pronto e manter a tabela de tentativas pequena.',
         'quando' => ['Depois de instalar ou atualizar o sistema.', 'Quando algo parar de funcionar.'],
-        'requisitos' => ['Perfil Administrador.'],
+        'requisitos' => ['Estar logado no painel.'],
         'passos' => [
             ['titulo' => 'Leia o Diagnóstico', 'texto' => 'Cada item mostra **OK**, **Atenção** ou **Problema**, com uma explicação: versão do PHP, extensões, arquivo .env, ambiente, banco de dados, migrações, pastas graváveis, proteção das planilhas, prazo de empréstimo e site público.'],
             ['titulo' => 'Diagnóstico completo', 'texto' => 'Para migrações, permissões do banco, espaço em disco, situação dos backups e erros recentes, clique em **Diagnóstico do sistema** (veja [[tutorial:diagnostico-completo|Como usar o diagnóstico do sistema]]).'],

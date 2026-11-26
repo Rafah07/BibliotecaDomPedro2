@@ -17,17 +17,8 @@ O sistema guarda dados pessoais de alunos (nome, matrícula, turma, histórico d
 - Em produção, as contas de demonstração ficam desligadas e os erros técnicos não aparecem na tela (página genérica e registro no log do servidor).
 - Cabeçalhos de segurança: proibição de abrir o painel dentro de outro site (`X-Frame-Options`), `nosniff`, `Referrer-Policy`, páginas do painel sem cache, `Strict-Transport-Security` com HTTPS em produção.
 
-### Perfis e permissões
-Cada página e cada ação conferem a permissão **no servidor**, inclusive quando a pessoa digita o endereço direto ou força um formulário. Resumo:
-
-| Perfil | Pode | Não pode |
-| --- | --- | --- |
-| Administrador | tudo, inclusive contas, manutenção e cópia de segurança | — |
-| Bibliotecária | acervo, categorias, CDD (aprovar), exemplares, inventário, etiquetas, empréstimos, importar, consultar, cadastrar, corrigir e inativar alunos, relatórios com dados pessoais, site público, configurações gerais | contas de acesso, segurança, manutenção e cópia de segurança |
-| Auxiliar de biblioteca | consultar alunos, consultar e registrar empréstimos, conferir inventário, gerar etiquetas, cadastrar exemplares, sugerir CDD, relatórios | aprovar CDD, dar baixa, importar, cadastrar, corrigir ou inativar alunos, alterar categorias, exportar dados pessoais, configurações |
-| Somente consulta | ver painel, CDD, importações e relatórios sem dados pessoais | qualquer alteração; empréstimos e dados de alunos |
-
-A matriz completa é testada por `php admin/tests/auditoria-seguranca-teste.php`.
+### Contas e permissões
+Desde a migração 200 o painel tem um único perfil, **Administrador**: toda conta ativa tem acesso total, inclusive aos dados pessoais dos alunos, às cópias de segurança e ao cadastro de outros administradores ([`docs/administradores.md`](administradores.md)). Cada página e cada ação continuam conferindo **no servidor** que há uma sessão válida de uma conta ativa, inclusive quando a pessoa digita o endereço direto ou força um formulário. Por isso, cadastre só pessoas da equipe e desative a conta de quem sai. O acesso é testado por `php admin/tests/auditoria-seguranca-teste.php`.
 
 ### Proteção contra ataques comuns
 - **SQL injection**: todas as consultas usam parâmetros preparados (PDO). Ordenações e filtros aceitam só valores de listas fixas.
@@ -67,7 +58,7 @@ Cada item abaixo precisa de uma decisão registrada por escrito pela direção. 
 | **Finalidade e base legal** | Para que os dados dos alunos são tratados e com qual base legal? | Execução de atividade pedagógica/administrativa da escola (empréstimo de livros). Validar com a secretaria/rede de ensino. |
 | **Dados mínimos** | Quais dados do aluno são realmente necessários? | Nome, matrícula e turma. Evitar telefone, endereço, CPF e dados de saúde. |
 | **Crianças e adolescentes** | Como informar responsáveis? | Incluir a biblioteca no aviso de privacidade da escola (art. 14 da LGPD exige atenção ao melhor interesse da criança e do adolescente). |
-| **Quem acessa** | Quais pessoas recebem conta, e com qual perfil? | Uma conta pessoal por pessoa, nunca compartilhada; menor perfil necessário; revisar a lista de contas todo semestre e desativar quem sair. |
+| **Quem acessa** | Quais pessoas recebem conta (todas com acesso total)? | Uma conta pessoal por pessoa, nunca compartilhada; só pessoas da equipe; revisar a lista de contas todo semestre e desativar quem sair. |
 | **Quem exporta** | Quem pode baixar relatórios com nomes de alunos? | Só a bibliotecária responsável e a direção; arquivos apagados depois do uso. |
 | **Retenção** | Por quanto tempo guardar alunos que saíram da escola e o histórico de empréstimos? | Ex.: manter o histórico do ano corrente + 1 ano; depois, anonimizar ou excluir. Definir também para cópias de segurança e registro de ações. |
 | **Descarte** | Como descartar planilhas, impressões e cópias antigas? | Apagar arquivos digitais (inclusive da lixeira e downloads), triturar impressões com nomes. |

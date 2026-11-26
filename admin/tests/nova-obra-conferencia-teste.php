@@ -198,8 +198,9 @@ preg_match('/name="token" value="([a-f0-9]+)"/', $html, $m);
 confere('auxiliar (edita livros) também usa as três ações', $s === 200 && str_contains($html, 'value="obra"') && str_contains($html, 'value="registrar"'));
 $cons = new TesteNavegador($base);
 $cons->entrar('cons@teste.br', $senha);
-[$s] = $cons->ir($pg, ['csrf' => $cons->csrf('admin/perfil.php'), 'id' => $inv, 'acao' => 'nova_obra', 'token' => 'x', 'titulo' => 'Obra Consulta']);
-confere('perfil consulta não cadastra (403)', $s === 403);
+// Único perfil (migração 200): quem não pode gravar é quem envia sem o token CSRF da própria sessão.
+[$s] = $cons->ir($pg, ['csrf' => 'falso', 'id' => $inv, 'acao' => 'nova_obra', 'token' => 'x', 'titulo' => 'Obra Consulta']);
+confere('sem o token CSRF não cadastra (419)', $s === 419);
 
 $log = (string)@file_get_contents(sys_get_temp_dir() . '/bdp-teste-servidor-' . parse_url($base, PHP_URL_PORT) . '.log');
 confere('nenhum erro de PHP registrado pelo servidor', !preg_match('/PHP (Fatal|Warning|Notice|Deprecated)/', $log), implode(' | ', array_slice(preg_grep('/PHP (Fatal|Warning|Notice|Deprecated)/', explode("\n", $log)) ?: [], 0, 3)));

@@ -34,7 +34,7 @@ Cada arquivo de `tutoriais/` devolve uma lista de tutoriais:
     'resumo' => 'Uma frase, usada nos cartões e na pesquisa.',
     'palavras' => ['emprestar', 'retirada'],  // termos extras para a pesquisa
     'paginas' => ['novo-emprestimo.php'],     // páginas onde o botão "Como usar esta página?" abre este tutorial
-    'permissao' => 'emprestimos.registrar',   // opcional: mostra o quadro de permissão e o selo "Seu perfil não tem esta função"
+    'permissao' => 'emprestimos.registrar',   // opcional: mostra o quadro de permissão e o selo "Disponível para você"
     'objetivo' => '...',                      // B
     'quando' => ['...'],                      // C
     'requisitos' => ['...'],                  // D

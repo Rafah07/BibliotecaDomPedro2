@@ -349,7 +349,8 @@ foreach (['aux@teste.br' => 'auxiliar', 'cons@teste.br' => 'consulta'] as $email
     $csrfOutro = $nav->csrf('livros.php');
     [$sApi] = $nav->ir($api, ['acao' => 'ler', 'csrf' => $csrfOutro, 'arquivo' => $arquivoCsv($csv['caminho'])]);
     [, $menu] = $nav->ir('index.php');
-    confere("perfil $perfil: página 403, API 403 e item fora do menu", $s === 403 && $sApi === 403 && !str_contains($menu, 'importar-alunos.php'));
+    // Único perfil (migração 200): a conta antiga é administradora.
+    confere("conta antiga \"$perfil\": página abre, API aceita e item no menu", $s === 200 && $sApi !== 403 && str_contains($menu, 'importar-alunos.php'));
 }
 
 $bib = new Navegador($base);

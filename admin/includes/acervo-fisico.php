@@ -37,7 +37,7 @@ use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261118a', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261115mob'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261118a', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261126'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261115des'];
 
 /** Origem das novas entradas no acervo (Aquisições, migração 190). */
@@ -179,6 +179,34 @@ function lotes_repo(): LoteRepository
     return $r ??= new LoteRepository(db());
 }
 
+/** Equipes por links sem login (migração 210): coleta, revisão e carimbagem. */
+function coleta_servico(): Biblioteca\Services\ColetaService
+{
+    static $s = null;
+    return $s ??= new Biblioteca\Services\ColetaService(db(), exemplares_servico(), lotes_servico());
+}
+
+/** Endereço completo do link de uma equipe (o token só existe no momento em que o link é criado). */
+function coleta_url_publica(string $token): string
+{
+    $host = preg_replace('/[^A-Za-z0-9.\-:\[\]]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    return (app_https() ? 'https' : 'http') . '://' . $host . url('coleta/') . '?t=' . $token;
+}
+
+/** A migração 210 foi aplicada? (as telas de coleta não quebram num banco desatualizado) */
+function coleta_disponivel(): bool
+{
+    static $ok = null;
+    if ($ok === null) {
+        try {
+            $ok = (bool)db_query("SHOW TABLES LIKE 'coleta_links'")->fetchColumn();
+        } catch (PDOException) {
+            $ok = false;
+        }
+    }
+    return $ok;
+}
+
 function duvidas_servico(): DuvidaService
 {
     static $s = null;
@@ -244,6 +272,87 @@ function lote_progresso(array $lote): string
         . '<span style="width:' . $pct . '%"></span></div>'
         . '<dl class="adm-lote-progresso__numeros"><div><dt>Capacidade</dt><dd>' . fisico_numero($cap) . '</dd></div><div><dt>Cadastrados</dt><dd>' . fisico_numero($total) . '</dd></div>'
         . '<div><dt>Vagas restantes</dt><dd>' . fisico_numero($restam) . '</dd></div></dl></div>';
+}
+
+/** Barra fina de progresso do lote, para os cartões de "Meus lotes". */
+function lote_mini_barra(array $lote): string
+{
+    if ($lote['capacidade'] === null) {
+        return '';
+    }
+    $pct = (int)$lote['capacidade'] > 0 ? min(100, (int)round((int)$lote['total'] * 100 / (int)$lote['capacidade'])) : 0;
+    return '<span class="adm-lote-mini__barra adm-lote-cartao__barra" aria-hidden="true"><span style="width:' . $pct . '%"></span></span>';
+}
+
+/**
+ * Janela ampliada de um lote (Meus lotes da Conferência): números grandes, etapas, participantes,
+ * equipes por link (migração 210) e as ações. $voltar = página para onde "Trabalhar neste lote" volta.
+ */
+function lote_janela_html(array $l, bool $ativo, string $voltar): string
+{
+    $id = (int)$l['id'];
+    $nome = Biblioteca\Repositories\LoteRepository::nome($l);
+    $exemplares = (int)($l['exemplares'] ?? $l['total']);
+    $aCarimbar = max(0, $exemplares - (int)($l['carimbados'] ?? 0));
+    $aOrganizar = max(0, $exemplares - (int)($l['organizados'] ?? 0));
+    $coleta = coleta_disponivel() && $l['modo'] === 'gerenciado' && $l['capacidade'] !== null;
+    $resumo = $coleta ? coleta_servico()->resumo($id) : null;
+    $vagas = $coleta ? coleta_servico()->vagas($id) : null;
+    $linksAtivos = $coleta ? count(array_filter(coleta_servico()->links($id), fn ($x) => $x['situacao'] === 'ativo')) : 0;
+    $pausadas = $coleta ? array_values(array_filter(array_keys(Biblioteca\Services\ColetaService::ETAPAS), fn ($e) => coleta_servico()->pausaAberta($id, $e) !== null)) : [];
+    $urlLote = admin_url('lote') . '?id=' . $id;
+    ob_start();
+    ?>
+    <dialog class="adm-modal adm-modal--wide adm-lote-janela" id="lote-janela-<?= $id ?>" aria-labelledby="lote-janela-titulo-<?= $id ?>">
+        <div class="adm-modal__box">
+            <header class="adm-modal__header">
+                <div><h2 id="lote-janela-titulo-<?= $id ?>"><?= icon('layers') ?> <?= e($nome) ?> <?= lote_badge($l['status']) ?><?= $ativo ? ' <span class="adm-status adm-tone--blue">Seu lote ativo</span>' : '' ?></h2>
+                    <p><?= $l['descricao'] ? e($l['descricao']) : 'Sem observação.' ?></p></div>
+                <form method="dialog"><button class="adm-modal__close" type="submit" aria-label="Fechar"><?= icon('x') ?></button></form>
+            </header>
+            <div class="adm-modal__body">
+                <?= lote_progresso($l) ?>
+                <dl class="adm-lote-janela__numeros">
+                    <div><dt>Exemplares com código BDP</dt><dd><?= fisico_numero($exemplares) ?></dd></div>
+                    <div><dt>Falta carimbar</dt><dd><?= fisico_numero($aCarimbar) ?></dd></div>
+                    <div><dt>Falta guardar na estante</dt><dd><?= fisico_numero($aOrganizar) ?></dd></div>
+                    <div><dt>Dúvidas abertas</dt><dd><?= fisico_numero((int)($l['duvidas_abertas'] ?? 0)) ?></dd></div>
+                </dl>
+                <div class="adm-lote-janela__bloco">
+                    <h3><?= icon('users') ?> Participantes</h3>
+                    <p><?= $l['participantes'] ? e($l['participantes']) : 'Ninguém atribuído.' ?></p>
+                </div>
+                <?php if ($coleta): ?>
+                    <div class="adm-lote-janela__bloco">
+                        <h3><?= icon('link') ?> Equipes por link</h3>
+                        <dl class="adm-lote-janela__numeros adm-lote-janela__numeros--compacto">
+                            <div><dt>Links ativos</dt><dd><?= $linksAtivos ?></dd></div>
+                            <div><dt>Aguardando revisão</dt><dd><?= (int)$resumo['pendente'] ?> livro(s)</dd></div>
+                            <div><dt>Vagas reservadas</dt><dd><?= (int)$vagas['reservados'] ?></dd></div>
+                            <div><dt>Vagas livres</dt><dd><?= (int)$vagas['restantes'] ?></dd></div>
+                        </dl>
+                        <?php if ($pausadas): ?><p class="adm-field__hint"><?= icon('pause') ?> Pausado: <?= e(implode(', ', array_map(fn ($e) => Biblioteca\Services\ColetaService::ETAPAS[$e], $pausadas))) ?>.</p><?php endif; ?>
+                        <div class="adm-lote-janela__acoes">
+                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e($urlLote . '#equipes') ?>"><?= icon('link') ?> Equipes e links</a>
+                            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('coleta') . '?lote=' . $id) ?>"><?= icon('list-checks') ?> Revisar pré-cadastros<?= $resumo['pendente'] ? ' (' . (int)$resumo['pendente'] . ')' : '' ?></a>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <footer class="adm-modal__footer adm-lote-janela__rodape">
+                <?php if ($l['status'] === 'aberto' && $l['modo'] === 'gerenciado' && !$ativo): ?>
+                    <form method="post" action="<?= e(admin_url('lotes')) ?>">
+                        <?= csrf_campo() ?><input type="hidden" name="acao" value="ativo"><input type="hidden" name="lote_id" value="<?= $id ?>"><input type="hidden" name="voltar" value="<?= e($voltar) ?>">
+                        <button class="adm-button adm-button--primary" type="submit"><?= icon('square-check') ?> Trabalhar neste lote</button>
+                    </form>
+                <?php endif; ?>
+                <a class="adm-button adm-button--ghost" href="<?= e($urlLote) ?>"><?= icon('file-text') ?> Relatório do lote</a>
+                <a class="adm-button adm-button--ghost" href="<?= e(admin_url('lote') . '?' . http_build_query(['id' => $id, 'saida' => 'planilha'])) ?>" target="_blank" rel="noopener"><?= icon('printer') ?> Planilha BDP</a>
+            </footer>
+        </div>
+    </dialog>
+    <?php
+    return (string)ob_get_clean();
 }
 
 function operacoes_servico(): OperacaoService

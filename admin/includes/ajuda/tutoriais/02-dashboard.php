@@ -13,7 +13,7 @@ return [
             'Antes de uma reunião, para ter os números principais da biblioteca.',
         ],
         'requisitos' => [
-            'Estar logado. Todos os perfis veem o Dashboard; a tabela **Empréstimos recentes**, com nomes de alunos, só aparece para quem pode ver empréstimos.',
+            'Estar logado.',
         ],
         'passos' => [
             ['titulo' => 'Abra o Dashboard', 'texto' => 'Clique em **Dashboard** no menu (grupo Principal) ou no nome da biblioteca no topo do menu. O título da página é **Visão geral da biblioteca**, com a data de hoje ao lado.', 'imagem' => ['arquivo' => 'dashboard.png', 'alt' => 'Dashboard com os cartões Títulos cadastrados, Exemplares físicos, Disponíveis e Emprestados', 'legenda' => 'Indicadores do Dashboard.']],
@@ -94,7 +94,7 @@ return [
         'exemplo' => 'O quadro mostra "Empréstimos atrasados — 2 empréstimo(s) com o prazo de devolução vencido." A bibliotecária clica em **Ver atrasos** e abre a lista do mais antigo para o mais recente.',
         'resultado' => ['Você abre diretamente a página de cada pendência.'],
         'problemas' => [
-            ['Clico no cartão de atrasos e nada abre.', 'O seu perfil não pode ver empréstimos (eles têm dados pessoais dos alunos). Para esse perfil, os números aparecem sem link.', 'Peça a uma pessoa com acesso à circulação para tratar os atrasos.'],
+            ['Clico no cartão de atrasos e nada abre.', 'O painel está no modo demonstrativo (sem banco de dados), com números fictícios.', 'Ligue o MySQL no XAMPP e recarregue a página.'],
         ],
         'cuidados' => ['O sistema não envia avisos aos alunos nem cobra multas: o contato é feito pela escola.'],
         'relacionados' => ['emprestimos-atrasados', 'divergencias-pendencias-inventario', 'revisar-importacao-acervo'],
@@ -109,7 +109,7 @@ return [
         'quando' => ['Para começar uma tarefa frequente direto do Dashboard.', 'Quando um número parecer desatualizado.'],
         'requisitos' => ['Estar logado no painel.'],
         'passos' => [
-            ['titulo' => 'Use o quadro "Acesso rápido"', 'texto' => 'Ele mostra só os atalhos que o seu perfil pode usar, por exemplo: **Novo empréstimo**, **Registrar devolução**, **Consultar atrasos**, **Histórico de empréstimos**, **Cadastrar livro**, **Consultar acervo**, **Relatórios**, **Classificação CDD**, **Importações**, **Administradores** e **Meu perfil**.'],
+            ['titulo' => 'Use o quadro "Acesso rápido"', 'texto' => 'Ele mostra atalhos para as páginas mais usadas, por exemplo: **Novo empréstimo**, **Registrar devolução**, **Consultar atrasos**, **Histórico de empréstimos**, **Cadastrar livro**, **Consultar acervo**, **Relatórios**, **Classificação CDD**, **Importações**, **Administradores** e **Meu perfil**.'],
             ['titulo' => 'Use o botão do topo', 'texto' => 'Ao lado da data aparece **Novo empréstimo** (para quem registra empréstimos) ou **Cadastrar livro** (para quem cadastra livros e não registra empréstimos).'],
             ['titulo' => 'Saiba quando os números mudam', 'texto' => 'Os números são calculados no momento em que a página abre. Depois de registrar um empréstimo ou uma devolução, volte ao Dashboard (ou pressione **F5**) para ver os valores novos.'],
         ],

@@ -1029,8 +1029,6 @@ a.adm-th-sort { text-decoration: none; }
 .adm-form-section > .adm-field + .adm-field,
 .adm-form-section > .adm-notice + .adm-field { margin-top: 12px; }
 .adm-form-section > .adm-field + .adm-button { margin-top: 16px; }
-.adm-perfis-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 13px; color: #334155; }
-.adm-perfis-lista strong { display: block; color: var(--adm-text); margin-bottom: 2px; }
 
 /* Botão logo depois de uma grade de campos (formulários curtos): respiro acima do botão. */
 .adm-form-grid + .adm-button,

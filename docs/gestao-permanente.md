@@ -202,15 +202,9 @@ não apaga dados, não muda códigos BDP, lotes, exemplares, empréstimos nem da
 
 ## 12. Permissões (verificadas no servidor)
 
-| Permissão | Administrador | Bibliotecária | Auxiliar | Consulta |
-|---|:-:|:-:|:-:|:-:|
-| `qualidade.ver` (Central de Qualidade) | ✔ | ✔ | ✔ | |
-| `qualidade.resolver` (analisar, justificar, padronizar) | ✔ | ✔ | | |
-| `obras.unificar` | ✔ | ✔ | | |
-| `aquisicoes.registrar` | ✔ | ✔ | ✔ | |
-| `exemplares.baixar` (baixa) | ✔ | ✔ | | |
-| `sistema.manutencao` (diagnóstico, backups, teste de recuperação) | ✔ | | | |
-| `relatorios.ver` (circulação) | ✔ | ✔ | ✔ | ✔ |
+Permissões criadas nesta etapa: `qualidade.ver`, `qualidade.resolver`, `obras.unificar`, `aquisicoes.registrar`
+(além de `exemplares.baixar`, `sistema.manutencao` e `relatorios.ver`, que já existiam). Desde a migração 200 há
+um único perfil, Administrador, com todas elas ([`administradores.md`](administradores.md)).
 
 ## 13. Desempenho
 

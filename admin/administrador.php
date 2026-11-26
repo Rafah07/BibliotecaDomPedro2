@@ -1,6 +1,7 @@
 <?php
 /**
- * Cadastro e edição de uma conta de acesso (?id= para editar).
+ * Cadastro e edição de uma conta de administrador (?id= para editar). Único perfil (migração 200):
+ * toda conta tem acesso total; o campo Função só identifica a pessoa.
  * Ações (POST com CSRF): salvar (dados e situação) e senha (redefinir a senha).
  */
 require_once __DIR__ . '/includes/layout.php';
@@ -15,7 +16,7 @@ if ($id && !$conta) {
     exit;
 }
 $propria = $conta && $conta['id'] === $usuario['id'];
-$valores = $conta ?? ['nome' => '', 'email' => '', 'perfil' => 'bibliotecaria', 'ativo' => true];
+$valores = $conta ?? ['nome' => '', 'email' => '', 'cargo' => '', 'ativo' => true];
 $erros = [];
 $errosSenha = null;
 $falha = null;
@@ -42,16 +43,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } elseif ($acao === 'salvar') {
             $post = $_POST;
             if ($propria) {
-                // Ninguém muda o próprio perfil nem desativa a própria conta (evita ficar sem acesso por engano).
-                $post['perfil'] = $conta['perfil'];
+                // Ninguém desativa a própria conta (evita ficar sem acesso por engano).
                 $post['ativo'] = '1';
             }
             [$dados, $erros] = administradores_validar($post, $conta['id'] ?? null);
             $valores = $dados + $valores;
             if (!$erros) {
-                $cargo = AUTH_PERFIS[$dados['perfil']];
                 if ($conta) {
-                    $alteracoes = administradores_repo()->atualizar($conta['id'], $dados['nome'], $dados['email'], $dados['perfil'], $cargo, $dados['ativo']);
+                    $alteracoes = administradores_repo()->atualizar($conta['id'], $dados['nome'], $dados['email'], $dados['cargo'], $dados['ativo']);
                     if ($alteracoes) {
                         $detalhes = [];
                         foreach ($alteracoes as $campo => [$antes, $depois]) {
@@ -64,12 +63,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     }
                     admin_redirecionar(admin_url('administrador') . '?id=' . $conta['id']);
                 }
-                $novoId = administradores_repo()->criar($dados['nome'], $dados['email'], $dados['perfil'], $cargo, password_hash((string)$_POST['senha'], PASSWORD_DEFAULT));
+                $novoId = administradores_repo()->criar($dados['nome'], $dados['email'], $dados['cargo'], password_hash((string)$_POST['senha'], PASSWORD_DEFAULT));
                 if (!$dados['ativo']) {
-                    administradores_repo()->atualizar($novoId, $dados['nome'], $dados['email'], $dados['perfil'], $cargo, false);
+                    administradores_repo()->atualizar($novoId, $dados['nome'], $dados['email'], $dados['cargo'], false);
                 }
-                registrar_acao('usuario.cadastrar', 'administrador', $novoId, ['email' => $dados['email'], 'perfil' => $dados['perfil']]);
-                admin_flash('sucesso', 'Conta cadastrada.', $dados['nome'] . ' já pode entrar no painel com o e-mail ' . $dados['email'] . ' e a senha inicial. Peça que troque a senha em "Meu perfil".');
+                registrar_acao('usuario.cadastrar', 'administrador', $novoId, ['email' => $dados['email'], 'cargo' => $dados['cargo'] ?: 'Administrador']);
+                admin_flash('sucesso', 'Administrador cadastrado.', $dados['nome'] . ' já pode entrar no painel com o e-mail ' . $dados['email'] . ' e a senha inicial. Peça que troque a senha em "Meu perfil".');
                 admin_redirecionar(admin_url('administradores'));
             }
         }
@@ -86,7 +85,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 $v = fn (string $campo) => e((string)($valores[$campo] ?? ''));
 $erro = fn (string $campo) => isset($erros[$campo]) ? '<span class="adm-field__error">' . e($erros[$campo]) . '</span>' : '';
 $inv = fn (string $campo) => isset($erros[$campo]) ? ' is-invalid' : '';
-$titulo = $conta ? 'Editar conta' : 'Nova conta de acesso';
+$titulo = $conta ? 'Editar administrador' : 'Novo administrador';
 
 admin_page_start('administradores', $titulo, 'Administradores', 'Contas de acesso ao painel', ['assets/css/acervo.css?v=20261115mob']);
 ?>
@@ -98,7 +97,7 @@ admin_page_start('administradores', $titulo, 'Administradores', 'Contas de acess
         <h1><?= e($conta ? $conta['nome'] : $titulo) ?></h1>
         <p><?= $conta
             ? 'Cadastrada em ' . admin_data_hora($conta['criado_em'], false) . ' · último acesso: ' . ($conta['ultimo_acesso'] ? admin_data_hora($conta['ultimo_acesso']) : 'nunca entrou')
-            : 'A pessoa entra no painel com o e-mail e a senha inicial definidos aqui.' ?></p>
+            : 'A pessoa entra no painel com o e-mail e a senha inicial definidos aqui, com acesso total.' ?></p>
     </div>
     <div class="adm-page-head__actions">
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('administradores')) ?>"><?= icon('arrow-left') ?> Voltar à lista</a>
@@ -132,15 +131,11 @@ admin_page_start('administradores', $titulo, 'Administradores', 'Contas de acess
                     <input class="adm-input" type="email" name="email" maxlength="190" required value="<?= $v('email') ?>" autocomplete="off">
                     <?= $erro('email') ?>
                 </label>
-                <label class="adm-field adm-field--full<?= $inv('perfil') ?>">
-                    <span class="adm-field__label">Perfil de acesso <span class="adm-required" aria-hidden="true">*</span></span>
-                    <select class="adm-select" name="perfil"<?= $propria ? ' disabled' : '' ?> data-perfil-select>
-                        <?php foreach (AUTH_PERFIS as $valor => $rotulo): ?>
-                            <option value="<?= $valor ?>"<?= ($valores['perfil'] ?? '') === $valor ? ' selected' : '' ?>><?= e($rotulo) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <span class="adm-field__hint"><?= $propria ? 'Você não pode alterar o seu próprio perfil. Peça a outro administrador.' : e(ADMINISTRADORES_PERFIS_DESCRICAO[$valores['perfil']] ?? '') ?></span>
-                    <?= $erro('perfil') ?>
+                <label class="adm-field adm-field--full<?= $inv('cargo') ?>">
+                    <span class="adm-field__label">Função <span class="adm-table__muted">(opcional)</span></span>
+                    <input class="adm-input" type="text" name="cargo" maxlength="<?= ADMINISTRADORES_FUNCAO_MAX ?>" value="<?= $v('cargo') ?>" placeholder="Ex.: Bibliotecária, Coordenação" autocomplete="off">
+                    <span class="adm-field__hint">Só identifica a pessoa no painel. Todas as contas têm o mesmo acesso: <?= e(ADMINISTRADORES_ACESSO) ?></span>
+                    <?= $erro('cargo') ?>
                 </label>
 
                 <?php if (!$conta): ?>
@@ -167,7 +162,7 @@ admin_page_start('administradores', $titulo, 'Administradores', 'Contas de acess
             </div>
             <div class="adm-form-actions adm-form-actions--static">
                 <a class="adm-button adm-button--ghost" href="<?= e(admin_url('administradores')) ?>">Cancelar</a>
-                <button type="submit" class="adm-button adm-button--primary"><?= icon('check') ?> <?= $conta ? 'Salvar alterações' : 'Cadastrar conta' ?></button>
+                <button type="submit" class="adm-button adm-button--primary"><?= icon('check') ?> <?= $conta ? 'Salvar alterações' : 'Cadastrar administrador' ?></button>
             </div>
         </form>
     </div>
@@ -201,15 +196,10 @@ admin_page_start('administradores', $titulo, 'Administradores', 'Contas de acess
         <section class="adm-card adm-panel adm-form-section">
             <div class="adm-form-section__header">
                 <div>
-                    <h2>Perfis de acesso</h2>
-                    <p>Use o perfil com o mínimo de acesso necessário para a função.</p>
+                    <h2>Acesso</h2>
+                    <p><?= e(ADMINISTRADORES_ACESSO) ?></p>
                 </div>
             </div>
-            <ul class="adm-perfis-lista">
-                <?php foreach (ADMINISTRADORES_PERFIS_DESCRICAO as $perfil => $descricao): ?>
-                    <li><strong><?= e(AUTH_PERFIS[$perfil]) ?></strong><?= e($descricao) ?></li>
-                <?php endforeach; ?>
-            </ul>
         </section>
     </aside>
 </div>

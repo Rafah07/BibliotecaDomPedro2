@@ -130,7 +130,7 @@ final class LoteRepository
     /** Contas ativas que podem ser atribuídas (cadastram exemplares). */
     public function usuariosAtribuiveis(): array
     {
-        return $this->todas("SELECT id, nome, perfil FROM administradores WHERE ativo = 1 AND perfil <> 'consulta' ORDER BY nome");
+        return $this->todas("SELECT id, nome, perfil, cargo FROM administradores WHERE ativo = 1 ORDER BY nome");
     }
 
     /** Pessoas que já participaram de algum lote (filtro "Responsável"). */

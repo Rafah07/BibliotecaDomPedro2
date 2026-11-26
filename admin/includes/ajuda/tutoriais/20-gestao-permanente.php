@@ -151,7 +151,7 @@ return [
         'permissao' => 'sistema.manutencao',
         'objetivo' => 'Saber rapidamente se algo técnico precisa de atenção, antes que vire problema.',
         'quando' => ['Depois de atualizar o sistema.', 'Quando a equipe informar um código de erro (ERR-...).', 'Uma vez por mês.'],
-        'requisitos' => ['Perfil de administração.'],
+        'requisitos' => ['Estar logado no painel.'],
         'passos' => [
             ['titulo' => 'Abra o diagnóstico', 'texto' => 'Em **Configurações → Manutenção e backups**, clique em **Diagnóstico do sistema**.'],
             ['titulo' => 'Leia cada linha', 'texto' => 'Exemplos: “**Conexão com o banco**: Normal.”, “**Migrações pendentes**: 2 pendente(s)”, “Backup: **Última cópia realizada** há 7 dia(s)”, “**Permissão necessária não encontrada**”. “Não verificado” quer dizer que não deu para conferir — nunca que está tudo bem.'],
@@ -174,7 +174,7 @@ return [
         'permissao' => 'sistema.manutencao',
         'objetivo' => 'Ter certeza de que a cópia de segurança pode ser usada de verdade.',
         'quando' => ['Depois de gerar uma cópia importante (antes de migrações ou alterações em massa).', 'Uma vez por mês.'],
-        'requisitos' => ['Perfil de administração.'],
+        'requisitos' => ['Estar logado no painel.'],
         'passos' => [
             ['titulo' => 'Gere a cópia', 'texto' => 'Em **Manutenção e backups**, clique em **Salvar cópia no servidor (conferida)**. A lista mostra data, tipo, quem gerou, tamanho e se foi conferida.'],
             ['titulo' => 'Teste a recuperação', 'texto' => 'Na linha da cópia, clique em **Testar recuperação**. O resultado aparece na coluna **Teste de recuperação**: “Recuperável”, “Falhou” ou “Não realizado” (com o motivo).'],
@@ -245,7 +245,7 @@ return [
         ],
         'exemplo' => 'A escola recebeu 12 livros doados pela família fictícia Souza. A bibliotecária registra a aquisição e depois registra 3 cópias de “Contos da Serra”, 2 de “Rio Azul”…; a página mostra quantos já foram registrados.',
         'resultado' => ['Cada exemplar guarda a origem e a data de entrada; a aquisição mostra o andamento (carimbo, estante, disponíveis).'],
-        'problemas' => [['Não vejo “Registrar aquisição”.', 'O seu perfil não registra aquisições.', 'Peça à bibliotecária.']],
+        'problemas' => [['A tela de login apareceu no meio do trabalho.', 'A sessão expirou por tempo sem uso.', 'Entre de novo e repita a última ação.']],
         'cuidados' => ['Lotes servem para processar livros novos; não é preciso abrir inventário.'],
         'relacionados' => ['cadastrar-exemplar', 'ficha-exemplar'],
         'confere' => ['aquisicoes.php' => ['Registrar aquisição', 'Registrar exemplares (obra existente)', 'Cadastrar obra nova', 'Fornecedor, doador ou instituição *', 'Data de recebimento *', 'Quantidade recebida *', 'Histórico de entradas']],

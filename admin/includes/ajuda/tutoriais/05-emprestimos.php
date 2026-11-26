@@ -28,7 +28,7 @@ return [
             ]],
             ['titulo' => 'Sem a etiqueta? Pesquise pelo título', 'texto' => 'Digite o título, o autor ou o ISBN. Aparecem só os exemplares disponíveis. Escolha aquele cujo código confere com o volume e clique em **Selecionar**.'],
             ['titulo' => 'Confira o resumo', 'texto' => 'A etapa **3 Resumo e confirmação** mostra **Aluno**, **Livro**, **Exemplar**, **Data do empréstimo** e **Responsável**. Leia tudo com calma.', 'imagem' => ['arquivo' => 'emprestimo-passo3.png', 'alt' => 'Etapa 3 do Novo empréstimo com o resumo, a devolução prevista e o botão Confirmar empréstimo', 'legenda' => 'Etapa 3: resumo e confirmação.']],
-            ['titulo' => 'Confira a Devolução prevista', 'texto' => 'O sistema calcula a data pelo prazo padrão configurado (a frase "Prazo padrão: N dia(s)" aparece acima). Quem tem a permissão de escolher outra data pode alterá-la no campo **Devolução prevista**; os demais perfis usam a data padrão. A data não pode estar no passado.'],
+            ['titulo' => 'Confira a Devolução prevista', 'texto' => 'O sistema calcula a data pelo prazo padrão configurado (a frase "Prazo padrão: N dia(s)" aparece acima). Para usar outra data, altere o campo **Devolução prevista**. A data não pode estar no passado.'],
             ['titulo' => 'Escreva uma Observação, se precisar', 'texto' => 'Campo opcional, por exemplo "capa com pequeno rasgo já existente".'],
             ['titulo' => 'Confirme', 'texto' => 'Marque **Conferi o aluno, o livro e o código do exemplar.** e clique em **Confirmar empréstimo**.'],
             ['titulo' => 'Veja a mensagem de sucesso', 'texto' => 'Aparece **Empréstimo registrado.**, com o título, o código, o nome do aluno e a data prevista. Informe a data ao aluno. O exemplar passa a **Emprestado** automaticamente.'],
@@ -150,7 +150,7 @@ return [
         'exemplo' => 'Para saber com quem está BDP-000007, a bibliotecária digita o código na pesquisa da aba Ativos e vê o aluno fictício "Caio Teste Oliveira", com a situação "Atrasado há 2 dias".',
         'resultado' => ['Você encontra o empréstimo e pode renovar ou registrar a devolução dali mesmo.'],
         'problemas' => [
-            ['O menu Empréstimos não aparece.', 'O seu perfil não vê empréstimos (os dados dos alunos são pessoais).', 'Veja [[tutorial:permissoes-funcoes-indisponiveis|funções indisponíveis]].'],
+            ['A tela de login apareceu no meio do trabalho.', 'A sessão expirou por tempo sem uso.', 'Entre de novo e repita a última ação.'],
         ],
         'cuidados' => ['Nenhum registro é apagado: a devolução fica no histórico.'],
         'relacionados' => ['registrar-devolucao', 'renovar-emprestimo', 'emprestimos-atrasados', 'pesquisar-alunos'],

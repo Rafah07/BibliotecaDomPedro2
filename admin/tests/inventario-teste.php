@@ -587,19 +587,20 @@ $aux = new Navegador($base);
 $aux->entrar('aux@teste.br', $senhaPadrao);
 $tka = $aux->csrf('inventario-conferencia.php?id=' . $inv3);
 confere('auxiliar abre a conferência e as etiquetas', $aux->ir('inventario-conferencia.php?id=' . $inv3)[0] === 200 && $aux->ir('etiquetas.php?ids=' . $dom[0])[0] === 200);
-confere('auxiliar não cria inventário nem configura etiquetas (403)', $aux->ir('inventario-editar.php')[0] === 403 && $aux->ir('etiqueta-modelos.php')[0] === 403 && $aux->ir('localizacao.php')[0] === 403);
-[$s] = $aux->ir('inventario-detalhes.php?id=' . $inv3, ['csrf' => $tka, 'id' => $inv3, 'acao' => 'cancelar', 'motivo' => 'forçado']);
-confere('auxiliar não cancela inventário nem enviando o formulário direto', $s === 403 && $val('SELECT status FROM inventarios WHERE id = ?', [$inv3]) === 'em_andamento');
-[$s] = $aux->ir('detalhes-exemplar.php?id=' . $dom[1], ['csrf' => $tka, 'id' => $dom[1], 'acao' => 'baixa', 'motivo' => 'forçado', 'confirmar' => '1']);
-confere('auxiliar não dá baixa em exemplar', $s === 403 && $val('SELECT situacao FROM exemplares WHERE id = ?', [$dom[1]]) !== 'baixado');
+// Único perfil (migração 200): as contas antigas "auxiliar" e "consulta" são administradoras; sem o token
+// CSRF da própria sessão nada é gravado.
+confere('conta antiga "auxiliar" cria inventário e configura etiquetas', $aux->ir('inventario-editar.php')[0] === 200 && $aux->ir('etiqueta-modelos.php')[0] === 200 && $aux->ir('localizacao.php')[0] === 200);
+[$s] = $aux->ir('inventario-detalhes.php?id=' . $inv3, ['csrf' => 'falso', 'id' => $inv3, 'acao' => 'cancelar', 'motivo' => 'forçado']);
+confere('sem o token CSRF não cancela inventário (419)', $s === 419 && $val('SELECT status FROM inventarios WHERE id = ?', [$inv3]) === 'em_andamento');
+[$s] = $aux->ir('detalhes-exemplar.php?id=' . $dom[1], ['csrf' => 'falso', 'id' => $dom[1], 'acao' => 'baixa', 'motivo' => 'forçado', 'confirmar' => '1']);
+confere('sem o token CSRF não dá baixa em exemplar (419)', $s === 419 && $val('SELECT situacao FROM exemplares WHERE id = ?', [$dom[1]]) !== 'baixado');
 
 $cons = new Navegador($base);
 $cons->entrar('cons@teste.br', $senhaPadrao);
-$tkc = $cons->csrf('index.php');
-confere('consulta vê as listas, mas não cadastra nem confere (403)', $cons->ir('exemplares.php')[0] === 200 && $cons->ir('inventario.php')[0] === 200
-    && $cons->ir('cadastrar-exemplar.php')[0] === 403 && $cons->ir('inventario-conferencia.php?id=' . $inv3)[0] === 403 && $cons->ir('etiquetas.php')[0] === 403);
-[$s] = $cons->ir('cadastrar-exemplar.php', ['csrf' => $tkc, 'livro_id' => $livro['dom'], 'estado_conservacao' => 'bom', 'situacao' => 'disponivel', 'quantidade' => '1', 'confirmar' => '1']);
-confere('consulta não cadastra exemplar enviando o formulário direto', $s === 403);
+confere('conta antiga "consulta" vê as listas, cadastra e confere', $cons->ir('exemplares.php')[0] === 200 && $cons->ir('inventario.php')[0] === 200
+    && $cons->ir('cadastrar-exemplar.php')[0] === 200 && $cons->ir('inventario-conferencia.php?id=' . $inv3)[0] === 200 && $cons->ir('etiquetas.php')[0] === 200);
+[$s] = $cons->ir('cadastrar-exemplar.php', ['csrf' => 'falso', 'livro_id' => $livro['dom'], 'estado_conservacao' => 'bom', 'situacao' => 'disponivel', 'quantidade' => '1', 'confirmar' => '1']);
+confere('sem o token CSRF não cadastra exemplar enviando o formulário direto (419)', $s === 419);
 $logApp = implode("\n", preg_grep('/\[biblioteca\]/', file(sys_get_temp_dir() . "/$banco.log") ?: []));
 confere('registros de erro sem dados de alunos', !preg_match('/TESTE-INV|Aluno Fictício|escola\.teste/', $logApp));
 confere('nenhum erro de PHP registrado pelo servidor durante os testes', !preg_match('/PHP (Fatal|Warning|Notice|Deprecated)/', (string)@file_get_contents(sys_get_temp_dir() . "/$banco.log")),

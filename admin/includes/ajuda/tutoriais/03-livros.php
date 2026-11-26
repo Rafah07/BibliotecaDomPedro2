@@ -9,7 +9,7 @@ return [
         'paginas' => ['livros.php'],
         'objetivo' => 'Ver todos os registros bibliográficos e saber o que cada coluna e cada botão da lista significam.',
         'quando' => ['Para conferir se um livro já está cadastrado.', 'Para abrir, editar ou arquivar um livro.'],
-        'requisitos' => ['Estar logado. Todos os perfis consultam o Acervo; editar e arquivar dependem do perfil.'],
+        'requisitos' => ['Estar logado.'],
         'passos' => [
             ['titulo' => 'Abra o Acervo', 'texto' => 'Clique em **Acervo** no menu (grupo Principal). A página se chama **Gerenciamento do Acervo**.', 'imagem' => ['arquivo' => 'acervo-lista.png', 'alt' => 'Página Gerenciamento do Acervo com cartões de resumo, filtros e a tabela de livros', 'legenda' => 'Lista de livros do Acervo.']],
             ['titulo' => 'Leia os cartões de resumo', 'texto' => 'No topo: **Títulos cadastrados**, **Exemplares físicos**, **Exemplares disponíveis** e **Aguardando CDD**. Clique em **Aguardando CDD** para mostrar só os livros sem classificação aprovada.'],
@@ -29,7 +29,7 @@ return [
         'exemplo' => 'Na linha de "Dom Casmurro", a coluna Exemplares mostra "2" e "1 disp.": existem dois volumes físicos e um está disponível agora.',
         'resultado' => ['Você encontra o livro na lista e abre a ficha, a edição ou o arquivamento pelo botão certo.'],
         'problemas' => [
-            ['Não vejo o lápis nem a caixa.', 'O seu perfil não pode editar ou arquivar livros.', 'Peça a alteração a quem tem a permissão (bibliotecária ou administrador). Veja [[tutorial:permissoes-funcoes-indisponiveis|funções indisponíveis]].'],
+            ['A tela de login apareceu no meio do trabalho.', 'A sessão expirou por tempo sem uso.', 'Entre de novo e repita a última ação.'],
         ],
         'cuidados' => ['A lista mostra só livros ativos. Os arquivados ficam em **Ver arquivados**.'],
         'relacionados' => ['pesquisar-livros', 'filtros-acervo', 'detalhes-livro', 'livro-x-exemplar'],
@@ -200,7 +200,7 @@ return [
         'paginas' => ['detalhes-livro.php', 'capa-livro.php'],
         'objetivo' => 'Ver tudo o que o sistema sabe sobre um livro em uma única página.',
         'quando' => ['Para saber quantos exemplares um livro tem e onde estão.', 'Para conferir a classificação CDD ou o histórico do livro.'],
-        'requisitos' => ['Estar logado. Os botões de ação dependem do seu perfil.'],
+        'requisitos' => ['Estar logado.'],
         'passos' => [
             ['titulo' => 'Abra a ficha', 'texto' => 'No Acervo, clique no título do livro ou no olho (**Ver detalhes**).'],
             ['titulo' => 'Leia o cabeçalho', 'texto' => 'Mostra título, autor, situação do cadastro, categoria, ISBN, editora, ano, edição, idioma, páginas e origem (Cadastro manual, Importação de planilha ou Inventário físico).'],

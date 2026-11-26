@@ -216,31 +216,35 @@ $pdo->exec('DELETE FROM livros WHERE id = ' . $outroId);
 // ---------------------------------------------------------------
 echo "\nContas de acesso\n";
 confere('e-mail duplicado é detectado (sem diferenciar maiúsculas)', $admins->emailEmUso('ADMIN@teste.br'));
+$alt = $admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', 'Coordenação', true);
+confere('único perfil: a conta continua administrador e a função é só texto', $admins->buscar($contas['administrador'])['perfil'] === 'administrador'
+    && $admins->buscar($contas['administrador'])['cargo'] === 'Coordenação' && !isset($alt['perfil']));
+$admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', '', true);
+confere('função vazia vira "Administrador"', $admins->buscar($contas['administrador'])['cargo'] === 'Administrador');
+// Última conta ativa: desativa as outras por um instante e tenta desativar a que sobrou.
+$outrasAtivas = array_map('intval', $pdo->query('SELECT id FROM administradores WHERE ativo = 1 AND id <> ' . (int)$contas['administrador'])->fetchAll(PDO::FETCH_COLUMN));
+if ($outrasAtivas) {
+    $pdo->exec('UPDATE administradores SET ativo = 0 WHERE id IN (' . implode(',', $outrasAtivas) . ')');
+}
 $ultimo = null;
 try {
-    $admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', 'bibliotecaria', 'Bibliotecária', true);
+    $admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', 'Administrador', false);
 } catch (RuntimeException $ex) {
     $ultimo = $ex->getMessage();
 }
-confere('único administrador ativo não perde o perfil', $ultimo !== null && $admins->buscar($contas['administrador'])['perfil'] === 'administrador');
-$ultimo = null;
-try {
-    $admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', 'administrador', 'Administrador', false);
-} catch (RuntimeException $ex) {
-    $ultimo = $ex->getMessage();
+confere('a última conta ativa não pode ser desativada', $ultimo !== null && $admins->buscar($contas['administrador'])['ativo']);
+if ($outrasAtivas) {
+    $pdo->exec('UPDATE administradores SET ativo = 1 WHERE id IN (' . implode(',', $outrasAtivas) . ')');
 }
-confere('único administrador ativo não pode ser desativado', $ultimo !== null && $admins->buscar($contas['administrador'])['ativo']);
-$novoAdmin = $admins->criar('Edu Admin', 'Edu@Teste.br', 'administrador', 'Administrador', password_hash('Outra123456', PASSWORD_DEFAULT));
-confere('e-mail gravado em minúsculas e senha só como hash', db_query('SELECT email FROM administradores WHERE id = ?', [$novoAdmin])->fetchColumn() === 'edu@teste.br'
-    && str_starts_with((string)$admins->senhaHash($novoAdmin), '$2y$'));
-$alt = $admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', 'administrador', 'Administrador', true);
-confere('com outro administrador ativo, a proteção libera mudanças', !isset($alt['perfil']) && !isset($alt['ativo']));
-$alt = $admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', 'bibliotecaria', 'Bibliotecária', true);
-confere('…inclusive rebaixar quando há outro administrador', isset($alt['perfil']));
-$admins->atualizar($contas['administrador'], 'Ana Admin', 'admin@teste.br', 'administrador', 'Administrador', true);
+$novoAdmin = $admins->criar('Edu Admin', 'Edu@Teste.br', '', password_hash('Outra123456', PASSWORD_DEFAULT));
+confere('e-mail gravado em minúsculas, senha só como hash e conta sempre administrador', db_query('SELECT email FROM administradores WHERE id = ?', [$novoAdmin])->fetchColumn() === 'edu@teste.br'
+    && str_starts_with((string)$admins->senhaHash($novoAdmin), '$2y$') && $admins->buscar($novoAdmin)['perfil'] === 'administrador');
+$alt = $admins->atualizar($novoAdmin, 'Edu Admin', 'edu@teste.br', 'Administrador', false);
+confere('com outra conta ativa, desativar é permitido', isset($alt['ativo']));
+$admins->atualizar($novoAdmin, 'Edu Admin', 'edu@teste.br', 'Administrador', true);
 $erroEmail = null;
 try {
-    $admins->criar('Repetido', 'bib@teste.br', 'auxiliar', 'Auxiliar', password_hash('x', PASSWORD_DEFAULT));
+    $admins->criar('Repetido', 'bib@teste.br', 'Auxiliar', password_hash('x', PASSWORD_DEFAULT));
 } catch (RuntimeException $ex) {
     $erroEmail = $ex->getMessage();
 }
@@ -249,9 +253,9 @@ confere('senha curta recusada', auth_senha_problema('abc123', 'abc123') !== null
 confere('senha sem números recusada', auth_senha_problema('somenteletras', 'somenteletras') !== null);
 confere('confirmação diferente recusada', auth_senha_problema('SenhaBoa12345', 'SenhaBoa12346') !== null);
 confere('senha válida aceita', auth_senha_problema('SenhaBoa12345', 'SenhaBoa12345') === null);
-confere('perfis: bibliotecária não gerencia contas; auxiliar não arquiva; consulta não edita',
-    !in_array('usuarios.gerenciar', AUTH_PERMISSOES['bibliotecaria'], true) && in_array('livros.arquivar', AUTH_PERMISSOES['bibliotecaria'], true)
-    && !in_array('livros.arquivar', AUTH_PERMISSOES['auxiliar'], true) && !in_array('livros.editar', AUTH_PERMISSOES['consulta'], true));
+confere('único perfil (migração 200): só Administrador, com todas as permissões descritas',
+    array_keys(AUTH_PERFIS) === ['administrador'] && array_keys(AUTH_PERMISSOES) === ['administrador']
+    && !array_diff(array_merge(...array_map('array_keys', array_values(AUTH_PERMISSOES_DESCRICOES))), AUTH_PERMISSOES['administrador']));
 
 // ---------------------------------------------------------------
 echo "\nPáginas (servidor PHP embutido no banco temporário)\n";
@@ -357,7 +361,7 @@ confere('nova conta cadastrada pelo painel', $s === 303 && $fe > 0);
 [$s, $html] = $adm->ir('administrador.php', ['csrf' => $tk, 'acao' => 'salvar', 'nome' => 'Outro', 'email' => 'BIB@teste.br', 'perfil' => 'auxiliar', 'senha' => 'SenhaDaFe2026', 'senha_confirmacao' => 'SenhaDaFe2026']);
 confere('e-mail repetido recusado pelo formulário', $s === 200 && str_contains($html, 'Já existe uma conta com este e-mail'));
 [$s] = $adm->ir('administrador.php?id=' . $contas['administrador'], ['csrf' => $tk, 'acao' => 'salvar', 'nome' => 'Ana Admin', 'email' => 'admin@teste.br', 'perfil' => 'consulta', 'ativo' => '0']);
-confere('ninguém rebaixa nem desativa a própria conta', $admins->buscar($contas['administrador'])['perfil'] === 'administrador' && $admins->buscar($contas['administrador'])['ativo']);
+confere('ninguém desativa a própria conta (perfil enviado à força é ignorado)', $admins->buscar($contas['administrador'])['perfil'] === 'administrador' && $admins->buscar($contas['administrador'])['ativo']);
 
 $feNav = new Navegador($base);
 confere('nova conta consegue entrar', $feNav->entrar('fe@teste.br', 'SenhaDaFe2026') === 302 && $feNav->ir('livros.php')[0] === 200);
@@ -369,22 +373,44 @@ $feNav2 = new Navegador($base);
 $feNav2->entrar('fe@teste.br', 'NovaSenhaFe2027');
 confere('conta desativada não entra', $feNav2->ir('livros.php')[0] === 302);
 
-// Restrições por perfil (no servidor)
+// Único perfil (migração 200): contas antigas com outro perfil gravado entram como administradoras.
 $bib = new Navegador($base);
 $bib->entrar('bib@teste.br', $senhaPadrao);
-confere('bibliotecária: acesso ao acervo e ao cadastro', $bib->ir('livros.php')[0] === 200 && $bib->ir('cadastrar-livro.php')[0] === 200);
-confere('bibliotecária: administradores bloqueado (403)', $bib->ir('administradores.php')[0] === 403 && $bib->ir('administrador.php?id=1')[0] === 403);
-$tkb = $bib->csrf('livros.php');
-[$s] = $bib->ir('administrador.php', ['csrf' => $tkb, 'acao' => 'salvar', 'nome' => 'Invasor', 'email' => 'inv@teste.br', 'perfil' => 'administrador', 'senha' => 'SenhaInvasor1', 'senha_confirmacao' => 'SenhaInvasor1']);
-confere('bibliotecária não cria conta nem enviando o formulário direto', $s === 403 && !$admins->emailEmUso('inv@teste.br'));
+confere('conta antiga "bibliotecária": acesso total, inclusive Administradores', $bib->ir('livros.php')[0] === 200 && $bib->ir('cadastrar-livro.php')[0] === 200
+    && $bib->ir('administradores.php')[0] === 200 && $bib->ir('administrador.php?id=1')[0] === 200);
 [, $html] = $bib->ir('index.php');
-confere('menu da bibliotecária não mostra "Administradores"', !str_contains($html, 'administradores.php'));
+confere('menu mostra "Administradores" e não tem mais "Perfis e permissões"', str_contains($html, 'administradores.php') && !str_contains($html, 'permissoes.php'));
 $aux = new Navegador($base);
 $aux->entrar('aux@teste.br', $senhaPadrao);
-confere('auxiliar: pode cadastrar, não pode arquivar (403)', $aux->ir('cadastrar-livro.php')[0] === 200 && $aux->ir('arquivar-livro.php?id=3')[0] === 403);
+confere('conta antiga "auxiliar": cadastra e arquiva', $aux->ir('cadastrar-livro.php')[0] === 200 && $aux->ir('arquivar-livro.php?id=3')[0] === 200);
 $cons = new Navegador($base);
 $cons->entrar('cons@teste.br', $senhaPadrao);
-confere('consulta: vê o acervo, não cadastra nem edita (403)', $cons->ir('livros.php')[0] === 200 && $cons->ir('cadastrar-livro.php')[0] === 403 && $cons->ir('editar-livro.php?id=3')[0] === 403);
+confere('conta antiga "consulta": cadastra e edita', $cons->ir('livros.php')[0] === 200 && $cons->ir('cadastrar-livro.php')[0] === 200 && $cons->ir('editar-livro.php?id=3')[0] === 200);
+confere('"Perfis e permissões" foi removida', $cons->ir('permissoes.php')[0] === 404);
+
+// Cadastro rápido de administradores (Administradores e Meu perfil)
+[$s, $html] = $adm->ir('administradores.php');
+confere('Administradores mostra o cadastro rápido com "Gerar senha"', $s === 200 && str_contains($html, 'Cadastrar administrador') && str_contains($html, 'data-gerar-senha') && !str_contains($html, 'name="perfil"'));
+$tkr = $adm->csrf('administradores.php');
+[$s, $html] = $adm->ir('administradores.php', ['csrf' => $tkr, 'acao' => 'cadastro_rapido', 'nome' => 'Rui Rápido', 'email' => 'rui@teste.br', 'cargo' => '', 'senha' => 'curta']);
+confere('cadastro rápido com senha fraca é recusado e mantém o que foi digitado', $s === 200 && !$admins->emailEmUso('rui@teste.br') && str_contains($html, 'rui@teste.br'));
+[$s] = $adm->ir('administradores.php', ['acao' => 'cadastro_rapido', 'nome' => 'Rui Rápido', 'email' => 'rui@teste.br', 'senha' => 'SenhaDoRui2026']);
+confere('cadastro rápido sem CSRF é recusado (419)', $s === 419 && !$admins->emailEmUso('rui@teste.br'));
+[$s] = $adm->ir('administradores.php', ['csrf' => $tkr, 'acao' => 'cadastro_rapido', 'nome' => 'Rui Rápido', 'email' => 'Rui@Teste.br', 'cargo' => 'Bibliotecário', 'senha' => 'SenhaDoRui2026']);
+$rui = (int)db_query('SELECT id FROM administradores WHERE email = ?', ['rui@teste.br'])->fetchColumn();
+confere('cadastro rápido em Administradores cria a conta (sem confirmação de senha)', $s === 303 && $rui > 0
+    && $admins->buscar($rui)['perfil'] === 'administrador' && $admins->buscar($rui)['cargo'] === 'Bibliotecário');
+confere('cadastro rápido registra a ação, sem a senha', (int)db_query("SELECT COUNT(*) FROM acoes_administrativas WHERE acao = 'usuario.cadastrar' AND entidade_id = ? AND detalhes NOT LIKE '%SenhaDoRui%'", [$rui])->fetchColumn() === 1);
+$ruiNav = new Navegador($base);
+confere('a conta do cadastro rápido entra e tem acesso total', $ruiNav->entrar('rui@teste.br', 'SenhaDoRui2026') === 302 && $ruiNav->ir('administradores.php')[0] === 200);
+[$s, $html] = $cons->ir('perfil.php');
+confere('Meu perfil mostra o cadastro rápido', $s === 200 && str_contains($html, 'Cadastrar administrador') && str_contains($html, 'Função'));
+$tkp = $cons->csrf('perfil.php');
+[$s] = $cons->ir('perfil.php', ['csrf' => $tkp, 'acao' => 'cadastro_rapido', 'nome' => 'Lia Perfil', 'email' => 'lia@teste.br', 'cargo' => '', 'senha' => 'SenhaDaLia2026']);
+$lia = (int)db_query('SELECT id FROM administradores WHERE email = ?', ['lia@teste.br'])->fetchColumn();
+confere('cadastro rápido em Meu perfil cria a conta e volta para Meu perfil', $s === 303 && $lia > 0 && $admins->buscar($lia)['cargo'] === 'Administrador');
+[$s, $html] = $cons->ir('perfil.php', ['csrf' => $tkp, 'acao' => 'cadastro_rapido', 'nome' => 'Lia Repetida', 'email' => 'LIA@teste.br', 'senha' => 'SenhaDaLia2026']);
+confere('cadastro rápido recusa e-mail repetido', $s === 200 && str_contains($html, 'Já existe uma conta com este e-mail.'));
 [$s] = $adm->ir('logout.php', ['csrf' => $tk]);
 confere('logout encerra a sessão', $s === 302 && $adm->ir('livros.php')[0] === 302);
 

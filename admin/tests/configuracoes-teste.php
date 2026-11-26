@@ -247,8 +247,8 @@ confere('valores do painel: 30 minutos e 3 tentativas', auth_inatividade_minutos
 $descritas = array_merge(...array_values(array_map('array_keys', AUTH_PERMISSOES_DESCRICOES)));
 $usadas = array_unique(array_merge(...array_values(AUTH_PERMISSOES)));
 confere('toda permissão dos perfis tem descrição (e nenhuma descrição sobra)', !array_diff($usadas, $descritas) && !array_diff($descritas, $usadas), implode(', ', array_merge(array_diff($usadas, $descritas), array_diff($descritas, $usadas))));
-confere('sistema.manutencao só para o administrador', array_keys(array_filter(AUTH_PERMISSOES, fn ($p) => in_array('sistema.manutencao', $p, true))) === ['administrador']);
-confere('configuracoes.editar só para administrador e bibliotecária', array_keys(array_filter(AUTH_PERMISSOES, fn ($p) => in_array('configuracoes.editar', $p, true))) === ['administrador', 'bibliotecaria']);
+confere('único perfil (migração 200): sistema.manutencao e configuracoes.editar valem para o Administrador', array_keys(AUTH_PERMISSOES) === ['administrador']
+    && in_array('sistema.manutencao', AUTH_PERMISSOES['administrador'], true) && in_array('configuracoes.editar', AUTH_PERMISSOES['administrador'], true));
 
 // ---------------------------------------------------------------
 echo "\n6. Diagnóstico e cópia de segurança\n";
@@ -357,7 +357,7 @@ final class Navegador
 $semErro = fn (string $html) => !preg_match('/(Fatal error|Warning:|Notice:|Deprecated:|Uncaught)/', $html);
 
 $anon = new Navegador($base);
-foreach (['configuracoes.php', 'permissoes.php', 'manutencao.php'] as $p) {
+foreach (['configuracoes.php', 'manutencao.php'] as $p) {
     [$s, , $loc] = $anon->ir('admin/' . $p);
     confere("sem login: $p redireciona para o login", $s === 302 && str_contains($loc, 'login.php'));
 }
@@ -366,10 +366,11 @@ foreach (['administrador' => 'admin@teste.br', 'bibliotecaria' => 'bib@teste.br'
     $nav[$perfil] = new Navegador($base);
     $nav[$perfil]->entrar($email, $senhaPadrao);
 }
+// Único perfil (migração 200): contas antigas com outro perfil gravado entram como administradoras.
 $esperado = [
-    'configuracoes.php' => ['administrador' => 200, 'bibliotecaria' => 200, 'auxiliar' => 403, 'consulta' => 403],
-    'permissoes.php' => ['administrador' => 200, 'bibliotecaria' => 200, 'auxiliar' => 200, 'consulta' => 200],
-    'manutencao.php' => ['administrador' => 200, 'bibliotecaria' => 403, 'auxiliar' => 403, 'consulta' => 403],
+    'configuracoes.php' => ['administrador' => 200, 'bibliotecaria' => 200, 'auxiliar' => 200, 'consulta' => 200],
+    'manutencao.php' => ['administrador' => 200, 'bibliotecaria' => 200, 'auxiliar' => 200, 'consulta' => 200],
+    'permissoes.php' => ['administrador' => 404, 'bibliotecaria' => 404, 'auxiliar' => 404, 'consulta' => 404],   // página removida
 ];
 foreach ($esperado as $pagina => $porPerfil) {
     $obtido = [];
@@ -384,20 +385,18 @@ confere('administrador vê as configurações técnicas, sem a senha do banco', 
     && (bool)preg_match('#DB_PASSWORD</td>\s*<td[^>]*>(definida \(oculta\)|não definida)</td>#', $html));
 confere('página mostra a origem do valor em uso (.env e padrão)', str_contains($html, 'Definido no .env') && str_contains($html, 'Padrão do sistema'));
 [, $htmlBib] = $nav['bibliotecaria']->ir('admin/configuracoes.php');
-confere('bibliotecária não vê as configurações técnicas', !str_contains($htmlBib, 'Configurações técnicas'));
-confere('bibliotecária vê a segurança e a manutenção só para leitura (campos desabilitados)', (bool)preg_match('/name="LOGIN_MAX_TENTATIVAS"[^>]*disabled/', $htmlBib) && (bool)preg_match('/name="SITE_MANUTENCAO"[^>]*disabled/', $htmlBib));
-confere('menu: Configurações aparece para a bibliotecária e não para a consulta', str_contains($htmlBib, 'configuracoes.php') && !str_contains($nav['consulta']->ir('admin/permissoes.php')[1], 'href="/admin/configuracoes.php"'));
-[, $htmlPerm] = $nav['consulta']->ir('admin/permissoes.php');
-confere('perfis e permissões: consulta vê a matriz completa e o próprio perfil destacado', str_contains($htmlPerm, 'sistema.manutencao') && str_contains($htmlPerm, 'seu perfil') && !str_contains($htmlPerm, 'conta(s) ativa(s)'));
-confere('perfis e permissões: administrador vê quantas contas ativas há por perfil', str_contains($nav['administrador']->ir('admin/permissoes.php')[1], 'conta(s) ativa(s)'));
+confere('conta antiga "bibliotecária" vê as configurações técnicas, sem a senha do banco', str_contains($htmlBib, 'Configurações técnicas') && !str_contains($htmlBib, (string)getenv('DB_PASSWORD') ?: 'senha-inexistente-no-html'));
+confere('segurança e manutenção editáveis (campos habilitados)', !preg_match('/name="LOGIN_MAX_TENTATIVAS"[^>]*disabled/', $htmlBib) && !preg_match('/name="SITE_MANUTENCAO"[^>]*disabled/', $htmlBib));
+confere('menu: Configurações aparece para todas as contas e "Perfis e permissões" não existe mais', str_contains($nav['consulta']->ir('admin/index.php')[1], 'configuracoes.php') && !str_contains($htmlBib, 'permissoes.php'));
+confere('Configurações tem atalho para Administradores', str_contains($htmlBib, 'administradores.php'));
 
 $t = $nav['bibliotecaria']->csrf('admin/configuracoes.php');
 [$s] = $nav['bibliotecaria']->ir('admin/configuracoes.php', ['EMPRESTIMO_PRAZO_DIAS' => '21']);
 confere('POST sem CSRF é recusado (419) e nada é gravado', $s === 419 && $num("SELECT COUNT(*) FROM configuracoes_sistema WHERE chave = 'EMPRESTIMO_PRAZO_DIAS'") === 0);
 [$s, $html] = $nav['bibliotecaria']->ir('admin/configuracoes.php', ['csrf' => $t, 'EMPRESTIMO_PRAZO_DIAS' => '400']);
 confere('valor inválido: mostra o erro e não grava', $s === 200 && str_contains($html, 'Confira os campos') && $num("SELECT COUNT(*) FROM configuracoes_sistema WHERE chave = 'EMPRESTIMO_PRAZO_DIAS'") === 0);
-[$s, , $loc] = $nav['bibliotecaria']->ir('admin/configuracoes.php', ['csrf' => $t, 'EMPRESTIMO_PRAZO_DIAS' => '21', 'SITE_MANUTENCAO' => '1', 'LOGIN_MAX_TENTATIVAS' => '20']);
-confere('bibliotecária salva o prazo, mas não consegue ligar a manutenção nem mudar a segurança', $s === 303
+[$s, , $loc] = $nav['bibliotecaria']->ir('admin/configuracoes.php', ['csrf' => $t, 'EMPRESTIMO_PRAZO_DIAS' => '21']);
+confere('salva o prazo e não mexe no que não foi enviado', $s === 303
     && $num("SELECT COUNT(*) FROM configuracoes_sistema WHERE chave = 'EMPRESTIMO_PRAZO_DIAS' AND valor = '21'") === 1
     && $num("SELECT COUNT(*) FROM configuracoes_sistema WHERE chave IN ('SITE_MANUTENCAO','LOGIN_MAX_TENTATIVAS')") === 0);
 confere('alteração registrada nas ações administrativas (sem valores pessoais)', $num("SELECT COUNT(*) FROM acoes_administrativas WHERE acao = 'configuracao.editar' AND usuario_id = ?", [$contas['bibliotecaria']]) === 1);
@@ -437,9 +436,8 @@ confere('cópia sem confirmar o cuidado com dados pessoais é recusada', $s === 
 confere('cópia pela página baixa um .sql completo', $s === 200 && str_contains($tipo, 'application/sql') && preg_match('/attachment; filename="biblioteca-dom-pedro-ii-[\d-]+\.sql"/', $disp)
     && str_contains($corpo, 'CREATE TABLE `livros`') && str_contains($corpo, 'Fim da cópia de segurança') && !str_contains($corpo, 'ERRO'));
 confere('cópia registrada nas ações administrativas', $num("SELECT COUNT(*) FROM acoes_administrativas WHERE acao = 'sistema.backup'") === 1);
-$t = $nav['bibliotecaria']->csrf('admin/configuracoes.php');
-[$s, $corpo] = $nav['bibliotecaria']->ir('admin/manutencao.php', ['csrf' => $t, 'acao' => 'backup', 'ciente' => '1']);
-confere('bibliotecária não consegue baixar a cópia (403)', $s === 403 && !str_contains($corpo, 'CREATE TABLE'));
+[$s, $corpo] = $anon->ir('admin/manutencao.php', ['csrf' => '', 'acao' => 'backup', 'ciente' => '1']);
+confere('sem login, a cópia não é entregue', in_array($s, [302, 419], true) && !str_contains($corpo, 'CREATE TABLE'));
 
 // Limpeza de tentativas de login.
 $pdo->exec("INSERT INTO login_tentativas (email, ip, sucesso, criado_em) VALUES ('velho@teste.br', '1.1.1.1', 0, NOW() - INTERVAL 40 DAY), ('velho2@teste.br', '1.1.1.1', 1, NOW() - INTERVAL 31 DAY)");

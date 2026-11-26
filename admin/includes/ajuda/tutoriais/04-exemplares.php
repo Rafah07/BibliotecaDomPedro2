@@ -52,7 +52,6 @@ return [
         'problemas' => [
             ['“O lote tem só 2 vagas disponíveis.”', 'O lote ativo não comporta todas as cópias.', 'Clique em **Registrar só 2 neste lote**, escolha outro lote aberto ou cancele. Nada foi gravado.'],
             ['A conexão caiu ao registrar.', 'A resposta do servidor não chegou.', 'Abra a página de novo: os dados digitados são recuperados. Envie de novo com tranquilidade — se o registro já tinha sido concluído, aparece “Este registro já tinha sido concluído antes” com os códigos, sem criar cópias novas.'],
-            ['Não vejo o botão Registrar vários exemplares.', 'O seu perfil não tem a permissão de gerenciar exemplares.', 'Peça a quem tem a permissão (bibliotecária, auxiliar ou administrador).'],
         ],
         'cuidados' => [
             'Os códigos são gerados em sequência pelo servidor e nunca são reaproveitados.',
@@ -105,7 +104,7 @@ return [
         'paginas' => ['exemplares.php', 'detalhes-exemplar.php', 'historico-exemplar.php'],
         'objetivo' => 'Saber onde um volume está, em que estado se encontra e por onde passou.',
         'quando' => ['Para conferir se um volume está emprestado.', 'Para localizar um volume na estante.'],
-        'requisitos' => ['Estar logado. Todos os perfis consultam exemplares.'],
+        'requisitos' => ['Estar logado.'],
         'passos' => [
             ['titulo' => 'Abra Exemplares', 'texto' => 'No menu, clique em **Exemplares** (grupo Principal). Os cartões do topo mostram **Exemplares físicos**, **Disponíveis**, **Emprestados**, **Sem localização**, **Nunca conferidos** e **Livros sem exemplar**. Clique num cartão para filtrar.', 'imagem' => ['arquivo' => 'exemplares-lista.png', 'alt' => 'Página Exemplares físicos com cartões de resumo e a tabela de exemplares', 'legenda' => 'Lista de exemplares.']],
             ['titulo' => 'Pesquise', 'texto' => 'No campo **Código BDP, título, autor ou ISBN...**, digite o código completo (por exemplo `BDP-000002`) ou uma parte do título e clique em **Pesquisar**.'],
@@ -177,7 +176,7 @@ return [
         'exemplo' => 'O exemplar fictício BDP-000007 voltou do reparo. A bibliotecária muda a conservação para Bom e a situação para Disponível para empréstimo, com o motivo "reparo concluído".',
         'resultado' => ['A ficha mostra os dados novos e a mudança fica no histórico.'],
         'problemas' => [
-            ['As ações não aparecem.', 'O seu perfil não gerencia exemplares, ou o exemplar está baixado.', 'Peça a quem tem a permissão. Exemplares baixados não podem ser alterados.'],
+            ['As ações não aparecem.', 'O exemplar está baixado.', 'Exemplares baixados não podem ser alterados; o cadastro e o histórico continuam para consulta.'],
         ],
         'cuidados' => ['Para extravio ou baixa, use as ações próprias (veja [[tutorial:pendencias-exemplar|Extravio, baixa e pendências]]).'],
         'relacionados' => ['consultar-exemplar', 'disponibilidade-exemplar', 'pendencias-exemplar'],
@@ -235,7 +234,6 @@ return [
         'exemplo' => 'O exemplar fictício BDP-000020 molhou e mofou. A bibliotecária escolhe **Dano irreparável**, escreve “autorizado pela direção em 18/11” e confirma. O exemplar sai da disponibilidade para empréstimo, mas o código BDP-000020 e o histórico continuam na ficha.',
         'resultado' => ['O exemplar aparece como Baixado, com motivo, data e responsável; aparece também em Baixas do acervo.'],
         'problemas' => [
-            ['Não vejo Registrar extravio nem Dar baixa.', 'O seu perfil não tem a permissão de baixa.', 'Peça à bibliotecária ou ao administrador.'],
             ['“possui empréstimo ativo”.', 'O exemplar está emprestado.', 'Registre a devolução (ou trate o caso do aluno) antes da baixa.'],
         ],
         'cuidados' => ['Nenhum registro é apagado. A baixa só muda a situação.', 'Prefira registrar extravio primeiro; a baixa vem depois, quando não houver chance de encontrar o volume.'],

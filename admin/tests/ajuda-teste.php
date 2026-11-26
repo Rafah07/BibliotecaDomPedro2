@@ -197,7 +197,7 @@ $casos = [
     'exemplar' => 'o-que-e-exemplar', 'etiquetas' => 'gerar-etiquetas', 'inventario' => 'para-que-serve-inventario',
     'cdd' => 'o-que-e-cdd', 'isbn invalido' => 'isbn-invalidos-importacao', 'csv' => 'faq-csv-erro', 'planilha alunos' => 'importar-alunos',
     'backup' => 'gerar-backup', 'copia de seguranca' => 'gerar-backup', 'esqueci senha' => 'faq-esqueci-senha',
-    'permissoes' => 'perfis-existentes', 'relatorios' => 'acessar-relatorios', 'privacidade' => 'privacidade-alunos',
+    'permissoes' => 'perfis-existentes', 'cadastrar administrador' => 'cadastrar-conta', 'relatorios' => 'acessar-relatorios', 'privacidade' => 'privacidade-alunos',
     'localizacao' => 'localizacao-no-registro', 'estante' => 'organizacao-fisica-visao-geral', 'configuracoes' => 'abrir-configuracoes', 'menu' => 'menu-lateral',
 ];
 foreach ($casos as $q => $esperado) {
@@ -282,15 +282,15 @@ confere('todos os ' . count($tutoriais) . ' tutoriais abrem para os 4 perfis, se
 confere('nenhum recurso externo (funciona sem internet)', !$externos, implode(', ', array_slice($externos, 0, 5)));
 confere('toda imagem tem texto alternativo', !$semAlt, implode(', ', array_slice($semAlt, 0, 5)));
 
+// Único perfil (migração 200): toda conta, mesmo com outro perfil antigo gravado, tem todas as funções.
 [$s, $html] = $nav['consulta']->ir('admin/ajuda.php?t=registrar-emprestimo');
-confere('consulta: tutorial restrito mostra o aviso "Seu perfil não tem esta função"', $s === 200 && str_contains($html, 'Seu perfil não tem esta função'));
-confere('consulta: o tutorial não mostra link para páginas que o perfil não abre', !preg_match('/href="[^"]*novo-emprestimo\.php/', $html));
+confere('conta antiga "consulta": tutorial mostra "Disponível para você", sem aviso de função indisponível', $s === 200 && str_contains($html, 'Disponível para você') && !str_contains($html, 'Indisponível neste modo de acesso'));
 [$s] = $nav['consulta']->ir('admin/novo-emprestimo.php');
-confere('consulta: depois de ler a ajuda, Novo empréstimo continua bloqueado (403)', $s === 403, (string)$s);
+confere('conta antiga "consulta": Novo empréstimo abre', $s === 200, (string)$s);
 [$s] = $nav['auxiliar']->ir('admin/manutencao.php');
-confere('auxiliar: depois de ler a ajuda, Manutenção continua bloqueada (403)', $s === 403, (string)$s);
-[$s, $html] = $nav['bibliotecaria']->ir('admin/ajuda.php?t=registrar-emprestimo');
-confere('bibliotecária: o mesmo tutorial não mostra o aviso de função indisponível', !str_contains($html, 'Seu perfil não tem esta função'));
+confere('conta antiga "auxiliar": Manutenção abre', $s === 200, (string)$s);
+[$s, $html] = $nav['bibliotecaria']->ir('admin/ajuda.php?t=perfis-existentes');
+confere('tutorial "Quem pode usar o painel" explica o perfil único', $s === 200 && str_contains($html, 'Todas as contas do painel são de administrador'));
 
 [$s, $html] = $nav['bibliotecaria']->ir('admin/ajuda.php?t=nao-existe');
 confere('tutorial inexistente: 404 com aviso amigável', $s === 404 && str_contains($html, 'Tutorial não encontrado.'));
@@ -311,7 +311,7 @@ $contextuais = [
     'bibliotecaria' => ['index.php' => 'visao-geral-dashboard', 'livros.php' => 'consultar-livros', 'cadastrar-livro.php' => 'cadastrar-livro', 'exemplares.php' => 'consultar-exemplar',
         'emprestimos.php' => 'consultar-emprestimos', 'novo-emprestimo.php' => 'registrar-emprestimo', 'devolucoes.php' => 'registrar-devolucao', 'atrasos.php' => 'emprestimos-atrasados',
         'inventario.php' => 'para-que-serve-inventario', 'etiquetas.php' => 'gerar-etiquetas', 'classificacao.php' => 'painel-cdd', 'relatorios.php' => 'acessar-relatorios',
-        'importacao.php' => 'importar-acervo', 'importar-alunos.php' => 'importar-alunos', 'configuracoes.php' => 'abrir-configuracoes', 'permissoes.php' => 'perfis-existentes',
+        'importacao.php' => 'importar-acervo', 'importar-alunos.php' => 'importar-alunos', 'configuracoes.php' => 'abrir-configuracoes',
         'perfil.php' => 'trocar-minha-senha', 'localizacoes.php' => 'localizacoes', 'site-publico.php' => 'textos-site-publico',
         'alunos.php' => 'pesquisar-alunos', 'aluno-editar.php' => 'cadastrar-aluno', 'categorias.php' => 'gerenciar-categorias', 'categoria.php' => 'cadastrar-categoria'],
     'administrador' => ['administradores.php' => 'consultar-contas', 'manutencao.php' => 'gerar-backup'],

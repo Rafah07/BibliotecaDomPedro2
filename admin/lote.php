@@ -12,6 +12,7 @@
  *                             "Confirmar carimbagem do lote" (só com todos carimbados)
  *   Aguardando organização → escolher estante e prateleira e guardar um ou vários exemplares
  *                             (sugere a última prateleira usada) → "Encerrar lote" (lotes.gerenciar)
+ *   Equipes por link       → links sem login (coleta/carimbagem), vagas, revisão e pausa por etapa (migração 210)
  *   Sempre                 → planilha BDP (imprimir/Excel), relatório (imprimir/Excel/PDF),
  *                             correção administrativa com justificativa (lotes.gerenciar)
  */
@@ -122,6 +123,31 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 lotes_servico()->encerrar($id, $usuario['id'], admin_param($_POST, 'chave') ?: null);
                 admin_flash('sucesso', $nome . ' encerrado.', 'Todos os exemplares estão carimbados e nas estantes. O lote, a planilha BDP e todo o histórico continuam disponíveis para consulta e reimpressão.');
                 break;
+            case 'link_criar':
+                fisico_exigir('lotes.gerenciar');
+                $novo = coleta_servico()->criarLink($id, admin_param($_POST, 'tipo'), admin_param($_POST, 'equipe'), admin_param($_POST, 'expira'), $usuario['id']);
+                $_SESSION['coleta_link_novo'] = ['lote' => $id, 'url' => coleta_url_publica($novo['token']), 'equipe' => admin_param($_POST, 'equipe'), 'tipo' => admin_param($_POST, 'tipo')];
+                admin_flash('sucesso', 'Link criado.', 'Copie o endereço agora e envie à equipe: por segurança, ele só aparece desta vez. Se perder, crie outro link e desative este.');
+                $ancora = '#equipes';
+                break;
+            case 'link_revogar':
+                fisico_exigir('lotes.gerenciar');
+                coleta_servico()->revogarLink((int)admin_param($_POST, 'link_id'), $usuario['id']);
+                admin_flash('sucesso', 'Link desativado.', 'Quem tentar abrir este link verá o aviso de que ele foi desativado. O que a equipe já fez continua guardado.');
+                $ancora = '#equipes';
+                break;
+            case 'pausar':
+                fisico_exigir('exemplares.gerenciar');
+                coleta_servico()->pausar($id, admin_param($_POST, 'etapa'), $usuario['nome'], admin_param($_POST, 'motivo'), $usuario['id']);
+                admin_flash('sucesso', 'Trabalho pausado.', 'O ponto em que a etapa parou ficou registrado. Para continuar, use “Retomar trabalho”.');
+                $ancora = '#equipes';
+                break;
+            case 'retomar':
+                fisico_exigir('exemplares.gerenciar');
+                coleta_servico()->retomar($id, admin_param($_POST, 'etapa'), $usuario['nome']);
+                admin_flash('sucesso', 'Trabalho retomado.', '');
+                $ancora = '#equipes';
+                break;
             case 'corrigir':
                 fisico_exigir('lotes.gerenciar');
                 lotes_servico()->corrigir($id, ['justificativa' => admin_param($_POST, 'justificativa'), 'descricao' => admin_param($_POST, 'descricao'), 'capacidade' => admin_param($_POST, 'capacidade')], $usuario['id']);
@@ -201,7 +227,16 @@ try {
     $situacaoPlanilha = null;
 }
 
-admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS);
+// Equipes por links sem login (migração 210).
+$coletaOk = coleta_disponivel() && $lote['modo'] === 'gerenciado' && $lote['capacidade'] !== null;
+$coletaLinks = $coletaOk ? coleta_servico()->links($id) : [];
+$coletaVagas = $coletaOk ? coleta_servico()->vagas($id) : null;
+$coletaResumo = $coletaOk ? coleta_servico()->resumo($id) : null;
+$coletaPausas = $coletaOk ? coleta_servico()->pausas($id) : [];
+$coletaNovo = ($_SESSION['coleta_link_novo']['lote'] ?? null) === $id ? $_SESSION['coleta_link_novo'] : null;
+unset($_SESSION['coleta_link_novo']);
+
+admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge(FISICO_CSS, ['assets/css/coleta.css?v=20261126']));
 ?>
 
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Inventário', admin_url('inventario')], ['Histórico de Lotes', admin_url('lotes')], [$nome]]) ?>
@@ -452,6 +487,98 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
 </section>
 
 <?php // ---------- Participantes ---------- ?>
+<?php if ($coletaOk): ?>
+<section class="adm-card adm-panel adm-no-print" aria-labelledby="titulo-equipes" id="equipes">
+    <div class="adm-panel__header"><div>
+        <h2 id="titulo-equipes"><?= icon('users') ?> Equipes por link (sem login)</h2>
+        <p>Para a organização inicial: a equipe de coleta faz o pré-cadastro dos livros, os administradores revisam e aprovam (os códigos BDP são gerados) e a equipe de carimbagem marca os carimbos.</p>
+    </div></div>
+
+    <?php if ($coletaNovo): ?>
+        <div class="adm-notice adm-notice--green" role="status"><?= icon('link') ?>
+            <div>
+                <p><strong>Link da <?= e($coletaNovo['equipe']) ?> (<?= e($coletaNovo['tipo'] === 'coleta' ? 'coleta' : 'carimbagem') ?>):</strong> copie agora — ele não aparece de novo.</p>
+                <div class="adm-senha-gerada"><input class="adm-input" type="text" readonly value="<?= e($coletaNovo['url']) ?>" data-copiar-campo aria-label="Endereço do link"><button type="button" class="adm-button adm-button--ghost adm-button--sm" data-copiar><?= icon('copy') ?> Copiar</button></div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <dl class="adm-meta">
+        <div><dt>Capacidade</dt><dd><?= (int)$coletaVagas['capacidade'] ?> exemplar(es)</dd></div>
+        <div><dt>Já registrados (com código BDP)</dt><dd><?= (int)$coletaVagas['registrados'] ?></dd></div>
+        <div><dt>Reservados por pré-cadastros</dt><dd><?= (int)$coletaVagas['reservados'] ?> (<?= (int)$coletaResumo['pendente'] ?> livro(s) aguardando revisão)</dd></div>
+        <div><dt>Vagas livres</dt><dd><strong><?= (int)$coletaVagas['restantes'] ?></strong></dd></div>
+        <div><dt>Pré-cadastros</dt><dd><?= (int)$coletaResumo['aprovado'] ?> aprovado(s) · <?= (int)$coletaResumo['recusado'] ?> recusado(s) ou retirado(s)</dd></div>
+    </dl>
+    <p><a class="adm-button adm-button--primary" href="<?= e(admin_url('coleta') . '?lote=' . $id) ?>"><?= icon('list-checks') ?> Revisar pré-cadastros<?= $coletaResumo['pendente'] ? ' (' . (int)$coletaResumo['pendente'] . ')' : '' ?></a></p>
+
+    <h3 class="adm-subtitulo">Links das equipes</h3>
+    <?php if ($coletaLinks): ?>
+        <div class="adm-table-wrap adm-table-wrap--inset"><table class="adm-table adm-table--compact">
+            <thead><tr><th scope="col">Equipe</th><th scope="col">Serve para</th><th scope="col">Válido até</th><th scope="col">Situação</th><th scope="col">Criado por</th><th scope="col">Último uso</th><th scope="col"></th></tr></thead>
+            <tbody>
+            <?php foreach ($coletaLinks as $l): ?>
+                <tr>
+                    <td><?= e($l['equipe']) ?></td>
+                    <td><?= e($l['tipo'] === 'coleta' ? 'Coleta (pré-cadastro)' : 'Carimbagem') ?></td>
+                    <td><?= e(date('d/m/Y', strtotime($l['expira_em']))) ?></td>
+                    <td><?= ['ativo' => '<span class="adm-status adm-tone--green">Ativo</span>', 'expirado' => '<span class="adm-status adm-tone--amber">Expirado</span>', 'desativado' => '<span class="adm-status adm-tone--muted">Desativado</span>'][$l['situacao']] ?></td>
+                    <td><?= e($l['criado_por_nome']) ?></td>
+                    <td class="adm-table__muted"><?= $l['ultimo_uso_em'] ? e(admin_data_hora($l['ultimo_uso_em'])) : 'Nunca aberto' ?></td>
+                    <td><?php if ($podeGerenciar && $l['situacao'] === 'ativo'): ?>
+                        <form method="post"><?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="link_revogar"><input type="hidden" name="link_id" value="<?= (int)$l['id'] ?>">
+                            <button type="submit" class="adm-button adm-button--ghost adm-button--sm" data-confirmar="Desativar o link da <?= e($l['equipe']) ?>? Ele para de funcionar na hora."><?= icon('ban') ?> Desativar</button></form>
+                    <?php endif; ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php else: ?>
+        <p class="adm-table__muted">Nenhum link criado para este lote.</p>
+    <?php endif; ?>
+
+    <?php if ($podeGerenciar && $st !== 'encerrado'): ?>
+        <form method="post" class="adm-form-grid adm-form-grid--3">
+            <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="link_criar">
+            <label class="adm-field"><span class="adm-field__label">Equipe</span><input class="adm-input" type="text" name="equipe" maxlength="80" required placeholder="Ex.: Equipe 1"></label>
+            <label class="adm-field"><span class="adm-field__label">Serve para</span>
+                <select class="adm-select" name="tipo"><?php foreach (Biblioteca\Services\ColetaService::TIPOS as $v => $r): ?><option value="<?= $v ?>"><?= e($r) ?></option><?php endforeach; ?></select></label>
+            <label class="adm-field"><span class="adm-field__label">Válido até</span><input class="adm-input" type="date" name="expira" required min="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d', strtotime('+' . Biblioteca\Services\ColetaService::VALIDADE_MAXIMA_DIAS . ' days')) ?>" value="<?= date('Y-m-d', strtotime('+30 days')) ?>"></label>
+            <div class="adm-field adm-field--full"><button type="submit" class="adm-button adm-button--primary"><?= icon('link') ?> Criar link</button>
+                <span class="adm-field__hint">Quem tem o link não precisa de senha: digita só o nome. O link vale só para este lote e até a data escolhida.<?= config_bool('COLETA_LINKS_ATIVOS', true) ? '' : ' <strong>Atenção: os links estão desligados em Configurações.</strong>' ?></span></div>
+        </form>
+    <?php endif; ?>
+
+    <h3 class="adm-subtitulo">Pausar ou retomar uma etapa</h3>
+    <div class="adm-table-wrap adm-table-wrap--inset"><table class="adm-table adm-table--compact">
+        <tbody>
+        <?php foreach (Biblioteca\Services\ColetaService::ETAPAS as $etapa => $rotuloEtapa): $p = coleta_servico()->pausaAberta($id, $etapa); ?>
+            <tr>
+                <th scope="row"><?= e($rotuloEtapa) ?></th>
+                <?php if ($p): ?>
+                    <td><span class="adm-status adm-tone--amber">Pausada</span> por <?= e($p['pausado_por']) ?> em <?= e(admin_data_hora($p['pausado_em'])) ?><?= $p['motivo'] ? ' · ' . e($p['motivo']) : '' ?><br><small>Onde parou: <?= e($p['onde_parou']) ?></small></td>
+                    <td><?php if ($podeExemplares): ?><form method="post"><?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="retomar"><input type="hidden" name="etapa" value="<?= $etapa ?>">
+                        <button type="submit" class="adm-button adm-button--primary adm-button--sm"><?= icon('play') ?> Retomar trabalho</button></form><?php endif; ?></td>
+                <?php else: ?>
+                    <td><span class="adm-status adm-tone--green">Em andamento</span> <small class="adm-table__muted"><?= e(coleta_servico()->ondeParou($id, $etapa)) ?></small></td>
+                    <td><?php if ($podeExemplares && $st !== 'encerrado'): ?><form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="pausar"><input type="hidden" name="etapa" value="<?= $etapa ?>">
+                        <input class="adm-input adm-input--sm" type="text" name="motivo" maxlength="255" placeholder="Motivo (opcional)" aria-label="Motivo da pausa">
+                        <button type="submit" class="adm-button adm-button--ghost adm-button--sm"><?= icon('pause') ?> Pausar trabalho</button></form><?php endif; ?></td>
+                <?php endif; ?>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table></div>
+    <?php if ($coletaPausas): ?>
+        <details><summary>Histórico de pausas (<?= count($coletaPausas) ?>)</summary>
+            <ul class="adm-lista-simples"><?php foreach ($coletaPausas as $p): ?>
+                <li><?= e(Biblioteca\Services\ColetaService::ETAPAS[$p['etapa']]) ?>: pausada por <?= e($p['pausado_por']) ?> em <?= e(admin_data_hora($p['pausado_em'])) ?> (<?= e($p['onde_parou']) ?>)<?= $p['retomado_em'] ? ' · retomada por ' . e($p['retomado_por']) . ' em ' . e(admin_data_hora($p['retomado_em'])) : ' · ainda pausada' ?></li>
+            <?php endforeach; ?></ul>
+        </details>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
+
 <section class="adm-card adm-panel" aria-labelledby="titulo-participantes" id="participantes">
     <h2 id="titulo-participantes" class="adm-panel__title"><?= icon('users') ?> Usuários do lote</h2>
     <ul class="adm-lista-simples">
@@ -509,4 +636,4 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', FISICO_CSS)
 </details>
 
 <?php
-admin_page_end(array_merge(FISICO_JS, ['assets/js/lotes.js?v=20261115']));
+admin_page_end(array_merge(FISICO_JS, ['assets/js/lotes.js?v=20261115', 'assets/js/coleta.js?v=20261126']));

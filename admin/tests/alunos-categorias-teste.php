@@ -270,14 +270,15 @@ $cons = $navs['consulta'];
 $tok = fn (TesteNavegador $n) => $n->csrf('admin/perfil.php');
 $L = 302;
 foreach ([
-    'alunos.php' => [$L, 200, 200, 200, 403],
-    'aluno.php?id=' . $aluno['joao'] => [$L, 200, 200, 200, 403],
-    'aluno-editar.php' => [$L, 200, 200, 403, 403],
-    'aluno-editar.php?id=' . $aluno['joao'] => [$L, 200, 200, 403, 403],
+    // Único perfil (migração 200): contas antigas com outro perfil gravado entram como administradoras.
+    'alunos.php' => [$L, 200, 200, 200, 200],
+    'aluno.php?id=' . $aluno['joao'] => [$L, 200, 200, 200, 200],
+    'aluno-editar.php' => [$L, 200, 200, 200, 200],
+    'aluno-editar.php?id=' . $aluno['joao'] => [$L, 200, 200, 200, 200],
     'categorias.php' => [$L, 200, 200, 200, 200],
     'categorias.php?aba=antigas' => [$L, 200, 200, 200, 200],
-    'categoria.php' => [$L, 200, 200, 403, 403],
-    'categoria.php?id=' . $catLit => [$L, 200, 200, 403, 403],
+    'categoria.php' => [$L, 200, 200, 200, 200],
+    'categoria.php?id=' . $catLit => [$L, 200, 200, 200, 200],
 ] as $pagina => $esperado) {
     $obtido = [];
     $vazou = false;
@@ -291,7 +292,7 @@ foreach ([
     confere("12. $pagina → " . implode('/', $esperado), $obtido === array_map('strval', $esperado) && !$vazou, 'obtido ' . implode('/', $obtido));
 }
 [, $html] = $cons->ir('admin/index.php');
-confere('12. perfil consulta não vê o item Alunos no menu', !str_contains($html, 'alunos.php'));
+confere('12. conta antiga "consulta" vê o item Alunos no menu', str_contains($html, 'alunos.php'));
 [, $html] = $aux->ir('admin/index.php');
 confere('12. auxiliar vê o item Alunos no menu (sem "Em breve")', str_contains($html, 'alunos.php') && !preg_match('#alunos\.php"[^>]*>(?:(?!</a>).)*Em breve#s', $html));
 
@@ -300,7 +301,7 @@ confere('1/3. página Alunos: pesquisa sem acento mostra o aluno', $s === 200 &&
 [, $html] = $bib->ir('admin/alunos.php?turma=5P&por_pagina=25&pagina=2&ordem=matricula');
 confere('4. página Alunos: paginação no servidor (25 por página)', substr_count($html, 'aluno.php?id=') === 50 && str_contains($html, 'PAG-026') && !str_contains($html, 'PAG-025') && str_contains($html, 'Mostrando 26–50 de 60'));
 [, $html] = $aux->ir('admin/alunos.php');
-confere('12. auxiliar consulta, mas não vê os botões de cadastrar e editar', !str_contains($html, 'aluno-editar.php'));
+confere('12. conta antiga "auxiliar" vê os botões de cadastrar e editar', str_contains($html, 'aluno-editar.php'));
 [$s, $html] = $bib->ir('admin/aluno.php?id=' . $aluno['joao']);
 confere('5. detalhes: dados cadastrais', $s === 200 && str_contains($html, 'FIC-101') && str_contains($html, 'joao.ficticio@escola.teste') && str_contains($html, '8A') && str_contains($html, 'Manhã'));
 confere('6. detalhes: empréstimos ativos, atrasados e devoluções anteriores (registros reais)', str_contains($html, 'Empréstimos atrasados') && str_contains($html, 'Devoluções anteriores') && str_contains($html, 'emprestimo.php?id=' . $empAtrasado) && str_contains($html, 'emprestimo.php?id=' . $empDevolvido) && str_contains($html, 'Atrasado há 5 dias'));
@@ -309,11 +310,9 @@ confere('ajuda contextual na página do aluno', str_contains($html, 'Como usar e
 
 // Cadastro pela página
 $antes = $num('SELECT COUNT(*) FROM alunos');
-[$s] = $aux->ir('admin/aluno-editar.php', ['csrf' => $tok($aux), 'nome' => 'Aluno do Auxiliar', 'matricula' => 'AUX-1']);
-[$s2] = $cons->ir('admin/aluno-editar.php', ['csrf' => $tok($cons), 'nome' => 'Aluno da Consulta', 'matricula' => 'CON-1']);
 [$s3] = $bib->ir('admin/aluno-editar.php', ['csrf' => 'falso', 'nome' => 'Aluno Sem Token', 'matricula' => 'TOK-1']);
 [$s4] = $navs['anonimo']->ir('admin/aluno-editar.php', ['nome' => 'Aluno Anônimo', 'matricula' => 'ANO-1']);
-confere('12. cadastro recusado no servidor para auxiliar (403), consulta (403), sem CSRF (419) e sem login (302)', [$s, $s2, $s3, $s4] === [403, 403, 419, 302] && $num('SELECT COUNT(*) FROM alunos') === $antes);
+confere('12. cadastro recusado no servidor sem CSRF (419) e sem login (302)', [$s3, $s4] === [419, 302] && $num('SELECT COUNT(*) FROM alunos') === $antes);
 [$s, $html] = $bib->ir('admin/aluno-editar.php', ['csrf' => $tok($bib), 'nome' => 'Aluna Página Fictícia', 'matricula' => 'FIC-002']);
 confere('9. página: matrícula duplicada mostra erro claro e não grava', $s === 200 && str_contains($html, 'já pertence a outro aluno') && $num('SELECT COUNT(*) FROM alunos') === $antes);
 [$s, $html] = $bib->ir('admin/aluno-editar.php', ['csrf' => $tok($bib), 'nome' => '<b>Aluna</b> Página Fictícia', 'matricula' => 'FIC-900', 'email' => 'aluna.pagina@escola.teste', 'turno' => 'tarde']);
@@ -324,8 +323,8 @@ confere('7. página: cadastro grava e o nome é escapado na saída (XSS)', $idPa
 confere('página: troca de matrícula pede confirmação', $s === 200 && str_contains($html, 'confirmar_matricula') && $repo->buscar($idPagina)['matricula'] === 'FIC-900');
 [$s, , $loc] = $bib->ir('admin/aluno-editar.php', ['csrf' => $tok($bib), 'id' => (string)$idPagina, 'nome' => 'Aluna Página Fictícia', 'matricula' => 'FIC-901', 'email' => 'aluna.pagina@escola.teste', 'turno' => 'tarde', 'confirmar_matricula' => '1']);
 confere('8. página: correção confirmada grava e volta aos detalhes', $s === 303 && str_contains($loc, 'aluno.php?id=' . $idPagina) && $repo->buscar($idPagina)['matricula'] === 'FIC-901');
-[$s] = $aux->ir('admin/aluno.php', ['csrf' => $tok($aux), 'id' => (string)$idPagina, 'acao' => 'inativar']);
-confere('12. auxiliar não inativa (403)', $s === 403 && (int)$repo->buscar($idPagina)['ativo'] === 1);
+[$s] = $navs['anonimo']->ir('admin/aluno.php', ['id' => (string)$idPagina, 'acao' => 'inativar']);
+confere('12. sem login não inativa (302)', $s === 302 && (int)$repo->buscar($idPagina)['ativo'] === 1);
 [$s] = $bib->ir('admin/aluno.php', ['csrf' => $tok($bib), 'id' => (string)$idPagina, 'acao' => 'inativar', 'motivo' => 'Teste']);
 confere('15. bibliotecária inativa pela página', $s === 303 && (int)$repo->buscar($idPagina)['ativo'] === 0);
 [, $html] = $bib->ir('admin/novo-emprestimo.php?aluno=' . $idPagina);
@@ -334,11 +333,10 @@ confere('15. aluno inativo: sem botão de novo empréstimo e com aviso', !str_co
 
 // Categorias pela página
 $antes = $num('SELECT COUNT(*) FROM categorias');
-[$s] = $aux->ir('admin/categoria.php', ['csrf' => $tok($aux), 'nome' => 'Categoria do Auxiliar']);
-[$s2] = $cons->ir('admin/categoria.php', ['csrf' => $tok($cons), 'nome' => 'Categoria da Consulta']);
+[$s] = $navs['anonimo']->ir('admin/categoria.php', ['nome' => 'Categoria Anônima']);
 [$s3] = $bib->ir('admin/categoria.php', ['csrf' => 'falso', 'nome' => 'Categoria Sem Token']);
-[$s4] = $cons->ir('admin/categorias.php', ['csrf' => $tok($cons), 'id' => (string)$catPoesia, 'acao' => 'desativar']);
-confere('11. categorias: auxiliar e consulta recebem 403; sem CSRF, 419; nada gravado', [$s, $s2, $s3, $s4] === [403, 403, 419, 403] && $num('SELECT COUNT(*) FROM categorias') === $antes && $categorias->buscar($catPoesia)['arquivado_em'] === null);
+[$s4] = $navs['anonimo']->ir('admin/categorias.php', ['id' => (string)$catPoesia, 'acao' => 'desativar']);
+confere('11. categorias: sem login, 302; sem CSRF, 419; nada gravado', [$s, $s3, $s4] === [302, 419, 302] && $num('SELECT COUNT(*) FROM categorias') === $antes && $categorias->buscar($catPoesia)['arquivado_em'] === null);
 [$s, $html] = $bib->ir('admin/categoria.php', ['csrf' => $tok($bib), 'nome' => 'literatura brasileira contemporanea']);
 confere('4. página: nome repetido (minúsculas, sem acento) mostra erro e não grava', $s === 200 && str_contains($html, 'Já existe a categoria') && $num('SELECT COUNT(*) FROM categorias') === $antes);
 [$s, , $loc] = $bib->ir('admin/categoria.php', ['csrf' => $tok($bib), 'nome' => 'Aventura Fictícia', 'descricao' => 'Histórias de aventura']);

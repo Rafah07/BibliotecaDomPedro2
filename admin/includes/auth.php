@@ -12,10 +12,12 @@
  */
 require_once __DIR__ . '/db.php';
 
-/** Permissões de cada perfil. */
 /**
- * Permissões de cada perfil. A conferência é sempre feita no servidor (auth_exigir / auth_pode);
- * esconder um botão na tela é só conveniência.
+ * Permissões das contas do painel. Desde a migração 200 há um único perfil, Administrador: toda conta
+ * ativa tem acesso total (a diferença entre bibliotecária, auxiliar e somente consulta foi retirada).
+ * A lista continua existindo porque o código confere cada ação pelo nome, sempre no servidor
+ * (auth_exigir / auth_pode). Uma conta antiga que ainda tenha outro perfil gravado é tratada como
+ * administradora (auth_usuario).
  *   livros.editar     cadastrar e editar livros
  *   livros.arquivar   arquivar e restaurar livros
  *   usuarios.gerenciar  cadastrar, editar, ativar/desativar contas do painel
@@ -51,25 +53,19 @@ require_once __DIR__ . '/db.php';
  *   configuracoes.editar  alterar identificação, regras de empréstimo e cadastro de alunos
  *   sistema.manutencao  segurança do painel, site em manutenção, configurações técnicas (.env),
  *                     diagnóstico, cópia de segurança do banco e limpezas de manutenção
- * Ver exemplares, localizações e inventários é permitido a todos os perfis (painel.ver).
- * A descrição de cada permissão para a tela Perfis e permissões está em AUTH_PERMISSOES_DESCRICOES.
+ * A descrição de cada permissão está em AUTH_PERMISSOES_DESCRICOES.
  */
 const AUTH_PERMISSOES = [
     'administrador' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'usuarios.gerenciar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'lotes.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar', 'sistema.manutencao', 'qualidade.ver', 'qualidade.resolver', 'obras.unificar', 'aquisicoes.registrar'],
-    'bibliotecaria' => ['painel.ver', 'livros.editar', 'livros.arquivar', 'alunos.importar', 'alunos.ver', 'alunos.editar', 'alunos.inativar', 'categorias.gerenciar', 'emprestimos.ver', 'emprestimos.registrar', 'emprestimos.prazo', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.aprovar', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'importacao.executar', 'exemplares.gerenciar', 'exemplares.baixar', 'localizacoes.gerenciar', 'inventario.conferir', 'inventario.gerenciar', 'lotes.gerenciar', 'etiquetas.gerar', 'etiquetas.configurar', 'site.editar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'relatorios.exportar_pessoais', 'relatorios.atividades', 'configuracoes.ver', 'configuracoes.editar', 'qualidade.ver', 'qualidade.resolver', 'obras.unificar', 'aquisicoes.registrar'],
-    'auxiliar' => ['painel.ver', 'livros.editar', 'alunos.ver', 'emprestimos.ver', 'emprestimos.registrar', 'cdd.ver', 'cdd.sugerir', 'cdd.lote', 'cdd.exportar', 'importacao.ver', 'importacao.revisar', 'exemplares.gerenciar', 'inventario.conferir', 'etiquetas.gerar', 'relatorios.ver', 'relatorios.exportar', 'relatorios.alunos', 'qualidade.ver', 'aquisicoes.registrar'],
-    'consulta' => ['painel.ver', 'cdd.ver', 'cdd.exportar', 'importacao.ver', 'relatorios.ver', 'relatorios.exportar'],
 ];
 
+/** Único perfil do painel (migração 200). */
 const AUTH_PERFIS = [
     'administrador' => 'Administrador',
-    'bibliotecaria' => 'Bibliotecária',
-    'auxiliar' => 'Auxiliar de biblioteca',
-    'consulta' => 'Somente consulta',
 ];
 
 /**
- * Descrição de cada permissão, agrupada por módulo, para a tela Sistema → Perfis e permissões.
+ * Descrição de cada permissão, agrupada por módulo (documentação e Central de Ajuda).
  * Toda permissão usada em AUTH_PERMISSOES precisa estar aqui (o teste configuracoes-teste.php confere).
  */
 const AUTH_PERMISSOES_DESCRICOES = [
@@ -135,8 +131,8 @@ const AUTH_SENHA_DEMO = 'demo123';
 
 /** Contas do modo demonstrativo (sem MySQL). O e-mail não diferencia maiúsculas: Bibliotecaria@demo também entra. */
 const AUTH_CONTAS_DEMO = [
-    'bibliotecaria@demo' => ['id' => 1, 'nome' => 'Ana Souza', 'perfil' => 'bibliotecaria', 'cargo' => 'Bibliotecária'],
-    'auxiliar@demo' => ['id' => 2, 'nome' => 'Carlos Lima', 'perfil' => 'auxiliar', 'cargo' => 'Auxiliar de biblioteca'],
+    'bibliotecaria@demo' => ['id' => 1, 'nome' => 'Ana Souza', 'perfil' => 'administrador', 'cargo' => 'Bibliotecária'],
+    'auxiliar@demo' => ['id' => 2, 'nome' => 'Carlos Lima', 'perfil' => 'administrador', 'cargo' => 'Auxiliar de biblioteca'],
 ];
 
 /** Padrão de tentativas de senha (LOGIN_MAX_TENTATIVAS em Sistema → Configurações). */
@@ -230,7 +226,9 @@ function auth_usuario(): ?array
     unset($sessao['senha'], $sessao['visto']);
     $sessao['id'] = (int)$sessao['id'];
     $sessao['iniciais'] = auth_iniciais($sessao['nome']);
-    $sessao['cargo'] = $sessao['cargo'] ?: (AUTH_PERFIS[$sessao['perfil']] ?? '');
+    // Único perfil (migração 200): mesmo uma conta antiga com outro perfil gravado é administradora.
+    $sessao['perfil'] = 'administrador';
+    $sessao['cargo'] = $sessao['cargo'] ?: AUTH_PERFIS['administrador'];
     return $usuario = $sessao;
 }
 
@@ -245,7 +243,7 @@ function auth_iniciais(string $nome): string
 function auth_pode(string $permissao): bool
 {
     $usuario = auth_usuario();
-    return $usuario !== null && in_array($permissao, AUTH_PERMISSOES[$usuario['perfil']] ?? [], true);
+    return $usuario !== null && in_array($permissao, AUTH_PERMISSOES['administrador'], true);
 }
 
 /**
@@ -268,7 +266,7 @@ function auth_exigir(string $permissao = 'painel.ver', bool $json = false): arra
             api_resposta(['ok' => false, 'erro' => 'Você não tem permissão para esta ação.'], 403);
         }
         http_response_code(403);
-        admin_pagina_erro('Acesso não permitido', 'Seu perfil não tem permissão para acessar esta página. Fale com a bibliotecária responsável.', 'lock');
+        admin_pagina_erro('Acesso não permitido', 'Esta página não está disponível. Verifique o endereço ou volte ao painel.', 'lock');
         exit;
     }
     return $usuario;

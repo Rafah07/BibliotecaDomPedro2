@@ -53,8 +53,10 @@ $antes = $retrato();
 confere('sem login: cadastro recusado (vai para o login) e nada é gravado', $s === 302 && $retrato() === $antes);
 [$s] = $bib->ir('admin/cadastrar-livro.php', ['titulo' => 'Livro Fictício Sem Token', 'acao' => 'salvar']);
 confere('sem token CSRF: recusado (419) e nada é gravado', $s === 419 && $retrato() === $antes);
-[$s] = $cons->ir('admin/cadastrar-livro.php', ['csrf' => $token($cons), 'titulo' => 'Livro Fictício da Consulta', 'acao' => 'salvar']);
-confere('perfil consulta: recusado (403) mesmo com token válido', $s === 403 && $retrato() === $antes);
+// Único perfil (migração 200): as contas antigas "auxiliar" e "consulta" são administradoras; o que as
+// impede de gravar é faltar o token CSRF da própria sessão (ou o login).
+[$s] = $cons->ir('admin/cadastrar-livro.php', ['csrf' => $token($bib), 'titulo' => 'Livro Fictício da Consulta', 'acao' => 'salvar']);
+confere('token CSRF de outra sessão: recusado (419) e nada é gravado', $s === 419 && $retrato() === $antes);
 [$s, , $loc] = $bib->ir('admin/cadastrar-livro.php', ['csrf' => $tb, 'acao' => 'salvar', 'titulo' => 'Memórias Fictícias da Auditoria', 'subtitulo' => 'Um livro de teste',
     'autores' => ['Autora Fictícia Exemplo'], 'editora' => 'Editora Teste', 'ano_publicacao' => '2024', 'idioma' => 'Português', 'assunto' => 'Teste de integração']);
 $livroId = preg_match('/detalhes-livro\.php\?id=(\d+)/', $loc, $m) ? (int)$m[1] : 0;
@@ -68,8 +70,8 @@ echo "\n2–5. Exemplar físico, código BDP e localização\n";
 [$s, , $loc] = $bib->ir('admin/localizacao.php', ['csrf' => $tb, 'setor' => 'Literatura Fictícia', 'estante' => 'e9', 'prateleira' => 'p2', 'codigo' => 'LIT-E9-P2']);
 $localId = $num("SELECT id FROM localizacoes WHERE codigo = 'LIT-E9-P2'");
 confere('4. localização criada pela página (estante e prateleira em maiúsculas)', $s === 303 && $localId > 0 && $num("SELECT COUNT(*) FROM localizacoes WHERE id = ? AND estante = 'E9' AND prateleira = 'P2'", [$localId]) === 1);
-[$s] = $aux->ir('admin/localizacao.php', ['csrf' => $token($aux), 'setor' => 'Setor do Auxiliar']);
-confere('4. auxiliar não cria localização (403)', $s === 403 && $num("SELECT COUNT(*) FROM localizacoes WHERE setor = 'Setor do Auxiliar'") === 0);
+[$s] = $aux->ir('admin/localizacao.php', ['csrf' => 'falso', 'setor' => 'Setor do Auxiliar']);
+confere('4. sem o token CSRF não cria localização (419)', $s === 419 && $num("SELECT COUNT(*) FROM localizacoes WHERE setor = 'Setor do Auxiliar'") === 0);
 [$s] = $bib->ir('admin/cadastrar-exemplar.php', ['csrf' => $tb, 'livro_id' => (string)$livroId, 'quantidade' => '1', 'estado_conservacao' => 'bom']);
 confere('2. sem marcar a confirmação física, nenhum exemplar é criado', $s === 200 && $num('SELECT COUNT(*) FROM exemplares WHERE livro_id = ?', [$livroId]) === 0);
 $seqAntes = $num('SELECT ultimo FROM exemplar_codigo_seq');
@@ -113,15 +115,15 @@ confere('6. PDF da etiqueta gerado pela página', $s === 200 && str_starts_with(
 confere('6. etiqueta só com texto: "BIBLIOTECA DOM PEDRO II" e o código BDP', $tx[1] === ['BIBLIOTECA DOM PEDRO II', $codigo], json_encode($tx[1]));
 confere('6. PDF sem imagem (nenhum código de barras ou QR Code)', !str_contains($pdf, '/Image') && !str_contains($pdf, '/XObject'));
 confere('6. geração da etiqueta registrada no exemplar', $num('SELECT COUNT(*) FROM exemplares WHERE id = ? AND etiqueta_gerada_em IS NOT NULL', [$exId]) === 1);
-[$s] = $cons->ir('admin/etiquetas.php', ['csrf' => $token($cons), 'acao' => 'pdf', 'ids' => (string)$exId, 'modelo' => (string)$modelo]);
-confere('6. perfil consulta não gera etiquetas (403)', $s === 403);
+[$s] = $anon->ir('admin/etiquetas.php', ['acao' => 'pdf', 'ids' => (string)$exId, 'modelo' => (string)$modelo]);
+confere('6. sem login não gera etiquetas (302)', $s === 302);
 
 // ---------------------------------------------------------------
 echo "\n7. Aluno fictício (importação local, pela API do painel)\n";
 $csv = "\xEF\xBB\xBFNome;Matrícula;Turma;Turno\r\nAluna Fictícia Integração;FIC-2026-001;7º A;Manhã\r\n";
 $campos = ['acao' => 'previa', 'linha_cabecalho' => '1', 'mapeamento' => json_encode(['A' => 'nome', 'B' => 'matricula', 'C' => 'turma', 'D' => 'turno']), 'modo' => 'novos'];
-[$s, $corpo] = $aux->enviar('admin/api/alunos/importar.php', $campos + ['csrf' => $token($aux)], ['arquivo' => ['alunos-ficticios.csv', $csv, 'text/csv']]);
-confere('7. auxiliar não importa alunos (403)', $s === 403);
+[$s, $corpo] = $anon->enviar('admin/api/alunos/importar.php', $campos, ['arquivo' => ['alunos-ficticios.csv', $csv, 'text/csv']]);
+confere('7. sem login não importa alunos', $s >= 400 && $num('SELECT COUNT(*) FROM alunos') === 0);
 [$s, $corpo] = $bib->enviar('admin/api/alunos/importar.php', $campos, ['arquivo' => ['alunos-ficticios.csv', $csv, 'text/csv']]);
 confere('7. importação sem token CSRF é recusada', $s >= 400 && $num('SELECT COUNT(*) FROM alunos') === 0);
 [$s, $corpo] = $bib->enviar('admin/api/alunos/importar.php', $campos + ['csrf' => $tb], ['arquivo' => ['alunos-ficticios.csv', $csv, 'text/csv']]);
@@ -145,8 +147,8 @@ confere('8. código completo digitado (minúsculas) leva à confirmação do exe
 $antes = $retrato();
 [$s] = $bib->ir('admin/novo-emprestimo.php', ['csrf' => $tb, 'aluno' => (string)$alunoId, 'exemplar' => '987654', 'confirmar' => '1']);
 confere('8. empréstimo de exemplar físico inexistente: nada é gravado', $retrato() === $antes && $num('SELECT COUNT(*) FROM emprestimos') === 0);
-[$s] = $cons->ir('admin/novo-emprestimo.php', ['csrf' => $token($cons), 'aluno' => (string)$alunoId, 'exemplar' => (string)$exId, 'confirmar' => '1']);
-confere('8. perfil consulta não registra empréstimo (403)', $s === 403 && $num('SELECT COUNT(*) FROM emprestimos') === 0);
+[$s] = $cons->ir('admin/novo-emprestimo.php', ['csrf' => 'falso', 'aluno' => (string)$alunoId, 'exemplar' => (string)$exId, 'confirmar' => '1']);
+confere('8. sem o token CSRF não registra empréstimo (419)', $s === 419 && $num('SELECT COUNT(*) FROM emprestimos') === 0);
 [$s, , $loc] = $bib->ir('admin/novo-emprestimo.php', ['csrf' => $tb, 'aluno' => (string)$alunoId, 'exemplar' => (string)$exId, 'confirmar' => '1', 'observacao' => 'Empréstimo do teste de integração']);
 $empId = $num('SELECT id FROM emprestimos WHERE exemplar_id = ? AND data_devolucao IS NULL', [$exId]);
 confere('8. empréstimo registrado', in_array($s, [302, 303], true) && $empId > 0 && str_contains($loc, 'emprestimo.php?id=' . $empId));
@@ -160,16 +162,16 @@ confere('9. exemplar emprestado não pode ser baixado', $num("SELECT COUNT(*) FR
 $data = $num('SELECT TO_DAYS(data_prevista) - TO_DAYS(DATE(data_emprestimo)) FROM emprestimos WHERE id = ?', [$empId]);
 confere('8. prazo padrão provisório de 14 dias calculado a partir de hoje', $data === 14);
 
-// Renovação (no prazo) e tentativa do auxiliar de mudar a data.
-[$s] = $aux->ir('admin/renovar-emprestimo.php?id=' . $empId, ['csrf' => $token($aux), 'id' => (string)$empId, 'confirmar' => '1', 'data_prevista' => date('Y-m-d', strtotime('+200 days'))]);
+// Renovação (no prazo), pela conta antiga "auxiliar", sem escolher outra data.
+[$s] = $aux->ir('admin/renovar-emprestimo.php?id=' . $empId, ['csrf' => $token($aux), 'id' => (string)$empId, 'confirmar' => '1']);
 $prev = (string)db_query('SELECT data_prevista FROM emprestimos WHERE id = ?', [$empId])->fetchColumn();
-confere('8. renovação pelo auxiliar usa o prazo padrão (data enviada à força é ignorada)', $s === 303 && $prev === date('Y-m-d', strtotime('+28 days')), "status $s, prevista $prev");
+confere('8. renovação sem outra data usa o prazo padrão', $s === 303 && $prev === date('Y-m-d', strtotime('+28 days')), "status $s, prevista $prev");
 confere('8. renovação fica registrada no histórico imutável', $num('SELECT COUNT(*) FROM emprestimo_renovacoes WHERE emprestimo_id = ?', [$empId]) === 1);
 
 // ---------------------------------------------------------------
 echo "\n10–11. Devolução\n";
-[$s] = $cons->ir('admin/devolver-emprestimo.php?id=' . $empId, ['csrf' => $token($cons), 'id' => (string)$empId, 'confirmar' => '1']);
-confere('10. perfil consulta não registra devolução (403)', $s === 403 && $num('SELECT COUNT(*) FROM emprestimos WHERE id = ? AND data_devolucao IS NULL', [$empId]) === 1);
+[$s] = $cons->ir('admin/devolver-emprestimo.php?id=' . $empId, ['csrf' => 'falso', 'id' => (string)$empId, 'confirmar' => '1']);
+confere('10. sem o token CSRF não registra devolução (419)', $s === 419 && $num('SELECT COUNT(*) FROM emprestimos WHERE id = ? AND data_devolucao IS NULL', [$empId]) === 1);
 [$s, , $loc] = $bib->ir('admin/devolver-emprestimo.php?id=' . $empId, ['csrf' => $tb, 'id' => (string)$empId, 'confirmar' => '1']);
 confere('10. devolução registrada', $s === 303 && $num('SELECT COUNT(*) FROM emprestimos WHERE id = ? AND data_devolucao IS NOT NULL AND recebido_por = ?', [$empId, $contas['bibliotecaria']]) === 1);
 confere('11. exemplar volta a ficar disponível', db_query('SELECT situacao FROM exemplares WHERE id = ?', [$exId])->fetchColumn() === 'disponivel');
@@ -190,8 +192,8 @@ echo "\n12–13. Inventário e conferência pelo código digitado\n";
 [$s, , $loc] = $bib->ir('admin/inventario-editar.php', ['csrf' => $tb, 'titulo' => 'Inventário Fictício de Integração', 'data_inicio' => date('Y-m-d'), 'responsavel_id' => (string)$contas['bibliotecaria'], 'setor' => '']);
 $invId = $num("SELECT id FROM inventarios WHERE titulo = 'Inventário Fictício de Integração'");
 confere('12. inventário criado pela página', $invId > 0, "status $s");
-[$s] = $aux->ir('admin/inventario-detalhes.php?id=' . $invId, ['csrf' => $token($aux), 'id' => (string)$invId, 'acao' => 'iniciar']);
-confere('12. auxiliar não inicia inventário (403)', $s === 403 && db_query('SELECT status FROM inventarios WHERE id = ?', [$invId])->fetchColumn() === 'aberto');
+[$s] = $aux->ir('admin/inventario-detalhes.php?id=' . $invId, ['csrf' => 'falso', 'id' => (string)$invId, 'acao' => 'iniciar']);
+confere('12. sem o token CSRF não inicia inventário (419)', $s === 419 && db_query('SELECT status FROM inventarios WHERE id = ?', [$invId])->fetchColumn() === 'aberto');
 [$s] = $bib->ir('admin/inventario-detalhes.php?id=' . $invId, ['csrf' => $tb, 'id' => (string)$invId, 'acao' => 'iniciar']);
 confere('12. inventário iniciado com os 2 exemplares previstos', db_query('SELECT status FROM inventarios WHERE id = ?', [$invId])->fetchColumn() === 'em_andamento'
     && $num('SELECT COUNT(*) FROM inventario_itens WHERE inventario_id = ? AND previsto = 1', [$invId]) === 2);
@@ -215,7 +217,7 @@ echo "\n14. Relatórios\n";
 [$s, $html] = $bib->ir('admin/relatorios.php?secao=emprestimos');
 confere('14. relatório de empréstimos abre sem erro técnico', $s === 200 && teste_sem_erro_tecnico($html));
 [$s, $html] = $cons->ir('admin/relatorios.php?secao=emprestimos');
-confere('14. perfil consulta vê os números, sem o nome da aluna', $s === 200 && !str_contains($html, 'Aluna Fictícia Integração'));
+confere('14. conta antiga "consulta" abre o relatório de empréstimos', $s === 200 && teste_sem_erro_tecnico($html));
 [$s, $csvRel, , $tipo, $disp] = $bib->ir('admin/relatorios.php?secao=exemplares&formato=csv&tabela=exemplares');
 confere('14. exportação CSV dos exemplares traz o código BDP', $s === 200 && str_contains($disp, 'attachment') && str_contains($csvRel, $codigo));
 [$s, $html] = $bib->ir('admin/relatorios.php?secao=inventarios');
@@ -229,8 +231,8 @@ $tipos = db_query('SELECT tipo FROM movimentacoes WHERE exemplar_id = ? ORDER BY
 confere('15. movimentações do exemplar: cadastro, transferência, empréstimo, devolução e inventário', !array_diff(['emprestimo', 'devolucao', 'inventario'], $tipos) && count($tipos) >= 5, implode(',', $tipos));
 [$s, $html] = $bib->ir('admin/historico-exemplar.php?id=' . $exId);
 confere('15. página de histórico do exemplar mostra o empréstimo e a aluna (perfil autorizado)', $s === 200 && str_contains($html, $codigo) && str_contains($html, 'Aluna Fictícia Integração'));
-[$s] = $cons->ir('admin/historico-exemplar.php?id=' . $exId);
-confere('15. perfil consulta não abre o histórico com dados de aluno (403)', $s === 403);
+[$s] = $anon->ir('admin/historico-exemplar.php?id=' . $exId);
+confere('15. sem login, o histórico com dados de aluno não abre (302)', $s === 302);
 [$s, $html] = $bib->ir('admin/historico-aluno.php?id=' . $alunoId);
 confere('15. histórico da aluna mostra o empréstimo devolvido', $s === 200 && str_contains($html, 'Memórias Fictícias da Auditoria'));
 confere('15. ações administrativas registradas (livro, exemplar, empréstimo, devolução, inventário)',

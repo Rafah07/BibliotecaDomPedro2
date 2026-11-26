@@ -279,17 +279,16 @@ confere('API "Gerar código BDP" reserva no servidor', $s === 200 && ($j['ok'] ?
 [$s2, $json2] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $tk, 'livro_id' => $principe, 'processo' => $procApi]);
 confere('API: clicar de novo no mesmo formulário devolve o mesmo código ainda não usado', $s2 === 200 && (json_decode($json2, true)['codigo'] ?? '') === ($j['codigo'] ?? 'x'));
 [$s] = (new TesteNavegador($base))->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => 'x']);
-[$s2] = $cons->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => $cons->csrf('admin/perfil.php')]);
 [$s3] = $bib->ir('admin/api/inventario/gerar-codigo.php', ['csrf' => 'falso']);
 [$s4] = $bib->ir('admin/api/inventario/gerar-codigo.php');
-confere('API exige login (401), permissão (403), CSRF (419) e POST (405)', $s === 401 && $s2 === 403 && $s3 === 419 && $s4 === 405, "$s/$s2/$s3/$s4");
+confere('API exige login (401), CSRF (419) e POST (405)', $s === 401 && $s3 === 419 && $s4 === 405, "$s/$s3/$s4");
 $postReg = ['csrf' => $tk, 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $principe, 'codigo_bdp' => $j['codigo'] ?? '', 'estado_conservacao' => 'regular', 'situacao_inventario' => 'encontrado', 'processo_bdp' => $procApi, 'vinculo' => 'adicional'];
 [$s, , $loc] = $bib->ir('admin/inventario-conferencia.php?id=' . $inv, $postReg);
 confere('"Salvar exemplar" pela página grava e volta para a ficha com o código em destaque', $s === 303 && str_contains((string)$loc, 'criados=') && $num('SELECT COUNT(*) FROM exemplares WHERE codigo_individual = ?', [$j['codigo'] ?? '']) === 1);
 [$s, $html] = $bib->ir(ltrim((string)parse_url((string)$loc, PHP_URL_PATH), '/') . '?' . parse_url((string)$loc, PHP_URL_QUERY));
 confere('mensagem orienta a conferir o carimbo e oferece "Registrar outra cópia" e "Próximo livro"', $s === 200 && str_contains($html, 'Exemplar registrado') && str_contains($html, 'Registrar outra cópia') && str_contains($html, 'Próximo livro') && str_contains($html, 'adm-code--grande'));
-[$s] = $cons->ir('admin/inventario-conferencia.php?id=' . $inv, ['csrf' => $cons->csrf('admin/perfil.php'), 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $principe, 'codigo_bdp' => 'BDP-099950']);
-confere('perfil consulta não registra exemplar (403)', $s === 403 && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-099950'") === 0, "status $s");
+[$s] = $cons->ir('admin/inventario-conferencia.php?id=' . $inv, ['csrf' => 'falso', 'id' => $inv, 'acao' => 'registrar_exemplar', 'livro_id' => $principe, 'codigo_bdp' => 'BDP-099950']);
+confere('sem o token CSRF não registra exemplar (419)', $s === 419 && $num("SELECT COUNT(*) FROM exemplares WHERE codigo_individual = 'BDP-099950'") === 0, "status $s");
 
 teste_resultado();
 

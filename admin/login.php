@@ -93,7 +93,7 @@ $demo = auth_demo_disponivel();
                 <div>
                     <strong>Modo demonstrativo (<?= db_configurado() ? 'sem conexão com o MySQL' : 'banco MySQL não configurado' ?>).</strong>
                     <p>Sem o MySQL interligado, o painel pode ser acessado do mesmo jeito com dados fictícios. Entre com <code>Bibliotecaria@demo</code> e a senha <code><?= htmlspecialchars(AUTH_SENHA_DEMO) ?></code>.</p>
-                    <p>Também existe <code>auxiliar@demo</code> (mesma senha), com permissões de auxiliar.</p>
+                    <p>Também existe <code>auxiliar@demo</code> (mesma senha). As duas contas são de administrador, com acesso total.</p>
                 </div>
             </div>
         <?php endif; ?>

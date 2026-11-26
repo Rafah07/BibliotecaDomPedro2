@@ -190,7 +190,7 @@ Faça isto **somente** no computador autorizado da biblioteca, com a planilha of
 
 ## 16. Como consultar, cadastrar e corrigir alunos
 
-**Gerenciamento → Alunos** (bibliotecária, administrador e auxiliar; o perfil Somente consulta não vê alunos).
+**Gerenciamento → Alunos** (todas as contas do painel).
 
 **Consultar**
 
@@ -249,6 +249,6 @@ Restaurar uma cópia é tarefa do responsável técnico, sempre num banco novo. 
 - **"Código não encontrado"**: confira a etiqueta. Se o livro não tem exemplar cadastrado, cadastre (passo 4).
 - **"Exemplar já emprestado"**: registre a devolução anterior antes de emprestar de novo.
 - **Voltei para a tela de login sozinha**: a sessão terminou por inatividade. Entre de novo; o que não foi salvo precisa ser refeito.
-- **Não aparece um menu**: o seu perfil não tem essa permissão. Fale com o administrador.
+- **Não aparece um menu**: o menu pode estar recolhido (clique em **Expandir menu**). Todas as contas veem o menu completo.
 - **"A matrícula ... já pertence a outro aluno"**: a matrícula já está cadastrada. Pesquise em **Alunos** (com **Situação → Todos**): o aluno provavelmente já existe.
 - **"A categoria ... não pode ser desativada"**: ainda há livros ativos nela. Troque a categoria desses livros antes.

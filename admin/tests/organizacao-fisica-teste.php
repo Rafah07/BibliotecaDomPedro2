@@ -205,11 +205,12 @@ confere('Localizações anteriores continua abrindo', $s === 200 && teste_sem_er
 $cons = new TesteNavegador($base);
 $cons->entrar('cons@teste.br', $senha);
 [$s, $html] = $cons->ir('admin/organizacao-fisica.php');
-confere('perfil consulta vê a organização, sem botões de alterar', $s === 200 && !str_contains($html, 'id="painel-estante"'));
-[$s] = $cons->ir('admin/organizacao-fisica.php', ['csrf' => $cons->csrf('admin/perfil.php'), 'acao' => 'estante_criar', 'identificacao' => 'Q']);
-confere('perfil consulta não cria estante (403)', $s === 403 && $num("SELECT COUNT(*) FROM estantes WHERE identificacao = 'Q'") === 0);
-[$s] = $cons->ir('admin/organizacao-fisica.php', ['csrf' => $cons->csrf('admin/perfil.php'), 'acao' => 'mover_exemplar', 'codigo' => 'BDP-001003', 'destino_id' => $pratsA[1]]);
-confere('perfil consulta não move exemplar (403)', $s === 403);
+// Único perfil (migração 200): a conta antiga "consulta" é administradora; sem o token CSRF nada é gravado.
+confere('conta antiga "consulta" vê a organização com os botões de alterar', $s === 200 && str_contains($html, 'id="painel-estante"'));
+[$s] = $cons->ir('admin/organizacao-fisica.php', ['csrf' => 'falso', 'acao' => 'estante_criar', 'identificacao' => 'Q']);
+confere('sem o token CSRF não cria estante (419)', $s === 419 && $num("SELECT COUNT(*) FROM estantes WHERE identificacao = 'Q'") === 0);
+[$s] = $cons->ir('admin/organizacao-fisica.php', ['csrf' => 'falso', 'acao' => 'mover_exemplar', 'codigo' => 'BDP-001003', 'destino_id' => $pratsA[1]]);
+confere('sem o token CSRF não move exemplar (419)', $s === 419);
 
 // ---------------------------------------------------------------
 echo "\n9. Conferência do Inventário com a Organização Física\n";

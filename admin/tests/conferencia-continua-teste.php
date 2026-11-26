@@ -407,10 +407,12 @@ confere('resposta parcial (X-Conferencia) traz só as regiões, sem o layout', $
 [$s, $html] = $bib->ir($pg2 . '&obra=' . $mar);
 confere('ficha da obra: associação confirmada, indicadores, exemplares e referências da planilha', $s === 200 && str_contains($html, 'Referências da planilha') && str_contains($html, 'Associação bibliográfica confirmada')
     && str_contains($html, 'Exemplares registrados') && str_contains($html, $x1['codigo']) && str_contains($html, 'Registros de obras sem exemplar'));
+// Único perfil (migração 200): quem não pode gravar é quem não entrou ou envia sem o token CSRF.
 $cons = new TesteNavegador($base);
 $cons->entrar('cons@teste.br', $senha);
-[$s] = $cons->ir($pg2, ['csrf' => $cons->csrf('admin/perfil.php'), 'id' => $inv2, 'acao' => 'finalizar_estante', 'localizacao_id' => $loc1]);
-confere('perfil consulta não finaliza estante nem vincula obras (403)', $s === 403);
+[$s] = $cons->ir($pg2, ['csrf' => 'falso', 'id' => $inv2, 'acao' => 'finalizar_estante', 'localizacao_id' => $loc1]);
+[$sAnon] = (new TesteNavegador($base))->ir($pg2, ['id' => $inv2, 'acao' => 'finalizar_estante', 'localizacao_id' => $loc1]);
+confere('sem CSRF (419) ou sem login (302) não finaliza estante', $s === 419 && $sAnon === 302);
 $log = (string)@file_get_contents(sys_get_temp_dir() . '/bdp-teste-servidor-' . parse_url($base, PHP_URL_PORT) . '.log');
 confere('nenhum erro de PHP registrado pelo servidor', !preg_match('/PHP (Fatal|Warning|Notice|Deprecated)/', $log), implode(' | ', array_slice(preg_grep('/PHP (Fatal|Warning|Notice|Deprecated)/', explode("\n", $log)) ?: [], 0, 3)));
 

@@ -419,7 +419,7 @@ confere('sem login, "Site público" leva ao login', $s === 302 && str_contains($
 $aux = new Navegador($baseHttp);
 $aux->entrar('aux@teste.br', $senhaPadrao);
 [$s] = $aux->ir('admin/site-publico.php');
-confere('auxiliar não edita os textos do site (403)', $s === 403);
+confere('conta antiga "auxiliar" abre os textos do site (único perfil, migração 200)', $s === 200);
 $bib = new Navegador($baseHttp);
 confere('login da bibliotecária', $bib->entrar('bib@teste.br', $senhaPadrao) === 302);
 [$s, $h] = $bib->ir('admin/site-publico.php');

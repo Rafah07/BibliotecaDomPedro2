@@ -66,7 +66,7 @@ return [
         'exemplo' => 'A escola comprou folhas A4 com 3 colunas e 11 linhas. O teste em papel comum saiu 2 mm acima; a bibliotecária aumenta a Margem superior em 2 mm e testa de novo.',
         'resultado' => ['As etiquetas caem dentro dos recortes da folha.'],
         'problemas' => [
-            ['Não vejo Modelos e medidas.', 'O seu perfil não configura modelos.', 'Peça à bibliotecária ou ao administrador.'],
+            ['A tela de login apareceu no meio do trabalho.', 'A sessão expirou por tempo sem uso.', 'Entre de novo e repita a última ação.'],
         ],
         'cuidados' => ['Fonte muito pequena deixa o código difícil de ler e digitar. Prefira etiquetas maiores para o código patrimonial.'],
         'relacionados' => ['gerar-etiquetas', 'faq-etiqueta-impressao'],
