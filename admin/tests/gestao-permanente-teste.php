@@ -585,18 +585,20 @@ $auxNav = new TesteNavegador($base);
 $auxNav->entrar('aux@teste.br', $senha);
 [$s] = $auxNav->ir('admin/qualidade.php');
 confere('H14. auxiliar consulta a Central de Qualidade', $s === 200);
-[$s] = $auxNav->ir('admin/qualidade.php', ['csrf' => $tok($auxNav, 'admin/qualidade.php'), 'acao' => 'analisar']);
-confere('H15. auxiliar não atualiza a análise (403 no servidor)', $s === 403);
-[$s] = $auxNav->ir('admin/qualidade.php', ['csrf' => $tok($auxNav, 'admin/qualidade.php'), 'acao' => 'unificar', 'mantido' => (string)$ed1, 'unificado' => (string)$ed2, 'motivo' => 'x', 'confirmo' => '1', 'mesma_edicao' => '1']);
-confere('H16. auxiliar não unifica obras (403 no servidor)', $s === 403 && $val('SELECT arquivado_em FROM livros WHERE id = ?', [$ed2]) === null);
+// Único perfil (migração 200): contas antigas com outro perfil são administradoras; quem não pode gravar é
+// quem não entrou ou envia sem o token CSRF.
+[$s] = $auxNav->ir('admin/qualidade.php', ['csrf' => 'falso', 'acao' => 'analisar']);
+confere('H15. sem o token CSRF, a análise não é atualizada (419)', $s === 419);
+[$s] = $auxNav->ir('admin/qualidade.php', ['csrf' => 'falso', 'acao' => 'unificar', 'mantido' => (string)$ed1, 'unificado' => (string)$ed2, 'motivo' => 'x', 'confirmo' => '1', 'mesma_edicao' => '1']);
+confere('H16. sem o token CSRF, nada é unificado (419)', $s === 419 && $val('SELECT arquivado_em FROM livros WHERE id = ?', [$ed2]) === null);
 [$s] = $auxNav->ir('admin/diagnostico.php');
-confere('H17. diagnóstico só para quem faz a manutenção (403)', $s === 403);
+confere('H17. conta antiga "auxiliar" abre o diagnóstico', $s === 200);
 $consNav = new TesteNavegador($base);
 $consNav->entrar('cons@teste.br', $senha);
 [$s] = $consNav->ir('admin/qualidade.php');
-confere('H18. perfil consulta não abre a Central de Qualidade (403)', $s === 403);
-[$s] = $consNav->ir('admin/aquisicoes.php', ['csrf' => $tok($consNav, 'admin/aquisicoes.php'), 'tipo' => 'compra', 'origem' => 'X', 'data_recebimento' => date('Y-m-d'), 'quantidade_recebida' => '1']);
-confere('H19. perfil consulta não registra aquisição (403)', $s === 403);
+confere('H18. conta antiga "consulta" abre a Central de Qualidade', $s === 200);
+[$s] = (new TesteNavegador($base))->ir('admin/aquisicoes.php', ['tipo' => 'compra', 'origem' => 'X', 'data_recebimento' => date('Y-m-d'), 'quantidade_recebida' => '1']);
+confere('H19. sem login, não registra aquisição (302)', $s === 302);
 $log = (string)@file_get_contents(sys_get_temp_dir() . '/bdp-teste-servidor-' . parse_url($base, PHP_URL_PORT) . '.log');
 confere('nenhum erro de PHP registrado pelo servidor', !preg_match('/(PHP (Fatal|Warning|Notice|Deprecated)|Uncaught)/', $log), substr($log, 0, 1500));
 

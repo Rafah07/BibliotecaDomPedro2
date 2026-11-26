@@ -9,7 +9,7 @@
  *   2. salvar sem mexer na CDD não cria classificação nem histórico;
  *   3. bibliotecária corrige a CDD junto com o título: fica aprovada, com histórico de correção;
  *   4. CDD em formato inválido: nada é gravado (nem o título);
- *   5. auxiliar muda a CDD: vira sugestão; a aprovada continua valendo;
+ *   5. conta antiga "auxiliar" muda a CDD: fica aprovada (único perfil, migração 200);
  *   6. livro não listado cadastrado com CDD.
  */
 
@@ -96,7 +96,7 @@ confere('auxiliar entra no painel', $aux->entrar('aux@teste.br', $senha) === 200
 $tka = $aux->csrf($pg);
 [$s] = $aux->ir($pg, ['csrf' => $tka, 'titulo' => 'Romance Fictício Certo', 'cdd' => '869.35', 'cdd_exibida' => '869.3'] + $dadosLivro);
 $c = db_query('SELECT * FROM classificacoes_cdd WHERE livro_id = ?', [$livro])->fetch();
-confere('vira sugestão; a aprovada continua valendo', $s === 303 && $c['cdd_proposta'] === '869.35' && $c['cdd_aprovada'] === '869.3' && $c['status'] === 'sugerida', json_encode($c));
+confere('fica aprovada direto (único perfil: todas as contas aprovam CDD)', $s === 303 && $c['cdd_aprovada'] === '869.35', json_encode($c));
 
 echo "\n6. Livro não listado com CDD\n";
 [$s, $html] = $bib->ir($pg . '&novo=1');

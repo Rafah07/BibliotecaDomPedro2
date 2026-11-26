@@ -210,10 +210,12 @@ $f = $requisicao($bibliotecaria, ['acao' => 'importar', 'confirmado' => '1', 'it
 confere('sem token CSRF: recusado e nada muda', ($f['tipo'] ?? '') === 'erro' && $estado() == $e0);
 $f = $requisicao($bibliotecaria, ['csrf' => 'outro', 'acao' => 'importar', 'confirmado' => '1', 'itens' => $ids([3, 4])]);
 confere('token CSRF errado: recusado', ($f['tipo'] ?? '') === 'erro' && $estado() == $e0);
-$f = $requisicao($auxiliar, ['csrf' => 'token-de-teste', 'acao' => 'importar', 'confirmado' => '1', 'itens' => $ids([3, 4])]);
-confere('auxiliar não pode importar em lote', ($f['tipo'] ?? '') === 'erro' && str_contains($f['mensagem'], 'bibliotecária') && $estado() == $e0);
-$f = $requisicao($consulta, ['csrf' => 'token-de-teste', 'acao' => 'corrigir', 'item_id' => $ids([5])[0], 'isbn' => '9788525406262']);
-confere('perfil "consulta" não pode corrigir', ($f['tipo'] ?? '') === 'erro' && $estado() == $e0);
+// Único perfil (migração 200): as contas antigas "auxiliar" e "consulta" são administradoras; o que as impede
+// de gravar é faltar o token CSRF da própria sessão.
+$f = $requisicao($auxiliar, ['csrf' => 'outro', 'acao' => 'importar', 'confirmado' => '1', 'itens' => $ids([3, 4])]);
+confere('conta antiga "auxiliar" com token CSRF errado: recusado e nada muda', ($f['tipo'] ?? '') === 'erro' && $estado() == $e0);
+$f = $requisicao($consulta, ['csrf' => 'outro', 'acao' => 'corrigir', 'item_id' => $ids([5])[0], 'isbn' => '9788525406262']);
+confere('conta antiga "consulta" com token CSRF errado: não corrige', ($f['tipo'] ?? '') === 'erro' && $estado() == $e0);
 $f = $requisicao($bibliotecaria, ['csrf' => 'token-de-teste', 'acao' => 'importar', 'itens' => $ids([3, 4])]);
 confere('sem confirmação, só mostra a lista (nada é gravado)', $f === null && $estado() == $e0);
 $f = $requisicao($bibliotecaria, ['csrf' => 'token-de-teste', 'acao' => 'importar', 'confirmado' => '1', 'itens' => ["0 OR 1=1", "x'; DROP TABLE livros; --"]]);

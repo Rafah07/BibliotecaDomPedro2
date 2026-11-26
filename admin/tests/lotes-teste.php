@@ -321,17 +321,18 @@ confere('16. "+ Abrir novo lote" pela página volta para a Conferência', $s ===
 $aux = new TesteNavegador($base);
 $aux->entrar('aux@teste.br', $senha);
 [$s, $html] = $aux->ir('admin/inventario-conferencia.php?id=' . $inv);
-confere('16. colaborador vê os lotes atribuídos e não vê "Abrir novo lote"', $s === 200 && str_contains($html, 'Lote ' . str_pad((string)$num('SELECT numero FROM cadastro_lotes WHERE id = ?', [$lPag]), 3, '0', STR_PAD_LEFT))
-    && !str_contains($html, 'name="acao" value="abrir"') && str_contains($html, 'Trabalhar neste lote'));
+// Único perfil (migração 200): a conta antiga "auxiliar" é administradora (abre lotes e vê a produtividade).
+confere('16. colaborador vê os lotes atribuídos e também "Abrir novo lote"', $s === 200 && str_contains($html, 'Lote ' . str_pad((string)$num('SELECT numero FROM cadastro_lotes WHERE id = ?', [$lPag]), 3, '0', STR_PAD_LEFT))
+    && str_contains($html, 'Trabalhar neste lote'));
 $t = $tok($aux, 'admin/inventario-conferencia.php?id=' . $inv);
 [$s] = $aux->ir('admin/lotes.php', ['csrf' => $t, 'acao' => 'ativo', 'lote_id' => (string)$lPag, 'voltar' => '/admin/inventario-conferencia.php?id=' . $inv]);
 confere('16. "Trabalhar neste lote" define o lote ativo', $s === 303 && (int)$val('SELECT lote_ativo_id FROM administradores WHERE id = ?', [$c1]) === $lPag);
-[$s] = $aux->ir('admin/lotes.php', ['csrf' => $t, 'acao' => 'abrir', 'capacidade' => '5', 'usuarios' => [(string)$c1]]);
-confere('16. colaborador não abre lote (403)', $s === 403);
+[$s] = $aux->ir('admin/lotes.php', ['csrf' => 'falso', 'acao' => 'abrir', 'capacidade' => '5', 'usuarios' => [(string)$c1]]);
+confere('16. sem o token CSRF não abre lote (419)', $s === 419);
 [$s] = $aux->ir('admin/lotes-produtividade.php');
-confere('16. Relatório de Produtividade restrito à administração (403)', $s === 403);
+confere('16. conta antiga "auxiliar" abre o Relatório de Produtividade', $s === 200);
 [$s, $html] = $aux->ir('admin/lote.php?id=' . $l1);
-confere('16. colaborador abre o relatório do lote, sem a produtividade individual', $s === 200 && str_contains($html, 'Exemplares') && !str_contains($html, 'Relatório de Produtividade do lote'));
+confere('16. colaborador abre o relatório do lote', $s === 200 && str_contains($html, 'Exemplares'));
 
 // Carimbo e confirmação pela página (lote 3, fechado)
 $ids3 = array_map('intval', array_column(db_query('SELECT id FROM exemplares WHERE lote_id = ? ORDER BY lote_ordem', [$l3])->fetchAll(), 'id'));
@@ -387,9 +388,8 @@ foreach (['lotes.php', 'lotes.php?status=encerrado', 'lotes.php?novo=1', 'lote.p
 }
 $cons = new TesteNavegador($base);
 $cons->entrar('cons@teste.br', $senha);
-$t = $tok($cons, 'admin/lote.php?id=' . $l2);
-[$s] = $cons->ir('admin/lote.php', ['csrf' => $t, 'id' => (string)$l2, 'acao' => 'carimbar', 'ids' => [(string)$r5[0]['id']], 'confirmo' => '1']);
-confere('16. perfil consulta não carimba (403)', $s === 403);
+[$s] = $cons->ir('admin/lote.php', ['csrf' => 'falso', 'id' => (string)$l2, 'acao' => 'carimbar', 'ids' => [(string)$r5[0]['id']], 'confirmo' => '1']);
+confere('16. sem o token CSRF não carimba (419)', $s === 419);
 
 $log = (string)@file_get_contents(sys_get_temp_dir() . '/bdp-teste-servidor-' . parse_url($base, PHP_URL_PORT) . '.log');
 confere('nenhum erro de PHP registrado pelo servidor', !preg_match('/PHP (Fatal|Warning|Notice|Deprecated)/', $log), implode(' | ', array_slice(preg_grep('/PHP (Fatal|Warning|Notice|Deprecated)/', explode("\n", $log)) ?: [], 0, 3)));

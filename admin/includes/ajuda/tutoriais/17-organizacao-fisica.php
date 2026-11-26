@@ -22,7 +22,6 @@ return [
         'resultado' => ['As prateleiras passam a aparecer na escolha de localização do Inventário e do cadastro de exemplares.', 'Os números do topo mudam assim que os exemplares são colocados nas prateleiras.'],
         'problemas' => [
             ['A estante não aparece na escolha de localização.', 'Ela (ou o setor dela) está desativada.', 'Abra a estante e clique em **Reativar estante**.'],
-            ['Não vejo os botões de cadastrar.', 'Seu perfil só consulta.', 'Peça a uma bibliotecária ou administradora.'],
         ],
         'cuidados' => ['Nada é criado sozinho: nenhuma estante ou prateleira é inventada pelo sistema.', 'As localizações antigas das planilhas continuam só como histórico e nunca colocam um livro numa estante automaticamente.'],
         'relacionados' => ['criar-estantes', 'gerenciar-prateleiras', 'localizacao-no-registro', 'localizacoes-antigas-e-novas'],

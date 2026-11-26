@@ -357,10 +357,13 @@ $aux = new TesteNavegador($base);
 $aux->entrar('aux@teste.br', $senha);
 $tka = $aux->csrf('admin/inventario-comparacao.php');
 [$sx1, $hx1] = $aux->ir('admin/inventario-comparacao.php?direcao=acervo&ver=o' . $hist1);
-[$sx2] = $aux->ir('admin/inventario-comparacao.php', ['csrf' => $tka, 'acao' => 'corrigir_exemplar', 'exemplares' => [$exHist1['id']], 'destino' => $hist2, 'confirmo' => '1', 'motivo' => 'x']);
-[$sx3] = $aux->ir('admin/inventario-comparacao.php', ['csrf' => $tka, 'acao' => 'salvar']);
-confere('auxiliar consulta a comparação, mas não vê os formulários de correção', $sx1 === 200 && !str_contains($hx1, 'name="acao" value="corrigir_exemplar"') && !str_contains($hx1, 'Registrar decisão'));
-confere('auxiliar não corrige nem salva (403), e nada muda', $sx2 === 403 && $sx3 === 403 && (int)$val('SELECT livro_id FROM exemplares WHERE id = ?', [$exHist1['id']]) === $hist1);
+// Único perfil (migração 200): a conta antiga "auxiliar" é administradora e vê as correções; quem não pode
+// gravar é quem não entrou ou envia sem o token CSRF.
+$anonC = new TesteNavegador($base);
+[$sx2] = $anonC->ir('admin/inventario-comparacao.php', ['acao' => 'corrigir_exemplar', 'exemplares' => [$exHist1['id']], 'destino' => $hist2, 'confirmo' => '1', 'motivo' => 'x']);
+[$sx3] = $aux->ir('admin/inventario-comparacao.php', ['csrf' => 'falso', 'acao' => 'salvar']);
+confere('conta antiga "auxiliar" abre a comparação', $sx1 === 200);
+confere('sem login (302) ou sem CSRF (419) não corrige nem salva, e nada muda', $sx2 === 302 && $sx3 === 419 && (int)$val('SELECT livro_id FROM exemplares WHERE id = ?', [$exHist1['id']]) === $hist1);
 $con = new TesteNavegador($base);
 $con->entrar('consulta@teste.br', $senha);
 [$sq] = $con->ir('admin/inventario-comparacao.php');

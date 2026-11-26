@@ -13,7 +13,7 @@ return [
             'Ao treinar uma pessoa nova na equipe da biblioteca.',
         ],
         'requisitos' => [
-            'Nenhum. Este texto é só de leitura e serve para todos os perfis.',
+            'Nenhum. Este texto é só de leitura.',
         ],
         'passos' => [
             ['titulo' => 'Conheça as duas partes do sistema', 'texto' => 'O sistema tem um **site público**, que os alunos e visitantes usam para consultar o catálogo, as regras e as informações da biblioteca, sem login. E tem o **painel administrativo**, usado só pelos funcionários autorizados, com e-mail e senha. Tudo o que você aprende nesta Central de Ajuda acontece no painel.'],
@@ -30,7 +30,7 @@ return [
                 '**Relatórios**: números, gráficos e exportação em CSV, XLSX e PDF.',
                 '**Configurações**: regras de empréstimo, segurança e textos do site.',
             ]],
-            ['titulo' => 'Entenda que cada pessoa tem um perfil', 'texto' => 'Existem quatro perfis: **Administrador**, **Bibliotecária**, **Auxiliar de biblioteca** e **Somente consulta**. O perfil define o que cada pessoa pode ver e fazer. Por isso, algumas pessoas não veem todos os itens do menu. Veja [[tutorial:permissoes-funcoes-indisponiveis|como identificar funções indisponíveis]].'],
+            ['titulo' => 'Entenda o acesso das contas', 'texto' => 'Toda pessoa da equipe entra com uma conta de **administrador**, com acesso total ao painel. Novas contas são cadastradas em **Administradores** ou em **Meu perfil**. Veja [[tutorial:perfis-existentes|quem pode usar o painel]].'],
             ['titulo' => 'Saiba que nada importante é apagado', 'texto' => 'Empréstimos devolvidos vão para o histórico, livros errados são **arquivados** (não apagados), exemplares retirados recebem **baixa** e o código BDP nunca é reaproveitado. Cada ação fica registrada com o nome de quem a fez.'],
         ],
         'exemplo' => 'O livro fictício "Histórias do Rio Azul" tem 3 exemplares: `BDP-000121`, `BDP-000122` e `BDP-000123`. Se o aluno fictício "Aluno Exemplo da Silva" leva o volume `BDP-000122`, só esse exemplar fica "Emprestado"; os outros dois continuam "Disponível" para outros alunos.',
@@ -136,10 +136,10 @@ return [
         'passos' => [
             ['titulo' => 'Reconheça os quatro grupos do menu', 'lista' => [
                 '**Principal**: Dashboard, Acervo (com o submenu Classificação CDD), Exemplares (com o submenu Localizações), Categorias e Inventário.',
-                '**Circulação**: Empréstimos, Devoluções e Atrasos (só para perfis que podem ver empréstimos).',
+                '**Circulação**: Empréstimos, Devoluções e Atrasos.',
                 '**Gerenciamento**: Importar Excel, Etiquetas, Alunos, Importar Alunos, Relatórios e Atividades.',
-                '**Sistema**: Administradores, Site público, Configurações (com os submenus Perfis e permissões, Manutenção e Tutorial do Sistema), Voltar ao site e Sair.',
-            ], 'dica' => 'Itens que o seu perfil não pode usar não aparecem. Por exemplo, **Alunos** (no grupo Gerenciamento) não aparece para o perfil Somente consulta (veja [[tutorial:pesquisar-alunos|como consultar alunos]]).'],
+                '**Sistema**: Administradores, Site público, Configurações (com os submenus Manutenção e backups, Diagnóstico do sistema e Tutorial do Sistema), Voltar ao site e Sair.',
+            ], 'dica' => 'Todas as contas veem o menu completo. **Administradores** só funciona com o banco de dados ligado (fora do modo demonstrativo).'],
             ['titulo' => 'Expanda o menu para ver os nomes', 'texto' => 'No computador, o menu começa **recolhido**, só com ícones. Clique no botão do topo do menu, ao lado do nome da biblioteca, com a dica **Expandir menu**. O menu passa a mostrar os nomes e os submenus.', 'imagem' => ['arquivo' => 'menu-expandido.png', 'alt' => 'Menu lateral azul expandido com os grupos Principal, Circulação, Gerenciamento e Sistema', 'legenda' => 'Menu lateral expandido.']],
             ['titulo' => 'Recolha o menu para ganhar espaço', 'texto' => 'Clique no mesmo botão, agora com a dica **Recolher menu**. Com o menu recolhido, pare o mouse sobre um ícone para ver o nome da página.'],
             ['titulo' => 'Saiba que a sua escolha fica guardada', 'texto' => 'O navegador lembra se você deixou o menu expandido ou recolhido. Em outro computador ou navegador, a escolha precisa ser feita de novo.'],
@@ -148,11 +148,11 @@ return [
         ],
         'exemplo' => 'Com o menu recolhido, a auxiliar não acha **Localizações**. Ela clica em **Expandir menu**, vê **Localizações** logo abaixo de **Exemplares** e clica. Depois clica em **Recolher menu** para ter mais espaço na tela.',
         'resultado' => [
-            'Você consegue abrir qualquer página permitida para o seu perfil pelo menu.',
+            'Você consegue abrir qualquer página do painel pelo menu.',
             'O menu mantém a sua preferência (expandido ou recolhido) nas próximas páginas.',
         ],
         'problemas' => [
-            ['Não encontro um item que um colega tem no menu.', 'O seu perfil não tem a permissão daquele item, ou ele é um submenu e o menu está recolhido.', 'Expanda o menu. Se o item continuar sem aparecer, veja [[tutorial:permissoes-funcoes-indisponiveis|funções indisponíveis por falta de permissão]].'],
+            ['Não encontro um item que um colega tem no menu.', 'Ele é um submenu e o menu está recolhido.', 'Expanda o menu. Se o item continuar sem aparecer, veja [[tutorial:permissoes-funcoes-indisponiveis|quando uma página não abre]].'],
             ['O item Alunos abre a página "Em desenvolvimento".', 'A página de consulta de alunos ainda não foi criada.', 'Para encontrar um aluno, use o passo 1 do Novo empréstimo, a pesquisa da página Empréstimos ou o Histórico do aluno. Veja [[tutorial:pesquisar-alunos|Como pesquisar alunos]].'],
         ],
         'cuidados' => [
@@ -233,7 +233,7 @@ return [
         'requisitos' => ['Estar logado no painel pelo navegador do celular ou do tablet.'],
         'passos' => [
             ['titulo' => 'Use a barra de atalhos do rodapé', 'texto' => 'No celular e no tablet em pé, o rodapé mostra os atalhos **Conferência** (a conferência do inventário em andamento), **Meus lotes**, **Planilha BDP** e **Organização**, e o botão **Menu**, que abre o menu completo. O atalho da página em que você está fica destacado com uma marca dourada.', 'lista' => [
-                'Os atalhos seguem as permissões do seu perfil: o que você não pode abrir não aparece.',
+                'Os atalhos levam às páginas mais usadas do painel.',
                 'Enquanto você digita em um campo, a barra se esconde para deixar mais espaço para o teclado.',
             ]],
             ['titulo' => 'Pesquise no acervo pela lupa', 'texto' => 'No celular, a pesquisa rápida do topo fica recolhida. Toque na lupa (**Pesquisar no acervo**) para abrir o campo e digite. Para fechar, pressione **Esc** ou toque fora do campo vazio.'],
@@ -272,7 +272,7 @@ return [
             ['titulo' => 'Mensagem vermelha: não foi feito', 'texto' => 'Uma caixa **vermelha** com círculo indica erro, por exemplo **O empréstimo não foi registrado.** Nesses casos **nada foi gravado**. Leia o motivo, corrija e tente de novo.'],
             ['titulo' => 'Campos destacados em formulários', 'texto' => 'Quando um campo está errado, ele fica destacado e a mensagem aparece logo abaixo dele (por exemplo, "Informe o título do livro."). O topo do formulário mostra "Não foi possível salvar as informações. Verifique os campos destacados e tente novamente."'],
             ['titulo' => 'Formulário expirado', 'texto' => 'A página **Formulário expirado** aparece quando uma tela ficou aberta por muito tempo antes do envio. Nada foi gravado: volte, recarregue a página e repita.'],
-            ['titulo' => 'Acesso não permitido', 'texto' => 'A página **Acesso não permitido** indica que o seu perfil não pode abrir aquela tela. Veja [[tutorial:permissoes-funcoes-indisponiveis|funções indisponíveis por falta de permissão]].'],
+            ['titulo' => 'Acesso não permitido', 'texto' => 'A página **Acesso não permitido** indica que aquela tela não pôde ser aberta (endereço errado ou função indisponível no modo demonstrativo). Veja [[tutorial:permissoes-funcoes-indisponiveis|quando uma página não abre]].'],
             ['titulo' => 'Sino de notificações', 'texto' => 'O sino no topo mostra quantas pendências existem (por exemplo, empréstimos atrasados ou inventário em andamento). Clique nele e escolha uma pendência para abrir a página certa.'],
         ],
         'exemplo' => 'Ao tentar emprestar o exemplar `BDP-000013`, aparece a caixa vermelha "Não é possível emprestar com a seleção atual." com o texto "O exemplar escolhido não está disponível. Escolha outro exemplar." Nada foi gravado; basta escolher outro exemplar.',
@@ -314,38 +314,35 @@ return [
     ],
     [
         'id' => 'permissoes-funcoes-indisponiveis',
-        'titulo' => 'Como identificar funções indisponíveis por falta de permissão',
-        'resumo' => 'Por que alguns menus e botões não aparecem, o que significa "Acesso não permitido" e como pedir acesso corretamente.',
+        'titulo' => 'Quando uma página ou função não abre',
+        'resumo' => 'Todas as contas têm acesso total. Se algo não abre, a causa é outra: menu recolhido, banco desligado, conta inativa ou sessão expirada.',
         'palavras' => ['permissão', 'acesso negado', 'acesso não permitido', 'perfil', 'não aparece', 'bloqueado', 'somente leitura', 'cadeado'],
-        'objetivo' => 'Entender por que uma função não aparece para você e saber a quem pedir ajuda, sem tentar contornar a segurança.',
+        'objetivo' => 'Descobrir por que uma função não aparece ou não abre.',
         'quando' => [
-            'Quando um colega vê um botão ou menu que você não vê.',
-            'Quando aparecer a página "Acesso não permitido" ou "Somente leitura para o seu perfil".',
+            'Quando um item do menu parece não existir.',
+            'Quando aparece a página "Acesso não permitido" ou a tela de login de novo.',
         ],
         'requisitos' => ['Estar logado no painel.'],
         'passos' => [
-            ['titulo' => 'Abra a página Perfis e permissões', 'texto' => 'Todos os perfis podem abrir [[pagina:permissoes|Perfis e permissões]] (menu Sistema, com o menu expandido, ou pelo botão da página Configurações). No topo, a frase **Seu perfil:** mostra o seu perfil.'],
-            ['titulo' => 'Veja o que o seu perfil pode fazer', 'texto' => 'A página lista cada permissão, agrupada por módulo, e marca quais perfis a têm. Se a função que você procura não está marcada para o seu perfil, ela não aparece no seu menu.'],
-            ['titulo' => 'Reconheça os sinais de função indisponível', 'lista' => [
-                'O item não aparece no menu (por exemplo, **Empréstimos** para o perfil Somente consulta).',
-                'O botão não aparece na página (por exemplo, **Novo empréstimo** ou **Arquivar**).',
-                'O campo aparece cinza com a frase **Somente leitura para o seu perfil.** (em Configurações).',
-                'Ao abrir o endereço direto, aparece **Acesso não permitido**: "Seu perfil não tem permissão para acessar esta página. Fale com a bibliotecária responsável."',
-                'Nesta Central de Ajuda, o selo **Seu perfil não tem esta função** aparece no tutorial.',
+            ['titulo' => 'Lembre que não há perfis', 'texto' => 'Toda conta do painel é de administrador, com acesso total (veja [[tutorial:perfis-existentes|quem pode usar o painel]]). Nenhuma função fica escondida por causa da sua conta.'],
+            ['titulo' => 'Confira as causas mais comuns', 'lista' => [
+                'O menu está **recolhido**: clique em **Expandir menu** para ver os submenus.',
+                'O sistema está no **modo demonstrativo** (MySQL desligado): algumas telas, como Administradores, só funcionam com o banco.',
+                'A sessão expirou depois de muito tempo sem uso: entre de novo.',
+                'A sua conta foi desativada: a tela de login volta a aparecer. Peça a outro administrador para reativá-la.',
             ]],
-            ['titulo' => 'Peça acesso pelo caminho certo', 'texto' => 'Se a sua função na biblioteca exige aquele acesso, peça a um **Administrador**. Só ele muda o perfil de uma conta, em Administradores. Não use a conta de outra pessoa.'],
+            ['titulo' => 'Se aparecer "Acesso não permitido"', 'texto' => 'Confira o endereço digitado ou volte ao Dashboard e use o menu. Se continuar, anote a página e o horário e fale com quem cuida do sistema.'],
         ],
-        'exemplo' => 'O auxiliar fictício "Carlos Lima" precisa dar baixa em um exemplar rasgado, mas a seção **Dar baixa** não funciona para ele: o perfil Auxiliar de biblioteca não tem a permissão "Dar baixa e registrar extravio de exemplares". Ele registra a situação "Em manutenção" (que pode fazer) e avisa a bibliotecária, que decide sobre a baixa.',
-        'resultado' => ['Você entende o motivo da restrição e sabe a quem recorrer.'],
+        'exemplo' => 'O colaborador fictício "Carlos Lima" não acha **Localizações**. O menu estava recolhido: ele clica em **Expandir menu** e encontra o item logo abaixo de **Exemplares**.',
+        'resultado' => ['Você encontra a função ou sabe o que fazer quando ela não abre.'],
         'problemas' => [
-            ['Recebi "Acesso não permitido" numa página que eu usava antes.', 'O seu perfil foi alterado por um administrador, ou você está em outra conta.', 'Confira o perfil no menu do seu nome (canto superior direito). Fale com um administrador se a mudança não era esperada.'],
+            ['A tela de login aparece toda hora.', 'A sessão expira depois do tempo sem uso definido em Configurações, ou a senha da conta foi redefinida.', 'Entre de novo. Se a senha foi redefinida, use a nova senha.'],
         ],
         'cuidados' => [
-            'Não tente abrir páginas restritas pelo endereço nem usar a conta de colegas: o servidor confere a permissão em todas as páginas e cada ação fica registrada com o nome de quem a fez.',
-            'Ler um tutorial desta Central de Ajuda não dá permissão para executar a operação.',
+            'Não use a conta de colegas: cada ação fica registrada com o nome de quem a fez.',
         ],
         'relacionados' => ['perfis-existentes', 'faq-funcao-nao-aparece', 'menu-lateral'],
-        'confere' => ['permissoes.php' => ['Seu perfil:'], 'includes/auth.php' => ['Seu perfil não tem permissão para acessar esta página. Fale com a bibliotecária responsável.'], 'configuracoes.php' => ['Somente leitura para o seu perfil']],
+        'confere' => ['includes/auth.php' => ['Esta página não está disponível. Verifique o endereço ou volte ao painel.']],
     ],
     [
         'id' => 'usar-central-ajuda',
@@ -354,7 +351,7 @@ return [
         'palavras' => ['ajuda', 'tutorial', 'manual', 'central de ajuda', 'imprimir', 'pesquisar dúvida', 'como usar esta página'],
         'objetivo' => 'Encontrar rapidamente o tutorial certo para a tarefa que você precisa fazer.',
         'quando' => ['Sempre que tiver dúvida sobre uma página ou procedimento.'],
-        'requisitos' => ['Estar logado no painel. A Central de Ajuda está disponível para todos os perfis.'],
+        'requisitos' => ['Estar logado no painel. A Central de Ajuda está disponível para todas as contas.'],
         'passos' => [
             ['titulo' => 'Abra a Central de Ajuda', 'texto' => 'Pelo menu: **Configurações → Tutorial do Sistema** (com o menu expandido). Também pelo menu do seu nome, no canto superior direito: **Tutorial do Sistema**. Quem não vê Configurações encontra o item **Tutorial do Sistema** no grupo Sistema do menu expandido.'],
             ['titulo' => 'Pesquise a sua dúvida', 'texto' => 'Digite uma palavra no campo **Pesquisar uma dúvida ou funcionalidade...** e clique em **Pesquisar**. Acentos e maiúsculas não importam: `emprestimo` encontra "empréstimo". Os botões de sugestão (Empréstimo, Devolução, BDP...) fazem a pesquisa com um clique.'],

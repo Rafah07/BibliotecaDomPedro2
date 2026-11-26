@@ -88,12 +88,11 @@ const ADMIN_MENU = [
     'Sistema' => [
         // 'permissao': o item só aparece para quem tem a permissão (a página confere de novo no servidor).
         'administradores' => ['label' => 'Administradores', 'icon' => 'users', 'arquivo' => 'administradores.php', 'pronta' => true, 'permissao' => 'usuarios.gerenciar'],
-        'administrador' => ['label' => 'Conta de acesso', 'icon' => 'user-round', 'arquivo' => 'administrador.php', 'pronta' => true, 'oculto' => true],
+        'administrador' => ['label' => 'Administrador', 'icon' => 'user-round', 'arquivo' => 'administrador.php', 'pronta' => true, 'oculto' => true],
         'site-publico' => ['label' => 'Site público', 'icon' => 'globe', 'arquivo' => 'site-publico.php', 'pronta' => true, 'permissao' => 'site.editar'],
         'capa-livro' => ['label' => 'Capa do livro', 'icon' => 'image', 'arquivo' => 'capa-livro.php', 'pronta' => true, 'oculto' => true],
-        // Configurações gerais, perfis e manutenção (Etapa 6).
+        // Configurações gerais e manutenção (Etapa 6). "Perfis e permissões" saiu na migração 200 (único perfil).
         'configuracoes' => ['label' => 'Configurações', 'icon' => 'settings', 'arquivo' => 'configuracoes.php', 'pronta' => true, 'permissao' => 'configuracoes.ver'],
-        'permissoes' => ['label' => 'Perfis e permissões', 'icon' => 'shield-check', 'arquivo' => 'permissoes.php', 'pronta' => true, 'pai' => 'configuracoes'],
         'manutencao' => ['label' => 'Manutenção e backups', 'icon' => 'wrench', 'arquivo' => 'manutencao.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
         'diagnostico' => ['label' => 'Diagnóstico do sistema', 'icon' => 'activity', 'arquivo' => 'diagnostico.php', 'pronta' => true, 'pai' => 'configuracoes', 'permissao' => 'sistema.manutencao'],
         // Central de Ajuda (Etapa 10): agrupada em Configurações, mas aberta a todos os perfis (painel.ver),

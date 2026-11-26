@@ -74,7 +74,9 @@ admin_page_start('configuracoes', 'Configurações', 'Configurações', 'Regras 
         <p>Regras de funcionamento da biblioteca. O que for salvo aqui vale mais que o arquivo .env; deixe um campo vazio para voltar ao valor do .env ou ao padrão do sistema.</p>
     </div>
     <div class="adm-page-head__actions">
-        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('permissoes')) ?>"><?= icon('shield-check') ?> Perfis e permissões</a>
+        <?php if (auth_pode('usuarios.gerenciar') && db_modo() === 'mysql'): ?>
+            <a class="adm-button adm-button--ghost" href="<?= e(admin_url('administradores')) ?>"><?= icon('users') ?> Administradores</a>
+        <?php endif; ?>
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('ajuda')) ?>"><?= icon('circle-help') ?> Tutorial do Sistema</a>
         <?php if (auth_pode('sistema.manutencao')): ?>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('manutencao')) ?>"><?= icon('wrench') ?> Manutenção</a>

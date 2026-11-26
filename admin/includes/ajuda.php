@@ -337,18 +337,6 @@ function ajuda_permissao_nome(string $permissao): string
     return $permissao;
 }
 
-/** Perfis que têm a permissão (rótulos). */
-function ajuda_perfis_com(string $permissao): array
-{
-    $perfis = [];
-    foreach (AUTH_PERMISSOES as $perfil => $lista) {
-        if (in_array($permissao, $lista, true)) {
-            $perfis[] = AUTH_PERFIS[$perfil];
-        }
-    }
-    return $perfis;
-}
-
 /** Quantos tutoriais existem ao todo. */
 function ajuda_total(): int
 {

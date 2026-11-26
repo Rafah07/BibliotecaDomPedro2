@@ -47,7 +47,7 @@ Marque cada item antes de abrir o site ao público.
 - [ ] Cópia de segurança **antes** de qualquer mudança (Sistema → Manutenção).
 - [ ] `php database/migrar.php --status` e depois `php database/migrar.php` (seção 3).
 - [ ] Primeiro administrador criado com `php database/criar-admin.php` (senha ≥ 10 caracteres, com letras e números).
-- [ ] Contas pessoais para cada funcionário (nada de conta compartilhada), com o menor perfil necessário.
+- [ ] Contas pessoais para cada funcionário (nada de conta compartilhada). Toda conta é de administrador, com acesso total: cadastre só a equipe.
 
 ### Operação
 - [ ] Cópia de segurança diária guardada fora do servidor (seção 6 de [`backup-recuperacao.md`](backup-recuperacao.md)) e **restauração testada** em banco temporário.

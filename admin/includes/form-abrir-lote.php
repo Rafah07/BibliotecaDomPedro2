@@ -39,7 +39,7 @@ $proximoNumero = (int)db_query('SELECT COALESCE(MAX(numero), 0) + 1 FROM cadastr
                 <?php endif; ?>
                 <div class="adm-lote-usuarios" id="<?= $idLista ?>">
                     <?php foreach ($atribuiveis as $a): ?>
-                        <label class="adm-check"><input type="checkbox" name="usuarios[]" value="<?= (int)$a['id'] ?>"<?= in_array((int)$a['id'], $selUsuarios, true) ? ' checked' : '' ?>> <span><?= e($a['nome']) ?> <small class="adm-table__muted"><?= e(AUTH_PERFIS[$a['perfil']] ?? $a['perfil']) ?></small></span></label>
+                        <label class="adm-check"><input type="checkbox" name="usuarios[]" value="<?= (int)$a['id'] ?>"<?= in_array((int)$a['id'], $selUsuarios, true) ? ' checked' : '' ?>> <span><?= e($a['nome']) ?> <small class="adm-table__muted"><?= e(trim((string)($a['cargo'] ?? '')) ?: 'Administrador') ?></small></span></label>
                     <?php endforeach; ?>
                 </div>
                 <span class="adm-field__hint">Escolha um ou mais. A mesma pessoa pode participar de vários lotes. Só os usuários do lote podem registrar exemplares nele.</span></fieldset>

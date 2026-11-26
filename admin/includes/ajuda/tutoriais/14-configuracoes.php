@@ -12,7 +12,7 @@ return [
         'quando' => ['Quando a escola aprovar uma regra nova (prazo, limite, renovação).'],
         'requisitos' => ['Ver configurações: Administrador ou Bibliotecária. Alterar: depende do bloco (veja cada tutorial).', 'O sistema ligado ao banco de dados.'],
         'passos' => [
-            ['titulo' => 'Abra Configurações', 'texto' => 'No grupo **Sistema**, clique em **Configurações**. No topo há atalhos para **Perfis e permissões**, **Tutorial do Sistema**, **Manutenção** e **Textos do site**.', 'imagem' => ['arquivo' => 'configuracoes.png', 'alt' => 'Página Configurações gerais com as regras de empréstimo em uso e o bloco Identificação', 'legenda' => 'Configurações gerais.']],
+            ['titulo' => 'Abra Configurações', 'texto' => 'No grupo **Sistema**, clique em **Configurações**. No topo há atalhos para **Administradores**, **Tutorial do Sistema**, **Manutenção** e **Textos do site**.', 'imagem' => ['arquivo' => 'configuracoes.png', 'alt' => 'Página Configurações gerais com as regras de empréstimo em uso e o bloco Identificação', 'legenda' => 'Configurações gerais.']],
             ['titulo' => 'Leia as regras em uso', 'texto' => 'O quadro **Regras de empréstimo em uso agora** resume o prazo e a renovação aplicados hoje.'],
             ['titulo' => 'Entenda cada campo', 'texto' => 'Abaixo de cada campo aparece **Em uso:** com o valor atual e a origem (por exemplo, **Padrão do sistema**). O que for salvo aqui vale mais que o arquivo .env; deixe um campo vazio para voltar ao valor do .env ou ao padrão do sistema.'],
             ['titulo' => 'Salve', 'texto' => 'Altere só o que precisa e clique em **Salvar configurações**. Só os campos alterados são gravados.'],
@@ -22,8 +22,7 @@ return [
         'exemplo' => 'A escola aprovou o prazo de 10 dias. A bibliotecária digita 10 em Prazo padrão do empréstimo (dias), salva e vê "Em uso: 10 dias" e a linha nova no histórico.',
         'resultado' => ['A regra nova vale a partir de agora para novos empréstimos e renovações.'],
         'problemas' => [
-            ['O menu Configurações não aparece.', 'O seu perfil não vê configurações.', 'Fale com a bibliotecária ou o administrador.'],
-            ['Os campos estão bloqueados.', 'O seu perfil vê, mas não altera esse bloco.', 'Peça a quem tem a permissão.'],
+            ['A tela de login apareceu no meio do trabalho.', 'A sessão expirou por tempo sem uso.', 'Entre de novo e repita a última ação.'],
         ],
         'cuidados' => ['Empréstimos já registrados não mudam de data.', 'O histórico não pode ser editado nem apagado.'],
         'relacionados' => ['configurar-identificacao', 'configurar-regras-emprestimo', 'seguranca-painel', 'site-manutencao'],

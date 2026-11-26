@@ -98,7 +98,6 @@ return [
         ],
         'problemas' => [
             ['A análise parou no meio.', 'A conexão caiu ou a página foi fechada.', 'Abra a importação no **Histórico de importações** e clique em continuar.'],
-            ['Não vejo o botão de importar.', 'O seu perfil não confirma importações.', 'Peça à bibliotecária ou ao administrador para confirmar.'],
             ['"Esta planilha parece já ter sido importada."', 'O mesmo arquivo ou as mesmas linhas já foram gravados.', 'Confira o histórico. Se for mesmo para importar de novo, marque a confirmação: cada linha vira um registro próprio.'],
             ['A planilha não abre.', 'O arquivo está corrompido ou não é .xlsx/.csv.', 'Abra no Excel, salve de novo e envie outra vez. Só um arquivo ilegível impede a importação.'],
         ],
@@ -157,7 +156,7 @@ return [
         'exemplo' => 'A linha 12 tem o ISBN fictício "978853591234" (faltando um dígito). A bibliotecária pega o livro, lê o ISBN completo na contracapa e usa Salvar ISBN.',
         'resultado' => ['As linhas tratadas saem de Ainda pendentes.'],
         'problemas' => [
-            ['"Somente a bibliotecária ou um administrador pode importar registros sem ISBN."', 'O seu perfil não confirma importações.', 'Deixe para corrigir o ISBN no Inventário.'],
+            ['A tela de login apareceu no meio do trabalho.', 'A sessão expirou por tempo sem uso.', 'Entre de novo e repita a última ação.'],
         ],
         'cuidados' => ['Não invente um ISBN para "passar" na validação.'],
         'relacionados' => ['revisar-importacao-acervo', 'fluxo-conferencia-inventario', 'importar-acervo'],

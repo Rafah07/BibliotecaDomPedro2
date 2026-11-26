@@ -43,8 +43,8 @@ $seloPermissao = function (array $t): string {
         return '';
     }
     return auth_pode($t['permissao'])
-        ? '<span class="adm-status adm-tone--green ajd-selo">' . icon('check') . ' Disponível para o seu perfil</span>'
-        : '<span class="adm-status adm-tone--amber ajd-selo">' . icon('lock') . ' Seu perfil não tem esta função</span>';
+        ? '<span class="adm-status adm-tone--green ajd-selo">' . icon('check') . ' Disponível para você</span>'
+        : '<span class="adm-status adm-tone--amber ajd-selo">' . icon('lock') . ' Indisponível neste modo de acesso</span>';
 };
 
 /** Cartão de tutorial usado nas listas. */
@@ -169,8 +169,7 @@ admin_page_start('ajuda', $tituloPagina . ' — Central de Ajuda', 'Central de A
                             <?= icon($pode ? 'shield-check' : 'lock') ?>
                             <div>
                                 <strong>Permissão necessária: <?= e(ajuda_permissao_nome($t['permissao'])) ?></strong>
-                                <p>Perfis que têm esta permissão: <?= e(implode(', ', ajuda_perfis_com($t['permissao']))) ?>.
-                                    <?= $pode ? 'O seu perfil pode realizar este procedimento.' : 'O seu perfil não tem esta permissão: leia o tutorial para entender o processo e peça a uma pessoa autorizada para executá-lo.' ?></p>
+                                <p><?= $pode ? 'Todas as contas de administrador podem realizar este procedimento.' : 'Este procedimento não está disponível neste modo de acesso.' ?></p>
                             </div>
                         </div>
                     <?php endif; ?>

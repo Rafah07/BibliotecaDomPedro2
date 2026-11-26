@@ -454,9 +454,12 @@ confere('site público não mostra dados de alunos nem empréstimos', !str_conta
 
 $cons = new Navegador($base);
 $cons->entrar('cons@teste.br', $senhaPadrao);
-confere('perfil consulta: circulação bloqueada (403)', array_reduce($todas, fn ($ok, $p) => $ok && $cons->ir($p)[0] === 403, true));
+// Único perfil (migração 200): a conta antiga "consulta" é administradora.
+confere('conta antiga "consulta": circulação abre', array_reduce($todas, fn ($ok, $p) => $ok && $cons->ir($p)[0] === 200, true));
 [, $html] = $cons->ir('index.php');
-confere('perfil consulta: dashboard sem a tabela de empréstimos (nomes de alunos) e sem o menu Circulação', !str_contains($html, 'Empréstimos recentes') && !str_contains($html, 'emprestimos.php') && !str_contains($html, 'João Fictício'));
+confere('conta antiga "consulta": dashboard com a tabela de empréstimos e o menu Circulação', str_contains($html, 'Empréstimos recentes') && str_contains($html, 'emprestimos.php'));
+$anonE = new Navegador($base);
+confere('sem login: circulação vai para o login', array_reduce($todas, fn ($ok, $p) => $ok && $anonE->ir($p)[0] === 302, true));
 
 $bib = new Navegador($base);
 confere('login da bibliotecária', $bib->entrar('bib@teste.br', $senhaPadrao) === 302);
@@ -506,12 +509,13 @@ $aux = new Navegador($base);
 $aux->entrar('aux@teste.br', $senhaPadrao);
 $tka = $aux->csrf('novo-emprestimo.php');
 [$s, $html] = $aux->ir('novo-emprestimo.php?aluno=' . $aluno['joao'] . '&exemplar=' . $exDom[5]);
-confere('auxiliar: vê o prazo padrão, sem campo para alterar a data', $s === 200 && !str_contains($html, 'name="data_prevista"'));
-[$s] = $aux->ir('novo-emprestimo.php', ['csrf' => $tka, 'aluno' => $aluno['joao'], 'exemplar' => $exDom[5], 'confirmar' => '1', 'data_prevista' => date('Y-m-d', strtotime($hoje . ' +90 days'))]);
+confere('conta antiga "auxiliar": vê o campo para escolher outra data', $s === 200 && str_contains($html, 'name="data_prevista"'));
+$dataEscolhida = date('Y-m-d', strtotime($hoje . ' +20 days'));
+[$s] = $aux->ir('novo-emprestimo.php', ['csrf' => $tka, 'aluno' => $aluno['joao'], 'exemplar' => $exDom[5], 'confirmar' => '1', 'data_prevista' => $dataEscolhida]);
 $doAux = $num('SELECT id FROM emprestimos WHERE exemplar_id = ? AND data_devolucao IS NULL', [$exDom[5]]);
-confere('auxiliar registra empréstimo; data enviada à força é ignorada (prazo padrão)', $s === 303 && db_query('SELECT data_prevista FROM emprestimos WHERE id = ?', [$doAux])->fetchColumn() === $servico->prevista());
-[$s] = $cons->ir('novo-emprestimo.php', ['csrf' => $cons->csrf('index.php'), 'aluno' => $aluno['joao'], 'exemplar' => $exDom[0], 'confirmar' => '1']);
-confere('consulta não registra empréstimo nem enviando o formulário direto', $s === 403 && $situacao($exDom[0]) === 'disponivel');
+confere('conta antiga "auxiliar" registra empréstimo com a data escolhida', $s === 303 && db_query('SELECT data_prevista FROM emprestimos WHERE id = ?', [$doAux])->fetchColumn() === $dataEscolhida);
+[$s] = $cons->ir('novo-emprestimo.php', ['csrf' => 'falso', 'aluno' => $aluno['joao'], 'exemplar' => $exDom[0], 'confirmar' => '1']);
+confere('sem o token CSRF, não registra empréstimo nem enviando o formulário direto', $s === 419 && $situacao($exDom[0]) === 'disponivel');
 $logApp = implode("\n", preg_grep('/\[biblioteca\]/', file(sys_get_temp_dir() . "/$banco.log") ?: []));
 confere('registros de erro do sistema não expõem dados de alunos', !preg_match('/TESTE-\d{4}|Fictício|Exemplo|escola\.teste/', $logApp));
 

@@ -121,7 +121,7 @@ return [
     'administradores' => [
         'nome' => 'Administradores e permissões',
         'icone' => 'shield-check',
-        'descricao' => 'Perfis de acesso, contas do painel, senhas e o que cada perfil pode fazer.',
+        'descricao' => 'Contas do painel (todas de administrador), cadastro rápido de administradores e senhas.',
         'arquivo' => '13-administradores.php',
         'palavras' => ['perfil', 'permissao', 'conta', 'usuario', 'senha', 'administrador'],
     ],

@@ -86,11 +86,11 @@ Cada arquivo de `database/migrations/` roda uma única vez e fica registrado na 
 ### 6. Primeiro usuário do painel
 
 ```bash
-php database/criar-admin.php "Nome Completo" email@escola.com.br bibliotecaria
+php database/criar-admin.php "Nome Completo" email@escola.com.br "Bibliotecária"
 ```
 
-A senha (mínimo de 10 caracteres) é pedida no terminal. Perfis: `administrador`, `bibliotecaria`, `auxiliar`, `consulta`.
-Depois do primeiro administrador, as demais contas podem ser criadas pelo painel, em **Sistema → Administradores**.
+A senha (mínimo de 10 caracteres) é pedida no terminal. O terceiro argumento (opcional) é só a função da pessoa: desde a migração 200 toda conta é de administrador, com acesso total ([`docs/administradores.md`](docs/administradores.md)).
+Depois do primeiro administrador, as demais contas são criadas pelo painel, no cadastro rápido de **Sistema → Administradores** ou de **Meu perfil**.
 
 Opcional, **somente em um banco de testes**: `php database/seeds/popular-demo.php` copia os livros fictícios para um banco vazio (recusa rodar com `APP_ENV=production` ou com livros já cadastrados).
 
@@ -156,7 +156,7 @@ Quando o site não está com o MySQL interligado, ele continua acessível em mod
 
 Nesse modo:
 
-- **Acesso do administrador:** entre em `/admin/` com o e-mail **`Bibliotecaria@demo`** e a senha **`demo123`**. Também existe `auxiliar@demo` (mesma senha), com permissões de auxiliar. A tela de login mostra esse aviso.
+- **Acesso do administrador:** entre em `/admin/` com o e-mail **`Bibliotecaria@demo`** e a senha **`demo123`**. Também existe `auxiliar@demo` (mesma senha); as duas contas são de administrador. A tela de login mostra esse aviso.
 - As contas demonstrativas funcionam **apenas** quando `APP_ENV` não é `production`, e **nunca** quando o MySQL está conectado (aí só valem as contas cadastradas no banco).
 - O painel mostra dados fictícios; a importação de planilhas e todas as gravações reais ficam bloqueadas.
 - O site público não mostra livros (nem fictícios): exibe o aviso de que o catálogo ainda não está disponível.
@@ -244,7 +244,7 @@ Regras garantidas no banco: um livro tem vários exemplares e cada exemplar pert
 - Todas as páginas de `admin/` exigem login; as APIs respondem 401/403 sem sessão ou sem permissão.
 - Senhas com `password_hash`/`password_verify`, sessão com cookie `HttpOnly` e `SameSite=Lax`, ID regenerado no login, bloqueio após 5 tentativas em 15 minutos (número ajustável em Sistema → Configurações).
 - Formulários e APIs que alteram dados exigem token CSRF; o logout é feito por POST.
-- Permissões por perfil em `admin/includes/auth.php` (`AUTH_PERMISSOES`), conferidas no servidor em cada página e ação (esconder botões é só conveniência). Só o perfil `administrador` gerencia contas; o último administrador ativo não pode ser desativado nem rebaixado.
+- Um único perfil, Administrador (migração 200): toda conta ativa tem acesso total. As permissões de `admin/includes/auth.php` (`AUTH_PERMISSOES`) continuam conferidas no servidor em cada página e ação; sem login nada abre. Ninguém desativa a própria conta e a última conta ativa não pode ser desativada.
 - Sessão encerrada após 2 horas sem uso (ajustável em Sistema → Configurações); redefinir a senha de alguém encerra as sessões abertas com a senha antiga.
 - Cadastros, edições, arquivamentos e mudanças de contas ficam em `acoes_administrativas` (quem, quando, o quê). Senhas nunca são registradas.
 - Livros não são excluídos: são **arquivados** (com motivo e confirmação) e podem ser restaurados. O arquivamento é recusado enquanto houver exemplares em uso ou empréstimos em aberto.
@@ -267,7 +267,7 @@ php admin/tests/relatorios-teste.php   # relatórios: contas, períodos, gráfic
 php admin/tests/configuracoes-teste.php # configurações (painel → .env → padrão), regras novas, permissões, manutenção, cópia de segurança restaurada; banco temporário
 php admin/tests/codigos-etiquetas-teste.php # códigos BDP digitados (empréstimo, devolução, inventário), etiquetas só com texto, lombada provisória, PDFs sem código de barras; banco temporário
 php admin/tests/fluxo-integracao-teste.php   # fluxo completo pelas páginas: livro → exemplar/BDP → localização → etiqueta → aluno → empréstimo → devolução → inventário → relatórios → históricos
-php admin/tests/auditoria-seguranca-teste.php # acesso direto a todas as páginas por perfil, formulários forçados, sessão, login, parâmetros maliciosos, privacidade
+php admin/tests/auditoria-seguranca-teste.php # acesso direto a todas as páginas (com e sem login), formulários forçados, sessão, login, parâmetros maliciosos, privacidade
                                                # (com TESTE_URL_APACHE=http://localhost/BibliotecaDomPedro2/ confere também os arquivos protegidos no Apache)
 php admin/tests/backup-restauracao-teste.php # cópia de segurança restaurada em outro banco temporário e comparada (estrutura, dados, gatilhos, regras)
 php admin/tests/desempenho-teste.php         # tempos das páginas com 10.000 livros fictícios (--livros=N, --manter)
@@ -279,6 +279,7 @@ Todos os testes com banco criam e apagam bancos temporários `bdp_teste_*`: o ba
 
 - [`docs/publicacao.md`](docs/publicacao.md): requisitos de hospedagem e checklist de produção (HTTPS, permissões, Nginx/IIS, migrações, logs, atualização).
 - [`docs/backup-recuperacao.md`](docs/backup-recuperacao.md): cópia de segurança e recuperação no XAMPP.
+- [`docs/administradores.md`](docs/administradores.md): migração 200 — um único perfil (Administrador) e cadastro rápido de administradores.
 - [`docs/gestao-permanente.md`](docs/gestao-permanente.md): migração 190 — edição de obras com vários colaboradores, registro de vários exemplares, Central de Qualidade, versões da Planilha BDP, diagnóstico, aquisições, baixas, inventário periódico e circulação.
 - [`docs/seguranca-lgpd.md`](docs/seguranca-lgpd.md): medidas técnicas de proteção de dados e decisões que cabem à escola.
 - [`docs/manual-bibliotecaria.md`](docs/manual-bibliotecaria.md): manual de uso do painel.
@@ -293,7 +294,7 @@ Todos os testes com banco criam e apagam bancos temporários `bdp_teste_*`: o ba
 - Login, permissões, CSRF e logout do painel.
 - Dashboard com números reais do MySQL (títulos × exemplares, empréstimos ativos e atrasados, CDD pendente, pendências de importação, inventários em andamento).
 - Gerenciamento de livros: listagem com pesquisa (com ou sem acentos), filtros, ordenação e paginação no servidor; cadastro, edição, arquivamento e restauração gravados no banco; consulta dos dados originais da importação.
-- Gerenciamento de administradores (cadastro, edição, ativação, redefinição de senha) e página "Meu perfil" (troca da própria senha).
+- Gerenciamento de administradores (cadastro rápido com senha gerada, edição, ativação, redefinição de senha) e página "Meu perfil" (troca da própria senha e cadastro rápido de administradores). Um único perfil de acesso desde a migração 200.
 - Classificação CDD (pesquisa nas fontes, revisão, aprovação, histórico, relatórios).
 - Importação de planilhas `.xlsx`/`.csv` com revisão, preservação dos dados antigos e prevenção de duplicidades.
 - Importação local de alunos (`.xlsx`/`.csv`) com mapeamento de colunas, prévia, prevenção de duplicidades pela matrícula e atualização separada com confirmação. O arquivo não é guardado no servidor. Veja [`docs/importacao-alunos.md`](docs/importacao-alunos.md).

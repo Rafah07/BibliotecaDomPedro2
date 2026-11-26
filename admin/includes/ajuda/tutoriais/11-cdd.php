@@ -103,7 +103,7 @@ return [
         'permissao' => 'cdd.aprovar',
         'objetivo' => 'Validar as classificações para que passem a valer.',
         'quando' => ['Quando há sugestões aguardando aprovação.'],
-        'requisitos' => ['Perfil de bibliotecária ou administrador.'],
+        'requisitos' => ['Estar logado no painel.'],
         'passos' => [
             ['titulo' => 'Abra a Fila de aprovação', 'texto' => 'No painel de Classificação CDD, abra a aba **Fila de aprovação**. As abas **Aguardando aprovação** e **Sugestões ainda não enviadas** separam o que está pronto.'],
             ['titulo' => 'Abra a sugestão', 'texto' => 'Confira a CDD proposta, a fonte, a justificativa e os dados do livro.'],
@@ -112,7 +112,7 @@ return [
         'exemplo' => 'A bibliotecária vê a sugestão 869.3 para "Vidas Secas", confere a ficha catalográfica e aprova.',
         'resultado' => ['O livro passa a **Aprovado** e a CDD aparece na etiqueta de lombada e nos relatórios.'],
         'problemas' => [
-            ['"Somente a bibliotecária ou um administrador pode aprovar classificações."', 'O seu perfil só sugere.', 'Envie para revisão e avise a bibliotecária.'],
+            ['A tela de login apareceu no meio do trabalho.', 'A sessão expirou por tempo sem uso.', 'Entre de novo e repita a última ação.'],
         ],
         'cuidados' => ['Confira cada sugestão com o livro e a fonte antes de aprovar.'],
         'relacionados' => ['classificar-livro-cdd', 'verificar-cdd-livro'],

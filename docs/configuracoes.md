@@ -1,6 +1,6 @@
-# Configurações gerais, perfis e manutenção (Etapa 6)
+# Configurações gerais e manutenção (Etapa 6)
 
-Menu do painel: **Sistema → Configurações**, com as subpáginas **Perfis e permissões** e **Manutenção**.
+Menu do painel: **Sistema → Configurações**, com as subpáginas **Manutenção e backups** e **Diagnóstico do sistema**. (A subpágina **Perfis e permissões** saiu na migração 200: há um único perfil, ver [`administradores.md`](administradores.md).)
 
 ## De onde vem cada configuração
 
@@ -43,21 +43,11 @@ Números fora da faixa, domínio com `@` no meio ou espaços, opções diferente
 
 Cada alteração grava em `configuracoes_historico` a chave, o valor anterior, o novo valor (NULL = ".env / padrão"), quem alterou, o IP e a data. Gatilhos impedem editar ou apagar o histórico. A página mostra as 30 alterações mais recentes, e a ação também entra em `acoes_administrativas` (`configuracao.editar`), só com os nomes das chaves.
 
-## Perfis e permissões
+## Permissões
 
-`admin/permissoes.php` mostra a matriz de `AUTH_PERMISSOES` com a descrição de cada permissão (`AUTH_PERMISSOES_DESCRICOES`, em `admin/includes/auth.php`). Todos os perfis podem abrir e veem o próprio perfil destacado; o administrador vê também quantas contas ativas há em cada perfil.
+Desde a migração 200 todas as contas são de administrador e têm todas as permissões de `AUTH_PERMISSOES` (`admin/includes/auth.php`), inclusive `configuracoes.ver`, `configuracoes.editar` e `sistema.manutencao`. Detalhes em [`administradores.md`](administradores.md).
 
-As permissões continuam fixas no código, de propósito: um ajuste por engano poderia expor dados pessoais dos alunos. Para dar mais ou menos acesso a uma pessoa, mude o perfil da conta em Administradores.
-
-Permissões novas:
-
-| Permissão | Perfis |
-| --- | --- |
-| `configuracoes.ver` | Administrador, Bibliotecária |
-| `configuracoes.editar` | Administrador, Bibliotecária |
-| `sistema.manutencao` | Administrador |
-
-## Manutenção (só administrador)
+## Manutenção
 
 - **Diagnóstico**: versão do PHP (8.2 ou mais nova), extensões `pdo_mysql`, `mbstring`, `zip` e `fileinfo`, `.env`, ambiente e `display_errors`, versão e codificação do banco, migrações pendentes, pastas graváveis, proteção `.htaccess` das planilhas, prazo provisório e site em manutenção.
 - **Dados guardados**: totais de livros, exemplares, alunos, empréstimos, contas, importações, inventários e ações, e o tamanho do banco. Servem para conferir uma cópia restaurada.
