@@ -56,6 +56,8 @@ const ADMIN_MENU = [
         'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-comparacao' => ['label' => 'Comparação com planilha', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-relatorio' => ['label' => 'Relatório do inventário', 'icon' => 'file-chart-column', 'arquivo' => 'inventario-relatorio.php', 'pronta' => true, 'oculto' => true],
+        // Módulo TEMPORÁRIO (modulos/reorganizacao): o item some sozinho quando o módulo é desligado ou removido.
+        'reorganizacao' => ['label' => 'Reorganização do Acervo', 'icon' => 'layers', 'url' => 'modulos/reorganizacao/admin/', 'pronta' => true, 'modulo' => 'reorganizacao'],
     ],
     'Circulação' => [
         // Circulação: só para quem pode ver empréstimos (dados pessoais dos alunos).
@@ -121,6 +123,30 @@ function admin_menu_item(string $id): ?array
  * Caminho da pasta admin/ no navegador (ex.: "/admin/" ou "/BibliotecaDomPedro2/admin/").
  * Calculado a partir da raiz da aplicação (config/app.php), funciona também nas subpastas de admin/.
  */
+/**
+ * Módulo opcional (pasta modulos/<nome>) presente e ligado? Cada módulo define, no bootstrap.php,
+ * a função modulo_<nome>_ativo(). Sem a pasta (módulo removido), devolve false sem erro.
+ */
+function admin_modulo_ativo(string $nome): bool
+{
+    static $cache = [];
+    if (isset($cache[$nome])) {
+        return $cache[$nome];
+    }
+    $arquivo = __DIR__ . '/../../modulos/' . basename($nome) . '/bootstrap.php';
+    if (!preg_match('/^[a-z0-9_]+$/', $nome) || !is_file($arquivo)) {
+        return $cache[$nome] = false;
+    }
+    try {
+        require_once $arquivo;
+        $funcao = 'modulo_' . $nome . '_ativo';
+        return $cache[$nome] = function_exists($funcao) && $funcao();
+    } catch (Throwable $e) {
+        error_log('[biblioteca] Módulo ' . $nome . ': ' . $e->getMessage());
+        return $cache[$nome] = false;
+    }
+}
+
 function admin_base(): string
 {
     return url('admin/');

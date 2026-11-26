@@ -125,6 +125,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 break;
             case 'link_criar':
                 fisico_exigir('lotes.gerenciar');
+                if (!config_bool('COLETA_LINKS_ATIVOS', true)) {
+                    throw new AcervoException('Os links de equipe estão desativados em Configurações. Durante a reorganização, use o módulo Reorganização do Acervo.');
+                }
                 $novo = coleta_servico()->criarLink($id, admin_param($_POST, 'tipo'), admin_param($_POST, 'equipe'), admin_param($_POST, 'expira'), $usuario['id']);
                 $_SESSION['coleta_link_novo'] = ['lote' => $id, 'url' => coleta_url_publica($novo['token']), 'equipe' => admin_param($_POST, 'equipe'), 'tipo' => admin_param($_POST, 'tipo')];
                 admin_flash('sucesso', 'Link criado.', 'Copie o endereço agora e envie à equipe: por segurança, ele só aparece desta vez. Se perder, crie outro link e desative este.');
@@ -537,7 +540,10 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge
         <p class="adm-table__muted">Nenhum link criado para este lote.</p>
     <?php endif; ?>
 
-    <?php if ($podeGerenciar && $st !== 'encerrado'): ?>
+    <?php if (!config_bool('COLETA_LINKS_ATIVOS', true)): ?>
+        <div class="adm-notice adm-notice--amber"><?= icon('info') ?><div><strong>Links de equipe desativados.</strong>
+            <p>Os links existentes não abrem e novos links não são criados (nada foi apagado). Durante a reorganização, as equipes entram pelo botão “Equipe de organização” da tela de login (módulo Reorganização do Acervo). Para religar os links: Configurações → “Aceitar os links das equipes”.</p></div></div>
+    <?php elseif ($podeGerenciar && $st !== 'encerrado'): ?>
         <form method="post" class="adm-form-grid adm-form-grid--3">
             <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="link_criar">
             <label class="adm-field"><span class="adm-field__label">Equipe</span><input class="adm-input" type="text" name="equipe" maxlength="80" required placeholder="Ex.: Equipe 1"></label>

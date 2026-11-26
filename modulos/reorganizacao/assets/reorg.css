@@ -1,0 +1,162 @@
+/* Módulo temporário de reorganização do acervo — administração e Central de Equipes.
+   Usa as variáveis e componentes do painel (admin.css/acervo.css); aqui ficam só os ajustes do módulo. */
+
+.reorg-faixa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; font-size: 14px; }
+.reorg-faixa .icon { width: 18px; height: 18px; }
+.reorg-faixa.is-ativo { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.reorg-faixa.is-inativo { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+.reorg-sino { margin-left: auto; position: relative; display: inline-flex; color: inherit; }
+.reorg-sino span { position: absolute; top: -6px; right: -10px; background: #dc2626; color: #fff; border-radius: 999px; font-size: 11px; padding: 0 5px; line-height: 16px; }
+.reorg-abas { margin-bottom: 16px; flex-wrap: wrap; }
+
+.reorg-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
+.reorg-grade > .adm-card { margin: 0; }
+.reorg-adm > .adm-card, .reorg-adm > section { margin-bottom: 16px; }
+.reorg-equipes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.reorg-equipe h3 { font-size: 14px; margin: 0 0 6px; display: flex; gap: 6px; align-items: center; }
+.reorg-equipe ul, .reorg-pessoas, .reorg-lista-notif, .reorg-hist, .reorg-registros, .reorg-lotes-lista, .reorg-resultados { list-style: none; margin: 0; padding: 0; }
+.reorg-equipe li { padding: 6px 0; border-bottom: 1px solid #eef2f7; font-size: 13px; }
+.reorg-lista-notif li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eef2f7; font-size: 13px; }
+.reorg-lista-notif li small { color: #64748b; white-space: nowrap; }
+.reorg-lista-notif li.is-nova span { font-weight: 600; }
+.reorg-hist li { padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+.reorg-hist small { color: #64748b; }
+
+.reorg-summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 6px; font-size: 16px; }
+.reorg-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.reorg-linha { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 8px 0; }
+.reorg-linha > .adm-input { flex: 1 1 220px; width: auto; }
+.reorg-linha > .adm-field { margin: 0; }
+.reorg-acoes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.reorg-acoes .adm-inline-form { display: inline-flex; gap: 4px; align-items: center; }
+.reorg-mini-form { display: flex; flex-wrap: wrap; gap: 4px; }
+.reorg-mini-form .adm-input { min-width: 140px; }
+
+.reorg-barra { height: 6px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-top: 4px; min-width: 60px; }
+.reorg-barra span { display: block; height: 100%; background: #2563eb; border-radius: inherit; transition: width .3s; }
+
+.reorg-etapas { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.reorg-etapa { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.reorg-etapa span { font-size: 12px; color: #64748b; }
+.reorg-etapa strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.reorg-etapa .is-mudou, .reorg-etapa strong.is-mudou { color: #16a34a; }
+
+.reorg-pessoas li { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid #eef2f7; font-size: 13px; }
+.reorg-pessoas--antes li { color: #64748b; }
+.reorg-filtros { flex-wrap: wrap; margin-bottom: 8px; }
+
+.reorg-revisao { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.reorg-revisao aside { display: flex; flex-direction: column; gap: 16px; }
+.reorg-revisao aside .adm-card { margin: 0; }
+
+.reorg-indicador { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #f1f5f9; color: #334155; }
+.reorg-indicador::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+.reorg-indicador[data-estado="salvo"]::before { background: #16a34a; }
+.reorg-indicador[data-estado="salvando"]::before { background: #2563eb; animation: reorg-pulso 1s infinite; }
+.reorg-indicador[data-estado="offline"] { background: #fef3c7; color: #92400e; }
+.reorg-indicador[data-estado="offline"]::before { background: #d97706; }
+.reorg-indicador[data-estado="erro"] { background: #fee2e2; color: #991b1b; }
+.reorg-indicador[data-estado="erro"]::before { background: #dc2626; }
+@keyframes reorg-pulso { 50% { opacity: .3; } }
+
+.reorg-registro { display: flex; flex-direction: column; gap: 14px; }
+.reorg-registro__grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.reorg-registro .adm-check { font-size: 13px; display: inline-flex; gap: 6px; align-items: center; margin-top: 2px; }
+.reorg-exemplares { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin: 0; }
+.reorg-qtd { max-width: 140px; }
+.reorg-estados { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.reorg-estados li { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 6px 8px; background: #f8fafc; border-radius: 8px; }
+.reorg-estados li > span { min-width: 120px; font-weight: 600; font-size: 13px; }
+.reorg-radio { display: inline-flex; gap: 4px; align-items: center; font-size: 14px; cursor: pointer; }
+.reorg-avisos { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.reorg-avisos p { margin: 4px 0; }
+.reorg-avisos .is-erro { color: #991b1b; font-weight: 600; }
+.reorg-registro .is-invalid .adm-input, .reorg-registro .is-invalid .adm-select { border-color: #f59e0b; }
+
+.reorg-pesquisa { margin: 8px 0; }
+.reorg-resultados li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #eef2f7; }
+.reorg-resultados li div { display: flex; flex-direction: column; font-size: 13px; }
+.reorg-resultados small { color: #64748b; }
+
+.reorg-sol header { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.reorg-resposta { background: #f8fafc; padding: 8px; border-radius: 8px; }
+
+/* ---------------------------------------------------------------- Central de Equipes */
+.reorg-equipe-body { min-height: 100vh; }
+.reorg-topo { background: #123d73; color: #fff; position: sticky; top: 0; z-index: 20; }
+.reorg-topo__in { max-width: 1280px; margin: 0 auto; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.reorg-topo__in > div:first-child { display: flex; flex-direction: column; }
+.reorg-topo small { opacity: .85; }
+.reorg-topo__acoes { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.reorg-topo .reorg-indicador { background: rgba(255, 255, 255, .15); color: #fff; }
+.reorg-topo .adm-button { background: rgba(255, 255, 255, .12) !important; color: #fff !important; border: 1px solid rgba(255, 255, 255, .35) !important; }
+.reorg-topo .adm-button:hover { background: rgba(255, 255, 255, .22) !important; }
+.reorg-topo .adm-button .icon { color: inherit; }
+.reorg-notif .adm-button { background: #fff !important; color: #1e293b !important; }
+.reorg-main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+.reorg-centro { max-width: 560px; margin: 24px auto; text-align: center; }
+.reorg-centro .reorg-form { text-align: left; }
+.reorg-input-grande { font-size: 20px !important; min-height: 52px !important; }
+.reorg-cartoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.reorg-cartao { border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; background: #fff; }
+.reorg-cartao h2 { font-size: 17px; margin: 0; }
+.reorg-cartao p { margin: 0; font-size: 14px; color: #475569; flex: 1; }
+.reorg-instrucoes { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 12px; font-size: 14px; margin: 8px 0; }
+.reorg-painel { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
+.reorg-lateral { position: sticky; top: 76px; margin: 0; }
+.reorg-lotes-lista li a { display: flex; flex-direction: column; padding: 10px; border-radius: 10px; color: inherit; text-decoration: none; border: 1px solid transparent; }
+.reorg-lotes-lista li a:hover { background: #f8fafc; }
+.reorg-lotes-lista li.is-ativo a { background: #eff6ff; border-color: #bfdbfe; }
+.reorg-lotes-lista small { color: #64748b; }
+.reorg-pedidos { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.reorg-pedidos .adm-button { justify-content: flex-start; }
+.reorg-instrucoes-detalhe { margin-top: 12px; font-size: 13px; }
+.reorg-trabalho { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.reorg-trabalho > .adm-card { margin: 0; }
+.reorg-lote-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reorg-lote-topo h1, .reorg-lote-topo h2 { margin: 0; }
+.reorg-progresso { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; color: #475569; margin-top: 8px; }
+.reorg-g1 { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+.reorg-g1 > .adm-card { margin: 0; }
+.reorg-registros li { border-bottom: 1px solid #eef2f7; }
+.reorg-registros li a { display: flex; flex-direction: column; padding: 8px 6px; color: inherit; text-decoration: none; border-radius: 8px; }
+.reorg-registros li.is-ativo a { background: #eff6ff; }
+.reorg-registros li a:focus-visible, [data-reorg-item]:focus-visible { outline: 3px solid #93c5fd; }
+.reorg-registros small { color: #64748b; }
+.reorg-g4 .reorg-registros li { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 0; }
+.reorg-codigo { font-size: 16px; font-weight: 700; letter-spacing: .5px; }
+.reorg-planilha tr.is-ativo td { background: #eff6ff; }
+.reorg-planilha td { vertical-align: middle; }
+.reorg-planilha .reorg-acoes { flex-wrap: nowrap; }
+.reorg-planilha td small { display: block; color: #64748b; }
+.reorg-planilha tr.is-feito td { background: #ecfdf5; }
+.reorg-g4 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.reorg-g4 > .adm-card { margin: 0; }
+.reorg-codigo-campo { flex: 1 1 260px; }
+.reorg-resultado { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.reorg-resultado .adm-notice { display: block; padding: 10px 12px; }
+.reorg-checks { display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
+.reorg-dados dd { font-weight: 600; }
+.reorg-notifs { position: fixed; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 8px; max-width: min(420px, calc(100vw - 32px)); }
+.reorg-notif { background: #1e293b; color: #fff; border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; box-shadow: 0 8px 24px rgba(15, 23, 42, .25); font-size: 14px; }
+.reorg-notif span { flex: 1; }
+.reorg-toast { position: fixed; left: 50%; top: 80px; transform: translateX(-50%); background: #065f46; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 60; box-shadow: 0 8px 24px rgba(15, 23, 42, .25); max-width: calc(100vw - 32px); }
+.reorg-toast.is-erro { background: #991b1b; }
+.reorg-modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.reorg-modal[hidden] { display: none; }
+.reorg-modal__caixa { background: #fff; border-radius: 14px; padding: 20px; width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; position: relative; }
+.reorg-modal__fechar { margin-top: 12px; }
+.reorg-atalhos { padding-left: 18px; line-height: 1.9; }
+.reorg-atalhos kbd { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0 5px; font-size: 12px; }
+
+@media (max-width: 980px) {
+    .reorg-grade, .reorg-revisao, .reorg-painel, .reorg-g1, .reorg-g4, .reorg-cartoes { grid-template-columns: minmax(0, 1fr); }
+    .reorg-lateral { position: static; order: 2; }
+    .reorg-g1__form { order: -1; }
+}
+@media (max-width: 640px) {
+    .reorg-equipes, .reorg-registro__grade { grid-template-columns: minmax(0, 1fr); }
+    .reorg-main { padding: 12px; }
+    .reorg-estados li > span { min-width: 100%; }
+    .reorg-topo__acoes .adm-button { padding: 0 8px; }
+}
