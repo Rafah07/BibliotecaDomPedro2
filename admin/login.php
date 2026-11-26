@@ -60,6 +60,8 @@ $demo = auth_demo_disponivel();
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261115mob')) ?>">
 </head>
 <body class="adm-body adm-login">
+<?php // Módulo temporário de reorganização: botão discreto "Equipe de organização" só com período ativo (some se a pasta for removida).
+if (is_file(__DIR__ . '/../modulos/reorganizacao/includes/login-botao.php')) { include __DIR__ . '/../modulos/reorganizacao/includes/login-botao.php'; } ?>
 <main class="adm-login__box">
     <div class="adm-login__brand">
         <span class="adm-brand__logo"><?= icon('library-big') ?></span>

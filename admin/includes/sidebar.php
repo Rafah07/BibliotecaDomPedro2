@@ -47,7 +47,7 @@ $paiAtual = admin_menu_item($paginaAtual)['pai'] ?? null;
                 <p class="adm-nav__title"><span><?= htmlspecialchars($grupo) ?></span></p>
                 <ul>
                     <?php foreach ($itens as $id => $item): ?>
-                        <?php if (!empty($item['oculto']) || (isset($item['permissao']) && !auth_pode($item['permissao']))) continue; ?>
+                        <?php if (!empty($item['oculto']) || (isset($item['permissao']) && !auth_pode($item['permissao'])) || (isset($item['modulo']) && !admin_modulo_ativo($item['modulo']))) continue; ?>
                         <?php $ativo = $paginaAtual === $id; $paiAtivo = !$ativo && $paiAtual === $id; ?>
                         <li<?= isset($item['pai']) ? ' class="adm-nav__sub"' : '' ?>>
                             <?php if (($item['acao'] ?? '') === 'logout'): ?>

@@ -24,6 +24,8 @@ require __DIR__ . '/suporte.php';
 [$raiz, $banco, $env] = teste_banco_temporario('coleta');
 $_SERVER['SCRIPT_NAME'] = '/admin/tests/coleta-teste.php';
 $pdo = db();
+// A migração 220 (reorganização do acervo) desliga os links; aqui eles são testados ligados.
+$pdo->exec("DELETE FROM configuracoes_sistema WHERE chave = 'COLETA_LINKS_ATIVOS'");
 $num = fn (string $sql, array $p = []) => (int)db_query($sql, $p)->fetchColumn();
 $val = fn (string $sql, array $p = []) => db_query($sql, $p)->fetchColumn();
 $recusa = function (callable $fn): ?string {

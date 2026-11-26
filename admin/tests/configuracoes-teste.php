@@ -129,7 +129,8 @@ $retrato = function () use ($num, $tabelasDados): array {
 // ---------------------------------------------------------------
 echo "\n1. Migração 090 e histórico imutável\n";
 confere('tabelas configuracoes_sistema e configuracoes_historico criadas', $num("SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name IN ('configuracoes_sistema','configuracoes_historico')") === 2);
-confere('a migração começa sem nenhuma configuração salva (nada muda até alguém salvar)', $num('SELECT COUNT(*) FROM configuracoes_sistema') === 0);
+// A migração 220 grava só COLETA_LINKS_ATIVOS = false (desliga os links de equipe da 210).
+confere('a migração começa sem nenhuma configuração salva (nada muda até alguém salvar)', $num("SELECT COUNT(*) FROM configuracoes_sistema WHERE chave <> 'COLETA_LINKS_ATIVOS'") === 0);
 $repo = new ConfiguracaoRepository($pdo);
 $repo->salvar(['ETIQUETA_BIBLIOTECA' => 'Biblioteca de Teste'], $contas['administrador']);
 foreach (['UPDATE configuracoes_historico SET valor_novo = 1', 'DELETE FROM configuracoes_historico'] as $sql) {
