@@ -66,7 +66,12 @@ $botao = function () {
     return ob_get_clean();
 };
 confere('T02. botão "Equipe de organização" escondido sem período ativo', !str_contains($botao(), 'Equipe de organização'));
-$periodo = $r->iniciarPeriodo(['nome' => 'Reorganização Fictícia', 'inicio' => date('Y-m-d'), 'instrucoes_gerais' => 'Instruções gerais fictícias', 'instrucoes_grupo1' => 'Copie os dados da folha de rosto'], $adm);
+$invTeste ??= (function () use ($pdo, $adm): int {
+    // Inventário fictício em andamento: a organização por equipes pertence a um inventário (migração 250).
+    $pdo->prepare("INSERT INTO inventarios (titulo, status, iniciado_em, em_andamento_desde, aberto_por, responsavel_id) VALUES ('Inventário Fictício das Equipes', 'em_andamento', NOW(), NOW(), ?, ?)")->execute([$adm, $adm]);
+    return (int)$pdo->lastInsertId();
+})();
+$periodo = $r->iniciarPeriodo(['nome' => 'Reorganização Fictícia', 'inicio' => date('Y-m-d'), 'instrucoes_gerais' => 'Instruções gerais fictícias', 'instrucoes_grupo1' => 'Copie os dados da folha de rosto'], $adm, $invTeste);
 confere('T01. período iniciado e ativo', (int)$val('SELECT ativo FROM reorg_periodos WHERE id = ?', [$periodo]) === 1);
 confere('T01. não inicia dois períodos ao mesmo tempo', $recusa(fn () => $r->iniciarPeriodo(['nome' => 'Outro'], $adm)) !== null);
 confere('T02. botão aparece com o período ativo (cinza e discreto)', str_contains($botao(), 'Equipe de organização') && str_contains($botao(), 'reorg-botao-equipe'));

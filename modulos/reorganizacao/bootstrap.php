@@ -21,7 +21,7 @@ spl_autoload_register(function (string $classe): void {
 
 /**
  * Configuração central (config.php). Os tempos das sessões temporárias podem ser ajustados pelos
- * administradores em Reorganização do Acervo → Configurações (tabela reorg_configuracoes, migração 230).
+ * administradores em Inventário → Configurações das equipes (tabela reorg_configuracoes, migração 230).
  */
 function reorg_config(?string $chave = null): mixed
 {

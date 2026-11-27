@@ -2,8 +2,10 @@
 
 namespace Biblioteca\Reorganizacao;
 
+use Biblioteca\Repositories\InventarioRepository;
 use Biblioteca\Services\AcervoException;
 use Biblioteca\Services\ExemplarService;
+use Biblioteca\Services\InventarioService;
 use Biblioteca\Services\LoteService;
 use PDO;
 
@@ -14,10 +16,14 @@ use PDO;
  * em Etapas.
  *
  * Integração com o sistema permanente (sem duplicar nada):
- *   * cada lote da reorganização abre um lote GERENCIADO permanente (LoteService::criar), com a
- *     capacidade igual à quantidade prevista. Os exemplares e os códigos BDP são criados nele pelo
- *     cadastro normal (ExemplarService::cadastrarEmQuantidade, sequência única de códigos), e a
- *     Planilha BDP do sistema mostra esse lote como qualquer outro;
+ *   * o período das equipes pertence a um inventário (migração 250: "Ativar organização por equipes"
+ *     na configuração do inventário). Um período ativo por vez;
+ *   * o lote é o lote PERMANENTE do inventário (cadastro_lotes, migração 240, formulário único
+ *     admin/lote-novo.php). reorg_lotes é só a extensão temporária dele (participantes, etapas,
+ *     pausas, conclusão): ativarEquipesNoLote() nunca cria um segundo lote. Os exemplares e os códigos
+ *     BDP são criados nele pelo cadastro normal (ExemplarService::cadastrarEmQuantidade, sequência
+ *     única de códigos), entram no inventário (InventarioService::registrarCadastrados) e a Planilha
+ *     BDP do sistema mostra esse lote como qualquer outro;
  *   * exemplar de lote gerenciado só fica disponível para empréstimo depois de carimbado e guardado
  *     na estante (regra permanente do sistema): livros ainda em reorganização não aparecem como
  *     disponíveis, sem depender deste módulo.
@@ -32,6 +38,7 @@ final class Reorganizacao
 
     private ?Levantamento $levantamento = null;
     private ?Etapas $etapas = null;
+    private ?InventarioService $inventarios = null;
     private LoteService $lotesPermanentes;
 
     public function __construct(private PDO $pdo, private array $config, private ExemplarService $exemplares)
@@ -64,13 +71,73 @@ final class Reorganizacao
         return $this->lotesPermanentes;
     }
 
+    /** Serviço permanente do inventário (o cadastro do Grupo 2 entra no inventário do lote). */
+    public function inventarios(): InventarioService
+    {
+        return $this->inventarios ??= new InventarioService($this->pdo, $this->exemplares, new InventarioRepository($this->pdo));
+    }
+
     // =================================================================
     // Período
     // =================================================================
 
     public function periodoAtivo(): ?array
     {
-        return $this->linha('SELECT * FROM reorg_periodos WHERE ativo = 1 ORDER BY id DESC LIMIT 1');
+        return $this->linha('SELECT p.*, i.titulo AS inventario_titulo, i.status AS inventario_status FROM reorg_periodos p LEFT JOIN inventarios i ON i.id = p.inventario_id
+                             WHERE p.ativo = 1 ORDER BY p.id DESC LIMIT 1');
+    }
+
+    /** Período ativo das equipes deste inventário (ou null: equipes desligadas neste inventário). */
+    public function periodoDoInventario(int $inventarioId): ?array
+    {
+        $p = $this->periodoAtivo();
+        return $p && (int)$p['inventario_id'] === $inventarioId ? $p : null;
+    }
+
+    /** Equipes ativas neste inventário? */
+    public function equipesAtivas(int $inventarioId): bool
+    {
+        return $inventarioId > 0 && $this->periodoDoInventario($inventarioId) !== null;
+    }
+
+    /**
+     * "Ativar organização por equipes" na configuração do inventário. Inicia o período ligado ao
+     * inventário ou, se já houver um período ativo ANTIGO (sem inventário, anterior à migração 250),
+     * vincula esse mesmo período e os lotes dele ao inventário — sem criar outro período nem outro lote.
+     * @return array{id: int, novo: bool, vinculado: bool}
+     */
+    public function ativarEquipesNoInventario(int $inventarioId, array $dados, int $adminId): array
+    {
+        return $this->transacao(function () use ($inventarioId, $dados, $adminId) {
+            $inv = $this->linha('SELECT id, titulo, status FROM inventarios WHERE id = ?', [$inventarioId]);
+            if (!$inv) {
+                throw new AcervoException('Inventário não encontrado.');
+            }
+            if (in_array($inv['status'], ['concluido', 'cancelado'], true)) {
+                throw new AcervoException('Um inventário concluído ou cancelado não recebe organização por equipes.');
+            }
+            $this->todas('SELECT id FROM reorg_periodos WHERE ativo = 1 FOR UPDATE');
+            $ativo = $this->linha('SELECT * FROM reorg_periodos WHERE ativo = 1 ORDER BY id DESC LIMIT 1');
+            if ($ativo && (int)$ativo['inventario_id'] === $inventarioId) {
+                return ['id' => (int)$ativo['id'], 'novo' => false, 'vinculado' => false];
+            }
+            if ($ativo && $ativo['inventario_id'] !== null) {
+                $outro = $this->valor('SELECT titulo FROM inventarios WHERE id = ?', [$ativo['inventario_id']]);
+                throw new AcervoException('A organização por equipes já está ativa no inventário “' . $outro . '”. Desative-a lá antes de ativar neste.');
+            }
+            if ($ativo) {
+                // Período antigo (sem inventário): passa a pertencer a este inventário, com os lotes dele.
+                $this->executar('UPDATE reorg_periodos SET inventario_id = ? WHERE id = ?', [$inventarioId, $ativo['id']]);
+                $this->executar('UPDATE cadastro_lotes c JOIN reorg_lotes l ON l.cadastro_lote_id = c.id SET c.inventario_id = ? WHERE l.periodo_id = ? AND c.inventario_id IS NULL',
+                    [$inventarioId, $ativo['id']]);
+                $this->executar('INSERT INTO reorg_historico (periodo_id, administrador_id, acao, descricao) VALUES (?, ?, ?, ?)',
+                    [$ativo['id'], $adminId, 'periodo_alterado', 'Período “' . $ativo['nome'] . '” vinculado ao inventário “' . $inv['titulo'] . '”']);
+                return ['id' => (int)$ativo['id'], 'novo' => false, 'vinculado' => true];
+            }
+            $dados['nome'] = trim((string)($dados['nome'] ?? '')) !== '' ? $dados['nome'] : mb_substr('Equipes — ' . $inv['titulo'], 0, 120);
+            $id = $this->iniciarPeriodo($dados + ['inventario_id' => $inventarioId], $adminId, $inventarioId);
+            return ['id' => $id, 'novo' => true, 'vinculado' => false];
+        });
     }
 
     /** Período ativo ou, se nenhum, o último (para consulta). */
@@ -114,13 +181,15 @@ final class Reorganizacao
         return [$d, $e];
     }
 
-    public function iniciarPeriodo(array $dados, int $adminId): int
+    /** Inicia o período das equipes. Use ativarEquipesNoInventario(): todo período novo pertence a um inventário. */
+    public function iniciarPeriodo(array $dados, int $adminId, ?int $inventarioId = null): int
     {
         [$d, $e] = self::validarPeriodo($dados);
         if ($e) {
             throw new AcervoException(implode(' ', $e));
         }
-        return $this->transacao(function () use ($d, $adminId) {
+        $inventarioId ??= (int)($dados['inventario_id'] ?? 0) ?: null;
+        return $this->transacao(function () use ($d, $adminId, $inventarioId) {
             // Um período ativo por vez (a trava evita dois cliques simultâneos).
             $this->todas('SELECT id FROM reorg_periodos WHERE ativo = 1 FOR UPDATE');
             if ($this->valor('SELECT 1 FROM reorg_periodos WHERE ativo = 1')) {
@@ -129,6 +198,9 @@ final class Reorganizacao
             $this->executar('INSERT INTO reorg_periodos (nome, inicio, previsao_fim, instrucoes_gerais, instrucoes_grupo1, instrucoes_grupo2, instrucoes_grupo3, instrucoes_grupo4, criado_por)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [...array_values($d), $adminId]);
             $id = (int)$this->pdo->lastInsertId();
+            if ($inventarioId) {
+                $this->executar('UPDATE reorg_periodos SET inventario_id = ? WHERE id = ?', [$inventarioId, $id]);
+            }
             $this->executar('INSERT INTO reorg_historico (periodo_id, administrador_id, acao, descricao) VALUES (?, ?, ?, ?)', [$id, $adminId, 'periodo_iniciado', 'Período “' . $d['nome'] . '” iniciado']);
             $this->registrarAcao($adminId, 'reorganizacao.periodo_iniciar', 'reorg_periodo', $id, ['nome' => $d['nome']]);
             return $id;
@@ -554,9 +626,12 @@ final class Reorganizacao
     // =================================================================
 
     /**
-     * Cria o lote da reorganização e o lote gerenciado permanente ligado a ele.
+     * Cria um lote do inventário das equipes: o lote PERMANENTE (LoteService::criar, com inventário,
+     * nome, prazo, instruções e observações — migração 240) e a extensão das equipes dele, numa
+     * transação só. É o mesmo caminho do formulário único (admin/lote-novo.php + gancho lote.criado).
      * Dados: nome, quantidade, responsavel_id, admins (outros administradores autorizados no Grupo 2),
      * grupo1/grupo3/grupo4 (ids de sessões ativas), observacoes, instrucoes, prazo.
+     * @return int id em reorg_lotes
      */
     public function criarLote(array $dados, int $adminId): int
     {
@@ -570,16 +645,25 @@ final class Reorganizacao
             throw new AcervoException('Informe a quantidade prevista de exemplares físicos (de 1 a ' . $max . ').');
         }
         $responsavel = (int)($dados['responsavel_id'] ?? $adminId) ?: $adminId;
-        $prazo = trim((string)($dados['prazo'] ?? ''));
-        if ($prazo !== '' && !(($dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $prazo)) && $dt->format('Y-m-d') === $prazo)) {
-            throw new AcervoException('Prazo inválido.');
-        }
+        LoteService::dadosExtras($dados); // valida o prazo antes de abrir a transação
         // Dois administradores criando lotes no mesmo instante podem disputar o mesmo número de lote
         // permanente (chave única). Fora de outra transação, tenta de novo com uma leitura nova.
         $tentativas = $this->pdo->inTransaction() ? 1 : 5;
         for ($t = 1; ; $t++) {
             try {
-                return $this->criarLoteTransacao($dados, $adminId, $nome, $qtd, $responsavel, $prazo);
+                return $this->transacao(function () use ($dados, $adminId, $nome, $qtd, $responsavel) {
+                    $periodo = $this->periodoAtivo();
+                    if (!$periodo || !$periodo['inventario_id']) {
+                        throw new AcervoException('Ative a organização por equipes na configuração de um inventário antes de criar lotes.');
+                    }
+                    if (!$this->valor('SELECT 1 FROM administradores WHERE id = ? AND ativo = 1', [$responsavel])) {
+                        throw new AcervoException('Escolha um administrador responsável ativo.');
+                    }
+                    $usuarios = array_values(array_unique(array_filter(array_merge([$responsavel], array_map('intval', (array)($dados['admins'] ?? []))))));
+                    $cadastroId = $this->lotesPermanentes->criar(['capacidade' => $qtd, 'usuarios' => $usuarios, 'inventario_id' => $periodo['inventario_id'],
+                        'nome' => $nome, 'prazo' => $dados['prazo'] ?? '', 'instrucoes' => $dados['instrucoes'] ?? '', 'observacoes' => $dados['observacoes'] ?? ''], $adminId);
+                    return $this->ativarEquipesNoLote($cadastroId, $dados + ['responsavel_id' => $responsavel], $adminId);
+                });
             } catch (\PDOException $e) {
                 $disputa = in_array((int)($e->errorInfo[1] ?? 0), [1062, 1213], true) && !str_contains($e->getMessage(), 'reorg_');
                 if (!$disputa || $t >= $tentativas) {
@@ -590,27 +674,49 @@ final class Reorganizacao
         }
     }
 
-    private function criarLoteTransacao(array $dados, int $adminId, string $nome, int $qtd, int $responsavel, string $prazo): int
+    /**
+     * Acrescenta a organização por equipes a um lote PERMANENTE que já existe (sem criar outro lote):
+     * nome, quantidade prevista, prazo, instruções e observações vêm do lote permanente. O lote precisa
+     * ser do inventário em que as equipes estão ativas. Repetir não duplica (devolve a mesma extensão).
+     * Dados opcionais: responsavel_id, admins (Grupo 2 além do responsável; padrão: usuários do lote
+     * permanente), grupo1/grupo3/grupo4 (ids de sessões ativas).
+     * @return int id em reorg_lotes
+     */
+    public function ativarEquipesNoLote(int $cadastroLoteId, array $dados, int $adminId): int
     {
-        return $this->transacao(function () use ($dados, $adminId, $nome, $qtd, $responsavel, $prazo) {
+        return $this->transacao(function () use ($cadastroLoteId, $dados, $adminId) {
+            $cad = $this->linha('SELECT * FROM cadastro_lotes WHERE id = ? FOR UPDATE', [$cadastroLoteId]);
+            if (!$cad) {
+                throw new AcervoException('Lote não encontrado.');
+            }
+            if ($existente = $this->valor('SELECT id FROM reorg_lotes WHERE cadastro_lote_id = ?', [$cadastroLoteId])) {
+                return (int)$existente;
+            }
             $periodo = $this->periodoAtivo();
-            if (!$periodo) {
-                throw new AcervoException('Inicie um período de reorganização antes de criar lotes.');
+            if (!$periodo || !$periodo['inventario_id'] || (int)$periodo['inventario_id'] !== (int)$cad['inventario_id']) {
+                throw new AcervoException('A organização por equipes não está ativa no inventário deste lote.');
             }
-            if (!$this->valor('SELECT 1 FROM administradores WHERE id = ? AND ativo = 1', [$responsavel])) {
-                throw new AcervoException('Escolha um administrador responsável ativo.');
+            if ($cad['modo'] !== 'gerenciado' || $cad['capacidade'] === null || in_array($cad['status'], ['encerrado'], true)) {
+                throw new AcervoException('Só lotes gerenciados, com quantidade prevista e ainda não encerrados, recebem equipes.');
             }
-            $cadastroId = $this->lotesPermanentes->criar(['capacidade' => $qtd, 'usuarios' => [$responsavel], 'descricao' => 'Reorganização: ' . $nome], $adminId);
+            $qtd = (int)$cad['capacidade'];
+            $max = (int)$this->config['max_exemplares_lote'];
+            if ($qtd > $max) {
+                throw new AcervoException('Lotes com equipes têm no máximo ' . $max . ' exemplares previstos.');
+            }
+            $responsavel = (int)($dados['responsavel_id'] ?? 0) ?: (int)($cad['responsavel_id'] ?? $adminId) ?: $adminId;
+            $nome = $cad['nome'] ?: 'Lote ' . ExemplarService::numeroLote($cad['numero']);
             $this->executar('INSERT INTO reorg_lotes (periodo_id, cadastro_lote_id, nome, quantidade_inicial, quantidade_prevista, responsavel_id, observacoes, instrucoes, prazo, criado_por)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-                (int)$periodo['id'], $cadastroId, $nome, $qtd, $qtd, $responsavel,
-                self::textoLimpoLongo($dados['observacoes'] ?? null), self::textoLimpoLongo($dados['instrucoes'] ?? null), $prazo ?: null, $adminId,
+                (int)$periodo['id'], $cadastroLoteId, $nome, $qtd, $qtd, $responsavel, $cad['observacoes'], $cad['instrucoes'], $cad['prazo'], $adminId,
             ]);
             $id = (int)$this->pdo->lastInsertId();
-            $this->historico('lote_criado', 'Lote “' . $nome . '” criado com ' . $qtd . ' exemplar(es) previsto(s)', $id, null, $adminId, ['cadastro_lote_id' => $cadastroId, 'responsavel_id' => $responsavel]);
-            foreach (array_unique(array_map('intval', (array)($dados['admins'] ?? []))) as $outro) {
+            $this->historico('lote_criado', 'Lote “' . $nome . '” com equipes · ' . $qtd . ' exemplar(es) previsto(s)', $id, null, $adminId, ['cadastro_lote_id' => $cadastroLoteId, 'responsavel_id' => $responsavel]);
+            $admins = array_key_exists('admins', $dados) ? (array)$dados['admins']
+                : array_column($this->todas('SELECT administrador_id FROM cadastro_lote_usuarios WHERE lote_id = ? AND removido_em IS NULL', [$cadastroLoteId]), 'administrador_id');
+            foreach (array_unique(array_map('intval', $admins)) as $outro) {
                 if ($outro > 0 && $outro !== $responsavel && $this->valor('SELECT 1 FROM administradores WHERE id = ? AND ativo = 1', [$outro])) {
-                    $this->executar('INSERT INTO reorg_lote_admins (lote_id, administrador_id, incluido_por) VALUES (?, ?, ?)', [$id, $outro, $adminId]);
+                    $this->executar('INSERT IGNORE INTO reorg_lote_admins (lote_id, administrador_id, incluido_por) VALUES (?, ?, ?)', [$id, $outro, $adminId]);
                 }
             }
             foreach (self::EQUIPES_PARTICIPANTES as $eq) {
@@ -620,9 +726,23 @@ final class Reorganizacao
                     }
                 }
             }
-            $this->registrarAcao($adminId, 'reorganizacao.lote_criar', 'reorg_lote', $id, ['nome' => $nome, 'quantidade' => $qtd]);
+            $this->registrarAcao($adminId, 'reorganizacao.lote_criar', 'reorg_lote', $id, ['nome' => $nome, 'quantidade' => $qtd, 'cadastro_lote_id' => $cadastroLoteId]);
             return $id;
         });
+    }
+
+    /** Extensão das equipes de um lote permanente (ou null). */
+    public function loteDoCadastro(int $cadastroLoteId): ?array
+    {
+        $id = $this->valor('SELECT id FROM reorg_lotes WHERE cadastro_lote_id = ?', [$cadastroLoteId]);
+        return $id ? $this->lote((int)$id) : null;
+    }
+
+    /** Depois de alterar os dados no lote permanente: a extensão das equipes acompanha. */
+    public function sincronizarDoPermanente(int $cadastroLoteId): void
+    {
+        $this->executar('UPDATE reorg_lotes l JOIN cadastro_lotes c ON c.id = l.cadastro_lote_id
+                         SET l.nome = COALESCE(c.nome, l.nome), l.prazo = c.prazo, l.instrucoes = c.instrucoes, l.observacoes = c.observacoes WHERE c.id = ?', [$cadastroLoteId]);
     }
 
     private static function textoLimpoLongo(mixed $v): ?string
@@ -633,7 +753,7 @@ final class Reorganizacao
 
     public function lote(int $id): ?array
     {
-        return $this->linha('SELECT l.*, a.nome AS responsavel_nome, c.numero AS cadastro_numero, c.status AS cadastro_status, p.nome AS periodo_nome
+        return $this->linha('SELECT l.*, a.nome AS responsavel_nome, c.numero AS cadastro_numero, c.status AS cadastro_status, c.inventario_id, p.nome AS periodo_nome
                              FROM reorg_lotes l JOIN administradores a ON a.id = l.responsavel_id JOIN cadastro_lotes c ON c.id = l.cadastro_lote_id
                              JOIN reorg_periodos p ON p.id = l.periodo_id WHERE l.id = ?', [$id]);
     }
@@ -702,6 +822,60 @@ final class Reorganizacao
             }
         }
         return $t;
+    }
+
+    /** Extensões de equipes dos lotes de um inventário (ids em reorg_lotes). @return list<int> */
+    public function lotesDoInventario(int $inventarioId): array
+    {
+        return array_map('intval', array_column($this->todas('SELECT l.id FROM reorg_lotes l JOIN cadastro_lotes c ON c.id = l.cadastro_lote_id WHERE c.inventario_id = ? ORDER BY l.id', [$inventarioId]), 'id'));
+    }
+
+    /**
+     * Números TEMPORÁRIOS das equipes num inventário (o que ainda não é exemplar oficial ou é controle
+     * das equipes). Os exemplares cadastrados, carimbados e organizados vêm dos lotes permanentes e não
+     * são repetidos aqui.
+     */
+    public function totaisInventario(int $inventarioId): array
+    {
+        $t = ['lotes' => 0, 'concluidos' => 0, 'em_levantamento' => 0, 'aguardando_revisao' => 0, 'aprovados_sem_cadastro' => 0, 'aguardando_conferencia' => 0,
+            'conferidos' => 0, 'com_problema' => 0, 'pendencias_abertas' => 0];
+        foreach ($this->lotesDoInventario($inventarioId) as $id) {
+            $c = $this->contadores($id);
+            $t['lotes']++;
+            $t['concluidos'] += (int)($this->valor('SELECT status FROM reorg_lotes WHERE id = ?', [$id]) === 'concluido');
+            $t['em_levantamento'] += $c['em_levantamento'];
+            foreach (['aguardando_revisao', 'aprovados_sem_cadastro', 'aguardando_conferencia', 'conferidos', 'com_problema', 'pendencias_abertas'] as $k) {
+                $t[$k] += $c[$k];
+            }
+        }
+        $t['solicitacoes'] = (int)$this->valor("SELECT COUNT(*) FROM reorg_solicitacoes q JOIN reorg_periodos p ON p.id = q.periodo_id WHERE p.inventario_id = ? AND q.status = 'pendente'", [$inventarioId]);
+        return $t;
+    }
+
+    /** O que as equipes ainda têm em aberto neste inventário (aviso antes de concluir). @return list<string> */
+    public function avisosInventario(int $inventarioId): array
+    {
+        $t = $this->totaisInventario($inventarioId);
+        $a = [];
+        if ($t['lotes'] > $t['concluidos']) {
+            $a[] = ($t['lotes'] - $t['concluidos']) . ' lote(s) com equipes ainda não concluído(s) pelas equipes.';
+        }
+        if ($t['em_levantamento']) {
+            $a[] = $t['em_levantamento'] . ' exemplar(es) ainda em levantamento pelo Grupo 1 (rascunho ou correção).';
+        }
+        if ($t['aguardando_revisao'] + $t['aprovados_sem_cadastro']) {
+            $a[] = ($t['aguardando_revisao'] + $t['aprovados_sem_cadastro']) . ' exemplar(es) aguardando revisão ou cadastro (Grupo 2), ainda sem código BDP.';
+        }
+        if ($t['aguardando_conferencia']) {
+            $a[] = $t['aguardando_conferencia'] . ' exemplar(es) carimbados ainda não conferidos pelo Grupo 4.';
+        }
+        if ($t['pendencias_abertas']) {
+            $a[] = $t['pendencias_abertas'] . ' pendência(s) das equipes não resolvida(s).';
+        }
+        if ($t['solicitacoes']) {
+            $a[] = $t['solicitacoes'] . ' solicitação(ões) das equipes pendente(s).';
+        }
+        return $a;
     }
 
     // =================================================================
@@ -988,6 +1162,8 @@ final class Reorganizacao
             }
             $this->executar('UPDATE reorg_lotes SET nome = ?, observacoes = ?, instrucoes = ?, prazo = ? WHERE id = ?',
                 [$nome, self::textoLimpoLongo($dados['observacoes'] ?? null), self::textoLimpoLongo($dados['instrucoes'] ?? null), $prazo ?: null, $loteId]);
+            // O lote permanente guarda os mesmos dados (migração 240): continuam lá sem o módulo.
+            $this->lotesPermanentes->alterarDados((int)$lote['cadastro_lote_id'], ['nome' => $nome, 'prazo' => $prazo, 'instrucoes' => $dados['instrucoes'] ?? null, 'observacoes' => $dados['observacoes'] ?? null], $adminId);
             $this->historico('lote_alterado', self::nomeLote($lote) . ': dados do lote alterados', $loteId, null, $adminId);
         });
     }

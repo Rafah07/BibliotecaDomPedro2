@@ -18,6 +18,20 @@ use Biblioteca\Services\InventarioService;
 
 $usuario = fisico_iniciar();
 $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
+
+/** Depois de concluir ou cancelar: módulos opcionais encerram o que dependia do inventário (ex.: equipes). */
+function inventario_depois_de_finalizar(int $id, int $adminId): void
+{
+    try {
+        foreach (modulo_gancho('inventario.concluido', $id, $adminId) as $msg) {
+            if (is_string($msg) && $msg !== '') {
+                admin_flash('info', $msg);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('[biblioteca] Conclusão do inventário ' . $id . ': ' . $e->getMessage());
+    }
+}
 $url = admin_url('inventario-detalhes') . '?id=' . $id;
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -46,10 +60,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 }
                 $s->concluir($id, $usuario['id']);
                 admin_flash('sucesso', 'Inventário concluído.', 'O resultado foi registrado e o inventário ficou bloqueado para alterações.');
+                inventario_depois_de_finalizar($id, (int)$usuario['id']);
                 break;
             case 'cancelar':
                 $s->cancelar($id, $usuario['id'], admin_param($_POST, 'motivo'));
                 admin_flash('sucesso', 'Inventário cancelado.', 'As conferências já registradas continuam no histórico. Nada foi alterado nos exemplares.');
+                inventario_depois_de_finalizar($id, (int)$usuario['id']);
                 break;
             case 'decidir':
                 $s->decidir((int)admin_param($_POST, 'item_id'), admin_param($_POST, 'decisao'), admin_param($_POST, 'observacao'), $usuario['id']);
@@ -167,11 +183,10 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
         <?php if ($inv['status'] !== 'aberto'): ?>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-relatorio') . '?id=' . $id) ?>"><?= icon('file-chart-column') ?> Relatório</a>
         <?php endif; ?>
-        <?php if ($pode && !in_array($inv['status'], ['concluido', 'cancelado'], true)): ?>
-            <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-editar') . '?id=' . $id) ?>"><?= icon('pencil') ?> Editar dados</a>
-        <?php endif; ?>
     </div>
 </section>
+
+<?= inventario_abas_html($inv, 'visao') ?>
 
 <?= admin_flash_html() ?>
 
@@ -206,6 +221,24 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
         </div>
     </section>
 <?php endif; ?>
+
+<?php // Lotes do inventário (migração 240): contados por exemplar físico, uma vez só. ?>
+<?php try { $totLotes = lotes_repo()->totaisInventario($id); } catch (PDOException $e) { $totLotes = null; } ?>
+<?php if ($totLotes && $totLotes['lotes']): ?>
+    <section class="adm-card adm-panel adm-inv-lotes-resumo" aria-labelledby="titulo-lotes-resumo">
+        <div class="adm-panel__header"><div><h2 id="titulo-lotes-resumo"><?= icon('layers') ?> Lotes deste inventário</h2>
+            <p><?= fisico_numero($totLotes['lotes']) ?> lote(s), <?= fisico_numero($totLotes['encerrados']) ?> encerrado(s). Exemplares físicos dos lotes; um exemplar só conta depois de cadastrado com código BDP.</p></div>
+            <a class="adm-button adm-button--ghost adm-button--sm" href="<?= e(admin_url('inventario-lotes') . '?id=' . $id) ?>"><?= icon('arrow-right') ?> Ver lotes</a></div>
+        <dl class="adm-inv-funil">
+            <div><dt>Previstos nos lotes</dt><dd><?= fisico_numero($totLotes['previstos']) ?></dd></div>
+            <div><dt>Cadastrados com código BDP</dt><dd><?= fisico_numero($totLotes['cadastrados']) ?></dd></div>
+            <div><dt>Carimbados</dt><dd><?= fisico_numero($totLotes['carimbados']) ?></dd></div>
+            <div><dt>Organizados</dt><dd><?= fisico_numero($totLotes['organizados']) ?></dd></div>
+            <div><dt>Restantes</dt><dd><?= fisico_numero($totLotes['restantes']) ?></dd></div>
+        </dl>
+    </section>
+<?php endif; ?>
+<?= modulo_gancho_html('inventario.visao', $inv) ?>
 
 <?php if ($linhasDeFora > 0 && $pode): ?>
     <section class="adm-card adm-panel" aria-labelledby="titulo-linhas-fora">
@@ -293,6 +326,12 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
                     <form method="post" class="adm-acao__form">
                         <?= csrf_campo() ?><?= $campoVolta() ?><input type="hidden" name="acao" value="concluir">
                         <p>A conclusão grava o resultado e bloqueia o inventário. Só é possível sem pendências.</p>
+                        <?php $avisosConclusao = inventario_avisos_conclusao($inv); ?>
+                        <?php if ($avisosConclusao): ?>
+                            <div class="adm-notice adm-notice--amber adm-notice--compact" role="status"><?= icon('triangle-alert') ?><div><strong>Ainda em aberto:</strong>
+                                <ul><?php foreach ($avisosConclusao as $a): ?><li><?= e($a) ?></li><?php endforeach; ?></ul>
+                                <p>Confira antes de concluir. Concluir não apaga lotes, exemplares nem histórico.</p></div></div>
+                        <?php endif; ?>
                         <label class="adm-check-confirm"><input type="checkbox" name="confirmar" value="1" required> <span>Confirmo que a conferência terminou.</span></label>
                         <button class="adm-button adm-button--primary" type="submit"<?= $pendentes ? ' disabled' : '' ?>><?= icon('flag') ?> Concluir</button>
                         <?php if ($pendentes): ?><p class="adm-field__hint">Trate as pendências primeiro (aba "Decisões necessárias").</p><?php endif; ?>
@@ -315,7 +354,7 @@ admin_page_start('inventario', 'Inventário: ' . $inv['titulo'], 'Inventário', 
 <?php endif; ?>
 
 <?php if ($inv['status'] !== 'aberto'): ?>
-<section class="adm-card adm-panel" aria-labelledby="titulo-itens">
+<section class="adm-card adm-panel" aria-labelledby="titulo-itens" id="itens">
     <nav class="adm-tabs adm-tabs--links adm-tabs--scroll" aria-label="Categorias dos exemplares">
         <?php foreach (InventarioRepository::FILTROS as $chave => $rotulo): ?>
             <?php if ($chave === 'pendentes' && !$aberto) { continue; } ?>

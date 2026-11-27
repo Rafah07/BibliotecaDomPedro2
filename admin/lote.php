@@ -126,7 +126,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             case 'link_criar':
                 fisico_exigir('lotes.gerenciar');
                 if (!config_bool('COLETA_LINKS_ATIVOS', true)) {
-                    throw new AcervoException('Os links de equipe estão desativados em Configurações. Durante a reorganização, use o módulo Reorganização do Acervo.');
+                    throw new AcervoException('Os links de equipe estão desativados em Configurações. Durante a reorganização, use a organização por equipes do inventário.');
                 }
                 $novo = coleta_servico()->criarLink($id, admin_param($_POST, 'tipo'), admin_param($_POST, 'equipe'), admin_param($_POST, 'expira'), $usuario['id']);
                 $_SESSION['coleta_link_novo'] = ['lote' => $id, 'url' => coleta_url_publica($novo['token']), 'equipe' => admin_param($_POST, 'equipe'), 'tipo' => admin_param($_POST, 'tipo')];
@@ -150,6 +150,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 coleta_servico()->retomar($id, admin_param($_POST, 'etapa'), $usuario['nome']);
                 admin_flash('sucesso', 'Trabalho retomado.', '');
                 $ancora = '#equipes';
+                break;
+            case 'dados':
+                fisico_exigir('lotes.gerenciar');
+                lotes_servico()->alterarDados($id, $_POST, $usuario['id']);
+                modulo_gancho('lote.alterado', $id, (int)$usuario['id']);
+                admin_flash('sucesso', 'Dados do lote salvos.', 'A alteração ficou no histórico do lote.');
                 break;
             case 'corrigir':
                 fisico_exigir('lotes.gerenciar');
@@ -239,15 +245,23 @@ $coletaPausas = $coletaOk ? coleta_servico()->pausas($id) : [];
 $coletaNovo = ($_SESSION['coleta_link_novo']['lote'] ?? null) === $id ? $_SESSION['coleta_link_novo'] : null;
 unset($_SESSION['coleta_link_novo']);
 
-admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge(FISICO_CSS, ['assets/css/coleta.css?v=20261126']));
+// Lote de inventário (migração 240): a página fica dentro das abas do inventário.
+$invLote = !empty($lote['inventario_id']) ? inventario_repo()->buscar((int)$lote['inventario_id']) : null;
+
+admin_page_start($invLote ? 'inventario' : 'lote', $nome, 'Inventário', 'Relatório do lote', array_merge(FISICO_CSS, ['assets/css/coleta.css?v=20261126']));
 ?>
 
+<?php if ($invLote): ?>
+<?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Inventário', admin_url('inventario')], [$invLote['titulo'], admin_url('inventario-detalhes') . '?id=' . (int)$invLote['id']], ['Lotes', admin_url('inventario-lotes') . '?id=' . (int)$invLote['id']], [$nome]]) ?>
+<?= inventario_abas_html($invLote, 'lotes') ?>
+<?php else: ?>
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Inventário', admin_url('inventario')], ['Histórico de Lotes', admin_url('lotes')], [$nome]]) ?>
+<?php endif; ?>
 
 <section class="adm-page-head">
     <div>
-        <h1><?= e($nome) ?> <?= lote_badge($st) ?></h1>
-        <p><?= $lote['descricao'] ? e($lote['descricao']) . ' · ' : '' ?>do cadastro à estante definitiva. O lote e a planilha BDP nunca são apagados.</p>
+        <h1><?= e(lote_nome_completo($lote)) ?> <?= lote_badge($st) ?></h1>
+        <p><?= $invLote ? 'Inventário “' . e($invLote['titulo']) . '” · ' : '' ?><?= $lote['descricao'] ? e($lote['descricao']) . ' · ' : '' ?>do cadastro à estante definitiva. O lote e a planilha BDP nunca são apagados.</p>
     </div>
     <div class="adm-page-head__actions adm-no-print">
         <a class="adm-button adm-button--primary" href="<?= e(admin_url('planilha-bdp-versoes') . '?lote=' . (int)$lote['id']) ?>"><?= icon('file-text') ?> Planilha BDP (versões)</a>
@@ -260,6 +274,8 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge
         <?php endif; ?>
     </div>
 </section>
+
+<?= modulo_gancho_html('lote.painel', $lote) ?>
 
 <?= admin_flash_html() ?>
 
@@ -277,7 +293,9 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge
 <section class="adm-card adm-panel" aria-labelledby="titulo-info">
     <h2 id="titulo-info" class="adm-panel__title"><?= icon('layers') ?> Informações gerais</h2>
     <dl class="adm-meta adm-meta--grid">
-        <div><dt>Número do lote</dt><dd><?= e($nome) ?></dd></div>
+        <div><dt>Número do lote</dt><dd><?= e($nome) ?><?= $lote['nome'] ? ' · ' . e($lote['nome']) : '' ?></dd></div>
+        <?php if ($invLote): ?><div><dt>Inventário</dt><dd><a class="adm-link" href="<?= e(admin_url('inventario-detalhes') . '?id=' . (int)$invLote['id']) ?>"><?= e($invLote['titulo']) ?></a></dd></div><?php endif; ?>
+        <?php if ($lote['prazo']): ?><div><dt>Prazo</dt><dd><?= e(admin_data_hora($lote['prazo'], false)) ?></dd></div><?php endif; ?>
         <div><dt>Responsáveis</dt><dd><?= $lote['participantes'] ? e($lote['participantes']) : '—' ?></dd></div>
         <div><dt>Capacidade configurada</dt><dd><?= $lote['capacidade'] !== null ? fisico_numero((int)$lote['capacidade']) . ' exemplar(es)' : 'Sem limite (lote anterior ao gerenciamento)' ?></dd></div>
         <div><dt>Criado em</dt><dd><?= e(admin_data_hora($lote['criado_em'])) ?><?= $lote['criado_por_nome'] ? ' por ' . e($lote['criado_por_nome']) : '' ?></dd></div>
@@ -286,7 +304,20 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge
         <div><dt>Carimbagem concluída</dt><dd><?= $lote['carimbagem_concluida_em'] ? e(admin_data_hora($lote['carimbagem_concluida_em'])) . ($lote['carimbagem_concluida_por_nome'] ? ' por ' . e($lote['carimbagem_concluida_por_nome']) : '') : '—' ?></dd></div>
         <div><dt>Encerramento definitivo</dt><dd><?= $lote['encerrado_em'] ? e(admin_data_hora($lote['encerrado_em'])) . ($lote['encerrado_por_nome'] ? ' por ' . e($lote['encerrado_por_nome']) : '') : '—' ?></dd></div>
     </dl>
+    <?php if ($lote['instrucoes']): ?><p class="adm-field__hint"><strong>Instruções:</strong> <?= nl2br(e($lote['instrucoes'])) ?></p><?php endif; ?>
+    <?php if ($lote['observacoes']): ?><p class="adm-field__hint"><strong>Observações:</strong> <?= nl2br(e($lote['observacoes'])) ?></p><?php endif; ?>
     <?= lote_progresso($lote) ?>
+    <?php if ($podeGerenciar): ?>
+        <details class="adm-lote-dados adm-no-print"><summary class="adm-link"><?= icon('pencil') ?> Editar nome, prazo, instruções e observações</summary>
+            <form method="post" action="<?= e($base) ?>" class="adm-form-grid">
+                <?= csrf_campo() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="acao" value="dados">
+                <label class="adm-field"><span class="adm-field__sublabel">Nome</span><input class="adm-input" name="nome" maxlength="120" value="<?= e((string)$lote['nome']) ?>"></label>
+                <label class="adm-field"><span class="adm-field__sublabel">Prazo</span><input class="adm-input" type="date" name="prazo" value="<?= e((string)$lote['prazo']) ?>"></label>
+                <label class="adm-field adm-field--full"><span class="adm-field__sublabel">Instruções</span><textarea class="adm-textarea" name="instrucoes" rows="2" maxlength="5000"><?= e((string)$lote['instrucoes']) ?></textarea></label>
+                <label class="adm-field adm-field--full"><span class="adm-field__sublabel">Observações internas</span><textarea class="adm-textarea" name="observacoes" rows="2" maxlength="5000"><?= e((string)$lote['observacoes']) ?></textarea></label>
+                <div class="adm-field--full"><button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('save') ?> Salvar dados</button></div>
+            </form></details>
+    <?php endif; ?>
 </section>
 
 <section class="adm-card adm-panel" aria-labelledby="titulo-resumo">
@@ -490,22 +521,7 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge
 </section>
 
 <?php // ---------- Participantes ---------- ?>
-<?php
-// Lote criado pelo módulo temporário de reorganização: o trabalho das equipes fica lá.
-$reorgLote = null;
-if (admin_modulo_ativo('reorganizacao')) {
-    try {
-        $reorgLote = db_query('SELECT id, nome FROM reorg_lotes WHERE cadastro_lote_id = ? LIMIT 1', [$id])->fetch() ?: null;
-    } catch (Throwable $e) {
-        $reorgLote = null;
-    }
-}
-$coletaLigada = config_bool('COLETA_LINKS_ATIVOS', true);
-?>
-<?php if ($reorgLote): ?>
-<div class="adm-notice adm-notice--blue adm-no-print"><?= icon('archive-restore') ?><div><strong>Este lote pertence à Reorganização do Acervo (<?= e($reorgLote['nome']) ?>).</strong>
-    <p>Participantes, revisão, carimbação e conferência são feitos no ambiente do lote no módulo. <a href="<?= e(url('modulos/reorganizacao/admin/lote.php?id=' . (int)$reorgLote['id'])) ?>">Abrir o lote na Reorganização do Acervo</a></p></div></div>
-<?php endif; ?>
+<?php $coletaLigada = config_bool('COLETA_LINKS_ATIVOS', true); ?>
 <?php if ($coletaOk && !$coletaLigada): ?>
 <?php if ($coletaLinks || array_sum(array_map('intval', (array)$coletaResumo))): ?>
 <section class="adm-card adm-panel adm-no-print" id="equipes">

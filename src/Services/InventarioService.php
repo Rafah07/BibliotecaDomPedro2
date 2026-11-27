@@ -350,19 +350,52 @@ final class InventarioService
         return $this->transacao(function () use ($inventarioId, $livroId, $dados, $responsavelId, $quantidade) {
             $this->inventarioParaConferencia($inventarioId);
             $criados = $this->exemplares->cadastrar($livroId, $dados, $responsavelId, $quantidade, $inventarioId);
-            $obs = self::textoLimpo($dados['observacoes'] ?? null);
-            foreach ($criados as $c) {
-                $ex = $this->linha('SELECT localizacao_id, estado_conservacao, situacao FROM exemplares WHERE id = ?', [$c['id']]);
-                $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, cadastrado_no_inventario, conferido_em, conferido_por,
-                                                               localizacao_encontrada_id, estado_encontrado, observacao)
-                                 VALUES (?, ?, ?, 0, 1, NOW(), ?, ?, ?, ?)', [$inventarioId, $c['id'], $livroId, $responsavelId, $ex['localizacao_id'], $ex['estado_conservacao'], $obs]);
-                $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$c['id']]);
-            }
-            if ($criados) {
-                $this->marcarObraLocalizada($inventarioId, $livroId, $responsavelId);
-            }
+            $this->registrarCadastrados($inventarioId, $livroId, array_column($criados, 'id'), $responsavelId, self::textoLimpo($dados['observacoes'] ?? null));
             return $criados;
         });
+    }
+
+    /**
+     * Exemplares recém-cadastrados (com código BDP) para a obra que está em mãos entram no inventário
+     * como "Cadastrado na conferência" e "Encontrado", e as linhas da planilha desta obra ficam
+     * "Obra localizada". Usado pela conferência e pelos cadastros feitos por lote (ex.: revisão das
+     * equipes, quando a organização por equipes está ativa). Não cria exemplar e não conta duas vezes:
+     * um exemplar que já está no inventário é ignorado. Exige o inventário em andamento.
+     * @param list<int> $exemplarIds
+     * @return int exemplares incluídos agora
+     */
+    public function registrarCadastrados(int $inventarioId, int $livroId, array $exemplarIds, int $responsavelId, ?string $observacao = null): int
+    {
+        return $this->transacao(function () use ($inventarioId, $livroId, $exemplarIds, $responsavelId, $observacao) {
+            $this->inventarioParaConferencia($inventarioId);
+            $n = 0;
+            foreach (array_unique(array_map('intval', $exemplarIds)) as $exId) {
+                $ex = $this->linha('SELECT id, livro_id, localizacao_id, estado_conservacao FROM exemplares WHERE id = ?', [$exId]);
+                if (!$ex || (int)$ex['livro_id'] !== $livroId || $this->valor('SELECT 1 FROM inventario_itens WHERE inventario_id = ? AND exemplar_id = ?', [$inventarioId, $exId])) {
+                    continue;
+                }
+                $this->executar('INSERT INTO inventario_itens (inventario_id, exemplar_id, livro_id, previsto, cadastrado_no_inventario, conferido_em, conferido_por,
+                                                               localizacao_encontrada_id, estado_encontrado, observacao)
+                                 VALUES (?, ?, ?, 0, 1, NOW(), ?, ?, ?, ?)', [$inventarioId, $exId, $livroId, $responsavelId, $ex['localizacao_id'], $ex['estado_conservacao'], $observacao]);
+                $this->executar('UPDATE exemplares SET conferido_em = NOW() WHERE id = ?', [$exId]);
+                $n++;
+            }
+            if ($n) {
+                $this->marcarObraLocalizada($inventarioId, $livroId, $responsavelId);
+            }
+            return $n;
+        });
+    }
+
+    /** O inventário aceita conferências e cadastros agora? (mensagem do motivo, ou null quando aceita) */
+    public function motivoSemConferencia(int $inventarioId): ?string
+    {
+        try {
+            $this->inventarioParaConferencia($inventarioId);
+            return null;
+        } catch (AcervoException $e) {
+            return $e->getMessage();
+        }
     }
 
     /** Correção autorizada de uma conferência já registrada (fica no histórico, com o motivo). */

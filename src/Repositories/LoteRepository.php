@@ -40,6 +40,7 @@ final class LoteRepository
     public function lote(int $id): ?array
     {
         return $this->linha('SELECT lt.*, ' . self::CONTAGENS . ',
+                                    (SELECT i.titulo FROM inventarios i WHERE i.id = lt.inventario_id) AS inventario_titulo,
                                     cr.nome AS criado_por_nome, fe.nome AS fechado_por_nome, ci.nome AS carimbagem_iniciada_por_nome,
                                     cc.nome AS carimbagem_concluida_por_nome, en.nome AS encerrado_por_nome
                              FROM cadastro_lotes lt
@@ -115,7 +116,39 @@ final class LoteRepository
             $where[] = 'lt.status = ?';
             $params[] = (string)$f['status'];
         }
+        if ((int)($f['inventario'] ?? 0) > 0) {
+            $where[] = 'lt.inventario_id = ?'; // migração 240
+            $params[] = (int)$f['inventario'];
+        }
         return [implode(' AND ', $where), $params];
+    }
+
+    /**
+     * Lotes de um inventário (migração 240), do mais novo para o mais antigo, com as contagens.
+     * @return list<array>
+     */
+    public function doInventario(int $inventarioId): array
+    {
+        return $this->todas('SELECT lt.*, a.nome AS responsavel_nome, ' . self::CONTAGENS . ' FROM cadastro_lotes lt LEFT JOIN administradores a ON a.id = lt.responsavel_id
+                             WHERE lt.inventario_id = ? ORDER BY lt.numero DESC', [$inventarioId]);
+    }
+
+    /**
+     * Totais dos lotes de um inventário, contados por exemplar físico e uma vez só (cada exemplar
+     * pertence a um único lote): previstos (soma das capacidades), cadastrados com código BDP,
+     * carimbados, organizados (com estante) e lotes por situação.
+     * @return array{lotes: int, encerrados: int, em_andamento: int, previstos: int, cadastrados: int, carimbados: int, organizados: int, restantes: int}
+     */
+    public function totaisInventario(int $inventarioId): array
+    {
+        $l = $this->linha("SELECT COUNT(*) AS lotes, COALESCE(SUM(status = 'encerrado'), 0) AS encerrados, COALESCE(SUM(capacidade), 0) AS previstos
+                           FROM cadastro_lotes WHERE inventario_id = ?", [$inventarioId]);
+        $e = $this->linha("SELECT COUNT(*) AS cadastrados, COALESCE(SUM(e.carimbo_status = 'carimbado'), 0) AS carimbados, COALESCE(SUM(e.localizacao_id IS NOT NULL), 0) AS organizados
+                           FROM exemplares e JOIN cadastro_lotes lt ON lt.id = e.lote_id WHERE lt.inventario_id = ? AND e.situacao <> 'baixado'", [$inventarioId]);
+        $t = ['lotes' => (int)$l['lotes'], 'encerrados' => (int)$l['encerrados'], 'em_andamento' => (int)$l['lotes'] - (int)$l['encerrados'],
+            'previstos' => (int)$l['previstos'], 'cadastrados' => (int)$e['cadastrados'], 'carimbados' => (int)$e['carimbados'], 'organizados' => (int)$e['organizados']];
+        $t['restantes'] = max(0, $t['previstos'] - $t['organizados']);
+        return $t;
     }
 
     /** Participantes (atuais e removidos), com o que cada um fez no lote. */

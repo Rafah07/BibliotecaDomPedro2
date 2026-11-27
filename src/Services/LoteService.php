@@ -43,8 +43,11 @@ final class LoteService
     // =================================================================
 
     /**
-     * "+ Abrir novo lote". Dados: capacidade (1..500), usuarios (ids), descricao (nome ou observação).
-     * $chave (token do formulário) evita abrir dois lotes com um clique duplo: devolve o mesmo lote.
+     * "+ Abrir novo lote" (formulário único: admin/lote-novo.php). Dados: capacidade (1..500), usuarios
+     * (ids), descricao (nome ou observação) e, desde a migração 240, inventario_id (inventário a que o
+     * lote pertence), nome, prazo (AAAA-MM-DD), instrucoes e observacoes — todos opcionais aqui; o
+     * formulário exige o inventário. $chave (token do formulário) evita abrir dois lotes com um clique
+     * duplo: devolve o mesmo lote.
      */
     public function criar(array $dados, int $administradorId, ?string $chave = null): int
     {
@@ -57,27 +60,88 @@ final class LoteService
             throw new AcervoException('Escolha pelo menos um usuário responsável pelo cadastro neste lote.');
         }
         $descricao = self::textoLimpo((string)($dados['descricao'] ?? ''), 255);
+        $extras = self::dadosExtras($dados);
         $chave = $chave !== null && preg_match('/^[a-f0-9]{32}$/', $chave) ? 'abrir:' . $chave : null;
 
-        return $this->transacao(function () use ($capacidade, $usuarios, $descricao, $administradorId, $chave) {
+        return $this->transacao(function () use ($capacidade, $usuarios, $descricao, $extras, $administradorId, $chave) {
             $this->valor('SELECT ultimo FROM exemplar_codigo_seq WHERE id = 1 FOR UPDATE');
             if ($chave !== null && ($repetido = $this->valor('SELECT lote_id FROM lote_eventos WHERE chave = ?', [$chave]))) {
                 return (int)$repetido; // mesmo formulário enviado de novo
             }
             $this->conferirUsuarios($usuarios);
+            if ($extras['inventario_id'] !== null) {
+                $this->conferirInventario($extras['inventario_id']);
+            }
             $numero = (int)$this->valor('SELECT COALESCE(MAX(numero), 0) + 1 FROM cadastro_lotes');
             $this->executar("INSERT INTO cadastro_lotes (numero, modo, capacidade, descricao, responsavel_id) VALUES (?, 'gerenciado', ?, ?, ?)",
                 [$numero, $capacidade, $descricao, $administradorId]);
             $id = (int)$this->pdo->lastInsertId();
+            if (array_filter($extras, fn ($v) => $v !== null)) {
+                // Colunas da migração 240 (gravadas à parte: sem elas, o lote continua sendo aberto normalmente).
+                $this->executar('UPDATE cadastro_lotes SET inventario_id = ?, nome = ?, prazo = ?, instrucoes = ?, observacoes = ? WHERE id = ?',
+                    [$extras['inventario_id'], $extras['nome'], $extras['prazo'], $extras['instrucoes'], $extras['observacoes'], $id]);
+            }
             $nome = 'Lote ' . ExemplarService::numeroLote($numero);
-            $this->exemplares->eventoLote($id, null, 'lote_aberto', $nome . ' aberto · capacidade de ' . $capacidade . ' exemplar(es)' . ($descricao ? ' · ' . $descricao : ''),
-                $administradorId, ['capacidade' => $capacidade, 'usuarios' => $usuarios], $chave);
+            $this->exemplares->eventoLote($id, null, 'lote_aberto', $nome . ' aberto · capacidade de ' . $capacidade . ' exemplar(es)' . ($extras['nome'] ? ' · ' . $extras['nome'] : '') . ($descricao ? ' · ' . $descricao : ''),
+                $administradorId, ['capacidade' => $capacidade, 'usuarios' => $usuarios, 'inventario_id' => $extras['inventario_id']], $chave);
             foreach ($usuarios as $u) {
                 $this->incluirParticipante($id, $nome, $u, $administradorId);
             }
             $this->registrarAcao($administradorId, 'lote.abrir', 'lote', $id, ['numero' => $numero, 'capacidade' => $capacidade, 'usuarios' => $usuarios]);
             return $id;
         });
+    }
+
+    /**
+     * Altera nome, prazo, instruções e observações do lote (migração 240). O número, a capacidade e o
+     * inventário não mudam aqui. Fica no histórico do lote.
+     */
+    public function alterarDados(int $loteId, array $dados, int $administradorId): void
+    {
+        $extras = self::dadosExtras($dados);
+        $this->transacao(function () use ($loteId, $extras, $administradorId) {
+            $lote = $this->linha('SELECT id, numero FROM cadastro_lotes WHERE id = ? FOR UPDATE', [$loteId]);
+            if (!$lote) {
+                throw new AcervoException('Lote não encontrado.');
+            }
+            $this->executar('UPDATE cadastro_lotes SET nome = ?, prazo = ?, instrucoes = ?, observacoes = ? WHERE id = ?',
+                [$extras['nome'], $extras['prazo'], $extras['instrucoes'], $extras['observacoes'], $loteId]);
+            $this->exemplares->eventoLote($loteId, null, 'correcao', 'Lote ' . ExemplarService::numeroLote($lote['numero']) . ': dados do lote alterados'
+                . ($extras['nome'] ? ' · ' . $extras['nome'] : ''), $administradorId, ['nome' => $extras['nome'], 'prazo' => $extras['prazo']]);
+        });
+    }
+
+    /** Campos da migração 240, limpos e validados. @return array{inventario_id: ?int, nome: ?string, prazo: ?string, instrucoes: ?string, observacoes: ?string} */
+    public static function dadosExtras(array $dados): array
+    {
+        $prazo = trim((string)($dados['prazo'] ?? ''));
+        if ($prazo !== '' && !(($dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $prazo)) && $dt->format('Y-m-d') === $prazo)) {
+            throw new AcervoException('Prazo inválido. Use uma data válida.');
+        }
+        $longo = function (mixed $v): ?string {
+            $v = trim((string)$v);
+            return $v === '' ? null : mb_substr($v, 0, 5000);
+        };
+        $inv = (int)($dados['inventario_id'] ?? 0);
+        return [
+            'inventario_id' => $inv > 0 ? $inv : null,
+            'nome' => self::textoLimpo((string)($dados['nome'] ?? ''), 120),
+            'prazo' => $prazo !== '' ? $prazo : null,
+            'instrucoes' => $longo($dados['instrucoes'] ?? null),
+            'observacoes' => $longo($dados['observacoes'] ?? null),
+        ];
+    }
+
+    /** O inventário existe e ainda aceita lotes (não concluído nem cancelado)? */
+    private function conferirInventario(int $inventarioId): void
+    {
+        $inv = $this->linha('SELECT id, status FROM inventarios WHERE id = ?', [$inventarioId]);
+        if (!$inv) {
+            throw new AcervoException('Escolha um inventário existente para o lote.');
+        }
+        if (in_array($inv['status'], ['concluido', 'cancelado'], true)) {
+            throw new AcervoException('Este inventário já foi ' . ($inv['status'] === 'concluido' ? 'concluído' : 'cancelado') . ' e não recebe novos lotes.');
+        }
     }
 
     /** Inclui usuários no lote (ou devolve quem tinha sido removido). Devolve quantos entraram. */

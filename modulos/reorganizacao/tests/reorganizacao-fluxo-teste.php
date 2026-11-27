@@ -65,7 +65,12 @@ $exemplaresAntes = $num('SELECT COUNT(*) FROM exemplares');
 
 // =====================================================================
 echo "\n1–3. Período, entrada sem conta e escolha das equipes\n";
-$periodo = $r->iniciarPeriodo(['nome' => 'Reorganização Fictícia 2026', 'inicio' => date('Y-m-d'), 'instrucoes_gerais' => 'Trabalhe com calma.'], $adm);
+$invTeste ??= (function () use ($pdo, $adm): int {
+    // Inventário fictício em andamento: a organização por equipes pertence a um inventário (migração 250).
+    $pdo->prepare("INSERT INTO inventarios (titulo, status, iniciado_em, em_andamento_desde, aberto_por, responsavel_id) VALUES ('Inventário Fictício das Equipes', 'em_andamento', NOW(), NOW(), ?, ?)")->execute([$adm, $adm]);
+    return (int)$pdo->lastInsertId();
+})();
+$periodo = $r->iniciarPeriodo(['nome' => 'Reorganização Fictícia 2026', 'inicio' => date('Y-m-d'), 'instrucoes_gerais' => 'Trabalhe com calma.'], $adm, $invTeste);
 confere('1. administrador ativa a reorganização', (int)$val('SELECT ativo FROM reorg_periodos WHERE id = ?', [$periodo]) === 1 && $r->periodoAtivo() !== null);
 $ent = [];
 foreach (['ana' => 'Ana Fictícia Prado', 'bia' => 'Bia Fictícia Rocha', 'caio' => 'Caio Fictício Neves', 'duda' => 'Duda Fictícia Melo', 'ana2' => 'Ana Fictícia Prado'] as $k => $nome) {
@@ -333,8 +338,9 @@ foreach (['admin/index.php', 'admin/livros.php', 'admin/exemplares.php', 'admin/
 }
 [$s, $html] = $nav->ir('admin/exemplares.php?q=' . rawurlencode($todos[0]));
 confere('21. exemplar da reorganização aparece no cadastro permanente pelo código BDP', $s === 200 && str_contains($html, $todos[0]));
-foreach (['admin/', 'admin/lotes.php?status=concluido', 'admin/lote.php?id=' . $lote, 'admin/lote.php?id=' . $lote . '&aba=historico', 'admin/historico.php?lote_id=' . $lote, 'admin/configuracoes.php'] as $pagina) {
-    [$s, $html] = $nav->ir('modulos/reorganizacao/' . $pagina);
+foreach (['admin/inventario-detalhes.php?id=' . $invTeste, 'admin/inventario-lotes.php?id=' . $invTeste, 'modulos/reorganizacao/admin/lote.php?id=' . $lote, 'modulos/reorganizacao/admin/lote.php?id=' . $lote . '&aba=historico',
+    'modulos/reorganizacao/admin/historico.php?lote_id=' . $lote, 'modulos/reorganizacao/admin/configuracoes.php'] as $pagina) {
+    [$s, $html] = $nav->ir($pagina);
     confere("Extra: depois do encerramento, $pagina continua consultável", $s === 200 && teste_sem_erro_tecnico($html), $s . ' ' . mb_substr(strip_tags($html), 0, 200));
 }
 
@@ -345,7 +351,7 @@ $temPlaywright = $node !== '' && trim((string)shell_exec(escapeshellarg($node) .
 if (!$temPlaywright) {
     echo "  (Node/Playwright não instalados: parte do navegador não executada)\n";
 } else {
-    $p2 = $r->iniciarPeriodo(['nome' => 'Período do navegador', 'instrucoes_gerais' => 'Instruções fictícias do navegador.'], $adm);
+    $p2 = $r->iniciarPeriodo(['nome' => 'Período do navegador', 'instrucoes_gerais' => 'Instruções fictícias do navegador.'], $adm, $invTeste);
     $baseNav = teste_servidor($env + ['REORGANIZACAO_INTERVALO_SINAL' => '5', 'PHP_CLI_SERVER_WORKERS' => '4']);
     $estado = sys_get_temp_dir() . '/reorg-pw-' . getmypid() . '.json';
     $cfg = ['base' => $baseNav, 'estado' => $estado, 'senha' => $senha, 'capturas' => getenv('REORG_CAPTURAS') ?: '', 'maxEsperado' => 12];
@@ -374,7 +380,8 @@ if (!$temPlaywright) {
     confere('Navegador: quantidade limitada ao que cabe no lote (12)', ($e2['quantidadeLimitada'] ?? false) === true, json_encode($e2));
     confere('Navegador: nenhum erro de JavaScript na página do participante', ($e2['errosJs'] ?? ['?']) === [], json_encode($e2['errosJs'] ?? null));
     // Layout nas resoluções de Chromebook
-    $paginasAdmin = ['modulos/reorganizacao/admin/', 'modulos/reorganizacao/admin/lotes.php', 'modulos/reorganizacao/admin/lote-novo.php', 'modulos/reorganizacao/admin/participantes.php',
+    $paginasAdmin = ['admin/inventario-detalhes.php?id=' . $invTeste, 'admin/inventario-lotes.php?id=' . $invTeste, 'admin/lote-novo.php?inventario=' . $invTeste, 'admin/inventario-editar.php?id=' . $invTeste,
+        'admin/inventario-conferencia.php?id=' . $invTeste, 'admin/lote.php?id=' . (int)$L['cadastro_lote_id'], 'modulos/reorganizacao/admin/participantes.php',
         'modulos/reorganizacao/admin/solicitacoes.php', 'modulos/reorganizacao/admin/historico.php', 'modulos/reorganizacao/admin/configuracoes.php', 'modulos/reorganizacao/admin/registro.php?id=' . (int)$B['id']];
     foreach (['visao', 'g1', 'g2', 'g3', 'g4', 'participantes', 'pendencias', 'historico'] as $aba) {
         $paginasAdmin[] = 'modulos/reorganizacao/admin/lote.php?id=' . $lote . '&aba=' . $aba;

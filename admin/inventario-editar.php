@@ -43,12 +43,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $dados[$c] = admin_param($_POST, $c);
     }
     try {
+        $novo = !$id;
         if ($id) {
             inventario_servico()->editar($id, $dados, $usuario['id']);
             admin_flash('sucesso', 'Inventário atualizado.');
         } else {
             $id = inventario_servico()->criar($dados, $usuario['id']);
             admin_flash('sucesso', 'Inventário criado em preparação.', 'Revise os dados e clique em "Iniciar conferência" quando a equipe estiver pronta.');
+        }
+        // Opções de módulos opcionais (ex.: "Ativar organização por equipes"). O inventário já está salvo:
+        // se a opção não puder ser aplicada, ele continua salvo e a mensagem explica o motivo.
+        try {
+            foreach (modulo_gancho('inventario.salvo', $id, $_POST, (int)$usuario['id'], $novo) as $msg) {
+                if (is_string($msg) && $msg !== '') {
+                    admin_flash('sucesso', $msg);
+                }
+            }
+        } catch (AcervoException $e) {
+            admin_flash('aviso', 'O inventário foi salvo, mas uma opção não foi aplicada.', $e->getMessage());
         }
         admin_redirecionar(admin_url('inventario-detalhes') . '?id=' . $id);
     } catch (AcervoException $e) {
@@ -62,6 +74,9 @@ $titulo = $inv ? 'Editar inventário' : 'Novo inventário';
 admin_page_start('inventario', $titulo, 'Inventário', 'Conferência digital do acervo físico', FISICO_CSS);
 ?>
 
+<?php if ($inv): ?>
+<?= inventario_cabecalho_html($inv, 'configuracoes', 'Dados do inventário e opções de trabalho. A lista de exemplares previstos é congelada só quando a conferência é iniciada.') ?>
+<?php else: ?>
 <?= acervo_breadcrumb([['Administração', admin_url('dashboard')], ['Inventário', admin_url('inventario')], [$titulo]]) ?>
 
 <section class="adm-page-head">
@@ -69,8 +84,9 @@ admin_page_start('inventario', $titulo, 'Inventário', 'Conferência digital do 
         <h1><?= e($titulo) ?></h1>
         <p>O inventário começa em preparação. A lista de exemplares previstos é congelada só quando a conferência é iniciada.</p>
     </div>
-    <div class="adm-page-head__actions"><a class="adm-button adm-button--ghost" href="<?= e($inv ? admin_url('inventario-detalhes') . '?id=' . (int)$inv['id'] : admin_url('inventario')) ?>"><?= icon('arrow-left') ?> Voltar</a></div>
+    <div class="adm-page-head__actions"><a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario')) ?>"><?= icon('arrow-left') ?> Voltar</a></div>
 </section>
+<?php endif; ?>
 
 <?php if ($erro): ?><?= admin_aviso('erro', 'O inventário não foi salvo.', $erro) ?><?php endif; ?>
 
@@ -104,6 +120,7 @@ admin_page_start('inventario', $titulo, 'Inventário', 'Conferência digital do 
         <label class="adm-field adm-field--full"><span class="adm-field__label">Observações <span class="adm-optional">(opcional)</span></span>
             <textarea class="adm-textarea" name="descricao" rows="3" maxlength="2000" placeholder="Ex.: equipe, turnos combinados, cuidados"><?= e($dados['descricao']) ?></textarea></label>
     </div>
+    <?= modulo_gancho_html('inventario.form', $inv, $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : null) ?>
     <button class="adm-button adm-button--primary" type="submit"><?= icon('save') ?> <?= $inv ? 'Salvar alterações' : 'Criar inventário' ?></button>
 </form>
 

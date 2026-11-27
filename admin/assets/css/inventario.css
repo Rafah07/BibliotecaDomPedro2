@@ -578,3 +578,22 @@ kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-
     .adm-comp-detalhe { border-left: 0; }
     .adm-comp-tabela tr { break-inside: avoid; }
 }
+
+/* ---------- Inventário como ambiente central (migração 240): abas, lotes e formulário único ---------- */
+.adm-inv-abas { flex-wrap: wrap; overflow-x: auto; }
+.adm-inv-abas a { white-space: nowrap; }
+.adm-page-head--inv h1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adm-inv-funil { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0; }
+.adm-inv-funil > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: #f4f7fb; border-radius: 10px; min-width: 0; }
+.adm-inv-funil dt { font-size: 12px; color: var(--adm-muted, #5b6b7f); }
+.adm-inv-funil dd { margin: 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.adm-inv-funil dd.is-alerta { color: #b91c1c; }
+.adm-field--span2 { grid-column: span 2; }
+.adm-lote-novo .adm-lote-usuarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
+.adm-lote-dados { margin-top: 10px; }
+.adm-lote-dados > summary { cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.adm-lote-dados .adm-form-grid { margin-top: 10px; }
+.adm-inv-lotes td small { display: block; }
+@media (max-width: 760px) {
+    .adm-field--span2 { grid-column: 1 / -1; }
+}

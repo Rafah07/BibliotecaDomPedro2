@@ -312,7 +312,7 @@ if (!$inv) {
 }
 [$s, $html] = $nav->ir('admin/inventario-conferencia.php?id=' . $inv);
 confere('16. Conferência mostra "Meus lotes" e "Abrir novo lote" para o administrador', $s === 200 && str_contains($html, 'Meus lotes') && str_contains($html, 'Abrir novo lote') && teste_sem_erro_tecnico($html), "status $s");
-$t = $tok($nav, 'admin/lotes.php?novo=1');
+$t = $tok($nav, 'admin/lote-novo.php');
 [$s, , $loc] = $nav->ir('admin/lotes.php', ['csrf' => $t, 'acao' => 'abrir', 'capacidade' => '30', 'usuarios' => [(string)$c1, (string)$c2], 'descricao' => 'Lote pela página', 'chave' => OperacaoService::novaChave(),
     'voltar' => '/admin/inventario-conferencia.php?id=' . $inv]);
 $lPag = (int)$val("SELECT id FROM cadastro_lotes WHERE descricao = 'Lote pela página'");
@@ -381,7 +381,7 @@ confere('14. API salva e devolve o rascunho do próprio usuário, sem o código 
 [$s] = $aux->ir('admin/api/rascunhos/rascunho.php', ['formulario' => 'registrar_exemplar', 'referencia' => 'x', 'campos' => ['a' => 'b']]);
 confere('14. API recusa POST sem CSRF', $s === 419);
 
-foreach (['lotes.php', 'lotes.php?status=encerrado', 'lotes.php?novo=1', 'lote.php?id=' . $l1, 'lote.php?id=' . $l2, 'lote.php?id=' . $lPag, 'lote.php?id=' . $loteAntigo, 'lotes-produtividade.php',
+foreach (['lotes.php', 'lotes.php?status=encerrado', 'lote-novo.php', 'lote.php?id=' . $l1, 'lote.php?id=' . $l2, 'lote.php?id=' . $lPag, 'lote.php?id=' . $loteAntigo, 'lotes-produtividade.php',
              'lotes-produtividade.php?periodo=semana', 'lotes-produtividade.php?periodo=mes&colaborador=' . $c3, 'duvidas.php', 'duvidas.php?status=todas&lote=' . $l1, 'planilha-bdp.php?aba=lotes', 'cadastrar-exemplar.php?livro=' . $livro] as $p) {
     [$s, $html] = $nav->ir('admin/' . $p);
     confere("página $p abre sem erro técnico", $s === 200 && teste_sem_erro_tecnico($html), "status $s");

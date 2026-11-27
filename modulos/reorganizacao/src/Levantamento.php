@@ -737,6 +737,12 @@ final class Levantamento
                 if (!$copias) {
                     throw new AcervoException('O registro não tem exemplares.');
                 }
+                // Inventário do lote (migração 240): os exemplares entram nele já como encontrados. O
+                // inventário precisa estar em andamento; antes de qualquer gravação, para nada ficar pela metade.
+                $inventarioId = (int)$this->valor('SELECT inventario_id FROM cadastro_lotes WHERE id = ?', [$lote['cadastro_lote_id']]);
+                if ($inventarioId && ($motivo = $this->reorg->inventarios()->motivoSemConferencia($inventarioId))) {
+                    throw new AcervoException('Registro nº ' . $r['numero'] . ': ' . $motivo . ' (o cadastro e os códigos BDP entram no inventário do lote).');
+                }
                 $obraNova = !$r['livro_sugerido_id'];
                 // Tudo na MESMA transação: obra (nova, ou existente com as correções aprovadas),
                 // verificação, CDD, exemplares e códigos BDP. Qualquer falha desfaz tudo e o registro
@@ -756,6 +762,11 @@ final class Levantamento
                 $this->executar('UPDATE administradores SET lote_ativo_id = ? WHERE id = ?', [$anterior ?: null, $adminId]);
                 foreach ($copias as $i => $c) {
                     $this->executar('UPDATE reorg_registro_exemplares SET exemplar_id = ? WHERE id = ? AND exemplar_id IS NULL', [$criados[$i]['id'], $c['id']]);
+                }
+                if ($inventarioId) {
+                    // Mecanismo permanente do inventário (o mesmo da conferência): cadastrado + encontrado,
+                    // e as linhas da planilha desta obra ficam "Obra localizada". Não conta duas vezes.
+                    $this->reorg->inventarios()->registrarCadastrados($inventarioId, $livroId, array_column($criados, 'id'), $adminId, $obs);
                 }
                 $this->executar("UPDATE reorg_registros SET status = 'cadastrado', livro_id = ?, obra_nova = ?, cadastrado_por = ?, cadastrado_em = NOW(), versao = versao + 1 WHERE id = ?",
                     [$livroId, $obraNova ? 1 : 0, $adminId, $id]);

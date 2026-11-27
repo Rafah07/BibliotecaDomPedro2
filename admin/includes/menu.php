@@ -50,17 +50,15 @@ const ADMIN_MENU = [
         // Gerenciamento de lotes e etapas de trabalho (migração 160).
         'lotes' => ['label' => 'Histórico de Lotes', 'icon' => 'layers', 'arquivo' => 'lotes.php', 'pronta' => true, 'pai' => 'inventario'],
         'lote' => ['label' => 'Relatório do lote', 'icon' => 'layers', 'arquivo' => 'lote.php', 'pronta' => true, 'oculto' => true],
+        // Lotes por inventário (migração 240): formulário único de criação e aba "Lotes" do inventário.
+        'lote-novo' => ['label' => 'Novo lote', 'icon' => 'plus', 'arquivo' => 'lote-novo.php', 'pronta' => true, 'oculto' => true],
+        'inventario-lotes' => ['label' => 'Lotes do inventário', 'icon' => 'layers', 'arquivo' => 'inventario-lotes.php', 'pronta' => true, 'oculto' => true],
         // Equipes por link (migração 210): revisão dos pré-cadastros, aberta pela página do lote.
         'coleta' => ['label' => 'Revisão da coleta', 'icon' => 'list-checks', 'arquivo' => 'coleta.php', 'pronta' => true, 'oculto' => true],
         'lotes-produtividade' => ['label' => 'Relatório de Produtividade', 'icon' => 'chart-column', 'arquivo' => 'lotes-produtividade.php', 'pronta' => true, 'pai' => 'inventario', 'permissao' => 'lotes.gerenciar'],
         'duvidas' => ['label' => 'Dúvidas da conferência', 'icon' => 'circle-help', 'arquivo' => 'duvidas.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-comparacao' => ['label' => 'Comparação com planilha', 'icon' => 'git-compare', 'arquivo' => 'inventario-comparacao.php', 'pronta' => true, 'pai' => 'inventario'],
         'inventario-relatorio' => ['label' => 'Relatório do inventário', 'icon' => 'file-chart-column', 'arquivo' => 'inventario-relatorio.php', 'pronta' => true, 'oculto' => true],
-    ],
-    // Módulo TEMPORÁRIO (modulos/reorganizacao), separado do Inventário. O grupo inteiro some quando o
-    // módulo é desligado ou removido (a barra lateral não mostra grupos sem itens visíveis).
-    'Reorganização do acervo' => [
-        'reorganizacao' => ['label' => 'Reorganização do Acervo', 'icon' => 'archive-restore', 'url' => 'modulos/reorganizacao/admin/', 'pronta' => true, 'modulo' => 'reorganizacao'],
     ],
     'Circulação' => [
         // Circulação: só para quem pode ver empréstimos (dados pessoais dos alunos).

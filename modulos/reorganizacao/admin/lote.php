@@ -1,7 +1,8 @@
 <?php
 /**
- * Ambiente de trabalho de um lote, com abas internas:
- * Visão geral · Grupo 1 · Grupo 2 · Grupo 3 · Grupo 4 · Participantes · Pendências · Histórico.
+ * Área das equipes de um lote do inventário (o lote é o lote permanente; esta é a extensão temporária),
+ * com abas internas: Visão geral · Grupo 1 · Grupo 2 · Grupo 3 · Grupo 4 · Participantes · Pendências ·
+ * Histórico · Relatório e Planilha BDP (página permanente do lote). Fica dentro das abas do inventário.
  * Cada ação volta para a mesma aba e o mesmo filtro.
  */
 require __DIR__ . '/../includes/admin.php';
@@ -25,17 +26,10 @@ if (!$lote) {
     exit;
 }
 
-const REORG_ABAS_LOTE = [
-    'visao' => ['Visão geral', 'layout-dashboard'],
-    'g1' => ['Grupo 1 — Levantamento', 'clipboard-list'],
-    'g2' => ['Grupo 2 — Revisão', 'list-checks'],
-    'g3' => ['Grupo 3 — Carimbação', 'stamp'],
-    'g4' => ['Grupo 4 — Conferência e organização', 'library'],
-    'participantes' => ['Participantes', 'users'],
-    'pendencias' => ['Pendências', 'triangle-alert'],
-    'historico' => ['Histórico', 'history'],
-];
 $aba = (string)($_GET['aba'] ?? $_POST['aba'] ?? 'visao');
+if ($aba === 'relatorio') {
+    admin_redirecionar(admin_url('lote') . '?id=' . (int)$lote['cadastro_lote_id']); // relatório e Planilha BDP: página permanente do lote
+}
 $aba = isset(REORG_ABAS_LOTE[$aba]) ? $aba : 'visao';
 $filtro = (string)($_GET['f'] ?? $_POST['f'] ?? '');
 $base = reorg_url('admin/lote.php?id=' . $id);
@@ -125,14 +119,15 @@ foreach ($part['atuais'] as $p) {
 }
 $pendAbertas = $c['pendencias_abertas'];
 
-reorg_admin_inicio('lotes', $lote['nome'], [[$lote['nome'], $aba === 'visao' ? null : $base], ...($aba === 'visao' ? [] : [[REORG_ABAS_LOTE[$aba][0], null]])]);
+$nomeLote = 'Lote ' . str_pad((string)$lote['cadastro_numero'], 3, '0', STR_PAD_LEFT) . ' · ' . $lote['nome'];
+reorg_admin_inicio('lotes', $nomeLote, [[$nomeLote, $aba === 'visao' ? null : $base], ...($aba === 'visao' ? [] : [[REORG_ABAS_LOTE[$aba][0], null]])], (int)$lote['inventario_id'] ?: null);
 ?>
 <section class="adm-card reorg-lote-topo">
     <div class="reorg-lote-topo__id">
-        <h1><?= e($lote['nome']) ?> <?= reorg_status_lote($lote) ?></h1>
+        <h1><?= e($nomeLote) ?> <?= reorg_status_lote($lote) ?></h1>
         <p>Responsável: <strong><?= e($lote['responsavel_nome']) ?></strong> · Criado em <?= e(admin_data_hora($lote['criado_em'], false)) ?>
             <?= $lote['prazo'] ? ' · Prazo: ' . e(admin_data_hora($lote['prazo'], false)) : '' ?>
-            · Lote permanente nº <?= e(str_pad((string)$lote['cadastro_numero'], 3, '0', STR_PAD_LEFT)) ?> (<?= e(ExemplarService::rotuloStatusLote($lote['cadastro_status'])) ?>)</p>
+            · Etapa do lote: <?= e(ExemplarService::rotuloStatusLote($lote['cadastro_status'])) ?></p>
     </div>
     <dl class="reorg-lote-topo__num">
         <div><dt>Prevista</dt><dd><?= $c['prevista'] ?></dd></div>
@@ -150,15 +145,7 @@ reorg_admin_inicio('lotes', $lote['nome'], [[$lote['nome'], $aba === 'visao' ? n
     </div>
 </section>
 
-<nav class="adm-tabs adm-tabs--links reorg-abas-lote" aria-label="Áreas do lote">
-    <?php foreach (REORG_ABAS_LOTE as $k => [$rot, $ic]):
-        $cont = match ($k) {
-            'g1' => $etapas['grupo1'] ?? 0, 'g2' => $etapas['grupo2'] ?? 0, 'g3' => $etapas['grupo3'] ?? 0, 'g4' => $etapas['grupo4'] ?? 0,
-            'participantes' => count($part['atuais']), 'pendencias' => $pendAbertas, default => 0,
-        }; ?>
-        <a class="adm-tab<?= $aba === $k ? ' is-active' : '' ?>" href="<?= e($urlAba($k)) ?>"<?= $aba === $k ? ' aria-current="page"' : '' ?>><?= icon($ic) ?> <?= e($rot) ?><?= $cont ? ' <span class="adm-tabs__count">' . (int)$cont . '</span>' : '' ?></a>
-    <?php endforeach; ?>
-</nav>
+<?= reorg_abas_lote_html($lote, $aba) ?>
 
 <?php if (!$souAdminDoLote && in_array($aba, ['g2', 'visao'], true)): ?>
     <?= admin_aviso('aviso', 'Você não é responsável nem autorizado neste lote', 'Pode acompanhar, mas a revisão, a aprovação e o cadastro ficam com o responsável e os administradores autorizados (aba Participantes).') ?>
@@ -251,14 +238,11 @@ if ($aba === 'visao'):
 <details class="adm-card adm-panel reorg-detalhes">
     <summary><?= icon('pencil') ?> Editar dados do lote e ajustar a quantidade final</summary>
     <div class="reorg-duas">
-        <form method="post" class="reorg-form"><?= csrf_campo() ?><input type="hidden" name="aba" value="visao"><input type="hidden" name="acao" value="alterar">
+        <div class="reorg-form">
             <h3>Dados do lote</h3>
-            <label class="adm-field"><span class="adm-field__label">Nome</span><input class="adm-input" name="nome" value="<?= e($lote['nome']) ?>" maxlength="120" required></label>
-            <label class="adm-field"><span class="adm-field__label">Prazo</span><input class="adm-input" type="date" name="prazo" value="<?= e((string)$lote['prazo']) ?>"></label>
-            <label class="adm-field"><span class="adm-field__label">Instruções do lote (participantes veem)</span><textarea class="adm-textarea" name="instrucoes" rows="3" maxlength="5000"><?= e((string)$lote['instrucoes']) ?></textarea></label>
-            <label class="adm-field"><span class="adm-field__label">Observações internas</span><textarea class="adm-textarea" name="observacoes" rows="2" maxlength="5000"><?= e((string)$lote['observacoes']) ?></textarea></label>
-            <button class="adm-button adm-button--sm adm-button--primary" type="submit">Salvar dados</button>
-        </form>
+            <p>Nome, prazo, instruções (os participantes veem) e observações ficam no lote do inventário.</p>
+            <a class="adm-button adm-button--sm" href="<?= e(admin_url('lote') . '?id=' . (int)$lote['cadastro_lote_id']) ?>#titulo-info"><?= icon('pencil') ?> Editar no relatório do lote</a>
+        </div>
         <form method="post" class="reorg-form"><?= csrf_campo() ?><input type="hidden" name="aba" value="visao"><input type="hidden" name="acao" value="quantidade">
             <h3>Quantidade final</h3>
             <label class="adm-field"><span class="adm-field__label">Nova quantidade (prevista inicial: <?= (int)$lote['quantidade_inicial'] ?>)</span><input class="adm-input" type="number" name="quantidade" min="1" value="<?= (int)$lote['quantidade_prevista'] ?>"></label>
