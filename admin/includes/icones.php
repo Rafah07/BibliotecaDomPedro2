@@ -37,6 +37,8 @@ const ADMIN_ICONS = [
     'calendar' => '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
     'calendar-clock' => '<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/>',
     'info' => '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    'moon' => '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    'sun' => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
     'arrow-right' => '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
     'loader-circle' => '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
     'book-plus' => '<path d="M12 7v6"/><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M9 10h6"/>',
@@ -155,3 +157,22 @@ function icon(string $name, string $class = ''): string
     return '<svg class="' . htmlspecialchars($class) . '" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
 }
 
+/**
+ * Modo escuro: script do <head> (aplica o tema antes da pintura; ver assets/js/tema.js).
+ * Usa url() de config/app.php, já carregado por todas as páginas que mostram o botão.
+ */
+function tema_script(): string
+{
+    $arquivo = __DIR__ . '/../../assets/js/tema.js';
+    $versao = is_file($arquivo) ? '?v=' . filemtime($arquivo) : '';
+    return '<script src="' . htmlspecialchars(url('assets/js/tema.js') . $versao) . '"></script>';
+}
+
+/** Botão de alternar entre modo claro e escuro. $comTexto mostra "Modo escuro"/"Modo claro" ao lado do ícone. */
+function tema_botao(string $classe = '', bool $comTexto = false): string
+{
+    return '<button type="button" class="' . htmlspecialchars(trim('tema-botao ' . $classe)) . '" data-tema-alternar aria-pressed="false" aria-label="Usar modo escuro" title="Usar modo escuro">'
+        . icon('moon', 'tema-botao__lua') . icon('sun', 'tema-botao__sol')
+        . ($comTexto ? '<span class="tema-botao__texto" data-tema-texto>Modo escuro</span>' : '')
+        . '</button>';
+}

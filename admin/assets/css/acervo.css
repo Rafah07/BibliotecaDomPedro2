@@ -1044,3 +1044,210 @@ fieldset.adm-field > legend { padding: 0; margin-bottom: 6px; }
 @media print, (min-width: 721px) {
     .adm-toolbar--search:not(:has(.adm-toolbar__q)) .adm-filters { grid-row: 1; grid-column: 1; }
 }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .adm-body :where(select, textarea) { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-missing { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-text-green { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-block-muted { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-tone--muted { background-color: #162029; background-image: none; color: #9ea9b9; }
+    :where(html[data-tema="escuro"]) .adm-breadcrumb ol { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-breadcrumb li + li::before { color: #cbd5e1; }
+    :where(html[data-tema="escuro"]) .adm-breadcrumb a { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-breadcrumb a:hover { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-breadcrumb [aria-current] { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-page-head h1 { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-page-head p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-eyebrow { color: #86a6e9 !important; }
+    :where(html[data-tema="escuro"]) .adm-button--danger { background-color: #dc2626; background-image: none; color: #fff !important; }
+    :where(html[data-tema="escuro"]) .adm-button--danger:hover { background-color: #b91c1c; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-button--danger-text { color: #eb8484 !important; }
+    :where(html[data-tema="escuro"]) .adm-button--danger-text:hover { background-color: #291111 !important; background-image: none !important; border-color: #582a2a !important; }
+    :where(html[data-tema="escuro"]) .adm-button.is-done { background-color: #15803d !important; background-image: none !important; border-color: #15803d !important; color: #fff !important; }
+    :where(html[data-tema="escuro"]) .adm-icon-button--danger:hover { background-color: #291111; background-image: none; color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-stat--action { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-stat--action:hover { border-color: #f3d48b; }
+    :where(html[data-tema="escuro"]) .adm-stat--action.is-active { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .18); }
+    :where(html[data-tema="escuro"]) .adm-kpi { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-kpi__title { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-kpi--action:hover { box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); border-color: #2e3f5d; }
+    :where(html[data-tema="escuro"]) .adm-kpi--action.is-active { border-color: #2f6bd8; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-field-search { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-field-search:focus-within { border-color: #2f6bd8; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-field-search .icon { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-field-search input { border-color: currentcolor; outline-color: currentcolor; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-field-search input:focus, :where(html[data-tema="escuro"]) .adm-field-search input:focus-visible { outline-color: currentcolor; box-shadow: none; }
+    :where(html[data-tema="escuro"]) .adm-field-search input::placeholder { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-filter > span { color: #aeb7c5; }
+    :where(html[data-tema="escuro"]) .adm-filter .adm-select.has-value { border-color: #394e77; background-color: #131d2d; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-input, :where(html[data-tema="escuro"]) .adm-select, :where(html[data-tema="escuro"]) .adm-textarea { border-color: #394555; background-color: #1e2631; }
+    :where(html[data-tema="escuro"]) .adm-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+    :where(html[data-tema="escuro"]) .adm-textarea--internal { background-color: #262110; background-image: none; border-color: #6b5e34; }
+    :where(html[data-tema="escuro"]) .adm-input::placeholder, :where(html[data-tema="escuro"]) .adm-textarea::placeholder { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-input:hover, :where(html[data-tema="escuro"]) .adm-select:hover, :where(html[data-tema="escuro"]) .adm-textarea:hover { border-color: #455369; }
+    :where(html[data-tema="escuro"]) .adm-input:focus, :where(html[data-tema="escuro"]) .adm-select:focus, :where(html[data-tema="escuro"]) .adm-textarea:focus { outline-color: currentcolor; border-color: #2f6bd8; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-input:disabled, :where(html[data-tema="escuro"]) .adm-select:disabled, :where(html[data-tema="escuro"]) .adm-textarea:disabled { background-color: #161c24; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-field__label { color: #bfc9de; }
+    :where(html[data-tema="escuro"]) .adm-field__sublabel { color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-field__icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-field__hint { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-field__hint.is-ok { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-field__error { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-field.is-invalid .adm-input, :where(html[data-tema="escuro"]) .adm-field.is-invalid .adm-select, :where(html[data-tema="escuro"]) .adm-field.is-invalid .adm-textarea, :where(html[data-tema="escuro"]) .adm-field.is-invalid .adm-chips-input { border-color: #dc2626; background-color: #220e0e; }
+    :where(html[data-tema="escuro"]) .adm-field.is-invalid .adm-input:focus, :where(html[data-tema="escuro"]) .adm-field.is-invalid .adm-select:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, .14); }
+    :where(html[data-tema="escuro"]) .adm-required { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-optional { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-fieldset { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-form-legend { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-form-section__header h2 { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-form-section__header p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-step { background-color: #131d2d; background-image: none; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-form-actions { background-color: rgba(30, 38, 49, 0.96); background-image: none; border-top-color: #313b49; box-shadow: 0 -6px 18px rgba(23, 32, 51, .05); }
+    :where(html[data-tema="escuro"]) .adm-form-actions__note { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-form-actions__note .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-radio-card { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-radio-card:hover { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-radio-card small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-radio-card:has(input:checked) { border-color: #2f6bd8; background-color: #0f1724; background-image: none; box-shadow: 0 0 0 3px rgba(47, 107, 216, .1); }
+    :where(html[data-tema="escuro"]) .adm-side-note { color: #a5b7dd; }
+    :where(html[data-tema="escuro"]) .adm-side-note > .icon:first-child { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-chips-input { border-color: #364254; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-chips-input:focus-within { border-color: #2f6bd8; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-chips-input__field { border-color: currentcolor; outline-color: currentcolor; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-chips-input__field::placeholder { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-chip { background-color: #161c24; background-image: none; border-color: #313b49; color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-chip--removable { background-color: #131d2d; background-image: none; border-color: #283953; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-chip button { border-color: currentcolor; background-color: transparent; background-image: none; color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-chip button:hover { background-color: rgba(255, 255, 255, 0.12); background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-combobox__list { border-color: #313b49; background-color: #1e2631; background-image: none; box-shadow: 0 12px 32px rgba(10, 39, 73, .16); }
+    :where(html[data-tema="escuro"]) .adm-combobox__list li .icon { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-combobox__list li[aria-selected="true"], :where(html[data-tema="escuro"]) .adm-combobox__list li:hover { background-color: #131d2d; background-image: none; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-combobox__list li small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-upload__preview { border-color: #2f4061; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-upload__preview.is-dragover { border-color: #2f6bd8; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-upload__status { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-cover { background-color: #212a36; background-image: none; box-shadow: 0 1px 2px rgba(23, 32, 51, .12), 0 3px 8px rgba(23, 32, 51, .08); }
+    :where(html[data-tema="escuro"]) .adm-cover--placeholder { background-color: transparent; background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.12) 0, rgba(255, 255, 255, 0.096) 6%, rgba(255, 255, 255, .08) 8%, transparent 12%); background-color: var(--cover); color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-table-wrap--flush { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-table-wrap--inset { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-table--books .adm-actions-col { background-color: #1e2631; background-image: none; box-shadow: -8px 0 12px -10px rgba(23, 32, 51, .25); }
+    :where(html[data-tema="escuro"]) .adm-table--books th.adm-actions-col { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-table--books tbody tr:hover .adm-actions-col { background-color: #0e1523; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-td-title small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-book-link { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-book-link:hover { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-num__hint { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-count-link { background-color: #131d2d; background-image: none; color: #86a6e9 !important; }
+    :where(html[data-tema="escuro"]) .adm-count-link:hover { background-color: #1a283f; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-code { background-color: #161c24; background-image: none; border-color: #313b49; color: #a1c4f0 !important; }
+    :where(html[data-tema="escuro"]) a.adm-code:hover { border-color: #314267; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-th-sort { border-color: currentcolor; background-color: transparent; background-image: none; color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-th-sort:hover { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-th-sort[aria-sort] { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-condition { color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-condition::before { background-color: #94a3b8; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-condition--alert { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-condition--alert::before { background-color: #f59e0b; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-table tr.is-simulated { background-color: #142417; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-filters-toggle__count { background-color: #2457c5; background-image: none; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-rowmenu__list { border-color: #313b49; background-color: #1e2631; background-image: none; box-shadow: 0 12px 32px rgba(10, 39, 73, .16); }
+    :where(html[data-tema="escuro"]) .adm-pagination { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-pagination__pages button { border-color: #313b49; background-color: #1e2631; background-image: none; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-pagination__pages button:hover:not(:disabled) { background-color: #131d2d; background-image: none; border-color: #283953; }
+    :where(html[data-tema="escuro"]) .adm-pagination__pages button[aria-current="page"] { background-color: #123d73; background-image: none; border-color: #123d73; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-notice { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-notice p { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-notice--blue { background-color: #131d2d; background-image: none; border-color: #2d3c5d; color: #a4b9e6; }
+    :where(html[data-tema="escuro"]) .adm-notice--blue > .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-notice--amber { background-color: #2d2813; background-image: none; border-color: #766339; color: #f2d1a3; }
+    :where(html[data-tema="escuro"]) .adm-notice--amber > .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-notice--red { background-color: #291111; background-image: none; border-color: #5b2c2c; color: #e99393; }
+    :where(html[data-tema="escuro"]) .adm-notice--red > .icon { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-notice--green { background-color: #132d1e; background-image: none; border-color: #366f4a; color: #b5edcb; }
+    :where(html[data-tema="escuro"]) .adm-notice--green > .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-notice--indigo { background-color: #13192d; background-image: none; border-color: #2d385d; color: #adbbe6; }
+    :where(html[data-tema="escuro"]) .adm-notice--indigo > .icon { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-notice__numbers div { background-color: rgba(30, 38, 49, 0.7); background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-notice__numbers dd { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-book-hero__subtitle { color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-book-hero__author { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-book-hero__author strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-meta dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-meta--stack div { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-meta--stack div:last-child { border-bottom-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-meta--boxed { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-tabs { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-tabs button { border-color: currentcolor; background-color: transparent; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-tabs button:hover { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-tabs button[aria-selected="true"] { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-tabs button[aria-selected="true"]::after { background-color: #123d73; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-tabs__count { background-color: #161c24; background-image: none; border-color: #313b49; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-tabpanel__header { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-subtitle .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-prose { color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-internal-note { border-color: #7f6b3d; background-color: #262110; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-internal-note small { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-timeline li:not(:last-child)::before { background-color: #232a35; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-timeline__desc { color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-timeline small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-timeline li.is-simulated .adm-timeline__desc::after { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-checks > .adm-check { border-color: #313b49; border-left-color: #15803d; }
+    :where(html[data-tema="escuro"]) .adm-checks > .adm-check--warn { border-left-color: #f59e0b; }
+    :where(html[data-tema="escuro"]) .adm-check small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) label.adm-check { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-action { border-color: #313b49; background-color: #1e2631; background-image: none; color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-action > .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-action small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-action:hover { background-color: #131d2d; background-image: none; border-color: #283953; }
+    :where(html[data-tema="escuro"]) .adm-action--danger > .icon, :where(html[data-tema="escuro"]) .adm-action--danger strong { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-action--danger:hover { background-color: #291111; background-image: none; border-color: #582a2a; }
+    :where(html[data-tema="escuro"]) .adm-codigo-escrito { border-color: #2f4061; background-color: #1e2631; background-image: none; color: #ced7ed; }
+    :where(html[data-tema="escuro"]) .adm-modal { border-color: currentcolor; background-color: #1e2631; background-image: none; color: #cad4e7; box-shadow: 0 24px 60px rgba(15, 23, 42, .28); }
+    :where(html[data-tema="escuro"]) .adm-modal::backdrop { background-color: rgba(15, 23, 42, .45); background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-modal__header { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-modal__header p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-modal__close { border-color: currentcolor; background-color: transparent; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-modal__close:hover { background-color: #161c24; background-image: none; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-modal__body > p { color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-modal__footer { border-top-color: #313b49; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-check-confirm { border-color: #716036; background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-code-preview { border-color: #2f4061; background-color: #161c24; background-image: none; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-code-list li { border-color: #366f4a; background-color: #132d1e; background-image: none; color: #b5edcb; }
+    :where(html[data-tema="escuro"]) .adm-code-list .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-dupe { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-dupe__body small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-change-list li { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-change-list del { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-change-list ins { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-toast--success { border-left-color: #15803d; }
+    :where(html[data-tema="escuro"]) .adm-toast--success .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-toast--warning { border-left-color: #f59e0b; }
+    :where(html[data-tema="escuro"]) .adm-toast--warning .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-toast--error { border-left-color: #dc2626; }
+    :where(html[data-tema="escuro"]) .adm-toast--error .icon { color: #eb8484; }
+    @media screen and (max-width: 720px) {
+        :where(html[data-tema="escuro"]) .adm-table-wrap--flush { border-top-color: currentcolor; border-bottom-color: currentcolor; }
+        :where(html[data-tema="escuro"]) .adm-table--cards tr[data-row], :where(html[data-tema="escuro"]) .adm-table--cards tbody tr:not([data-empty]) { border-color: #313b49; background-color: #1e2631; background-image: none; }
+        :where(html[data-tema="escuro"]) .adm-table--cards td { border-color: currentcolor !important; }
+        :where(html[data-tema="escuro"]) .adm-table--cards td[data-label] { border-top-color: #313b49 !important; }
+        :where(html[data-tema="escuro"]) .adm-table--cards td[data-label]::before { color: #a6afbb; }
+        :where(html[data-tema="escuro"]) .adm-table--cards .adm-actions-col:has(.adm-actions-inline > :nth-child(3), .adm-button ~ .adm-button, .adm-button ~ form, form ~ .adm-button) { border-top-color: #313b49 !important; }
+        :where(html[data-tema="escuro"]) .adm-table--books .adm-actions-col { box-shadow: none; background-color: transparent !important; background-image: none !important; }
+    }
+    :where(html[data-tema="escuro"]) .adm-page { border-color: #313b49; background-color: #1e2631; background-image: none; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) a.adm-page:hover { background-color: #131d2d; background-image: none; border-color: #283953; }
+    :where(html[data-tema="escuro"]) .adm-page.is-active { background-color: #123d73; background-image: none; border-color: #123d73; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-page--gap { border-color: transparent; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-th-sort.is-active { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-table--livros td[data-label="Editora / ano"] small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-table--compact tbody th { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-dupe-list small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-origem { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-origem summary small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-status-dot::before { background-color: #15803d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-status-dot--off { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-status-dot--off::before { background-color: #94a3b8; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-form-actions--static { background-color: transparent; background-image: none; box-shadow: none; border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) fieldset.adm-field { border-color: currentcolor; }
+}

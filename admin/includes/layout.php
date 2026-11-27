@@ -32,6 +32,7 @@ function admin_page_start(string $paginaAtual, string $tituloPagina, string $tit
     <meta name="theme-color" content="#123d73">
     <meta name="robots" content="noindex">
     <title><?= htmlspecialchars($tituloPagina) ?> | Painel — Biblioteca Dom Pedro II</title>
+    <?= tema_script() ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261115mob')) ?>">
     <?php foreach ($estilos as $estilo): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset($estilo)) ?>">

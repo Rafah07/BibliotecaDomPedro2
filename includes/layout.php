@@ -48,6 +48,7 @@ function page_start(string $titulo, string $ativo, string $descricao = ''): void
     <meta name="description" content="<?= e($descricao) ?>">
     <title><?= $titulo !== '' ? e($titulo) . ' | ' : '' ?>Biblioteca Dom Pedro II</title>
     <link rel="icon" href="<?= e(asset('img/emblema-pequeno.png')) ?>">
+    <?= tema_script() ?>
     <link rel="stylesheet" href="<?= e(asset('css/style.css')) ?>">
 </head>
 <body>
@@ -69,6 +70,7 @@ function page_start(string $titulo, string $ativo, string $descricao = ''): void
                 <button class="search-submit" type="submit"><span class="search-submit-text">Buscar</span><span class="visually-hidden"> no catálogo</span></button>
             </form>
             <?php endif; ?>
+            <?= tema_botao('topbar-tema') ?>
             <a class="sidebar-logo" href="<?= e(url()) ?>" aria-label="Biblioteca Dom Pedro II — página inicial"><img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="Emblema da escola" width="90" height="60"></a>
         </header>
         <main id="conteudo" tabindex="-1">
@@ -222,9 +224,11 @@ function site_manutencao_pagina(string $mensagem): never
     <meta name="theme-color" content="#123D73">
     <title>Em manutenção | Biblioteca Dom Pedro II</title>
     <link rel="icon" href="<?= e(asset('img/emblema-pequeno.png')) ?>">
+    <?= tema_script() ?>
     <link rel="stylesheet" href="<?= e(asset('css/style.css')) ?>">
 </head>
 <body>
+<?= tema_botao('topbar-tema tema-botao--canto') ?>
 <main class="maintenance-page" id="conteudo">
     <img src="<?= e(asset('img/emblema-pequeno.png')) ?>" alt="Emblema da escola" width="110" height="73">
     <h1>Biblioteca Dom Pedro II</h1>

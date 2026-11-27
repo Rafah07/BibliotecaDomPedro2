@@ -1298,3 +1298,184 @@
 .adm-body .adm-panel > .adm-panel__title { margin-bottom: var(--adm-space-4); }
 .adm-empty__acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--adm-space-2); margin-top: var(--adm-space-3); }
 .adm-empty > .adm-button { margin-top: var(--adm-space-3); }
+
+/* ---------- Modo escuro: botão de alternar (as cores escuras ficam no bloco gerado no fim do arquivo) ---------- */
+@media screen { html[data-tema="escuro"] { color-scheme: dark; } }
+html.tema-trocando, html.tema-trocando *, html.tema-trocando *::before, html.tema-trocando *::after { transition: none !important; }
+.tema-botao .tema-botao__sol { display: none; }
+html[data-tema="escuro"] .tema-botao .tema-botao__lua { display: none; }
+html[data-tema="escuro"] .tema-botao .tema-botao__sol { display: inline-block; }
+.adm-login__tema { position: fixed; top: 12px; left: 12px; z-index: 50; }
+.coleta-tema { margin-left: auto; }
+@media screen {
+    /* Botão "Equipe de organização" da tela de login (estilo embutido do módulo). */
+    html[data-tema="escuro"] .reorg-botao-equipe { background: #1e2631 !important; color: #cad4e7 !important; border-color: #394555 !important; }
+}
+@media print { .tema-botao { display: none !important; } }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :root:where([data-tema="escuro"]) { --adm-blue-50: #131d2d; --adm-blue-100: #1a283f; --adm-gold-50: #322915; --adm-white: #1e2631; --adm-bg: #161c24; --adm-border: #313b49; --adm-border-strong: #394555; --adm-text: #cad4e7; --adm-muted: #a6afbb; --adm-green-50: #132d1e; --adm-amber-text: #eeb285; --adm-amber-50: #2d2813; --adm-red-50: #291111; --adm-teal-50: #163230; }
+    :where(html[data-tema="escuro"]) .adm-body { color: #cad4e7; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-body a { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-body :where(button, input) { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-body :focus-visible { outline-color: #2f6bd8; }
+    :where(html[data-tema="escuro"]) .adm-skip-link { background-color: #123d73; background-image: none; color: #fff !important; }
+    :where(html[data-tema="escuro"]) .adm-footer { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-sidebar { background-color: #0a2749; background-image: none; background-color: transparent; background-image: linear-gradient(180deg, #123d73 0%, #0a2749 100%); color: #fff; box-shadow: 1px 0 0 rgba(10, 39, 73, .08); }
+    :where(html[data-tema="escuro"]) .adm-sidebar :focus-visible { outline-color: #d6ae62; }
+    :where(html[data-tema="escuro"]) .adm-sidebar__top { border-bottom-color: rgba(255, 255, 255, .08); }
+    :where(html[data-tema="escuro"]) .adm-brand__logo { background-color: rgba(255, 255, 255, .1); background-image: none; border-color: rgba(255, 255, 255, .18); color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-brand__text strong { color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-brand__text small { color: rgba(255, 255, 255, .68); }
+    :where(html[data-tema="escuro"]) .adm-sidebar__toggle, :where(html[data-tema="escuro"]) .adm-sidebar__close { border-color: rgba(255, 255, 255, .18); background-color: transparent; background-image: none; color: rgba(255, 255, 255, .82); }
+    :where(html[data-tema="escuro"]) .adm-sidebar__toggle:hover, :where(html[data-tema="escuro"]) .adm-sidebar__close:hover { background-color: rgba(255, 255, 255, .1); background-image: none; border-color: rgba(255, 255, 255, .3); color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-nav__title { color: rgba(255, 255, 255, .5); }
+    :where(html[data-tema="escuro"]) .adm-nav__link { border-color: currentcolor; background-color: transparent; background-image: none; color: rgba(255, 255, 255, .78); }
+    :where(html[data-tema="escuro"]) .adm-nav__link:hover { background-color: rgba(255, 255, 255, .08); background-image: none; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-dropdown__empty { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-nav__link.is-active { background-color: rgba(255, 255, 255, .14); background-image: none; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-nav__link.is-active::after { background-color: #d6ae62; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-nav__link.is-active .adm-nav__icon { color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-nav__link.is-parent-active { color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-nav__link.is-parent-active .adm-nav__icon { color: #d6ae62; }
+    :where(html[data-tema="escuro"]) .adm-nav__soon { background-color: rgba(255, 255, 255, .08); background-image: none; border-color: rgba(255, 255, 255, .18); color: rgba(255, 255, 255, .72); }
+    :where(html[data-tema="escuro"]) .adm-nav__sub .adm-nav__link::before { background-color: rgba(255, 255, 255, .18); background-image: none; }
+    @media print, (min-width: 901px) {
+        html:where([data-tema="escuro"]):not(.adm-sidebar-expanded) .adm-nav__link.is-parent-active { background-color: rgba(255, 255, 255, .14); background-image: none; }
+        html:where([data-tema="escuro"]):not(.adm-sidebar-expanded) .adm-nav__link.is-parent-active .adm-nav__icon { color: #fff; }
+        html:where([data-tema="escuro"]):not(.adm-sidebar-expanded) .adm-nav__link.is-active::after, html:where([data-tema="escuro"]):not(.adm-sidebar-expanded) .adm-nav__link.is-parent-active::after { background-color: #d6ae62; background-image: none; }
+        html:where([data-tema="escuro"]):not(.adm-sidebar-expanded) .adm-nav__title::after { background-color: rgba(255, 255, 255, .14); background-image: none; }
+    }
+    :where(html[data-tema="escuro"]) .adm-backdrop { background-color: rgba(10, 39, 73, .45); background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-tooltip { background-color: #0a2749; background-image: none; color: #fff; box-shadow: 0 12px 32px rgba(10, 39, 73, .16); }
+    :where(html[data-tema="escuro"]) .adm-tooltip::before { background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-header { background-color: #1e2631; background-image: none; border-bottom-color: #313b49; box-shadow: 0 1px 3px rgba(16, 32, 60, .03); }
+    :where(html[data-tema="escuro"]) .adm-header__heading { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-header__subtitle { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-header__actions > .adm-dropdown:last-child { border-left-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-search { border-color: #313b49; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-search:focus-within { background-color: #1e2631; background-image: none; border-color: #2f6bd8; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-search__icon { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-search input { border-color: currentcolor; outline-color: currentcolor; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-search input:focus-visible { outline-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-search input::placeholder { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-search__kbd { border-color: #313b49; background-color: #1e2631; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-icon-button { border-color: #313b49; background-color: #1e2631; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-icon-button:hover, :where(html[data-tema="escuro"]) .adm-icon-button[aria-expanded="true"] { background-color: #131d2d; background-image: none; border-color: #283953; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-badge-dot { border-color: #232a34; background-color: #dc2626; background-image: none; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-profile { border-color: transparent; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-profile:hover, :where(html[data-tema="escuro"]) .adm-profile[aria-expanded="true"] { background-color: #161c24; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-profile__text small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-profile__chevron { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-avatar { background-color: #123d73; background-image: none; box-shadow: 0 0 0 2px #232a34, 0 0 0 3px rgba(214, 174, 98, .7); color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-dropdown__menu { border-color: #313b49; background-color: #1e2631; background-image: none; box-shadow: 0 12px 32px rgba(10, 39, 73, .16); }
+    :where(html[data-tema="escuro"]) .adm-dropdown__header { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-dropdown__header small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-dropdown__item { border-color: currentcolor; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-dropdown__item .icon { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-dropdown__item:hover { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-dropdown__item--danger, :where(html[data-tema="escuro"]) .adm-dropdown__item--danger .icon { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-notification:hover { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-notification small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-card { background-color: #1e2631; background-image: none; border-color: #313b49; box-shadow: 0 1px 2px rgba(16, 32, 60, .04), 0 2px 8px rgba(16, 32, 60, .04); }
+    :where(html[data-tema="escuro"]) .adm-button { border-color: transparent; }
+    :where(html[data-tema="escuro"]) .adm-button--primary { background-color: #123d73; background-image: none; border-color: #123d73; color: #fff !important; box-shadow: 0 1px 2px rgba(10, 39, 73, .2); }
+    :where(html[data-tema="escuro"]) .adm-button--primary:hover { background-color: #0a2749; background-image: none; border-color: #0a2749; }
+    :where(html[data-tema="escuro"]) .adm-button--ghost { background-color: #1e2631; background-image: none; border-color: #394555; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-button--ghost:hover { background-color: #131d2d; background-image: none; border-color: #324665; }
+    :where(html[data-tema="escuro"]) .adm-button:focus-visible { outline-color: #2f6bd8; }
+    :where(html[data-tema="escuro"]) .adm-link { color: #86a6e9 !important; }
+    :where(html[data-tema="escuro"]) .adm-tone--blue { background-color: #131d2d; background-image: none; color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-tone--indigo { background-color: #141c31; background-image: none; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-tone--green { background-color: #132d1e; background-image: none; color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-tone--amber { background-color: #2d2813; background-image: none; color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-tone--red { background-color: #291111; background-image: none; color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-tone--teal { background-color: #163230; background-image: none; color: #9df1f0; }
+    :where(html[data-tema="escuro"]) .adm-status::before { background-color: currentColor; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-demo-tag { background-color: #161c24; background-image: none; border-color: #3e4b5a; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-welcome h1 { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-welcome p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-date { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-demo-banner { border-color: #314267; background-color: #131d2d; background-image: none; color: #a5b7dd; }
+    :where(html[data-tema="escuro"]) .adm-demo-banner .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-stat:hover { box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); }
+    :where(html[data-tema="escuro"]) .adm-stat__title { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-stat__value { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-stat__desc { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-mini:hover { box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); border-color: #2e3f5d; }
+    :where(html[data-tema="escuro"]) .adm-mini__value { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-mini__title { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-mini__arrow { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-mini:hover .adm-mini__arrow { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-panel__header h2 { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-panel__header p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-panel__footnote { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-panel__footnote strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-segmented { background-color: #161c24; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-segmented button { border-color: currentcolor; background-color: transparent; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-segmented button.is-active { background-color: #1e2631; background-image: none; color: #a1c4f0; box-shadow: 0 1px 3px rgba(23, 32, 51, .1); }
+    :where(html[data-tema="escuro"]) .adm-chart__loading span { background-color: transparent; background-image: linear-gradient(90deg, #19212b 0%, #141b24 50%, #19212b 100%); }
+    :where(html[data-tema="escuro"]) .adm-chart__loading--ring { border-color: #283443; }
+    :where(html[data-tema="escuro"]) .adm-chart__fallback { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-legend li:hover { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-legend__label { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-table-wrap { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-table th { background-color: #121924; background-image: none; border-bottom-color: #313b49; color: #aeb7c5; }
+    :where(html[data-tema="escuro"]) .adm-table td { border-top-color: #2a3543; }
+    :where(html[data-tema="escuro"]) .adm-table tbody tr:first-child td { border-top-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-table tbody tr:hover { background-color: #0f1724; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-table__muted { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-empty { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-empty .icon { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .adm-empty strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-quick__item { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-quick__item:hover { border-color: #324665; background-color: #0e1321; background-image: none; box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); }
+    :where(html[data-tema="escuro"]) .adm-quick__item small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-alert { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-alert--red { border-left-color: #dc2626; background-color: #210e0e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-alert--amber { border-left-color: #f59e0b; }
+    :where(html[data-tema="escuro"]) .adm-alert__body p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-inventory__label { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-inventory__label strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-inventory__caption { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-progress { background-color: #1b2431; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-progress__bar--ok { background-color: #123d73; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-progress__bar--warn { background-color: #f59e0b; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-inventory__stats div { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-inventory__stats dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-dot--ok { background-color: #123d73; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-dot--warn { background-color: #f59e0b; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-dot--muted { background-color: #323e4b; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-inventory__message { color: #a5b7dd; }
+    :where(html[data-tema="escuro"]) .adm-inventory__message .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-wip p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-toast { border-color: #313b49; border-left-color: #2457c5; background-color: #1e2631; background-image: none; box-shadow: 0 12px 32px rgba(10, 39, 73, .16); }
+    :where(html[data-tema="escuro"]) .adm-toast .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-toast span { color: #a6afbb; }
+    @media screen and (max-width: 900px) {
+        :where(html[data-tema="escuro"]) .adm-sidebar, :where(html[data-tema="escuro"]) .adm-sidebar-expanded .adm-sidebar { box-shadow: none; }
+        :where(html[data-tema="escuro"]) .adm-mobile-open .adm-sidebar { box-shadow: 0 12px 32px rgba(10, 39, 73, .16); }
+    }
+    :where(html[data-tema="escuro"]) .adm-help-link { border-color: #313b49; background-color: #1e2631; background-image: none; color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-help-link:hover { background-color: #131d2d; background-image: none; border-color: #283953; }
+    :where(html[data-tema="escuro"]) .adm-help-link:focus-visible { outline-color: currentcolor; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); border-color: #2f6bd8; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__lista { background-color: #1e2631; background-image: none; border-color: #394555; box-shadow: 0 8px 24px rgba(16, 32, 60, .14); }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__item[aria-selected="true"], :where(html[data-tema="escuro"]) .adm-sugestoes__item:hover { background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__tipo { color: #94b9eb; background-color: #1a283f; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__tipo--ok { color: #9aeeba; background-color: #132d1e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__texto strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__texto small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__texto mark { background-color: #322915; background-image: none; color: inherit; box-shadow: inset 0 -2px 0 #d6ae62; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes__vazio { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-config-detalhes summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-backup-ultimo .icon { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-table tfoot th, :where(html[data-tema="escuro"]) .adm-table tfoot td { background-color: #121924; background-image: none; border-top-color: #313b49; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-secoes { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-secoes > .adm-secoes__legenda { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-secao { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-secao:first-of-type { border-top-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-secao__titulo { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-secao__num { background-color: #131d2d; background-image: none; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-button.is-busy::after { border-color: currentColor; border-right-color: transparent; }
+}

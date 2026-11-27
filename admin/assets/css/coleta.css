@@ -32,3 +32,14 @@
     .coleta-main { padding: 0; max-width: none; }
     .coleta-tabela { font-size: 11px; }
 }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .coleta-body { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .coleta-topo { background-color: #123d73; background-image: none; color: #fff; }
+    :where(html[data-tema="escuro"]) .coleta-vagas div { background-color: #1e2631; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .coleta-vagas dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .coleta-ok { color: #a2eeca; }
+    :where(html[data-tema="escuro"]) .coleta-erro { color: #ed8a82; }
+    :where(html[data-tema="escuro"]) .coleta-aviso-pausa { border-left-color: #d97706; }
+}

@@ -597,3 +597,143 @@ kbd { display: inline-block; padding: 0 5px; border: 1px solid var(--adm-border-
 @media (max-width: 760px) {
     .adm-field--span2 { grid-column: 1 / -1; }
 }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .adm-panel__title > .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-filtro-ativo { border-color: #313b49; background-color: #161c24; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-filtro-ativo a { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-selecao-barra { background-color: #161c24; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-acao { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-acao[open] > summary:not(.adm-button) { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-acao--perigo > summary { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-acoes-inventario .adm-acao, :where(html[data-tema="escuro"]) .adm-acao--lote { border-color: currentcolor; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-acoes-inventario .adm-acao[open] > .adm-acao__form, :where(html[data-tema="escuro"]) .adm-acao--lote[open] > .adm-acao__form { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-acao--mini { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-acao--mini > summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-acao--mini[open] > summary { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-nova-local { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-nova-local > summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-inventario-ativo { border-left-color: #15803d; }
+    :where(html[data-tema="escuro"]) .adm-progresso { background-color: #161c24; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-progresso span { background-color: #15803d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-divergencia { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-leitura { border-color: #2457c5; }
+    :where(html[data-tema="escuro"]) .adm-leitura__atalhos { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-leitura__label .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-exemplares-chips a.adm-chip { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-exemplares-chips a.adm-chip:hover, :where(html[data-tema="escuro"]) .adm-exemplares-chips a.adm-chip:focus-visible { border-color: #2457c5; }
+    :where(html[data-tema="escuro"]) .adm-chip--ok { background-color: #132d1e; background-image: none; border-color: #306442; color: #aaedc3; }
+    :where(html[data-tema="escuro"]) .adm-recentes li { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-recentes li:last-child { border-bottom-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-lista-etiquetas summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-previa { background-color: #222833; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-previa__folha { background-color: #1e2631; background-image: none; box-shadow: 0 2px 10px rgba(23, 32, 51, .18); }
+    :where(html[data-tema="escuro"]) .adm-previa__etiqueta { outline-color: rgba(36, 87, 197, .35); }
+    :where(html[data-tema="escuro"]) .adm-previa__etiqueta.is-guia { outline-color: #4d5768; }
+    :where(html[data-tema="escuro"]) .adm-etiqueta__svg { color: #ebedf0; fill: #ebedf0; }
+    :where(html[data-tema="escuro"]) .adm-progresso-inv__topo span { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-alertas-cadastro { border-color: #766839; background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-alertas-cadastro__titulo .icon { color: #edc582; }
+    :where(html[data-tema="escuro"]) .adm-correspondencias { border-color: #313b49; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-correspondencias > p .icon { color: #edc582; }
+    :where(html[data-tema="escuro"]) .adm-form-actions--secundarias { border-top-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-fechar-estante__lista { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-progresso-inv__obras { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-progresso-inv__obras .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-progresso-inv__obras strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-obra { border-left-color: #2457c5; }
+    :where(html[data-tema="escuro"]) .adm-obra__rotulo, :where(html[data-tema="escuro"]) .adm-obra-resumo__rotulo { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-historico-obra__campos { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-historico-obra del { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-historico-obra ins { color: #aaedc3; }
+    :where(html[data-tema="escuro"]) .adm-obra-resumo { background-color: #161c24; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-exemplares-obra li, :where(html[data-tema="escuro"]) .adm-registros-obra li { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-exemplares-obra li:last-child, :where(html[data-tema="escuro"]) .adm-registros-obra li:last-child { border-bottom-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-exemplares-obra li.is-novo { background-color: #132d1e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-exemplares-obra__info { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-criados > p .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-codigo-bdp__status { background-color: #132d1e; background-image: none; color: #aaedc3; }
+    :where(html[data-tema="escuro"]) .adm-codigo-bdp__status.is-erro { color: #eb8484; background-color: #291111; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-escolha { border-color: currentcolor; background-color: transparent; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-escolha__opcao { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-escolha__opcao:hover { border-color: #394555; background-color: #111621; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-escolha__opcao:has(input:checked) { border-color: #2457c5; background-color: #131d2d; background-image: none; box-shadow: inset 0 0 0 1px #2457c5; }
+    :where(html[data-tema="escuro"]) .adm-escolha__opcao:has(input:focus-visible) { box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-escolha__opcao small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-lote-faixa { border-color: #283953; border-left-color: #2457c5; background-color: #1e2631; background-image: none; box-shadow: 0 1px 2px rgba(16, 32, 60, .04), 0 2px 8px rgba(16, 32, 60, .04); }
+    :where(html[data-tema="escuro"]) .adm-lote-faixa.is-alerta { border-color: #756139; border-left-color: #f59e0b; background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-lote-faixa__icone { background-color: #131d2d; background-image: none; color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-lote-faixa.is-alerta .adm-lote-faixa__icone { background-color: #1e2631; background-image: none; color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-lote-faixa__rotulo { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) kbd { border-color: #394555; background-color: #1e2631; background-image: none; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-indicadores-inv__grupo { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-resultados-compactos li { border-bottom-color: #313b49; border-left-color: transparent; }
+    :where(html[data-tema="escuro"]) .adm-resultados-compactos li.is-verificada { border-left-color: #15803d; }
+    :where(html[data-tema="escuro"]) .adm-resultados-compactos li.is-nao-verificada { border-left-color: #f59e0b; }
+    :where(html[data-tema="escuro"]) .adm-resultados-compactos li:last-child { border-bottom-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-resultado__principal { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-resultado__principal small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-resultado__principal:focus-visible { outline-color: currentcolor; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-registrado { border-color: #15803d; background-color: #132d1e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-registrado h2 .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-registrado:focus { outline-color: currentcolor; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .adm-escolha__opcao .adm-linha-planilha__origem { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-sugestoes-vinculo > li { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-estante__numeros div { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-estante__numeros dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-finalizar-lista { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-finalizar-lista li { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-finalizar-lista li:last-child { border-bottom-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-guia-conf { border-color: #283953; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-guia-conf__titulo { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-passos-conf > li { color: #bac5d6; }
+    :where(html[data-tema="escuro"]) .adm-passos-conf > li::before { background-color: #1e2631; background-image: none; color: #a1c4f0; border-color: #283953; }
+    :where(html[data-tema="escuro"]) .adm-guia-conf__extra { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-indicadores-inv__mais { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-indicadores-inv__mais > summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-escolha__opcao--perigo:has(input:checked) { border-color: #dc2626; background-color: #291111; background-image: none; box-shadow: inset 0 0 0 1px #dc2626; }
+    :where(html[data-tema="escuro"]) .adm-nova-obra__passos { border-left-color: #1a4a8c; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-obra-indicadores__item.adm-tone--muted { background-color: #161c24; background-image: none; color: #cad4e7; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-obra-status li { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-obra-status li > span:first-child { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-quantidade-detalhes > summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-obra__aviso { border-left-color: #f59e0b; background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-exemplares-tabela tr.is-novo { background-color: #132d1e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-menu-acoes__lista { background-color: #1e2631; background-image: none; border-color: #313b49; box-shadow: 0 8px 24px rgba(15, 23, 42, .12); }
+    :where(html[data-tema="escuro"]) .adm-paginacao--compacta .is-active { background-color: #131d2d; background-image: none; color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-referencias > summary h2::after { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-comparar tr.is-alterado td:last-child { background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-associacao-info { border-left-color: #15803d; background-color: #132d1e; background-image: none; }
+    @media screen and (max-width: 720px) {
+        :where(html[data-tema="escuro"]) .adm-menu-acoes__lista { box-shadow: none; }
+        :where(html[data-tema="escuro"]) .adm-comparar tr { border-bottom-color: #313b49; }
+        :where(html[data-tema="escuro"]) .adm-comparar td[data-label]::before { color: #a6afbb; }
+    }
+    @media screen and (max-width: 720px) {
+        :where(html[data-tema="escuro"]) .adm-exemplares-tabela .adm-table--cards td[data-label] { border-top-color: currentcolor !important; }
+        :where(html[data-tema="escuro"]) .adm-exemplares-tabela .adm-table--cards td[data-label="Código BDP"] { border-bottom-color: #313b49 !important; }
+    }
+    :where(html[data-tema="escuro"]) .adm-comp-exportar .adm-menu-acoes__lista a { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-comp-exportar .adm-menu-acoes__lista a:hover, :where(html[data-tema="escuro"]) .adm-comp-exportar .adm-menu-acoes__lista a:focus-visible { background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-comp-meta > .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-comp-meta__sep { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-comp-origem__arquivos { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-comp-ind h2 .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-comp-ind h2 small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-comp-ind dl div { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-comp-ind dl div:last-child { border-bottom-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-comp-ind dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-comp-chip { border-color: transparent; }
+    :where(html[data-tema="escuro"]) .adm-comp-chip.is-active { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+    :where(html[data-tema="escuro"]) .adm-comp-cat.is-resolvida { text-decoration-color: rgba(158, 169, 185, 0.6); }
+    :where(html[data-tema="escuro"]) .adm-comp-tabela tr.is-selected { background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-comp-detalhe { border-left-color: #2457c5; }
+    :where(html[data-tema="escuro"]) .adm-comp-subtitulo .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-comp-candidatos li { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-comp-form { border-color: #313b49; background-color: #131b23; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-comp-form fieldset { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-inv-funil > div { background-color: #131c27; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-inv-funil dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-inv-funil dd.is-alerta { color: #ec8383; }
+}

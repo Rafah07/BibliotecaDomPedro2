@@ -29,7 +29,12 @@
     }
 
     Chart.defaults.font.family = "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
-    Chart.defaults.color = '#64748B';
+    // Cores do gráfico conforme o tema (modo escuro: assets/js/tema.js põe data-tema no <html>).
+    const escuro = () => document.documentElement.getAttribute('data-tema') === 'escuro';
+    const paleta = () => (escuro()
+        ? { texto: '#A6AFBB', grade: '#2A3442', barra: '#3B5A85', barraHover: '#55779F', atual: '#7FA8E6', atualHover: '#A1C4F0', borda: '#1E2631' }
+        : { texto: '#64748B', grade: '#EEF2F7', barra: '#B7C8E4', barraHover: '#7F9CCB', atual: '#123D73', atualHover: '#0A2749', borda: '#FFFFFF' });
+    Chart.defaults.color = paleta().texto;
 
     const tooltipStyle = {
         backgroundColor: '#0A2749',
@@ -59,10 +64,12 @@
             summary.innerHTML = `Total no período: <strong>${formatNumber(total)}</strong> empréstimos${data.demo ? ' · dados demonstrativos' : ''}`;
         }
 
-        const colors = values.map((_, i) => (i === last ? '#123D73' : '#B7C8E4'));
-        const hoverColors = values.map((_, i) => (i === last ? '#0A2749' : '#7F9CCB'));
+        const p = paleta();
+        const colors = values.map((_, i) => (i === last ? p.atual : p.barra));
+        const hoverColors = values.map((_, i) => (i === last ? p.atualHover : p.barraHover));
 
         if (barChart) {
+            barChart.options.scales.y.grid.color = p.grade;
             barChart.data.labels = labels;
             barChart.data.datasets[0].data = values;
             barChart.data.datasets[0].backgroundColor = colors;
@@ -106,7 +113,7 @@
                     y: {
                         beginAtZero: true,
                         border: { display: false },
-                        grid: { color: '#EEF2F7' },
+                        grid: { color: p.grade },
                         ticks: { font: { size: 11 }, maxTicksLimit: 5, precision: 0 },
                     },
                 },
@@ -126,16 +133,17 @@
     });
 
     // ---------- Gráfico 2: acervo por categoria ----------
+    let donutChart = null;
     function renderDonut() {
         const cats = data.categorias;
-        new Chart(document.getElementById('grafico-categorias'), {
+        donutChart = new Chart(document.getElementById('grafico-categorias'), {
             type: 'doughnut',
             data: {
                 labels: cats.map((c) => c.categoria),
                 datasets: [{
                     data: cats.map((c) => c.percentual),
                     backgroundColor: cats.map((c) => c.cor),
-                    borderColor: '#FFFFFF',
+                    borderColor: paleta().borda,
                     borderWidth: 2,
                     hoverOffset: 6,
                 }],
@@ -157,6 +165,17 @@
             },
         });
     }
+
+    // Troca de tema com a página aberta: redesenha com as cores novas.
+    new MutationObserver(() => {
+        Chart.defaults.color = paleta().texto;
+        const ativo = document.querySelector('[data-period].is-active');
+        if (barChart) renderBars(Number(ativo?.dataset.period || 6));
+        if (donutChart) {
+            donutChart.data.datasets[0].borderColor = paleta().borda;
+            donutChart.update();
+        }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tema'] });
 
     // Pequeno atraso para exibir o estado de carregamento demonstrativo.
     setTimeout(() => {

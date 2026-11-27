@@ -55,6 +55,7 @@ $demo = auth_demo_disponivel();
     <meta name="theme-color" content="#123d73">
     <meta name="robots" content="noindex">
     <title>Entrar | Painel — Biblioteca Dom Pedro II</title>
+    <?= tema_script() ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/admin.css?v=20261115mob')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/acervo.css?v=20261115mob')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(admin_asset('assets/css/classificacao.css?v=20261115mob')) ?>">
@@ -62,6 +63,7 @@ $demo = auth_demo_disponivel();
 <body class="adm-body adm-login">
 <?php // Módulo temporário de reorganização: botão discreto "Equipe de organização" só com período ativo (some se a pasta for removida).
 if (is_file(__DIR__ . '/../modulos/reorganizacao/includes/login-botao.php')) { include __DIR__ . '/../modulos/reorganizacao/includes/login-botao.php'; } ?>
+<?= tema_botao('adm-icon-button adm-login__tema') ?>
 <main class="adm-login__box">
     <div class="adm-login__brand">
         <span class="adm-brand__logo"><?= icon('library-big') ?></span>

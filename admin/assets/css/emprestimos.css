@@ -121,3 +121,38 @@ a.adm-stat--action { color: inherit; text-decoration: none; }
     .adm-table--cards tr.adm-row--alerta { border-left: 3px solid var(--adm-red) !important; }
     .adm-table--cards tr.adm-row--alerta > td:first-child { box-shadow: none; }
 }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .adm-tabs--links.adm-tabs--solta { background-color: #1e2631; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-tabs--links a { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-tabs--links a:hover { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-tabs--links a[aria-current="page"] { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-tabs--links a[aria-current="page"]::after { background-color: #123d73; background-image: none; }
+    :where(html[data-tema="escuro"]) a.adm-stat--action { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-atraso { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-text-warn { color: #eeb285 !important; }
+    :where(html[data-tema="escuro"]) .adm-table--emprestimos .adm-actions-col { background-color: #1e2631; background-image: none; box-shadow: -8px 0 12px -10px rgba(23, 32, 51, .25); }
+    :where(html[data-tema="escuro"]) .adm-table--emprestimos th.adm-actions-col { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-table tr.adm-row--alerta > td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+    :where(html[data-tema="escuro"]) .adm-table tr.adm-row--alerta td[data-label="Devolução prevista"] { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-passos { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-passos span { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-passos .is-current { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-passos .is-current span { border-color: #2457c5; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-passos .is-done { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-passos .is-done span { border-color: #15803d; background-color: #132d1e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-escolha-atual { border-color: #283953; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-escolha-atual small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-escolha-atual.is-blocked { border-color: #582a2a; background-color: #291111; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-resultados li { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-resultados small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-resultados li.is-blocked { background-color: #161c24; background-image: none; }
+    @media screen and (max-width: 720px) {
+        :where(html[data-tema="escuro"]) .adm-table--emprestimos .adm-actions-col { box-shadow: none; background-color: transparent !important; background-image: none !important; }
+    }
+    @media screen and (max-width: 720px) {
+        :where(html[data-tema="escuro"]) .adm-table--cards tr.adm-row--alerta { border-left-color: #dc2626 !important; }
+        :where(html[data-tema="escuro"]) .adm-table--cards tr.adm-row--alerta > td:first-child { box-shadow: none; }
+    }
+}
