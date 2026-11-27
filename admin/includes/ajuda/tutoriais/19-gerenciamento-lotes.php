@@ -19,7 +19,7 @@ return [
         'quando' => ['Antes de a equipe de cadastro começar uma nova pilha de livros.', 'Quando o lote anterior ficou completo.'],
         'requisitos' => ['Estar logado no painel.'],
         'passos' => [
-            ['titulo' => 'Abra a conferência', 'texto' => 'No Inventário, abra a conferência. Na coluna **Meus lotes**, clique em **Abrir novo lote** (o mesmo botão está no topo da página e no [[pagina:lotes|Histórico de Lotes]]).'],
+            ['titulo' => 'Abra a conferência', 'texto' => 'No Inventário, abra a conferência e clique em **Abrir novo lote**, no topo da página (ou use o mesmo botão no [[pagina:lotes|Histórico de Lotes]]). O formulário abre na página do Histórico de Lotes.'],
             ['titulo' => 'Confira o número', 'texto' => 'O **Número do lote** e a **Data de criação** aparecem prontos. Você não digita o número: o sistema escolhe o próximo, mesmo que duas pessoas abram lotes ao mesmo tempo.'],
             ['titulo' => 'Preencha e confirme', 'texto' => 'Informe a **Quantidade máxima de exemplares**, escolha os **Usuários responsáveis pelo cadastro** e, se quiser, um **Nome ou observação**. Clique em **Abrir lote**.'],
         ],
