@@ -175,9 +175,6 @@ a.adm-stat--action:hover, a.adm-stat--action:focus-visible { border-color: var(-
 .adm-meus-lotes__lista > li > .adm-actions-inline:empty { display: none; }
 .adm-meus-lotes details.adm-acao { margin: 0 0 10px; }
 .adm-meus-lotes .adm-meus-lotes__geral > summary { padding: 8px 10px; font-size: 13px; }
-.adm-meus-lotes .adm-meus-lotes__abrir { border: 0; background: transparent; }
-.adm-meus-lotes .adm-meus-lotes__abrir[open] { padding: 10px; border: 1px solid var(--adm-border); border-radius: var(--adm-radius-sm); }
-.adm-meus-lotes .adm-meus-lotes__abrir > summary.adm-button { width: 100%; justify-content: center; }
 .adm-meus-lotes__links { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin: 0; }
 .adm-meus-lotes__links .adm-button { justify-content: center; }
 .adm-meus-lotes .adm-abrir-lote { margin-top: 10px; box-shadow: none; }

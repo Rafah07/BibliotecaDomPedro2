@@ -26,7 +26,7 @@
  *
  * "Meus lotes" (coluna lateral, migração 160): lotes de que a pessoa participa, o lote ativo (onde
  * entram os exemplares registrados), capacidade, vagas, status, planilhas e histórico. Quem tem
- * lotes.gerenciar vê "+ Abrir novo lote" e a visão geral dos lotes em andamento. As ações vão para
+ * lotes.gerenciar vê "+ Abrir novo lote" no topo (abre o formulário no Histórico de Lotes) e a visão geral dos lotes em andamento. As ações vão para
  * lotes.php. Formulários de obra e de exemplar guardam rascunho (rascunhos.js) e o rascunho é
  * apagado quando o formulário é salvo.
  *
@@ -699,12 +699,6 @@ $voltarConf = $base . ($obra ? '&obra=' . (int)$obra['id'] : '');
                         <small class="adm-block-muted"><?= fisico_numero((int)$lg['total']) ?><?= $lg['capacidade'] !== null ? '/' . fisico_numero((int)$lg['capacidade']) : '' ?> · <?= e($lg['participantes'] ?: 'sem participantes') ?></small></div></li>
                 <?php endforeach; ?>
             </ul>
-        </details>
-    <?php endif; ?>
-    <?php if ($podeLotes): ?>
-        <details class="adm-acao adm-acao--lote adm-meus-lotes__abrir" id="abrir-lote-det"<?= admin_param($_GET, 'abrir_lote') === '1' ? ' open' : '' ?>>
-            <summary class="adm-button adm-button--primary adm-button--sm"><?= icon('plus') ?> Abrir novo lote</summary>
-            <?php $voltarAbrir = $voltarConf; $formAbrir = null; $erroAbrir = null; require __DIR__ . '/includes/form-abrir-lote.php'; ?>
         </details>
     <?php endif; ?>
     <p class="adm-meus-lotes__links">
@@ -1584,7 +1578,7 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
         <p><?= e($inv['titulo']) ?> · pesquise, verifique a obra uma vez e registre cada exemplar com o seu código BDP, sem sair desta página</p>
     </div>
     <div class="adm-page-head__actions" data-acoes-visiveis="0">
-        <?php if ($podeLotes): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&abrir_lote=1') ?>#abrir-lote-det"><?= icon('plus') ?> Abrir novo lote</a><?php endif; ?>
+        <?php if ($podeLotes): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('lotes') . '?novo=1') ?>#abrir-lote"><?= icon('plus') ?> Abrir novo lote</a><?php endif; ?>
         <?php if ($podeCadastrar && $emAndamento): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&novo=1') ?>#nao-listado" data-pjax><?= icon('plus') ?> Cadastrar livro não listado</a><?php endif; ?>
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('lotes')) ?>"><?= icon('layers') ?> Histórico de Lotes</a>
         <a class="adm-button adm-button--ghost" href="<?= e($base . '&pendencias=nao_verificadas') ?>" data-pjax><?= icon('list-checks') ?> Pendências de conferência</a>
