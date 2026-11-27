@@ -250,6 +250,22 @@ final class Etapas
                              JOIN livros l ON l.id = e.livro_id WHERE x.lote_id = ? AND x.conferido_em IS NOT NULL AND x.organizado_em IS NULL ORDER BY e.lote_ordem', [$loteId]);
     }
 
+    /** Exemplares do Grupo 4 no lote. $filtro: aguardando | conferidos | organizados | todos */
+    public function exemplaresG4(int $loteId, string $filtro = 'aguardando'): array
+    {
+        $w = match ($filtro) {
+            'aguardando' => 'x.conferido_em IS NULL',
+            'conferidos' => 'x.conferido_em IS NOT NULL AND x.organizado_em IS NULL',
+            'organizados' => 'x.organizado_em IS NOT NULL',
+            default => '1 = 1',
+        };
+        return $this->todas("SELECT x.id, x.estado_conservacao, x.encaminhado_g4_em, x.conferido_em, x.conferido_nome, x.organizado_em, x.organizado_nome, x.problema_aberto,
+                                    e.codigo_individual, l.titulo, l.editora, l.edicao, CONCAT_WS(' · ', lc.setor, lc.estante, lc.prateleira) AS local_rotulo
+                             FROM reorg_registro_exemplares x JOIN exemplares e ON e.id = x.exemplar_id JOIN livros l ON l.id = e.livro_id
+                             LEFT JOIN localizacoes lc ON lc.id = x.localizacao_id
+                             WHERE x.lote_id = ? AND x.removido_em IS NULL AND x.encaminhado_g4_em IS NOT NULL AND $w ORDER BY e.lote_ordem, x.id", [$loteId]);
+    }
+
     /** Prateleiras ativas (para o Grupo 4 escolher, quando houver). */
     public function prateleiras(): array
     {

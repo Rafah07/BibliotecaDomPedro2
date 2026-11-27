@@ -42,7 +42,12 @@ $paiAtual = admin_menu_item($paginaAtual)['pai'] ?? null;
                 </ul>
             </div>
         <?php endif; ?>
-        <?php foreach (ADMIN_MENU as $grupo => $itens): ?>
+        <?php foreach (ADMIN_MENU as $grupo => $itens):
+            // Grupo sem nenhum item visível (permissão, módulo desligado ou removido) não aparece.
+            $visiveis = array_filter($itens, fn ($item) => empty($item['oculto']) && (!isset($item['permissao']) || auth_pode($item['permissao'])) && (!isset($item['modulo']) || admin_modulo_ativo($item['modulo'])));
+            if (!$visiveis) {
+                continue;
+            } ?>
             <div class="adm-nav__group">
                 <p class="adm-nav__title"><span><?= htmlspecialchars($grupo) ?></span></p>
                 <ul>

@@ -53,6 +53,8 @@ const ACERVO_MOVIMENTOS = [
     'renovacao' => ['label' => 'Renovação', 'icone' => 'refresh-cw', 'tom' => 'teal'],
     'conservacao' => ['label' => 'Conservação', 'icone' => 'wrench', 'tom' => 'blue'],
     'situacao' => ['label' => 'Situação', 'icone' => 'refresh-cw', 'tom' => 'blue'],
+    'carimbo' => ['label' => 'Carimbo', 'icone' => 'stamp', 'tom' => 'indigo'],
+    'ocorrencia' => ['label' => 'Ocorrência', 'icone' => 'circle-alert', 'tom' => 'amber'],
 ];
 
 // ---------------------------------------------------------------

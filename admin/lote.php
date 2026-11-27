@@ -490,7 +490,30 @@ admin_page_start('lote', $nome, 'Inventário', 'Relatório do lote', array_merge
 </section>
 
 <?php // ---------- Participantes ---------- ?>
-<?php if ($coletaOk): ?>
+<?php
+// Lote criado pelo módulo temporário de reorganização: o trabalho das equipes fica lá.
+$reorgLote = null;
+if (admin_modulo_ativo('reorganizacao')) {
+    try {
+        $reorgLote = db_query('SELECT id, nome FROM reorg_lotes WHERE cadastro_lote_id = ? LIMIT 1', [$id])->fetch() ?: null;
+    } catch (Throwable $e) {
+        $reorgLote = null;
+    }
+}
+$coletaLigada = config_bool('COLETA_LINKS_ATIVOS', true);
+?>
+<?php if ($reorgLote): ?>
+<div class="adm-notice adm-notice--blue adm-no-print"><?= icon('archive-restore') ?><div><strong>Este lote pertence à Reorganização do Acervo (<?= e($reorgLote['nome']) ?>).</strong>
+    <p>Participantes, revisão, carimbação e conferência são feitos no ambiente do lote no módulo. <a href="<?= e(url('modulos/reorganizacao/admin/lote.php?id=' . (int)$reorgLote['id'])) ?>">Abrir o lote na Reorganização do Acervo</a></p></div></div>
+<?php endif; ?>
+<?php if ($coletaOk && !$coletaLigada): ?>
+<?php if ($coletaLinks || array_sum(array_map('intval', (array)$coletaResumo))): ?>
+<section class="adm-card adm-panel adm-no-print" id="equipes">
+    <p class="adm-table__muted"><?= icon('info') ?> Os links de equipe (coleta e carimbagem sem login) estão desligados; os dados antigos continuam guardados.
+        <?php if ((int)$coletaResumo['pendente']): ?><a class="adm-link" href="<?= e(admin_url('coleta') . '?lote=' . $id) ?>">Revisar <?= (int)$coletaResumo['pendente'] ?> pré-cadastro(s) antigo(s)</a><?php endif; ?></p>
+</section>
+<?php endif; ?>
+<?php elseif ($coletaOk): ?>
 <section class="adm-card adm-panel adm-no-print" aria-labelledby="titulo-equipes" id="equipes">
     <div class="adm-panel__header"><div>
         <h2 id="titulo-equipes"><?= icon('users') ?> Equipes por link (sem login)</h2>

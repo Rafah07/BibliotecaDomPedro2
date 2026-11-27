@@ -574,6 +574,24 @@ final class Reorganizacao
         if ($prazo !== '' && !(($dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $prazo)) && $dt->format('Y-m-d') === $prazo)) {
             throw new AcervoException('Prazo inválido.');
         }
+        // Dois administradores criando lotes no mesmo instante podem disputar o mesmo número de lote
+        // permanente (chave única). Fora de outra transação, tenta de novo com uma leitura nova.
+        $tentativas = $this->pdo->inTransaction() ? 1 : 5;
+        for ($t = 1; ; $t++) {
+            try {
+                return $this->criarLoteTransacao($dados, $adminId, $nome, $qtd, $responsavel, $prazo);
+            } catch (\PDOException $e) {
+                $disputa = in_array((int)($e->errorInfo[1] ?? 0), [1062, 1213], true) && !str_contains($e->getMessage(), 'reorg_');
+                if (!$disputa || $t >= $tentativas) {
+                    throw $e;
+                }
+                usleep(random_int(20000, 120000));
+            }
+        }
+    }
+
+    private function criarLoteTransacao(array $dados, int $adminId, string $nome, int $qtd, int $responsavel, string $prazo): int
+    {
         return $this->transacao(function () use ($dados, $adminId, $nome, $qtd, $responsavel, $prazo) {
             $periodo = $this->periodoAtivo();
             if (!$periodo) {
@@ -620,15 +638,102 @@ final class Reorganizacao
                              JOIN reorg_periodos p ON p.id = l.periodo_id WHERE l.id = ?', [$id]);
     }
 
-    public function lotes(string $status = ''): array
+    /**
+     * Lotes com contadores, etapas em andamento e participantes por equipe.
+     * Filtros: $status (em_andamento | pausado | concluido), $responsavel (id), $etapa (grupo1..grupo4:
+     * lotes com exemplares esperando aquela etapa).
+     */
+    public function lotes(string $status = '', int $responsavel = 0, string $etapa = ''): array
     {
-        $lotes = $this->todas('SELECT l.*, a.nome AS responsavel_nome, c.numero AS cadastro_numero FROM reorg_lotes l JOIN administradores a ON a.id = l.responsavel_id
-                               JOIN cadastro_lotes c ON c.id = l.cadastro_lote_id' . ($status !== '' ? ' WHERE l.status = ?' : '') . ' ORDER BY l.id DESC', $status !== '' ? [$status] : []);
-        foreach ($lotes as &$l) {
-            $l['contadores'] = $this->contadores((int)$l['id']);
-            $l['participantes'] = (int)$this->valor('SELECT COUNT(*) FROM reorg_atribuicoes WHERE lote_id = ? AND encerrada_em IS NULL', [$l['id']]);
+        $w = [];
+        $p = [];
+        if ($status !== '') {
+            $w[] = 'l.status = ?';
+            $p[] = $status;
         }
-        return $lotes;
+        if ($responsavel > 0) {
+            $w[] = 'l.responsavel_id = ?';
+            $p[] = $responsavel;
+        }
+        $lotes = $this->todas('SELECT l.*, a.nome AS responsavel_nome, c.numero AS cadastro_numero FROM reorg_lotes l JOIN administradores a ON a.id = l.responsavel_id
+                               JOIN cadastro_lotes c ON c.id = l.cadastro_lote_id' . ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY l.id DESC', $p);
+        $saida = [];
+        foreach ($lotes as $l) {
+            $l['contadores'] = $this->contadores((int)$l['id']);
+            $l['etapas'] = self::etapasEmAndamento($l['contadores']);
+            if ($etapa !== '' && !isset($l['etapas'][$etapa])) {
+                continue;
+            }
+            $l['participantes'] = (int)$this->valor('SELECT COUNT(*) FROM reorg_atribuicoes WHERE lote_id = ? AND encerrada_em IS NULL', [$l['id']]);
+            $l['por_equipe'] = array_column($this->todas('SELECT equipe, COUNT(*) AS n FROM reorg_atribuicoes WHERE lote_id = ? AND encerrada_em IS NULL GROUP BY equipe', [$l['id']]), 'n', 'equipe');
+            $saida[] = $l;
+        }
+        return $saida;
+    }
+
+    /**
+     * Etapas com exemplares esperando trabalho (um lote pode estar em várias ao mesmo tempo).
+     * @return array<string, int> equipe => exemplares esperando
+     */
+    public static function etapasEmAndamento(array $c): array
+    {
+        $e = [
+            'grupo1' => $c['aguardando_levantamento'] + $c['em_levantamento'],
+            'grupo2' => $c['aguardando_revisao'] + $c['aprovados_sem_cadastro'],
+            'grupo3' => $c['aguardando_carimbacao'] + $c['carimbados_nao_encaminhados'],
+            'grupo4' => $c['carimbados'] - $c['carimbados_nao_encaminhados'] - $c['organizados'],
+        ];
+        return array_filter($e, fn ($n) => $n > 0);
+    }
+
+    /** Totais de todos os lotes do período ativo (Visão geral). */
+    public function totaisPeriodo(): array
+    {
+        $t = ['previstos' => 0, 'registrados' => 0, 'revisados' => 0, 'codigos' => 0, 'carimbados' => 0, 'conferidos' => 0, 'organizados' => 0, 'com_problema' => 0];
+        $periodo = $this->periodoAtivo();
+        if (!$periodo) {
+            return $t;
+        }
+        foreach ($this->todas('SELECT id FROM reorg_lotes WHERE periodo_id = ?', [$periodo['id']]) as $l) {
+            $c = $this->contadores((int)$l['id']);
+            $t['previstos'] += $c['prevista'];
+            foreach (['registrados', 'revisados', 'codigos', 'carimbados', 'conferidos', 'organizados', 'com_problema'] as $k) {
+                $t[$k] += $c[$k];
+            }
+        }
+        return $t;
+    }
+
+    // =================================================================
+    // Configurações editáveis (tempos das sessões temporárias)
+    // =================================================================
+
+    /** Chave => [rótulo, mínimo, máximo] (segundos). Gravadas em reorg_configuracoes (migração 230). */
+    public const CONFIG_EDITAVEL = [
+        'intervalo_sinal' => ['Comunicação periódica do navegador com o servidor', 5, 60],
+        'tolerancia_desconexao' => ['Tempo sem comunicação até encerrar a sessão (desconectado)', 30, 3600],
+        'reserva_edicao' => ['Reserva de um registro ou exemplar aberto por alguém', 30, 900],
+    ];
+
+    public function salvarConfiguracoes(array $dados, int $adminId): void
+    {
+        $this->transacao(function () use ($dados, $adminId) {
+            foreach (self::CONFIG_EDITAVEL as $chave => [$rotulo, $min, $max]) {
+                if (!isset($dados[$chave]) || (string)$dados[$chave] === '') {
+                    continue;
+                }
+                $v = (int)$dados[$chave];
+                if ($v < $min || $v > $max) {
+                    throw new AcervoException($rotulo . ': use de ' . $min . ' a ' . $max . ' segundos.');
+                }
+                $this->executar('INSERT INTO reorg_configuracoes (chave, valor, atualizado_por) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor), atualizado_por = VALUES(atualizado_por)', [$chave, (string)$v, $adminId]);
+                $this->config[$chave] = $v;
+            }
+            if ((int)$this->config['tolerancia_desconexao'] < 2 * (int)$this->config['intervalo_sinal'] + 10) {
+                throw new AcervoException('O tempo sem comunicação precisa ser pelo menos o dobro da comunicação periódica (mais 10 segundos).');
+            }
+            $this->historico('configuracoes', 'Tempos das sessões: comunicação ' . $this->config['intervalo_sinal'] . ' s, desconexão ' . $this->config['tolerancia_desconexao'] . ' s, reserva ' . $this->config['reserva_edicao'] . ' s', null, null, $adminId);
+        });
     }
 
     /** Administradores do Grupo 2 deste lote (responsável + autorizados). */
@@ -1358,7 +1463,7 @@ final class Reorganizacao
     {
         $w = [];
         $p = [];
-        foreach (['lote_id' => 'h.lote_id = ?', 'sessao_id' => 'h.sessao_id = ?'] as $c => $sql) {
+        foreach (['lote_id' => 'h.lote_id = ?', 'sessao_id' => 'h.sessao_id = ?', 'administrador_id' => 'h.administrador_id = ?'] as $c => $sql) {
             if (!empty($f[$c])) {
                 $w[] = $sql;
                 $p[] = (int)$f[$c];
@@ -1367,6 +1472,26 @@ final class Reorganizacao
         if (!empty($f['acao'])) {
             $w[] = 'h.acao = ?';
             $p[] = (string)$f['acao'];
+        }
+        if (!empty($f['grupo'])) {
+            if ($f['grupo'] === 'grupo2') {
+                $w[] = 'h.administrador_id IS NOT NULL';
+            } else {
+                $w[] = 'h.sessao_id IN (SELECT id FROM reorg_sessoes WHERE equipe = ?)';
+                $p[] = (string)$f['grupo'];
+            }
+        }
+        if (!empty($f['de']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$f['de'])) {
+            $w[] = 'h.criado_em >= ?';
+            $p[] = $f['de'] . ' 00:00:00';
+        }
+        if (!empty($f['ate']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$f['ate'])) {
+            $w[] = 'h.criado_em <= ?';
+            $p[] = $f['ate'] . ' 23:59:59';
+        }
+        if (!empty($f['participante'])) {
+            $w[] = 'h.nome LIKE ?';
+            $p[] = self::like((string)$f['participante']);
         }
         if (!empty($f['q'])) {
             $w[] = '(h.descricao LIKE ? OR h.nome LIKE ?)';

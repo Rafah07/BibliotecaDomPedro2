@@ -44,6 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $x = $r->entrar((string)($_POST['nome'] ?? ''), reorg_equipe_ip());
             session_regenerate_id(true);
             $_SESSION['reorg_token'] = $x['token'];
+            unset($_SESSION['reorg_instrucoes']);
+        } elseif ($acao === 'instrucoes' && $sessao) {
+            $_SESSION['reorg_instrucoes'] = (int)$sessao['id'];
         } elseif ($acao === 'equipe' && $sessao) {
             $r->escolherEquipe($sessao, (string)($_POST['equipe'] ?? ''));
         }
@@ -67,9 +70,42 @@ if (!$sessao) {
             <input type="hidden" name="csrf" value="<?= e(reorg_equipe_csrf()) ?>"><input type="hidden" name="acao" value="entrar">
             <label class="adm-field"><span class="adm-field__label">Seu nome completo</span>
                 <input class="adm-input reorg-input-grande" name="nome" required minlength="3" maxlength="100" autocomplete="name" autofocus></label>
-            <p class="adm-field__hint">Não há senha nem cadastro. O nome identifica o seu trabalho no histórico da biblioteca.</p>
+            <p class="adm-field__hint">Não há senha nem cadastro. O nome identifica o seu trabalho no histórico da biblioteca. Cada entrada abre uma sessão nova, mesmo com o mesmo nome.</p>
             <button class="adm-button adm-button--primary adm-button--block" type="submit"><?= icon('log-in') ?> Continuar</button>
         </form>
+    </section>
+    <?php
+    reorg_equipe_fim();
+    exit;
+}
+
+// ------------------------------------------------------------------ instruções (antes da equipe)
+if ($sessao['equipe'] === null && (int)($_SESSION['reorg_instrucoes'] ?? 0) !== (int)$sessao['id']) {
+    $repetido = (int)db_query("SELECT COUNT(*) FROM reorg_sessoes WHERE nome_chave = ? AND status = 'ativa' AND id <> ?", [$sessao['nome_chave'], $sessao['id']])->fetchColumn();
+    reorg_equipe_inicio('Instruções', $sessao);
+    ?>
+    <section class="adm-card adm-panel reorg-passo">
+        <ol class="reorg-passos" aria-label="Etapas da entrada"><li class="is-feito">Nome</li><li class="is-atual" aria-current="step">Instruções</li><li>Equipe</li><li>Aguardar lote</li></ol>
+        <h1>Olá, <?= e($sessao['nome']) ?>!</h1>
+        <?= reorg_equipe_flash_html() ?>
+        <?php if ($repetido): ?><div class="adm-notice adm-notice--amber"><?= icon('users') ?><div><strong>Já há outra sessão ativa com este nome.</strong><p>Você está numa sessão separada (<?= e(Reorganizacao::rotuloSessao($sessao['id'])) ?>). O administrador vê as duas e atribui os lotes a cada uma.</p></div></div><?php endif; ?>
+        <div class="reorg-instrucoes">
+            <?php if ($periodo['instrucoes_gerais']): ?><?= nl2br(e($periodo['instrucoes_gerais'])) ?>
+            <?php else: ?>
+                <p>Cada lote reúne os livros de um trecho do acervo. O trabalho passa por quatro etapas:</p>
+                <ol><li><strong>Grupo 1 — Levantamento:</strong> preencher os dados de cada livro e o estado de cada exemplar.</li>
+                    <li><strong>Grupo 2 — Revisão:</strong> a administração confere e cadastra (gera os códigos BDP).</li>
+                    <li><strong>Grupo 3 — Carimbação:</strong> escrever o código BDP em cada livro.</li>
+                    <li><strong>Grupo 4 — Conferência e organização:</strong> digitar o código escrito, conferir e guardar na estante.</li></ol>
+            <?php endif; ?>
+        </div>
+        <ul class="reorg-lembretes">
+            <li><?= icon('save') ?> O que você preenche é salvo sozinho. O indicador no topo mostra se está tudo salvo.</li>
+            <li><?= icon('pause') ?> Use “Pausar” para sair um pouco sem perder nada. “Sair” encerra a sessão.</li>
+            <li><?= icon('life-buoy') ?> Em dúvida, use “Pedir ajuda”: o administrador recebe na hora.</li>
+        </ul>
+        <form method="post"><input type="hidden" name="csrf" value="<?= e(reorg_equipe_csrf()) ?>"><input type="hidden" name="acao" value="instrucoes">
+            <button class="adm-button adm-button--primary" type="submit"><?= icon('arrow-right') ?> Li as instruções, escolher a equipe</button></form>
     </section>
     <?php
     reorg_equipe_fim();
@@ -80,11 +116,11 @@ if (!$sessao) {
 if ($sessao['equipe'] === null) {
     reorg_equipe_inicio('Escolha a equipe', $sessao);
     ?>
-    <section class="adm-card adm-panel">
-        <h1>Olá, <?= e($sessao['nome']) ?>!</h1>
+    <section class="adm-card adm-panel reorg-passo">
+        <ol class="reorg-passos" aria-label="Etapas da entrada"><li class="is-feito">Nome</li><li class="is-feito">Instruções</li><li class="is-atual" aria-current="step">Equipe</li><li>Aguardar lote</li></ol>
+        <h1>Escolha a sua equipe</h1>
         <?= reorg_equipe_flash_html() ?>
-        <?php if ($periodo['instrucoes_gerais']): ?><div class="reorg-instrucoes"><?= nl2br(e($periodo['instrucoes_gerais'])) ?></div><?php endif; ?>
-        <p>Escolha a equipe em que você vai trabalhar. Para mudar depois, será preciso pedir ao administrador.</p>
+        <p>Para mudar depois, será preciso pedir ao administrador.</p>
         <div class="reorg-cartoes">
             <?php foreach (['grupo1' => ['Grupo 1 — Levantamento', 'Preencher os dados de cada livro (título, autor, editora, ISBN, CDD) e o estado de conservação de cada exemplar.', 'book-plus'],
                 'grupo3' => ['Grupo 3 — Carimbação', 'Escrever o código BDP no livro e marcar como carimbado na planilha do lote.', 'stamp'],
@@ -113,14 +149,15 @@ foreach ($lotes as $l) {
         $lote = $l;
     }
 }
-if (!$lote && count($lotes) === 1 && !isset($_GET['lotes'])) {
+if (!$lote && $lotes && !isset($_GET['lotes'])) {
     $lote = $lotes[0];
 }
 $pausada = $sessao['situacao'] === 'pausada';
 $etapaPausada = $lote && ($lote['status'] !== 'em_andamento' || in_array($equipe, explode(',', (string)$lote['etapas_pausadas']), true));
+$instrucoes = trim((string)$periodo['instrucoes_gerais'] . "\n\n" . (string)$periodo['instrucoes_' . $equipe]);
 
-reorg_equipe_inicio($lote ? $lote['nome'] : 'Meus lotes', $sessao, [
-    'equipe' => $equipe, 'lote' => $lote['id'] ?? '', 'base' => $base, 'pausada' => $pausada ? '1' : '0',
+reorg_equipe_inicio($lote ? $lote['nome'] : 'Aguardando lote', $sessao, [
+    'equipe' => $equipe, 'lote' => $lote['id'] ?? '', 'base' => $base, 'pausada' => $pausada ? '1' : '0', 'sessao' => (int)$sessao['id'],
     'assinatura' => $r->estadoParticipante($sessao)['assinatura'],
 ]);
 echo reorg_equipe_flash_html();
@@ -136,54 +173,45 @@ if ($pausada) {
     reorg_equipe_fim();
     exit;
 }
-?>
-<div class="reorg-painel">
-    <aside class="adm-card adm-panel reorg-lateral">
-        <h2>Meus lotes</h2>
-        <?php if (!$lotes): ?>
-            <p class="adm-table__muted" data-reorg-sem-lote>Nenhum lote atribuído ainda. Assim que o administrador atribuir, ele aparece aqui sozinho.</p>
-        <?php endif; ?>
-        <ul class="reorg-lotes-lista">
-            <?php foreach ($lotes as $l): $c = $r->contadores((int)$l['id']); ?>
-                <li class="<?= $lote && (int)$lote['id'] === (int)$l['id'] ? 'is-ativo' : '' ?>"><a href="<?= e($base . '?lote=' . $l['id']) ?>"><strong><?= e($l['nome']) ?></strong>
-                    <small><?= $l['status'] === 'pausado' ? 'Pausado · ' : '' ?><?= $equipe === 'grupo1' ? $c['registrados'] . ' de ' . $c['prevista'] . ' registrados' : ($equipe === 'grupo3' ? $c['carimbados'] . ' de ' . $c['codigos'] . ' carimbados' : $c['conferidos'] . ' de ' . $c['carimbados'] . ' conferidos') ?></small></a></li>
-            <?php endforeach; ?>
-        </ul>
-        <div class="reorg-pedidos">
-            <button type="button" class="adm-button adm-button--sm" data-reorg-pedido="novo_lote"><?= icon('plus') ?> Pedir novo lote</button>
-            <button type="button" class="adm-button adm-button--sm" data-reorg-pedido="ajuda"><?= icon('life-buoy') ?> Pedir ajuda</button>
-            <button type="button" class="adm-button adm-button--sm" data-reorg-pedido="troca_equipe"><?= icon('arrow-right-left') ?> Mudar de equipe</button>
-        </div>
-        <?php if ($periodo['instrucoes_gerais'] || $periodo['instrucoes_' . $equipe]): ?>
-            <details class="reorg-instrucoes-detalhe"><summary>Instruções</summary><?= nl2br(e(trim($periodo['instrucoes_gerais'] . "\n\n" . $periodo['instrucoes_' . $equipe]))) ?></details>
-        <?php endif; ?>
-    </aside>
 
-    <section class="reorg-trabalho">
-    <?php if (!$lote): ?>
-        <div class="adm-card adm-panel reorg-centro"><h2>Escolha um lote</h2><p><?= $lotes ? 'Clique em um dos lotes ao lado.' : 'Aguarde a atribuição de um lote pelo administrador ou use “Pedir novo lote”.' ?></p></div>
-    <?php else: $c = $r->contadores((int)$lote['id']); ?>
-        <div class="adm-card adm-panel">
-            <div class="reorg-lote-topo"><h1><?= e($lote['nome']) ?></h1>
-                <?php if ($etapaPausada): ?><span class="adm-status adm-tone--amber">Pausado pelo administrador</span><?php endif; ?></div>
-            <?php if ($lote['instrucoes']): ?><div class="reorg-instrucoes"><?= nl2br(e($lote['instrucoes'])) ?></div><?php endif; ?>
-            <div class="reorg-progresso">
-                <span>Registrados <b><?= $c['registrados'] ?>/<?= $c['prevista'] ?></b></span><span>Códigos <b><?= $c['codigos'] ?></b></span>
-                <span>Carimbados <b><?= $c['carimbados'] ?></b></span><span>Conferidos <b><?= $c['conferidos'] ?></b></span><span>Organizados <b><?= $c['organizados'] ?></b></span>
-            </div>
-        </div>
-        <?php
-        if ($equipe === 'grupo1') {
-            require __DIR__ . '/../includes/equipe-grupo1.php';
-        } elseif ($equipe === 'grupo3') {
-            require __DIR__ . '/../includes/equipe-grupo3.php';
-        } else {
-            require __DIR__ . '/../includes/equipe-grupo4.php';
-        }
-        ?>
-    <?php endif; ?>
+// Barra do participante: equipe, lotes (quando há mais de um) e pedidos.
+?>
+<nav class="adm-card reorg-barra-participante" aria-label="Meus lotes e pedidos">
+    <div class="reorg-barra-participante__lotes">
+        <span class="adm-status adm-tone--blue"><?= e(Reorganizacao::EQUIPES[$equipe]) ?></span>
+        <?php if (count($lotes) > 1): ?>
+            <?php foreach ($lotes as $l): ?><a class="reorg-chip-lote<?= $lote && (int)$lote['id'] === (int)$l['id'] ? ' is-ativo' : '' ?>" href="<?= e($base . '?lote=' . $l['id']) ?>"<?= $lote && (int)$lote['id'] === (int)$l['id'] ? ' aria-current="page"' : '' ?>><?= e($l['nome']) ?><?= $l['status'] === 'pausado' ? ' (pausado)' : '' ?></a><?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+    <div class="reorg-barra-participante__acoes">
+        <?php if ($instrucoes !== ''): ?><button type="button" class="adm-button adm-button--sm" data-reorg-instrucoes><?= icon('book-open') ?> Instruções</button><?php endif; ?>
+        <button type="button" class="adm-button adm-button--sm" data-reorg-pedido="ajuda"><?= icon('life-buoy') ?> Pedir ajuda</button>
+        <button type="button" class="adm-button adm-button--sm" data-reorg-pedido="novo_lote"><?= icon('plus') ?> Pedir novo lote</button>
+        <button type="button" class="adm-button adm-button--sm" data-reorg-pedido="troca_equipe"><?= icon('arrow-right-left') ?> Mudar de equipe</button>
+    </div>
+</nav>
+<?php if ($instrucoes !== ''): ?><template data-reorg-tpl="instrucoes"><h2>Instruções</h2><div class="reorg-instrucoes"><?= nl2br(e($instrucoes)) ?></div></template><?php endif; ?>
+
+<?php if (!$lote): ?>
+    <section class="adm-card adm-panel reorg-centro reorg-espera" data-reorg-sem-lote>
+        <ol class="reorg-passos" aria-label="Etapas da entrada"><li class="is-feito">Nome</li><li class="is-feito">Instruções</li><li class="is-feito">Equipe</li><li class="is-atual" aria-current="step">Aguardar lote</li></ol>
+        <span class="reorg-espera__icone"><?= icon('hourglass') ?></span>
+        <h1>Aguardando a atribuição de um lote pelo administrador.</h1>
+        <p>Você está no <strong><?= e(Reorganizacao::EQUIPES[$equipe]) ?></strong>. Assim que o administrador atribuir um lote, esta tela muda sozinha e você recebe um aviso. Não é preciso recarregar.</p>
     </section>
-</div>
+<?php else: $c = $r->contadores((int)$lote['id']); ?>
+    <?php if ($etapaPausada): ?><div class="adm-notice adm-notice--amber"><?= icon('pause') ?><div><strong>Esta etapa do <?= e($lote['nome']) ?> está pausada pelo administrador.</strong><p>Você pode consultar, mas não alterar, até a liberação. Nada se perde.</p></div></div><?php endif; ?>
+    <?php if ($lote['instrucoes']): ?><details class="adm-card reorg-instrucoes-lote"><summary><?= icon('info') ?> Instruções deste lote</summary><div class="reorg-instrucoes"><?= nl2br(e($lote['instrucoes'])) ?></div></details><?php endif; ?>
+    <?php
+    if ($equipe === 'grupo1') {
+        require __DIR__ . '/../includes/equipe-grupo1.php';
+    } elseif ($equipe === 'grupo3') {
+        require __DIR__ . '/../includes/equipe-grupo3.php';
+    } else {
+        require __DIR__ . '/../includes/equipe-grupo4.php';
+    }
+    ?>
+<?php endif; ?>
 <template data-reorg-tpl="novo_lote"><h2>Pedir novo lote</h2><p>O administrador recebe o pedido e decide. Nenhum lote é atribuído automaticamente.</p>
     <label class="adm-field"><span class="adm-field__label">Observação (opcional)</span><textarea class="adm-textarea" name="descricao" rows="2" maxlength="1000"></textarea></label></template>
 <template data-reorg-tpl="ajuda"><h2>Pedir ajuda</h2>
@@ -201,9 +229,10 @@ if ($pausada) {
         <li><kbd>Enter</kbd> próximo campo · <kbd>Shift</kbd>+<kbd>Enter</kbd> campo anterior</li>
         <li><kbd>Ctrl</kbd>+<kbd>S</kbd> salvar agora (o salvamento também é automático)</li>
         <li><kbd>Alt</kbd>+<kbd>N</kbd> novo registro (Grupo 1)</li>
+        <li><kbd>Alt</kbd>+<kbd>Enter</kbd> confirmar e avançar (Grupo 1)</li>
         <li><kbd>Alt</kbd>+<kbd>J</kbd> / <kbd>Alt</kbd>+<kbd>K</kbd> próximo / anterior da lista</li>
         <li><kbd>Alt</kbd>+<kbd>O</kbd> pesquisar obra no acervo (Grupo 1) · ir para o campo do código (Grupo 4)</li>
         <li><kbd>Alt</kbd>+<kbd>P</kbd> pausar e continuar depois · <kbd>Alt</kbd>+<kbd>H</kbd> esta ajuda</li>
     </ul>
-    <p>O indicador no topo mostra: “Salvando alterações...”, “Todas as alterações salvas”, “Sem conexão — alterações ainda não sincronizadas”, “Erro ao salvar — tentar novamente” ou “Atividade pausada”.</p></template>
+    <p>O indicador no topo mostra: “Salvando alterações...”, “Todas as alterações salvas”, “Sem conexão — alterações ainda não sincronizadas”, “Erro ao salvar” ou “Atividade pausada”. Encaminhar, avançar e pausar só acontecem depois que tudo foi salvo.</p></template>
 <?php reorg_equipe_fim();
