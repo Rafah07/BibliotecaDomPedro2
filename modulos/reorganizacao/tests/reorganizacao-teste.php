@@ -190,7 +190,7 @@ confere('T15. capacidade: não passa da quantidade prevista (11 exemplares num l
 echo "\nT27, T30–T32. Grupo 2: revisão, aprovação, códigos BDP\n";
 confere('T27. aprovação só pelo responsável ou administrador autorizado', $recusa(fn () => $lev->aprovar($out, (int)$reg['id'])) !== null);
 $regAberto = $lev->abrir((int)$reg['id'], null, $adm);
-$rev = $lev->salvarRevisao($adm, (int)$reg['id'], ['cdd' => '398.2', 'cdd_nao_encontrada' => ''] + $lev->paraFormulario($regAberto), (int)$regAberto['versao']);
+$rev = $lev->salvarRevisao($adm, (int)$reg['id'], ['cdd' => '398.2', 'cdd_nao_encontrada' => '', 'cdd_situacao' => 'encontrada'] + $lev->paraFormulario($regAberto), (int)$regAberto['versao']);
 confere('T27. correção administrativa salva, original preservado e diferença visível', $val('SELECT cdd FROM reorg_registros WHERE id = ?', [$reg['id']]) === '398.2'
     && isset($lev->diferencas($lev->registro((int)$reg['id']))['cdd']));
 $lev->liberar((int)$reg['id'], null, $adm);

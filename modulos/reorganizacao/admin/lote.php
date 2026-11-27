@@ -185,9 +185,9 @@ if ($aba === 'visao'):
             <li>
                 <a class="reorg-etapas-lista__nome" href="<?= e($urlAba($abaEq)) ?>"><strong><?= e(Reorganizacao::EQUIPES[$eq]) ?></strong><small><?= e($rot) ?></small></a>
                 <div class="reorg-etapas-lista__barra"><span><?= (int)$feito ?> de <?= (int)$total ?><?= !empty($etapas[$eq]) ? ' · ' . (int)$etapas[$eq] . ' esperando' : '' ?></span><?= reorg_barra((int)$feito, (int)$total) ?></div>
-                <div><?= $pausada ? reorg_status_badge('Pausada', 'amber') : reorg_status_badge('Liberada', 'green') ?></div>
-                <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="aba" value="visao"><input type="hidden" name="acao" value="etapa"><input type="hidden" name="etapa" value="<?= $eq ?>"><input type="hidden" name="pausar" value="<?= $pausada ? '0' : '1' ?>">
-                    <button class="adm-button adm-button--sm" type="submit"><?= $pausada ? icon('play') . ' Liberar' : icon('pause') . ' Pausar' ?></button></form>
+                <div><?= $lote['status'] === 'concluido' ? reorg_status_badge('Concluída', 'green') : ($pausada ? reorg_status_badge('Pausada', 'amber') : reorg_status_badge('Liberada', 'green')) ?></div>
+                <?php if ($lote['status'] !== 'concluido'): ?><form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="aba" value="visao"><input type="hidden" name="acao" value="etapa"><input type="hidden" name="etapa" value="<?= $eq ?>"><input type="hidden" name="pausar" value="<?= $pausada ? '0' : '1' ?>">
+                    <button class="adm-button adm-button--sm" type="submit"><?= $pausada ? icon('play') . ' Liberar' : icon('pause') . ' Pausar' ?></button></form><?php else: ?><span></span><?php endif; ?>
             </li>
         <?php endforeach; ?>
     </ul>

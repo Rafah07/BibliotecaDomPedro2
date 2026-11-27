@@ -24,15 +24,18 @@ $t = $csrfDe($html);
 confere('T03. sem CSRF a entrada é recusada', !db_query('SELECT 1 FROM reorg_sessoes WHERE nome = ?', ['Joana Fictícia Lima'])->fetchColumn());
 [$s, , $loc] = $pub->ir('modulos/reorganizacao/equipe/', ['csrf' => $t, 'acao' => 'entrar', 'nome' => 'Joana Fictícia Lima']);
 [$s, $html] = $pub->ir('modulos/reorganizacao/equipe/');
-confere('T04. depois do nome: instruções e escolha do Grupo 1, 3 ou 4 (sem Grupo 2)', $s === 200 && str_contains($html, 'Grupo 1') && str_contains($html, 'Grupo 3') && str_contains($html, 'Grupo 4')
-    && !str_contains($html, 'value="grupo2"') && str_contains($html, 'Use luvas &lt;b&gt;sempre&lt;/b&gt;'));
+confere('Fluxo: depois do nome vem a etapa de instruções (antes da equipe)', $s === 200 && str_contains($html, 'value="instrucoes"') && str_contains($html, 'Use luvas &lt;b&gt;sempre&lt;/b&gt;') && !str_contains($html, 'value="grupo1"'));
+$pub->ir('modulos/reorganizacao/equipe/', ['csrf' => $csrfDe($html), 'acao' => 'instrucoes']);
+[$s, $html] = $pub->ir('modulos/reorganizacao/equipe/');
+confere('T04. depois das instruções: escolha do Grupo 1, 3 ou 4 (sem Grupo 2)', $s === 200 && str_contains($html, 'Grupo 1') && str_contains($html, 'Grupo 3') && str_contains($html, 'Grupo 4')
+    && !str_contains($html, 'value="grupo2"'));
 $t = $csrfDe($html);
 $pub->ir('modulos/reorganizacao/equipe/', ['csrf' => $t, 'acao' => 'equipe', 'equipe' => 'grupo2']);
 $sessP = db_query("SELECT * FROM reorg_sessoes WHERE nome = 'Joana Fictícia Lima' ORDER BY id DESC LIMIT 1")->fetch();
 confere('T05. Grupo 2 não pode ser escolhido pela página', $sessP && $sessP['equipe'] === null);
 $pub->ir('modulos/reorganizacao/equipe/', ['csrf' => $t, 'acao' => 'equipe', 'equipe' => 'grupo1']);
 [$s, $html] = $pub->ir('modulos/reorganizacao/equipe/');
-confere('T11. painel do participante sem lote mostra a espera pela atribuição', $s === 200 && str_contains($html, 'Nenhum lote atribuído') && teste_sem_erro_tecnico($html));
+confere('T11. painel do participante sem lote mostra a espera pela atribuição', $s === 200 && str_contains($html, 'Aguardando a atribuição de um lote pelo administrador.') && teste_sem_erro_tecnico($html));
 $tApi = $csrfDe($html);
 $api = fn (TesteNavegador $n, array $dados, string $token) => (function () use ($n, $dados, $token) {
     [$st, $corpo] = $n->ir('modulos/reorganizacao/equipe/api.php', $dados, ['X-CSRF-Token' => $token]);
@@ -61,22 +64,37 @@ confere('Administrador entra no painel', $admNav->entrar('adm@teste.br', $senha)
 [$s, $html] = $admNav->ir('admin/index.php');
 confere('Menu do painel mostra “Reorganização do Acervo”', str_contains($html, 'Reorganização do Acervo') && str_contains($html, 'modulos/reorganizacao/admin/'));
 $regAntigo = (int)db_query('SELECT id FROM reorg_registros WHERE lote_id = ? ORDER BY id LIMIT 1', [$loteAntigo])->fetchColumn();
-foreach (['admin/', 'admin/periodo.php', 'admin/participantes.php', 'admin/solicitacoes.php', 'admin/solicitacoes.php?status=', 'admin/pendencias.php?status=', 'admin/planilhas.php', 'admin/relatorios.php',
-          'admin/relatorios.php?lote=' . $loteAntigo, 'admin/historico.php', 'admin/configuracoes.php', 'admin/notificacoes.php', 'admin/lote.php?id=' . $loteAntigo, 'admin/lote.php?id=' . $loteAntigo . '&f=todos', 'admin/registro.php?id=' . $regAntigo] as $pagina) {
+$paginasAdm = ['admin/', 'admin/lotes.php', 'admin/lotes.php?status=concluido', 'admin/lote-novo.php', 'admin/participantes.php', 'admin/solicitacoes.php', 'admin/solicitacoes.php?ver=solicitacoes&status=todas',
+    'admin/solicitacoes.php?ver=pendencias&status=resolvidas', 'admin/historico.php', 'admin/historico.php?grupo=grupo1&acao=&q=teste&lote_id=' . $loteAntigo, 'admin/configuracoes.php', 'admin/notificacoes.php',
+    'admin/registro.php?id=' . $regAntigo, 'admin/registro.php?id=' . $regAntigo . '&volta=' . rawurlencode('lote.php?id=' . $loteAntigo . '&aba=g2')];
+foreach (['visao', 'g1', 'g2', 'g3', 'g4', 'participantes', 'pendencias', 'historico'] as $aba) {
+    $paginasAdm[] = 'admin/lote.php?id=' . $loteAntigo . '&aba=' . $aba;
+}
+array_push($paginasAdm, 'admin/lote.php?id=' . $loteAntigo . '&aba=g2&f=todos', 'admin/lote.php?id=' . $loteAntigo . '&aba=g4&f=todos');
+foreach ($paginasAdm as $pagina) {
     [$s, $html] = $admNav->ir('modulos/reorganizacao/' . $pagina);
     confere("Página $pagina abre sem erro técnico", $s === 200 && teste_sem_erro_tecnico($html), $s . ' ' . mb_substr(strip_tags($html), 0, 300));
 }
+foreach (['admin/periodo.php' => 'configuracoes.php', 'admin/pendencias.php' => 'solicitacoes.php', 'admin/planilhas.php' => 'lotes.php', 'admin/relatorios.php' => 'historico.php', 'admin/relatorios.php?lote=' . $loteAntigo => 'lote.php'] as $pagina => $destino) {
+    [$s, , $loc] = $admNav->ir('modulos/reorganizacao/' . $pagina);
+    confere("Página antiga $pagina redireciona para $destino", in_array($s, [302, 303], true) && str_contains((string)$loc, $destino), $s . ' ' . $loc);
+}
+[$s, $html] = $admNav->ir('modulos/reorganizacao/admin/');
+confere('Central com as seis seções (Visão geral, Lotes, Equipes, Solicitações, Histórico, Configurações)', count(array_filter(['Visão geral', 'Lotes', 'Equipes e participantes', 'Solicitações e pendências', 'Histórico', 'Configurações'], fn ($t) => str_contains($html, $t))) === 6);
+[$s, $html] = $admNav->ir('admin/index.php');
+confere('Menu do painel: Reorganização num grupo próprio, separado do Inventário', str_contains($html, 'Reorganização do acervo'));
 [$s, $html] = $admNav->ir('modulos/reorganizacao/admin/participantes.php');
 confere('T03. central mostra a sessão S-0000 do participante conectado', str_contains($html, 'Joana Fictícia Lima') && str_contains($html, Reorganizacao::rotuloSessao($sessP['id'])));
 [$s, $csv, , $tipo, $disp] = $admNav->ir('modulos/reorganizacao/admin/historico.php?exportar=csv');
 confere('T40. exportação do histórico em CSV', $s === 200 && str_contains($tipo, 'text/csv') && str_contains($disp, 'attachment') && str_contains($csv, 'conferencia_codigo'));
-[$s, $csv, , $tipo] = $admNav->ir('modulos/reorganizacao/admin/relatorios.php?lote=' . $loteAntigo . '&exportar=exemplares');
+[$s, $csv, , $tipo] = $admNav->ir('modulos/reorganizacao/admin/historico.php?lote_id=' . $loteAntigo . '&exportar=exemplares');
 confere('Relatório CSV dos exemplares do lote (códigos BDP)', $s === 200 && str_contains($tipo, 'text/csv') && substr_count($csv, 'BDP-') >= 30);
 
 // criar lote pela página e atribuir o participante
-[$s, $html] = $admNav->ir('modulos/reorganizacao/admin/?novo=1');
+[$s, $html] = $admNav->ir('modulos/reorganizacao/admin/lote-novo.php');
+confere('Página "Criar lote" com as três seções', $s === 200 && str_contains($html, 'Informações do lote') && str_contains($html, 'Distribuição dos participantes') && str_contains($html, 'Resumo'), mb_substr(strip_tags($html), 0, 300));
 $t = $csrfDe($html);
-[$s, , $loc] = $admNav->ir('modulos/reorganizacao/admin/', ['csrf' => $t, 'acao' => 'criar_lote', 'nome' => 'Lote Páginas', 'quantidade' => '4', 'responsavel_id' => (string)$adm, 'grupo1' => [(string)$sessP['id']]]);
+[$s, , $loc] = $admNav->ir('modulos/reorganizacao/admin/lote-novo.php', ['csrf' => $t, 'nome' => 'Lote Páginas', 'quantidade' => '4', 'responsavel_id' => (string)$adm, 'grupo1' => [(string)$sessP['id']]]);
 $novoLote = (int)db_query("SELECT id FROM reorg_lotes WHERE nome = 'Lote Páginas'")->fetchColumn();
 confere('T10. lote criado pela página, com o participante atribuído', $novoLote > 0 && in_array($s, [302, 303], true));
 [$st, $j] = $api($pub, ['acao' => 'sinal', 'trabalhando' => '0'], $tApi);
@@ -86,9 +104,9 @@ confere('T16. novo registro pela Central de Equipes', $st === 200 && $j['ok'] &&
 $regNovo = (int)$j['id'];
 [$s, $html] = $pub->ir('modulos/reorganizacao/equipe/?lote=' . $novoLote . '&reg=' . $regNovo);
 confere('T16. formulário do Grupo 1 com os campos da revisão (título, autores, editora, ISBN, CDD, fonte, ano, edição, idioma, categoria, assunto, conservação)', $s === 200 && teste_sem_erro_tecnico($html)
-    && count(array_filter(['name="titulo"', 'name="subtitulo"', 'name="autores"', 'name="editora"', 'name="isbn"', 'name="isbn_nao_encontrado"', 'name="cdd"', 'name="cdd_nao_encontrada"', 'name="cdd_fonte"', 'name="ano_publicacao"', 'name="edicao"', 'name="idioma"', 'name="categoria_id"', 'name="assunto"', 'name="quantidade"', 'name="estados[1]"'], fn ($c) => str_contains($html, $c))) === 16);
+    && count(array_filter(['name="titulo"', 'name="subtitulo"', 'name="autores"', 'name="editora"', 'name="isbn"', 'name="isbn_situacao"', 'name="cdd"', 'name="cdd_situacao"', 'name="cdd_fonte"', 'name="ano_publicacao"', 'name="edicao"', 'name="idioma"', 'name="categoria_id"', 'name="assunto"', 'name="quantidade"', 'name="estados[1]"'], fn ($c) => str_contains($html, $c))) === 16);
 [$st, $j] = $api($pub, ['acao' => 'salvar', 'id' => $regNovo, 'versao' => '0', 'titulo' => 'Livro <script>alert(1)</script> Fictício', 'autores' => 'SOUZA, Teste', 'editora' => 'Editora Teste',
-    'isbn' => '978-85-359-0277-8', 'cdd_nao_encontrada' => '1', 'quantidade' => '2', 'aplicar_todos' => 'regular'], $tApi);
+    'isbn_situacao' => 'encontrado', 'isbn' => '978-85-359-0277-8', 'cdd_situacao' => 'nao_encontrada', 'quantidade' => '2', 'aplicar_todos' => 'regular'], $tApi);
 confere('T16. salvamento automático pela API confirma versão e horário do servidor', $st === 200 && $j['ok'] && $j['completo'] && $j['versao'] > 0 && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string)$j['salvo_em']));
 [$st, $j] = $api($pub, ['acao' => 'salvar', 'id' => $regNovo, 'versao' => '1', 'titulo' => 'Versão antiga'], $tApi);
 confere('T26. API devolve conflito (409) com os dados atuais quando a versão é antiga', $st === 409 && !empty($j['conflito']) && isset($j['atual']['titulo']));
@@ -101,7 +119,7 @@ confere('T42/XSS. o título com <script> aparece escapado na revisão', $s === 2
 $tAdm = $csrfDe($html);
 $versaoAtual = (int)db_query('SELECT versao FROM reorg_registros WHERE id = ?', [$regNovo])->fetchColumn();
 [$st, $corpo] = $admNav->ir('modulos/reorganizacao/admin/api.php', ['acao' => 'salvar', 'id' => $regNovo, 'versao' => $versaoAtual, 'titulo' => 'Livro Fictício Corrigido', 'autores' => 'SOUZA, Teste', 'editora' => 'Editora Teste',
-    'isbn' => '9788535902778', 'cdd' => '869.3', 'quantidade' => '2', 'estados' => [1 => 'regular', 2 => 'ruim']], ['X-CSRF-Token' => $tAdm]);
+    'isbn_situacao' => 'encontrado', 'isbn' => '9788535902778', 'cdd_situacao' => 'encontrada', 'cdd' => '869.3', 'quantidade' => '2', 'estados' => [1 => 'regular', 2 => 'ruim']], ['X-CSRF-Token' => $tAdm]);
 $j = json_decode($corpo, true);
 confere('T27. correção administrativa com salvamento automático (API do Grupo 2)', $st === 200 && $j['ok'] && db_query('SELECT cdd FROM reorg_registros WHERE id = ?', [$regNovo])->fetchColumn() === '869.3');
 [$s, $html] = $admNav->ir('modulos/reorganizacao/admin/registro.php?id=' . $regNovo);

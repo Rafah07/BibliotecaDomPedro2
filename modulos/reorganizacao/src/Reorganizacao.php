@@ -574,6 +574,24 @@ final class Reorganizacao
         if ($prazo !== '' && !(($dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $prazo)) && $dt->format('Y-m-d') === $prazo)) {
             throw new AcervoException('Prazo inválido.');
         }
+        // Dois administradores criando lotes no mesmo instante podem disputar o mesmo número de lote
+        // permanente (chave única). Fora de outra transação, tenta de novo com uma leitura nova.
+        $tentativas = $this->pdo->inTransaction() ? 1 : 5;
+        for ($t = 1; ; $t++) {
+            try {
+                return $this->criarLoteTransacao($dados, $adminId, $nome, $qtd, $responsavel, $prazo);
+            } catch (\PDOException $e) {
+                $disputa = in_array((int)($e->errorInfo[1] ?? 0), [1062, 1213], true) && !str_contains($e->getMessage(), 'reorg_');
+                if (!$disputa || $t >= $tentativas) {
+                    throw $e;
+                }
+                usleep(random_int(20000, 120000));
+            }
+        }
+    }
+
+    private function criarLoteTransacao(array $dados, int $adminId, string $nome, int $qtd, int $responsavel, string $prazo): int
+    {
         return $this->transacao(function () use ($dados, $adminId, $nome, $qtd, $responsavel, $prazo) {
             $periodo = $this->periodoAtivo();
             if (!$periodo) {
