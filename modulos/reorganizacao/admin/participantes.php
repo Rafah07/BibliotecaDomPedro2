@@ -1,6 +1,12 @@
 <?php
-/** Participantes: sessões ativas (estado, atividade, lotes), atribuição, troca de equipe, encerramento forçado e sessões anteriores. */
+/**
+ * Equipes e participantes: CONSULTA de quem está conectado (estado, atividade, lotes) e sessões anteriores.
+ * Colocar alguém num lote é feito em dois lugares só: no quadro do lote (+ Adicionar pessoa) e no aviso
+ * "pessoas aguardando lote" do inventário, cuja janela grava aqui (acao=atribuir_varios). Aqui ficam só
+ * as ações que não existem em outro lugar: mudar a equipe e encerrar a sessão.
+ */
 require __DIR__ . '/../includes/admin.php';
+require_once __DIR__ . '/../includes/quadro.php';
 
 use Biblioteca\Reorganizacao\Reorganizacao;
 
@@ -12,8 +18,22 @@ $r = reorg();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = (string)($_POST['acao'] ?? '');
     $sid = (int)($_POST['sessao_id'] ?? 0);
+    $voltar = reorg_voltar_seguro((string)($_POST['voltar'] ?? ''), (string)($_SERVER['REQUEST_URI'] ?? reorg_url('admin/participantes.php')));
     reorg_admin_acao(function () use ($acao, $r, $sid, $adminId) {
         switch ($acao) {
+            case 'atribuir_varios':
+                $n = 0;
+                foreach ((array)($_POST['lote'] ?? []) as $sessao => $loteId) {
+                    $s = $r->sessao((int)$sessao);
+                    if ((int)$loteId > 0 && $s && $s['equipe'] && $s['status'] === 'ativa') {
+                        $r->atribuir((int)$loteId, (int)$sessao, (string)$s['equipe'], $adminId);
+                        $n++;
+                    }
+                }
+                if (!$n) {
+                    throw new Biblioteca\Services\AcervoException('Escolha o lote de ao menos uma pessoa.');
+                }
+                return $n . ' pessoa(s) colocada(s) no lote. A tela delas abre o lote na hora.';
             case 'atribuir':
                 $s = $r->sessao($sid);
                 if (!$s || !$s['equipe']) {
@@ -25,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'encerrar': $r->encerrarForcado($sid, $adminId); return 'Sessão encerrada. O que foi preenchido continua salvo no lote.';
         }
         throw new Biblioteca\Services\AcervoException('Ação desconhecida.');
-    }, 'Feito.');
+    }, 'Feito.', $voltar);
 }
 
 $equipe = (string)($_GET['equipe'] ?? '');
@@ -37,7 +57,6 @@ if ($estado !== '' && !isset(Reorganizacao::ESTADOS_CONEXAO[$estado])) {
     $estado = '';
 }
 $lista = $r->participantesAtivos($equipe, $estado);
-$lotes = array_merge($r->lotes('em_andamento'), $r->lotes('pausado'));
 $anteriores = $r->sessoesAnteriores(150);
 
 $grupos = [
@@ -50,7 +69,7 @@ reorg_admin_inicio('participantes', 'Equipes e participantes');
 ?>
 <section class="adm-page-head reorg-head">
     <div><h1>Equipes e participantes</h1>
-        <p>Cada entrada é uma sessão temporária (S-0000), sem conta, e-mail ou senha. Nomes iguais aparecem como sessões diferentes. A página atualiza sozinha a cada 20 segundos (exceto enquanto você escolhe algo).</p></div>
+        <p>Consulta de quem está conectado e onde está trabalhando. Para colocar alguém num lote, use o aviso “aguardando lote” acima ou o botão <strong>+ Adicionar pessoa</strong> no quadro do lote. Cada entrada é uma sessão temporária (S-0000), sem conta, e-mail ou senha. A página atualiza sozinha a cada 20 segundos.</p></div>
 </section>
 <form class="adm-card reorg-filtros-barra" method="get" data-reorg-auto-refresh="20" role="search" aria-label="Filtrar participantes">
     <label class="adm-field"><span class="adm-field__label">Equipe</span><select class="adm-select" name="equipe" data-reorg-auto-submit><option value="">Todas</option>
@@ -73,7 +92,7 @@ reorg_admin_inicio('participantes', 'Equipes e participantes');
     <div class="adm-panel__header"><h2><?= reorg_status_badge((string)count($pessoas), $tom) ?> <?= e($titulo) ?></h2></div>
     <?php if (!$pessoas): ?><p class="adm-table__muted">Ninguém neste grupo agora.</p><?php else: ?>
     <div class="adm-table-wrap adm-table-wrap--flush"><table class="adm-table adm-table--compact reorg-tabela-pessoas">
-        <thead><tr><th>Nome</th><th>Equipe</th><th>Estado</th><th>Atividade atual</th><th>Lotes</th><th>Produção</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Equipe</th><th>Estado</th><th>Atividade atual</th><th>Lotes</th><th>Produção</th><th><span class="adm-visually-hidden">Mais</span></th></tr></thead>
         <tbody>
         <?php foreach ($pessoas as $s): ?>
             <tr>
@@ -86,10 +105,6 @@ reorg_admin_inicio('participantes', 'Equipes e participantes');
                 <td><small><?= $s['lotes'] ? implode('<br>', array_map(fn ($l) => '<a href="' . e(reorg_url('admin/lote.php?id=' . $l['id'] . '&aba=participantes')) . '">' . e($l['nome']) . '</a>', $s['lotes'])) : '—' ?></small></td>
                 <td><small><?= (int)$s['registros'] ?> reg. · <?= (int)$s['carimbos'] ?> carimb. · <?= (int)$s['conferencias'] ?> conf.</small></td>
                 <td class="reorg-acoes">
-                    <?php if ($s['equipe'] && $lotes): ?>
-                    <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="atribuir"><input type="hidden" name="sessao_id" value="<?= (int)$s['id'] ?>">
-                        <select class="adm-select adm-select--sm" name="lote_id" aria-label="Lote para <?= e($s['nome']) ?>"><?= reorg_opcoes($lotes, null) ?></select><button class="adm-button adm-button--sm" type="submit">Atribuir</button></form>
-                    <?php endif; ?>
                     <details class="reorg-mais"><summary class="adm-button adm-button--sm">Mais</summary>
                         <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="acao" value="equipe"><input type="hidden" name="sessao_id" value="<?= (int)$s['id'] ?>">
                             <select class="adm-select adm-select--sm" name="equipe" aria-label="Nova equipe de <?= e($s['nome']) ?>"><?php foreach (Reorganizacao::EQUIPES_PARTICIPANTES as $eq): if ($eq === $s['equipe']) continue; ?><option value="<?= $eq ?>"><?= e(Reorganizacao::EQUIPES[$eq]) ?></option><?php endforeach; ?></select>

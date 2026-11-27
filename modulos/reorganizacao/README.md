@@ -50,6 +50,15 @@ Participantes entram **só com o nome**, leem as instruções, escolhem a equipe
 atribuir um lote ("Aguardando a atribuição de um lote pelo administrador."). Não há conta, senha, link individual, QR code,
 leitura de código de barras nem identificador temporário. Os lotes são atribuídos **à mão** pelo administrador.
 
+**Onde atribuir (dois lugares só):**
+- **Quadro do lote** (aba Participantes): 4 colunas — Levantamento, Revisão, Carimbação, Organização — com as pessoas,
+  o progresso da etapa e **+ Adicionar pessoa** (janela com quem está conectado naquela equipe). Retirar e passar para
+  outro lote ficam no menu "…" de cada pessoa.
+- **Aviso "N pessoas aguardando lote"** logo abaixo das abas do inventário (gancho `inventario.topo`): a janela
+  mostra cada pessoa que entrou e ainda não tem lote, com o lote a escolher.
+- Ao **criar o lote**, o formulário único já mostra as pessoas conectadas por etapa, no mesmo visual do quadro.
+- A aba **Equipes e participantes** é só consulta (mais "Mudar equipe" e "Encerrar sessão").
+
 ## Ativar e desativar
 
 - **Equipes no inventário**: o botão "Equipe de organização" só aparece no login enquanto as equipes

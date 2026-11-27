@@ -409,60 +409,87 @@ elseif ($aba === 'g4'):
 // Participantes
 // =====================================================================
 elseif ($aba === 'participantes'):
+    require_once __DIR__ . '/../includes/quadro.php';
     $ativos = array_filter($r->participantesAtivos(), fn ($s) => $s['equipe'] !== null && $s['estado'] !== 'interrompida');
     $jaNoLote = array_map('intval', array_column($part['atuais'], 'sessao_id'));
     $outrosLotes = array_filter($r->lotes('em_andamento'), fn ($l) => (int)$l['id'] !== $id);
     $outrosAdmins = array_filter(reorg_administradores(), fn ($a) => !in_array((int)$a['id'], array_map('intval', array_column($adminsLote, 'id')), true));
+    $aberto = $lote['status'] !== 'concluido';
 ?>
-<div class="reorg-distribuicao">
-    <?php foreach (['grupo1', 'grupo2', 'grupo3', 'grupo4'] as $eq): ?>
-    <section class="adm-card adm-panel reorg-grupo">
-        <h2><?= e(Reorganizacao::EQUIPES[$eq]) ?> <span class="adm-tabs__count"><?= $eq === 'grupo2' ? count($adminsLote) : count($porEquipe[$eq]) ?></span></h2>
-        <?php if ($eq === 'grupo2'): ?>
-            <ul class="reorg-pessoas">
-                <?php foreach ($adminsLote as $a): ?>
-                    <li><div><strong><?= e($a['nome']) ?></strong> <?= (int)$a['responsavel'] ? reorg_status_badge('Responsável', 'blue') : reorg_status_badge('Autorizado', 'indigo') ?></div>
-                        <?php if (!(int)$a['responsavel']): ?><form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="admin_remover"><input type="hidden" name="admin_id" value="<?= (int)$a['id'] ?>"><button class="adm-button adm-button--sm adm-button--danger-text" type="submit">Retirar</button></form><?php endif; ?></li>
-                <?php endforeach; ?>
-            </ul>
-            <?php if ($outrosAdmins): ?>
-            <form method="post" class="reorg-linha"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="admin_incluir">
-                <select class="adm-select adm-select--sm" name="admin_id" aria-label="Administrador a autorizar"><?= reorg_opcoes($outrosAdmins, null) ?></select>
-                <button class="adm-button adm-button--sm" type="submit">Autorizar a revisar</button></form>
-            <?php endif; ?>
-        <?php else: ?>
-            <?php if (!$porEquipe[$eq]): ?><p class="reorg-vazio">Ninguém atribuído nesta etapa.</p><?php endif; ?>
-            <ul class="reorg-pessoas">
-                <?php foreach ($porEquipe[$eq] as $p): ?>
-                    <li><div><strong><?= e($p['nome']) ?></strong> <small class="adm-mono"><?= e(Reorganizacao::rotuloSessao($p['sessao_id'])) ?></small>
-                        <?= reorg_estado_badge($r->estadoConexao(['status' => $p['sessao_status'], 'ultimo_sinal_em' => $p['ultimo_sinal_em'], 'situacao' => $p['situacao'], 'equipe' => $p['equipe_sessao'], 'motivo_encerramento' => $p['motivo_encerramento']])) ?></div>
-                        <div class="reorg-acoes">
-                            <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="remover"><input type="hidden" name="sessao_id" value="<?= (int)$p['sessao_id'] ?>"><button class="adm-button adm-button--sm adm-button--danger-text" type="submit" data-reorg-confirmar="Retirar <?= e($p['nome']) ?> deste lote? O que foi preenchido continua salvo.">Retirar</button></form>
+<section class="reorg-quadro-topo">
+    <div><h2>Quem trabalha neste lote</h2>
+        <p>Cada coluna é uma etapa. Use <strong>+ Adicionar pessoa</strong> para colocar alguém. A pessoa precisa ter entrado pelo botão “Equipe de organização” na tela de login e escolhido a equipe.</p></div>
+</section>
+<div class="reorg-quadro" role="list">
+    <?php foreach (REORG_QUADRO_COLUNAS as $eq => [$sigla, $etapa]):
+        $pessoas = $eq === 'grupo2' ? $adminsLote : $porEquipe[$eq];
+        $livres = $eq === 'grupo2' ? [] : array_filter($ativos, fn ($s) => $s['equipe'] === $eq && !in_array((int)$s['id'], $jaNoLote, true)); ?>
+    <section class="reorg-quadro__col" role="listitem" aria-label="<?= e($etapa) ?>">
+        <?= reorg_quadro_cabecalho($eq, count($pessoas)) ?>
+        <?= reorg_quadro_progresso($eq, $c) ?>
+        <ul class="reorg-quadro__pessoas">
+            <?php if (!$pessoas): ?><li class="reorg-quadro__vazio">Ninguém nesta etapa ainda.</li><?php endif; ?>
+            <?php if ($eq === 'grupo2'): foreach ($adminsLote as $a): ?>
+                <li class="reorg-cartao"><div class="reorg-cartao__id"><strong><?= e($a['nome']) ?></strong>
+                    <small><?= (int)$a['responsavel'] ? 'Responsável pelo lote' : 'Usuário do painel autorizado' ?></small></div>
+                    <?php if (!(int)$a['responsavel'] && $aberto): ?>
+                    <form method="post" class="reorg-cartao__acoes"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="admin_remover"><input type="hidden" name="admin_id" value="<?= (int)$a['id'] ?>">
+                        <button class="reorg-cartao__x" type="submit" title="Retirar <?= e($a['nome']) ?>" aria-label="Retirar <?= e($a['nome']) ?>" data-reorg-confirmar="Retirar <?= e($a['nome']) ?> da revisão deste lote?"><?= icon('x') ?></button></form>
+                    <?php endif; ?></li>
+            <?php endforeach; else: foreach ($porEquipe[$eq] as $p): ?>
+                <li class="reorg-cartao"><div class="reorg-cartao__id"><strong><?= e($p['nome']) ?></strong>
+                    <small><span class="adm-mono"><?= e(Reorganizacao::rotuloSessao($p['sessao_id'])) ?></span> · <?= reorg_estado_badge($r->estadoConexao(['status' => $p['sessao_status'], 'ultimo_sinal_em' => $p['ultimo_sinal_em'], 'situacao' => $p['situacao'], 'equipe' => $p['equipe_sessao'], 'motivo_encerramento' => $p['motivo_encerramento']])) ?></small></div>
+                    <?php if ($aberto): ?>
+                    <details class="reorg-cartao__menu"><summary aria-label="Opções de <?= e($p['nome']) ?>" title="Opções"><?= icon('ellipsis') ?></summary>
+                        <div class="reorg-cartao__pop">
                             <?php if ($outrosLotes): ?>
-                            <form method="post" class="adm-inline-form"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="transferir"><input type="hidden" name="sessao_id" value="<?= (int)$p['sessao_id'] ?>">
-                                <select class="adm-select adm-select--sm" name="para" aria-label="Transferir <?= e($p['nome']) ?> para"><?= reorg_opcoes($outrosLotes, null) ?></select><button class="adm-button adm-button--sm" type="submit">Transferir</button></form>
+                            <form method="post"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="transferir"><input type="hidden" name="sessao_id" value="<?= (int)$p['sessao_id'] ?>">
+                                <label class="adm-field__sublabel" for="transf-<?= (int)$p['sessao_id'] ?>">Passar para outro lote</label>
+                                <div class="reorg-linha"><select class="adm-select adm-select--sm" id="transf-<?= (int)$p['sessao_id'] ?>" name="para"><?= reorg_opcoes($outrosLotes, null) ?></select><button class="adm-button adm-button--sm" type="submit">Passar</button></div></form>
                             <?php endif; ?>
-                        </div></li>
-                <?php endforeach; ?>
-            </ul>
-            <?php $livres = array_filter($ativos, fn ($s) => $s['equipe'] === $eq && !in_array((int)$s['id'], $jaNoLote, true)); ?>
-            <?php if ($lote['status'] !== 'concluido' && $livres): ?>
-            <form method="post" class="reorg-atribuir"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="atribuir">
-                <p class="adm-field__hint">Conectados nesta equipe:</p>
-                <ul class="reorg-escolhas">
-                    <?php foreach ($livres as $s): ?>
-                        <li><label class="reorg-escolha"><input type="checkbox" name="sessoes[]" value="<?= (int)$s['id'] ?>">
-                            <span><strong><?= e($s['nome']) ?></strong> <small class="adm-mono"><?= e(Reorganizacao::rotuloSessao($s['id'])) ?></small><?= $s['mesmo_nome'] ? ' <span class="adm-status adm-tone--amber">nome repetido</span>' : '' ?>
-                                <small class="reorg-escolha__estado"><?= !$s['lotes'] ? '<span class="reorg-ponto is-livre"></span> Disponível' : '<span class="reorg-ponto"></span> Já trabalha em: ' . e(implode(', ', array_column($s['lotes'], 'nome'))) ?></small></span></label></li>
-                    <?php endforeach; ?>
-                </ul>
-                <button class="adm-button adm-button--primary adm-button--sm" type="submit"><?= icon('user-plus') ?> Atribuir marcados</button>
+                            <form method="post"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes"><input type="hidden" name="acao" value="remover"><input type="hidden" name="sessao_id" value="<?= (int)$p['sessao_id'] ?>">
+                                <button class="adm-button adm-button--sm adm-button--danger-text" type="submit" data-reorg-confirmar="Retirar <?= e($p['nome']) ?> deste lote? O que foi preenchido continua salvo."><?= icon('user-minus') ?> Retirar do lote</button></form>
+                        </div></details>
+                    <?php endif; ?></li>
+            <?php endforeach; endif; ?>
+        </ul>
+        <?php if ($aberto): ?>
+        <button type="button" class="reorg-quadro__add" data-reorg-dialogo="add-<?= $eq ?>"><?= icon('plus') ?> Adicionar pessoa</button>
+        <?= reorg_janela_inicio('add-' . $eq, 'Adicionar pessoa · ' . $etapa, e($nomeLote)) ?>
+            <form method="post" class="adm-modal__body"><?= csrf_campo() ?><input type="hidden" name="aba" value="participantes">
+            <?php if ($eq === 'grupo2'): ?>
+                <input type="hidden" name="acao" value="admin_incluir">
+                <?php if ($outrosAdmins): ?>
+                    <p>A revisão é feita por usuários do painel. Escolha quem pode revisar e cadastrar este lote.</p>
+                    <label class="adm-field"><span class="adm-field__label">Usuário do painel</span><select class="adm-select" name="admin_id"><?= reorg_opcoes($outrosAdmins, null) ?></select></label>
+                    <div class="adm-modal__footer reorg-janela__rodape"><button type="button" class="adm-button adm-button--ghost" data-reorg-fechar>Cancelar</button><button class="adm-button adm-button--primary" type="submit"><?= icon('user-plus') ?> Adicionar</button></div>
+                <?php else: ?>
+                    <p class="reorg-vazio">Todos os usuários do painel já revisam este lote.</p>
+                <?php endif; ?>
+            <?php else: ?>
+                <input type="hidden" name="acao" value="atribuir">
+                <?php if ($livres): ?>
+                    <p>Pessoas conectadas na equipe de <?= e(mb_strtolower($etapa)) ?>. Marque quem vai trabalhar neste lote; a tela delas abre o lote na hora.</p>
+                    <ul class="reorg-escolhas reorg-escolhas--janela">
+                        <?php foreach ($livres as $s): ?>
+                            <li><label class="reorg-escolha"><input type="checkbox" name="sessoes[]" value="<?= (int)$s['id'] ?>">
+                                <span><strong><?= e($s['nome']) ?></strong> <small class="adm-mono"><?= e(Reorganizacao::rotuloSessao($s['id'])) ?></small><?= $s['mesmo_nome'] ? ' <span class="adm-status adm-tone--amber">nome repetido</span>' : '' ?>
+                                    <small class="reorg-escolha__estado"><?= reorg_quadro_situacao($s) ?></small></span></label></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <div class="adm-modal__footer reorg-janela__rodape"><button type="button" class="adm-button adm-button--ghost" data-reorg-fechar>Cancelar</button><button class="adm-button adm-button--primary" type="submit"><?= icon('user-plus') ?> Adicionar marcados</button></div>
+                <?php else: ?>
+                    <div class="reorg-janela__vazio"><?= icon('user-search') ?><strong>Ninguém da equipe de <?= e(mb_strtolower($etapa)) ?> disponível agora.</strong>
+                        <span>Peça para a pessoa abrir a tela de login do painel, tocar em “Equipe de organização”, digitar o nome e escolher <?= e($sigla . ' — ' . $etapa) ?>. Depois volte aqui.</span></div>
+                <?php endif; ?>
+            <?php endif; ?>
             </form>
-            <?php elseif ($lote['status'] !== 'concluido'): ?><p class="adm-field__hint">Ninguém conectado nesta equipe sem estar neste lote.</p><?php endif; ?>
+        <?= reorg_janela_fim() ?>
         <?php endif; ?>
     </section>
     <?php endforeach; ?>
 </div>
+<?= reorg_quadro_js() ?>
 <?php if ($part['anteriores']): ?>
 <details class="adm-card adm-panel reorg-detalhes"><summary>Participantes anteriores (<?= count($part['anteriores']) ?>)</summary>
     <ul class="reorg-pessoas reorg-pessoas--antes"><?php foreach ($part['anteriores'] as $p): ?>

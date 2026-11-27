@@ -123,6 +123,41 @@ $segundo = $r->ativarEquipesNoLote($cad, [], $adm);
 confere('Extra: ativar as equipes de novo no mesmo lote não duplica', $segundo === $lote && $num('SELECT COUNT(*) FROM reorg_lotes') === 1);
 
 // =====================================================================
+echo "\n5b. Atribuir pessoas: quadro do lote e aviso \"aguardando lote\"\n";
+$eB = $r->entrar('Beto Fictício Dias', '10.0.0.9');
+$sB = $r->sessaoPorToken($eB['token']);
+$r->escolherEquipe($sB, 'grupo1');
+$eE = $r->entrar('Edu Fictício Paz', '10.0.0.10');
+$sE = $r->sessaoPorToken($eE['token']);
+$r->escolherEquipe($sE, 'grupo3');
+[$s, $html] = $nav->ir('admin/inventario-detalhes.php?id=' . $inv);
+confere('5b. inventário avisa "2 pessoas aguardando lote", com a janela para escolher o lote', $s === 200 && str_contains($html, '2 pessoas aguardando lote') && str_contains($html, 'reorg-janela-aguardando')
+    && str_contains($html, 'name="lote[' . (int)$sB['id'] . ']"') && str_contains($html, 'Deixar esperando') && teste_sem_erro_tecnico($html));
+[$s, $html2] = $nav->ir('admin/inventario-lotes.php?id=' . $inv);
+confere('5b. o aviso aparece em todas as abas do inventário (ex.: Lotes)', $s === 200 && str_contains($html2, 'aguardando lote'));
+[$s, , $loc] = $nav->ir('modulos/reorganizacao/admin/participantes.php', ['csrf' => $csrfDe($html), 'acao' => 'atribuir_varios', 'voltar' => '/admin/inventario-detalhes.php?id=' . $inv,
+    'lote' => [(string)$sB['id'] => (string)$lote, (string)$sE['id'] => '']]);
+confere('5b. janela atribui só quem ganhou lote e volta para a mesma página', in_array($s, [302, 303], true) && str_contains((string)$loc, 'inventario-detalhes.php?id=' . $inv)
+    && count($r->lotesDaSessao((int)$sB['id'])) === 1 && $r->lotesDaSessao((int)$sE['id']) === [], "$s $loc");
+[, $html] = $nav->ir('admin/inventario-detalhes.php?id=' . $inv);
+confere('5b. o aviso passa a contar só quem continua esperando', str_contains($html, '1 pessoa aguardando lote'));
+[$s, , $loc] = $nav->ir('modulos/reorganizacao/admin/participantes.php', ['csrf' => $csrfDe($html), 'acao' => 'atribuir_varios', 'voltar' => '//site-externo.example/x', 'lote' => [(string)$sE['id'] => '']]);
+confere('5b. endereço de volta externo é ignorado', !str_contains((string)$loc, 'site-externo'), (string)$loc);
+[$s, $html] = $nav->ir('modulos/reorganizacao/admin/lote.php?id=' . $lote . '&aba=participantes');
+confere('5b. quadro do lote com 4 colunas (Levantamento, Revisão, Carimbação, Organização) e progresso', $s === 200 && substr_count($html, 'reorg-quadro__col') === 4
+    && count(array_filter(['Levantamento', 'Revisão', 'Carimbação', 'Organização'], fn ($t) => str_contains($html, '<strong>' . $t . '</strong>'))) === 4 && str_contains($html, 'reorg-quadro__prog') && teste_sem_erro_tecnico($html));
+confere('5b. pessoas nas colunas e "+ Adicionar pessoa" listando quem está livre na equipe', str_contains($html, 'Ana Fictícia Prado') && str_contains($html, 'Beto Fictício Dias')
+    && str_contains($html, 'Adicionar pessoa') && str_contains($html, 'id="add-grupo3"') && str_contains($html, 'Edu Fictício Paz'));
+[$s, , $loc] = $nav->ir('modulos/reorganizacao/admin/lote.php?id=' . $lote, ['csrf' => $csrfDe($html), 'aba' => 'participantes', 'acao' => 'atribuir', 'sessoes' => [(string)$sE['id']]]);
+confere('5b. "+ Adicionar pessoa" grava e volta ao quadro', count($r->lotesDaSessao((int)$sE['id'])) === 1 && str_contains((string)$loc, 'aba=participantes'), (string)$loc);
+[$s, $html] = $nav->ir('modulos/reorganizacao/admin/participantes.php?inventario=' . $inv);
+confere('5b. Equipes e participantes é só consulta (sem atribuir por ali)', $s === 200 && !str_contains($html, 'name="lote_id"') && str_contains($html, 'Edu Fictício Paz') && !str_contains($html, 'class="reorg-aguardando'));
+foreach ([$sB, $sE] as $x) {
+    $r->removerDoLote($lote, (int)$x['id'], $adm);
+    $r->encerrarForcado((int)$x['id'], $adm);
+}
+
+// =====================================================================
 echo "\n6–7. Registro parcial e encaminhamento\n";
 $A = $lev->novoRegistro($S['ana'], $lote);
 $lev->salvar($S['ana'], (int)$A['id'], $form(['titulo' => 'Obra da Planilha Fictícia', 'quantidade' => '2']), $versao((int)$A['id']));
