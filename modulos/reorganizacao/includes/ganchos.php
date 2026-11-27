@@ -175,29 +175,92 @@ modulo_gancho_registrar('conferencia.painel', function (array $inv): string {
     <?php return (string)ob_get_clean();
 });
 
-// Formulário único de lote: participantes das equipes quando elas estão ativas no inventário escolhido.
+// Aviso no topo do inventário: pessoas das equipes que entraram e ainda esperam um lote (janela para escolher).
+modulo_gancho_registrar('inventario.topo', function (array $inv): string {
+    static $feito = false;
+    $periodo = reorg_periodo_inventario((int)$inv['id']);
+    if ($feito || !$periodo) {
+        return '';
+    }
+    $feito = true;
+    require_once __DIR__ . '/quadro.php';
+    $r = reorg();
+    $esperando = array_values(array_filter($r->participantesAtivos(), fn ($s) => $s['equipe'] !== null && !$s['lotes'] && $s['estado'] !== 'interrompida'));
+    if (!$esperando) {
+        return '';
+    }
+    $doInv = $r->lotesDoInventario((int)$inv['id']);
+    $lotes = array_values(array_filter($r->lotes(), fn ($l) => $l['status'] !== 'concluido' && in_array((int)$l['id'], $doInv, true)));
+    $n = count($esperando);
+    $voltar = reorg_voltar_seguro((string)($_SERVER['REQUEST_URI'] ?? ''), admin_url('inventario-detalhes') . '?id=' . (int)$inv['id']);
+    ob_start(); ?>
+    <?= reorg_css_uma_vez() ?>
+    <div class="reorg-aguardando adm-no-print" role="status">
+        <span class="reorg-aguardando__icone"><?= icon('hourglass') ?></span>
+        <div><strong><?= $n ?> pessoa<?= $n === 1 ? '' : 's' ?> aguardando lote</strong>
+            <span><?= e(implode(', ', array_map(fn ($s) => $s['nome'] . ' (' . REORG_QUADRO_COLUNAS[$s['equipe']][1] . ')', array_slice($esperando, 0, 4)))) ?><?= $n > 4 ? ' e mais ' . ($n - 4) : '' ?></span></div>
+        <button type="button" class="adm-button adm-button--primary adm-button--sm" data-reorg-dialogo="reorg-janela-aguardando"><?= icon('user-plus') ?> Escolher lote</button>
+    </div>
+    <?= reorg_janela_inicio('reorg-janela-aguardando', 'Pessoas aguardando lote', 'Escolha o lote de cada pessoa. Quem ficar em “Deixar esperando” continua na tela de espera.') ?>
+        <form method="post" action="<?= e(reorg_url('admin/participantes.php')) ?>" class="adm-modal__body"><?= csrf_campo() ?>
+            <input type="hidden" name="acao" value="atribuir_varios"><input type="hidden" name="voltar" value="<?= e($voltar) ?>">
+            <?php if (!$lotes): ?>
+                <div class="reorg-janela__vazio"><?= icon('layers') ?><strong>Nenhum lote aberto neste inventário.</strong>
+                    <span>Crie um lote primeiro; no formulário já dá para marcar estas pessoas.</span>
+                    <a class="adm-button adm-button--primary adm-button--sm" href="<?= e(admin_url('lote-novo') . '?inventario=' . (int)$inv['id']) ?>"><?= icon('plus') ?> Novo lote</a></div>
+            <?php else: ?>
+            <ul class="reorg-espera-lista">
+                <?php foreach ($esperando as $s): [$sigla, $etapa, $ic] = REORG_QUADRO_COLUNAS[$s['equipe']]; ?>
+                    <li><span class="reorg-espera-lista__eq" title="<?= e($etapa) ?>"><?= icon($ic) ?></span>
+                        <div class="reorg-espera-lista__id"><strong><?= e($s['nome']) ?></strong><small><span class="adm-mono"><?= e(Reorganizacao::rotuloSessao($s['id'])) ?></span> · <?= e($sigla . ' ' . $etapa) ?><?= $s['mesmo_nome'] ? ' · nome repetido' : '' ?></small></div>
+                        <select class="adm-select adm-select--sm" name="lote[<?= (int)$s['id'] ?>]" aria-label="Lote para <?= e($s['nome']) ?>">
+                            <option value="">Deixar esperando</option><?= reorg_opcoes($lotes, null) ?></select></li>
+                <?php endforeach; ?>
+            </ul>
+            <div class="adm-modal__footer reorg-janela__rodape"><button type="button" class="adm-button adm-button--ghost" data-reorg-fechar>Cancelar</button><button class="adm-button adm-button--primary" type="submit"><?= icon('check') ?> Atribuir</button></div>
+            <?php endif; ?>
+        </form>
+    <?= reorg_janela_fim() ?>
+    <?= reorg_quadro_js() ?>
+    <?php return (string)ob_get_clean();
+});
+
+// Formulário único de lote: quem trabalha em cada etapa (mesmo visual do quadro do lote), quando as equipes
+// estão ativas no inventário escolhido.
 modulo_gancho_registrar('lote.form', function (int $inventarioId, ?array $post): string {
     $periodo = reorg()->periodoAtivo();
     if (!$periodo || !$periodo['inventario_id']) {
         return '';
     }
+    require_once __DIR__ . '/quadro.php';
     $invEquipes = (int)$periodo['inventario_id'];
     $disponiveis = array_values(array_filter(reorg()->participantesAtivos(), fn ($p) => $p['equipe'] !== null && $p['estado'] !== 'interrompida'));
     $sel = fn (string $eq) => array_map('intval', (array)(($post ?? [])[$eq] ?? []));
     ob_start(); ?>
     <?= reorg_css_uma_vez() ?>
     <fieldset class="adm-field adm-field--full reorg-lote-equipes" data-equipes-inventario="<?= $invEquipes ?>"<?= $inventarioId !== $invEquipes ? ' hidden disabled' : '' ?>>
-        <legend class="adm-field__label"><?= icon('users') ?> Participantes das equipes <span class="adm-optional">(organização por equipes ativa neste inventário)</span></legend>
+        <legend class="adm-field__label"><?= icon('users') ?> Participantes das equipes <span class="adm-optional">(quem trabalha em cada etapa; dá para mudar depois no quadro do lote)</span></legend>
         <input type="hidden" name="equipes_lote" value="1">
-        <p class="adm-field__hint">G2 — Revisão administrativa: o responsável e os usuários do painel marcados acima. Os participantes podem ser atribuídos agora ou depois, na aba Participantes do lote. Cada um vê só os próprios lotes.</p>
-        <div class="reorg-campos reorg-campos--3">
-            <?php foreach (['grupo1' => 'G1 — Levantamento', 'grupo3' => 'G3 — Carimbação', 'grupo4' => 'G4 — Conferência e organização'] as $eq => $rot):
+        <div class="reorg-quadro reorg-quadro--form">
+            <?php foreach (REORG_QUADRO_COLUNAS as $eq => [$sigla, $etapa]):
                 $lista = array_filter($disponiveis, fn ($p) => $p['equipe'] === $eq); ?>
-                <div class="adm-field"><span class="adm-field__sublabel"><?= e($rot) ?></span>
-                    <?php if (!$lista): ?><small class="adm-table__muted">Ninguém desta equipe conectado agora.</small><?php endif; ?>
+            <div class="reorg-quadro__col">
+                <?= reorg_quadro_cabecalho($eq, $eq === 'grupo2' ? null : count($lista)) ?>
+                <span class="adm-visually-hidden"><?= e($sigla . ' — ' . ['grupo1' => 'Levantamento', 'grupo2' => 'Revisão administrativa', 'grupo3' => 'Carimbação', 'grupo4' => 'Conferência e organização'][$eq]) ?></span>
+                <?php if ($eq === 'grupo2'): ?>
+                    <p class="reorg-quadro__nota"><?= icon('info') ?> O responsável e os usuários do painel marcados acima fazem a revisão e o cadastro.</p>
+                <?php elseif (!$lista): ?>
+                    <p class="reorg-quadro__vazio">Ninguém desta equipe conectado agora. Dá para adicionar depois, no quadro do lote.</p>
+                <?php else: ?>
+                    <ul class="reorg-escolhas">
                     <?php foreach ($lista as $p): ?>
-                        <label class="adm-check"><input type="checkbox" name="<?= $eq ?>[]" value="<?= (int)$p['id'] ?>"<?= in_array((int)$p['id'], $sel($eq), true) ? ' checked' : '' ?>> <span><?= e($p['nome']) ?> <small class="adm-table__muted"><?= e(Reorganizacao::rotuloSessao($p['id'])) ?><?= $p['lotes'] ? ' · ' . count($p['lotes']) . ' lote(s)' : '' ?></small></span></label>
-                    <?php endforeach; ?></div>
+                        <li><label class="reorg-escolha"><input type="checkbox" name="<?= $eq ?>[]" value="<?= (int)$p['id'] ?>"<?= in_array((int)$p['id'], $sel($eq), true) ? ' checked' : '' ?>>
+                            <span><strong><?= e($p['nome']) ?></strong> <small class="adm-mono"><?= e(Reorganizacao::rotuloSessao($p['id'])) ?></small>
+                                <small class="reorg-escolha__estado"><?= reorg_quadro_situacao($p) ?></small></span></label></li>
+                    <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
             <?php endforeach; ?>
         </div>
     </fieldset>

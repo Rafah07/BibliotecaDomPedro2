@@ -14,6 +14,7 @@
  *   inventario.form       ($inv|null, $post)             → HTML extra no formulário do inventário
  *   inventario.salvo      ($invId, $post, $adminId, $novo) → aplica o que o HTML extra pediu (pode lançar AcervoException)
  *   inventario.visao      ($inv)                         → HTML extra na Visão geral
+ *   inventario.topo       ($inv)                         → aviso logo abaixo das abas do inventário (todas as páginas)
  *   inventario.avisos_conclusao ($inv)                   → list<string> com o que ainda está em aberto
  *   inventario.concluido  ($invId, $adminId)             → depois de concluir ou cancelar o inventário
  *   conferencia.painel    ($inv)                         → HTML extra na Conferência
@@ -127,7 +128,8 @@ function inventario_abas_html(array $inv, string $ativa): string
         $h .= '<a class="adm-tab' . ($atual ? ' is-active' : '') . '" href="' . e($url) . '"' . ($atual ? ' aria-current="page"' : '') . '>' . icon($icone) . ' ' . e($rotulo)
             . ($cont ? ' <span class="adm-tabs__count">' . $cont . '</span>' : '') . '</a>';
     }
-    return $h . '</nav>';
+    // Avisos de módulos opcionais logo abaixo das abas (ex.: pessoas das equipes aguardando lote).
+    return $h . '</nav>' . modulo_gancho_html('inventario.topo', $inv);
 }
 
 /** Cabeçalho curto das páginas internas do inventário (título, situação e abas). */
