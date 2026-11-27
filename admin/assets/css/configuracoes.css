@@ -43,3 +43,17 @@
     .adm-config-duas { grid-template-columns: 1fr; }
     .adm-config-totais { grid-template-columns: 1fr 1fr; gap: 10px; }
 }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .adm-config-uso { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-config-bloqueado { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-config-campo select:disabled, :where(html[data-tema="escuro"]) .adm-config-campo input:disabled, :where(html[data-tema="escuro"]) .adm-config-campo textarea:disabled { background-color: #161c24; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-config-diagnostico li { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-config-diagnostico li.is-erro { border-color: #582a2a; background-color: #220e0e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-config-diagnostico li.is-aviso { border-color: #7b6e3b; background-color: #262110; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-config-diagnostico span:not(.adm-icon-box):not(.adm-visually-hidden) { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-config-totais div { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-config-totais dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-config-totais dd { color: #a1c4f0; }
+}

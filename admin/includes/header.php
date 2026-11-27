@@ -29,6 +29,8 @@ $alertasHeader = dashboard_alertas();
             <kbd class="adm-search__kbd" aria-hidden="true">/</kbd>
         </form>
 
+        <?= tema_botao('adm-icon-button adm-header__tema') ?>
+
         <div class="adm-dropdown">
             <button class="adm-icon-button" type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="Notificações: <?= count($alertasHeader) ?> pendências">
                 <?= icon('bell') ?>

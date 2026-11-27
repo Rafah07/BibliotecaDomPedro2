@@ -81,16 +81,19 @@ function reorg_equipe_inicio(string $titulo, ?array $sessao = null, array $dados
         $atributos .= ' data-' . $k . '="' . e((string)$v) . '"';
     }
     echo '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        . '<meta name="robots" content="noindex, nofollow"><meta name="theme-color" content="#123d73"><title>' . e($titulo) . ' — Equipe de organização</title>'
-        . '<link rel="stylesheet" href="' . e(url('admin/assets/css/admin.css')) . '"><link rel="stylesheet" href="' . e(url('admin/assets/css/acervo.css')) . '"><link rel="stylesheet" href="' . e(url('admin/assets/css/emprestimos.css')) . '">'
+        . '<meta name="robots" content="noindex, nofollow"><meta name="theme-color" content="#123d73"><title>' . e($titulo) . ' — Equipe de organização</title>' . tema_script()
+        . '<link rel="stylesheet" href="' . e(url_versionada('admin/assets/css/admin.css')) . '"><link rel="stylesheet" href="' . e(url_versionada('admin/assets/css/acervo.css')) . '"><link rel="stylesheet" href="' . e(url_versionada('admin/assets/css/emprestimos.css')) . '">'
         . '<link rel="stylesheet" href="' . e(reorg_asset('reorg.css')) . '"></head><body class="adm-body reorg-equipe-body"' . ($sessao ? ' data-reorg-equipe' : '') . $atributos . '>'
         . '<header class="reorg-topo"><div class="reorg-topo__in"><div><strong>Biblioteca Dom Pedro II · Reorganização do acervo</strong>';
     if ($sessao) {
         echo '<small>' . e($sessao['nome']) . ' · sessão ' . e(Reorganizacao::rotuloSessao($sessao['id'])) . ($sessao['equipe'] ? ' · ' . e(Reorganizacao::EQUIPES[$sessao['equipe']]) : '') . '</small>';
     }
     echo '</div>';
+    if (!$sessao) {
+        echo '<div class="reorg-topo__acoes">' . tema_botao('adm-button adm-button--sm', true) . '</div>';
+    }
     if ($sessao) {
-        echo '<div class="reorg-topo__acoes"><span class="reorg-indicador" data-reorg-indicador>Conectado</span>'
+        echo '<div class="reorg-topo__acoes"><span class="reorg-indicador" data-reorg-indicador>Conectado</span>' . tema_botao('adm-button adm-button--sm', true)
             . '<button type="button" class="adm-button adm-button--sm" data-reorg-ajuda title="Atalhos e ajuda (Alt+H)">' . icon('circle-help') . ' Ajuda</button>'
             . '<button type="button" class="adm-button adm-button--sm" data-reorg-pausar title="Pausar e continuar depois (Alt+P)">' . icon('pause') . ' Pausar</button>'
             . '<button type="button" class="adm-button adm-button--sm adm-button--danger-text" data-reorg-sair>' . icon('log-out') . ' Sair</button></div>';

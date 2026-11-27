@@ -157,6 +157,18 @@ function asset(string $caminho): string
     return url($relativo) . $versao;
 }
 
+/**
+ * Endereço de um arquivo do projeto (CSS/JS) com a versão pela data de alteração do arquivo:
+ * depois de uma atualização, o navegador baixa o arquivo novo em vez de usar o do cache.
+ * Uma versão fixa já escrita no caminho (?v=...) é substituída.
+ */
+function url_versionada(string $caminho): string
+{
+    $limpo = preg_replace('/\?.*$/', '', ltrim($caminho, '/'));
+    $arquivo = APP_RAIZ . '/' . $limpo;
+    return is_file($arquivo) ? url($limpo) . '?v=' . filemtime($arquivo) : url($caminho);
+}
+
 /** Atalho para escapar texto exibido no HTML. */
 function e(mixed $valor): string
 {

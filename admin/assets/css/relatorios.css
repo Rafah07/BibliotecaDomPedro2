@@ -129,3 +129,41 @@
 }
 .rel-mini-table { min-width: 0; }
 .rel-mini-table th { white-space: normal; }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .rel-nav { background-color: #1e2631; background-image: none; border-color: #313b49; box-shadow: 0 1px 2px rgba(16, 32, 60, .04), 0 2px 8px rgba(16, 32, 60, .04); }
+    :where(html[data-tema="escuro"]) .rel-nav a { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-nav a:hover { color: #cad4e7; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .rel-nav a[aria-current="page"] { color: #ffffff; background-color: #123d73; background-image: none; }
+    :where(html[data-tema="escuro"]) .rel-nav a:focus-visible { outline-color: #283953; }
+    :where(html[data-tema="escuro"]) .rel-periodo { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .rel-filters__resumo { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-privacidade { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-privacidade .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .rel-card { color: inherit; }
+    :where(html[data-tema="escuro"]) .rel-card--link:hover { box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); }
+    :where(html[data-tema="escuro"]) .rel-card--link:focus-visible { outline-color: #283953; }
+    :where(html[data-tema="escuro"]) .rel-card__title { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-card__value { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .rel-card__desc { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-chart figcaption p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-chart__data summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .rel-bars__label { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .rel-bars__track { background-color: #19212b; background-image: none; }
+    :where(html[data-tema="escuro"]) .rel-bars__fill { background-color: #2457C5; background-image: none; }
+    :where(html[data-tema="escuro"]) .rel-columns { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .rel-columns__value { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .rel-columns__label { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-donut__total { fill: #cad4e7; }
+    :where(html[data-tema="escuro"]) .rel-donut__caption { fill: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-legend--stack small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-export__note { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-export__note--warn { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .rel-progress { background-color: #19212b; background-image: none; }
+    :where(html[data-tema="escuro"]) .rel-progress span { background-color: #15803d; background-image: none; }
+    :where(html[data-tema="escuro"]) .rel-atalho { color: inherit; }
+    :where(html[data-tema="escuro"]) .rel-atalho small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .rel-atalho:hover { box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); }
+    :where(html[data-tema="escuro"]) .rel-atalho__seta { color: #a6afbb; }
+}

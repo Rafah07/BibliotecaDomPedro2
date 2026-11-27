@@ -144,3 +144,44 @@
 .adm-etq-previa-topo { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: var(--adm-space-5) 0 var(--adm-space-3); }
 .adm-etq-previa-topo h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; font-weight: 700; color: var(--adm-navy-dark); }
 .adm-etq-previa-topo h2 .icon { width: 18px; height: 18px; color: var(--adm-blue-accent); }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .adm-local-sugestao { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-org__subtitulo { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-org-estante { border-left-color: #2457c5; }
+    :where(html[data-tema="escuro"]) .adm-org-estante__id, :where(html[data-tema="escuro"]) .adm-org-cartao__id { background-color: #123d73; background-image: none; color: #ffffff; }
+    :where(html[data-tema="escuro"]) .adm-org-estante tr.is-selecionada td { background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-org-cartao { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-org-cartao:hover, :where(html[data-tema="escuro"]) .adm-org-cartao:focus-within { border-color: #2457c5; box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); }
+    :where(html[data-tema="escuro"]) .adm-org-cartao.is-inativa { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-org-cartao__link { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-org-cartao__texto small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-org-cartao__numero, :where(html[data-tema="escuro"]) .adm-org-cartao__resp { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-org-cartao__numero strong { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-org-pessoas li { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-org-setores li { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-org-movs li { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-pendencias-tipos a { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-pendencias-tipos a:hover, :where(html[data-tema="escuro"]) .adm-pendencias-tipos a:focus-visible, :where(html[data-tema="escuro"]) .adm-pendencias-tipos a.is-ativo { background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-pendencias-tipos a .icon { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-pendencias-tipos strong { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-pendencias-abas a.is-ativo { background-color: #123d73; background-image: none; color: #ffffff; border-color: #123d73; }
+    :where(html[data-tema="escuro"]) .adm-quantidade { border-color: #313b49; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-quantidade.is-divergente { border-color: #f59e0b; background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-quantidade dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-quantidade dd { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-indicadores-grupo { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-indicadores-grupo h3 { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-indicadores-grupo dd { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-indicadores-grupo a { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-org-folha { background-color: #1e2631; background-image: none; color: #ebedf0; box-shadow: 0 2px 10px rgba(0, 0, 0, .15); }
+    :where(html[data-tema="escuro"]) .adm-org-etq { border-color: #000; }
+    :where(html[data-tema="escuro"]) .adm-org-etq__rodape { color: #cbd0d8; }
+    :where(html[data-tema="escuro"]) .adm-org-previa { background-color: #222833; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-chips label.adm-check { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-chips label.adm-check:has(input:checked) { border-color: #2457c5; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-etq-acoes { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-etq-previa-topo h2 { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .adm-etq-previa-topo h2 .icon { color: #86a6e9; }
+}

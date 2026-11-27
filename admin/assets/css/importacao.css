@@ -433,3 +433,95 @@ a.adm-kpi { color: inherit; text-decoration: none; }
 .adm-isbn-details ul { margin: 6px 0 0; padding-left: 18px; }
 .adm-imp-filtro-nota { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; font-size: 13px; color: #1f3a73; }
 .adm-imp-filtro-nota .icon { width: 16px; height: 16px; }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .adm-imp-steps__item { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-steps__item:not(:last-child)::after { background-color: #232a35; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-steps__item.is-done:not(:last-child)::after { background-color: #123d73; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-steps__num { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-steps__item.is-done { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-imp-steps__item.is-done .adm-imp-steps__num { background-color: #123d73; background-image: none; border-color: #123d73; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-imp-steps__item.is-current { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-imp-steps__item.is-current .adm-imp-steps__num { border-color: #2457c5; color: #86a6e9; box-shadow: 0 0 0 4px rgba(36, 87, 197, .12); }
+    :where(html[data-tema="escuro"]) .adm-imp-drop { border-color: #2f4062; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-drop:hover, :where(html[data-tema="escuro"]) .adm-imp-drop:focus-visible, :where(html[data-tema="escuro"]) .adm-imp-drop.is-over { border-color: #2457c5; background-color: #151e32; background-image: none; outline-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-imp-drop small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-file { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-file__text small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-wizard .adm-form-actions, :where(html[data-tema="escuro"]) .adm-imp-confirm .adm-form-actions { background-color: transparent; background-image: none; box-shadow: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-summary { border-color: #313b49; background-color: #232a35; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-summary div { background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-summary dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-col__letra { background-color: #161c24; background-image: none; border-color: #313b49; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-exemplos span:not(.adm-missing) { background-color: #161c24; background-image: none; border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-imp-map select.is-invalid { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }
+    :where(html[data-tema="escuro"]) .adm-imp-progress small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-progress--inline { border-color: #313b49; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-progress--lg .adm-progress__bar:not(.adm-progress__bar--ok) { background-color: #2457c5; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-open li { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-imp-open li:first-child { border-top-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-imp-open__text small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-title .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) a.adm-kpi { color: inherit; }
+    :where(html[data-tema="escuro"]) .adm-imp-tabs a { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-tabs a:hover { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-imp-tabs a[aria-current="page"] { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-imp-tabs a[aria-current="page"]::after { background-color: #2457c5; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-bulk { border-color: #2f4062; background-color: #131d2d; background-image: none; color: #a4b9e6; }
+    :where(html[data-tema="escuro"]) .adm-imp-row:hover td { background-color: #0f1624; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-row:focus-visible { outline-color: #2457c5; }
+    :where(html[data-tema="escuro"]) .adm-imp-row--erro td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+    :where(html[data-tema="escuro"]) .adm-imp-row--duplicidade td:first-child { box-shadow: inset 3px 0 0 #4f5fb0; }
+    :where(html[data-tema="escuro"]) .adm-imp-row--aviso td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+    :where(html[data-tema="escuro"]) .adm-imp-problem-text--erro { color: #ed8a82; }
+    :where(html[data-tema="escuro"]) .adm-imp-problem-text--duplicidade { color: #9aa3d5; }
+    :where(html[data-tema="escuro"]) .adm-imp-problem-text--aviso { color: #eeb285; }
+    @media print, (min-width: 721px) {
+        :where(html[data-tema="escuro"]) .adm-imp-table .adm-actions-col { background-color: #1e2631; background-image: none; box-shadow: -8px 0 12px -10px rgba(23, 32, 51, .25); }
+        :where(html[data-tema="escuro"]) .adm-imp-table th.adm-actions-col { background-color: #121924; background-image: none; }
+    }
+    :where(html[data-tema="escuro"]) .adm-imp-pages a { border-color: #313b49; background-color: #1e2631; background-image: none; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-imp-pages a:hover { background-color: #131d2d; background-image: none; border-color: #283953; }
+    :where(html[data-tema="escuro"]) .adm-imp-pages a[aria-current="page"] { background-color: #123d73; background-image: none; border-color: #123d73; color: #fff; }
+    :where(html[data-tema="escuro"]) .adm-imp-resume li { border-color: #313b49; background-color: #161c24; background-image: none; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-resume strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-imp-plan__col { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-imp-plan__col--ok { border-color: #366f4a; background-color: #132d1e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-plan__col--ok h3 .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-imp-plan__col dl div { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-imp-plan__col dl div:first-child { border-top-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-imp-plan__col p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-confirm-list .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-imp-h3 { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-ok { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-imp-book { border-color: #313b49; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-book small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-decision { border-color: #2d3c5d; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-decision__grid .adm-button { background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-link-other summary { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .adm-imp-compare > div { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-orig div, :where(html[data-tema="escuro"]) .adm-imp-norm div { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-imp-orig div:first-child, :where(html[data-tema="escuro"]) .adm-imp-norm div:first-child { border-top-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .adm-imp-orig dt, :where(html[data-tema="escuro"]) .adm-imp-norm dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-orig__coluna { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-imp-orig__campo { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-modal .adm-imp-form-actions { background-color: transparent; background-image: none; border-color: currentcolor; box-shadow: none; }
+    :where(html[data-tema="escuro"]) .adm-imp-loading { color: #a6afbb; }
+    @media screen and (max-width: 720px) {
+        :where(html[data-tema="escuro"]) .adm-imp-map tr { border-top-color: #313b49; }
+        :where(html[data-tema="escuro"]) .adm-imp-map td, :where(html[data-tema="escuro"]) .adm-imp-map th { border-color: currentcolor !important; }
+    }
+    :where(html[data-tema="escuro"]) .adm-isbn-bar { border-color: #304163; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-isbn-bar strong { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-isbn-bar__all { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-isbn-row.is-selected td { background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-isbn-row--bloqueado td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+    :where(html[data-tema="escuro"]) .adm-isbn-motivos { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-isbn-sugestao { border-color: #304163; background-color: #131d2d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-isbn-sugestao--media { border-color: #7b6e3b; background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-isbn-confirm { border-color: #7b6e3b; }
+    :where(html[data-tema="escuro"]) .adm-isbn-confirm h2 .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-isbn-confirm__fora { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-imp-filtro-nota { color: #a4b9e6; }
+}

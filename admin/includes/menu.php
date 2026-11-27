@@ -156,7 +156,11 @@ function admin_base(): string
 /** Endereço de um arquivo dentro de admin/ (CSS, JS, páginas). URLs externas ficam como estão. */
 function admin_asset(string $path): string
 {
-    return preg_match('#^https?://#', $path) ? $path : admin_base() . $path;
+    if (preg_match('#^https?://#', $path)) {
+        return $path;
+    }
+    // CSS e JS ganham a versão pela data do arquivo (o navegador não fica com uma versão antiga em cache).
+    return preg_match('#\.(css|js)(\?|$)#', $path) ? url_versionada('admin/' . $path) : admin_base() . $path;
 }
 
 /** Endereço de uma página administrativa a partir do id do menu. */

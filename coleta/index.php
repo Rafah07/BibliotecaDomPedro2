@@ -43,16 +43,16 @@ function coleta_inicio(string $titulo, ?array $link): void
 {
     $equipe = $link ? $link['equipe'] . ' · ' . ColetaService::nome($link['lote']) : '';
     echo '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        . '<meta name="robots" content="noindex, nofollow"><title>' . e($titulo) . ' — Biblioteca Dom Pedro II</title>'
-        . '<link rel="stylesheet" href="' . e(url('admin/assets/css/admin.css')) . '"><link rel="stylesheet" href="' . e(url('admin/assets/css/acervo.css')) . '">'
-        . '<link rel="stylesheet" href="' . e(url('admin/assets/css/coleta.css?v=20261126')) . '"></head><body class="adm-body coleta-body">'
-        . '<header class="coleta-topo"><div class="coleta-topo__in"><strong>Biblioteca Dom Pedro II · Organização do acervo</strong><small>' . e($equipe) . '</small></div></header>'
+        . '<meta name="robots" content="noindex, nofollow"><title>' . e($titulo) . ' — Biblioteca Dom Pedro II</title>' . tema_script()
+        . '<link rel="stylesheet" href="' . e(url_versionada('admin/assets/css/admin.css')) . '"><link rel="stylesheet" href="' . e(url_versionada('admin/assets/css/acervo.css')) . '">'
+        . '<link rel="stylesheet" href="' . e(url_versionada('admin/assets/css/coleta.css')) . '"></head><body class="adm-body coleta-body">'
+        . '<header class="coleta-topo"><div class="coleta-topo__in"><strong>Biblioteca Dom Pedro II · Organização do acervo</strong><small>' . e($equipe) . '</small>' . tema_botao('adm-button adm-button--sm coleta-tema', true) . '</div></header>'
         . '<main class="coleta-main">';
 }
 
 function coleta_fim(): void
 {
-    echo '</main><script src="' . e(url('admin/assets/js/coleta.js?v=20261126')) . '"></script></body></html>';
+    echo '</main><script src="' . e(url_versionada('admin/assets/js/coleta.js')) . '"></script></body></html>';
 }
 
 function coleta_redirecionar(string $destino): never

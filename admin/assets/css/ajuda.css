@@ -247,3 +247,83 @@
     a { color: #000 !important; text-decoration: none; }
     .ajd-impressao-rodape { display: block; margin-top: 18px; font-size: 9pt; color: #555; border-top: 1px solid #ccc; padding-top: 6px; }
 }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .ajd-h2 { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .ajd-hero { background-color: transparent; background-image: linear-gradient(135deg, #123d73 0%, #0a2749 100%); color: #fff; box-shadow: 0 1px 2px rgba(16, 32, 60, .04), 0 2px 8px rgba(16, 32, 60, .04); }
+    :where(html[data-tema="escuro"]) .ajd-hero__eyebrow { color: #d6ae62; }
+    :where(html[data-tema="escuro"]) .ajd-hero p { color: rgba(255, 255, 255, .86); }
+    :where(html[data-tema="escuro"]) .ajd-hero__nome { color: #fff !important; }
+    :where(html[data-tema="escuro"]) .ajd-busca__campo { background-color: #1e2631; background-image: none; color: #a6afbb; box-shadow: 0 0 0 1px rgba(255, 255, 255, .2); }
+    :where(html[data-tema="escuro"]) .ajd-busca__campo input { border-color: currentcolor; outline-color: currentcolor; background-color: transparent; background-image: none; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .ajd-busca__campo input:focus, :where(html[data-tema="escuro"]) .ajd-busca__campo input:focus-visible { outline-color: currentcolor; box-shadow: none; border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .ajd-busca__campo:focus-within { box-shadow: 0 0 0 3px rgba(214, 174, 98, .55); }
+    :where(html[data-tema="escuro"]) .ajd-busca .adm-button { background-color: #d6ae62; background-image: none; border-color: #d6ae62; color: #0a2749; }
+    :where(html[data-tema="escuro"]) .ajd-busca .adm-button:hover { background-color: #e2bd75; background-image: none; border-color: #e2bd75; }
+    :where(html[data-tema="escuro"]) .ajd-sugestoes > span { color: rgba(255, 255, 255, .75); }
+    :where(html[data-tema="escuro"]) .ajd-chip { background-color: rgba(255, 255, 255, .12); background-image: none; color: #fff; border-color: rgba(255, 255, 255, .22); }
+    :where(html[data-tema="escuro"]) .ajd-chip:hover, :where(html[data-tema="escuro"]) .ajd-chip:focus-visible { background-color: rgba(255, 255, 255, .24); background-image: none; outline-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .ajd-origem { border-color: #283953; background-color: #131d2d; background-image: none; color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .ajd-origem > .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .ajd-modulo h3 { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .ajd-modulo p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-modulo .ajd-modulo__total { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .ajd-rodape { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-modulo-topo p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-item { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .ajd-item:hover { border-color: #283953; box-shadow: 0 2px 4px rgba(16, 32, 60, .05), 0 8px 20px rgba(16, 32, 60, .07); }
+    :where(html[data-tema="escuro"]) .ajd-item__link { color: inherit; }
+    :where(html[data-tema="escuro"]) .ajd-item__link:focus-visible { outline-color: currentcolor; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .ajd-item__texto strong { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .ajd-item__modulo { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .ajd-item__resumo { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-item__seta { color: #94a3b8; }
+    :where(html[data-tema="escuro"]) .ajd-artigo__topo { border-bottom-color: #313b49; }
+    :where(html[data-tema="escuro"]) .ajd-artigo__modulo { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-artigo h1 { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .ajd-artigo__resumo { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-secao h2 { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .ajd-letra { background-color: #131d2d; background-image: none; color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .ajd-secao p, :where(html[data-tema="escuro"]) .ajd-lista, :where(html[data-tema="escuro"]) .ajd-passo__corpo { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .ajd-secao code, :where(html[data-tema="escuro"]) .ajd-artigo code { background-color: #162029; background-image: none; border-color: #313b49; color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .ajd-lista--check .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .ajd-lista--ok .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .ajd-lista--cuidado .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .ajd-permissao { border-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .ajd-permissao p { color: #a6afbb !important; }
+    :where(html[data-tema="escuro"]) .ajd-permissao--ok { background-color: #132d1e; background-image: none; border-color: #306442; }
+    :where(html[data-tema="escuro"]) .ajd-permissao--ok > .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .ajd-permissao--nao { background-color: #2d2813; background-image: none; border-color: #7b6e3b; }
+    :where(html[data-tema="escuro"]) .ajd-permissao--nao > .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .ajd-passo { border-color: #313b49; background-color: #0e1522; background-image: none; }
+    :where(html[data-tema="escuro"]) .ajd-passo:target { border-color: #2f6bd8; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .ajd-passo__numero { background-color: #123d73; background-image: none; color: #fff; }
+    :where(html[data-tema="escuro"]) .ajd-passo h3 { color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .ajd-nota--dica { background-color: #131d2d; background-image: none; color: #b8d4f5; }
+    :where(html[data-tema="escuro"]) .ajd-nota--dica .icon { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .ajd-nota--atencao { background-color: #2d2813; background-image: none; color: #f1bd9f; }
+    :where(html[data-tema="escuro"]) .ajd-nota--atencao .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .ajd-figura a { border-color: #394555; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .ajd-figura a:focus-visible { outline-color: currentcolor; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .ajd-figura figcaption { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-exemplo { background-color: #322915; background-image: none; border-color: #655530; }
+    :where(html[data-tema="escuro"]) .ajd-exemplo > .icon { color: #e5c58b; }
+    :where(html[data-tema="escuro"]) .ajd-problema { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .ajd-problema summary { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .ajd-problema summary::after { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-problema summary .icon { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .ajd-problema summary:focus-visible { outline-color: currentcolor; box-shadow: 0 0 0 3px rgba(47, 107, 216, .18); }
+    :where(html[data-tema="escuro"]) .ajd-problema dt { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-paginacao { border-top-color: #313b49; }
+    :where(html[data-tema="escuro"]) .ajd-paginacao__link { border-color: #313b49; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .ajd-paginacao__link small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-paginacao__link:hover, :where(html[data-tema="escuro"]) .ajd-paginacao__link:focus-visible { border-color: #283953; background-color: #131d2d; background-image: none; outline-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .ajd-indice h2 { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .ajd-indice a { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .ajd-indice a span { color: #86a6e9; }
+    :where(html[data-tema="escuro"]) .ajd-indice a:hover, :where(html[data-tema="escuro"]) .ajd-indice a:focus-visible { background-color: #131d2d; background-image: none; outline-color: currentcolor; }
+    :where(html[data-tema="escuro"]) .ajd-indice a[aria-current] { background-color: #131d2d; background-image: none; color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .ajd-indice__etapas { border-top-color: #313b49; color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .ajd-indice__etapas a { border-color: #313b49; color: #a1c4f0; }
+}

@@ -106,3 +106,40 @@
     .adm-diag li { grid-template-columns: 22px 1fr; }
     .adm-diag li span { grid-column: 2; }
 }
+
+/* ==== MODO ESCURO — GERADO por ferramentas/gerar-tema-escuro.php: não edite abaixo desta linha ==== */
+@media screen {
+    :where(html[data-tema="escuro"]) .adm-gestao-fixo { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-gestao-fixo small { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-gestao-fixo .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-gestao-copias { border-color: #313b49; background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-gestao-copia { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-gestao-copia legend { color: #a1c4f0; }
+    :where(html[data-tema="escuro"]) .adm-gestao-resumo { border-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-conflito__tabela tr.is-conflito { background-color: #291111; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-conflito__tabela tr.is-so_outro { background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-gestao-item { border-color: #313b49; background-color: #1e2631; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-gestao-item__corpo p { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-gestao-item__corpo strong { color: #cad4e7; }
+    :where(html[data-tema="escuro"]) .adm-gestao-item.is-critico { border-left-color: #dc2626; }
+    :where(html[data-tema="escuro"]) .adm-gestao-item.is-atencao { border-left-color: #f59e0b; }
+    :where(html[data-tema="escuro"]) .adm-gestao-item.is-informativo { border-left-color: #283953; }
+    :where(html[data-tema="escuro"]) .adm-comparar__tabela td.is-diferente { background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-diag li:nth-child(odd) { background-color: #161c24; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-diag .is-ok .icon { color: #9aeeba; }
+    :where(html[data-tema="escuro"]) .adm-diag .is-aviso .icon { color: #eeb285; }
+    :where(html[data-tema="escuro"]) .adm-diag .is-erro .icon { color: #eb8484; }
+    :where(html[data-tema="escuro"]) .adm-diag .is-nao_verificado .icon { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-diag span { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-ocupacao { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-ocupacao__barra { background-color: #232a35; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-ocupacao__barra span { background-color: #15803d; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-ocupacao.is-proxima .adm-ocupacao__barra span { background-color: #f59e0b; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-ocupacao.is-lotada .adm-ocupacao__barra span { background-color: #dc2626; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-linha-tempo { border-left-color: #313b49; }
+    :where(html[data-tema="escuro"]) .adm-linha-tempo li::before { background-color: #1a283f; background-image: none; border-color: #232a34; }
+    :where(html[data-tema="escuro"]) .adm-linha-tempo time { color: #a6afbb; }
+    :where(html[data-tema="escuro"]) .adm-versao-diff li { background-color: #2d2813; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-versao-diff li.is-incluido { background-color: #132d1e; background-image: none; }
+    :where(html[data-tema="escuro"]) .adm-versao-diff li.is-removido { background-color: #291111; background-image: none; }
+}

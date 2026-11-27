@@ -40,5 +40,11 @@ $navLink = static function (array $item) use ($currentPage): void {
         <div class="sidebar-divider" role="presentation"></div>
         <p class="sidebar-section">A biblioteca</p>
         <?php foreach ($footerItems as $item) { $navLink($item); } ?>
+        <div class="sidebar-divider" role="presentation"></div>
+        <?php // Modo escuro (assets/js/tema.js troca o texto, a dica e aria-pressed conforme o tema atual). ?>
+        <a href="#" class="sidebar-tema tema-botao" role="button" data-tema-alternar aria-pressed="false" data-tooltip="Modo escuro">
+            <span class="nav-icon"><?= icon('moon', 'tema-botao__lua') ?><?= icon('sun', 'tema-botao__sol') ?></span>
+            <span class="nav-label" data-tema-texto>Modo escuro</span>
+        </a>
     </nav>
 </aside>
