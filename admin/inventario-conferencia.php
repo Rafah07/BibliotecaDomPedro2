@@ -1578,13 +1578,14 @@ admin_page_start('inventario', 'Conferência: ' . $inv['titulo'], 'Inventário',
         <p><?= e($inv['titulo']) ?> · pesquise, verifique a obra uma vez e registre cada exemplar com o seu código BDP, sem sair desta página</p>
     </div>
     <div class="adm-page-head__actions" data-acoes-visiveis="0">
-        <?php if ($podeLotes): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('lotes') . '?novo=1') ?>#abrir-lote"><?= icon('plus') ?> Abrir novo lote</a><?php endif; ?>
+        <?php if ($podeLotes): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('lote-novo') . '?inventario=' . $id) ?>"><?= icon('plus') ?> Abrir novo lote</a><?php endif; ?>
         <?php if ($podeCadastrar && $emAndamento): ?><a class="adm-button adm-button--primary" href="<?= e($base . '&novo=1') ?>#nao-listado" data-pjax><?= icon('plus') ?> Cadastrar livro não listado</a><?php endif; ?>
-        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('lotes')) ?>"><?= icon('layers') ?> Histórico de Lotes</a>
         <a class="adm-button adm-button--ghost" href="<?= e($base . '&pendencias=nao_verificadas') ?>" data-pjax><?= icon('list-checks') ?> Pendências de conferência</a>
-        <a class="adm-button adm-button--ghost" href="<?= e(admin_url('inventario-detalhes') . '?id=' . $id) ?>"><?= icon('clipboard-check') ?> Ver itens do inventário</a>
     </div>
 </section>
+
+<?= inventario_abas_html($inv, 'conferencia') ?>
+<?= modulo_gancho_html('conferencia.painel', $inv) ?>
 
 <div class="adm-conferencia__indicadores" data-regiao="indicadores"><?= $htmlIndicadores ?></div>
 

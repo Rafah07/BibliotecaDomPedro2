@@ -12,6 +12,7 @@
  */
 require_once __DIR__ . '/componentes.php';
 require_once __DIR__ . '/acervo.php'; // acervo_breadcrumb, ACERVO_SITUACOES, ACERVO_CONSERVACAO
+require_once __DIR__ . '/inventario-integracao.php'; // abas do inventário, lotes por inventário e ganchos dos módulos
 
 use Biblioteca\Repositories\ExemplarRepository;
 use Biblioteca\Repositories\InventarioRepository;
@@ -37,7 +38,7 @@ use Biblioteca\Services\ObraVerificacaoService;
 use Biblioteca\Services\OrganizacaoFisicaService;
 use Biblioteca\Services\VinculoObraService;
 
-const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261118a', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261126'];
+const FISICO_CSS = ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/inventario.css?v=20261127inv', 'assets/css/organizacao.css?v=20261115mob', 'assets/css/preparo.css?v=20261126'];
 const FISICO_JS = ['assets/js/inventario.js?v=20261115des'];
 
 /** Origem das novas entradas no acervo (Aquisições, migração 190). */

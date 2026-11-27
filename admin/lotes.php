@@ -2,9 +2,10 @@
 /**
  * Histórico de Lotes (migração 160): todos os lotes, inclusive os encerrados — nenhum lote é apagado.
  *
+ * Lotes novos: formulário único em lote-novo.php (todo lote pertence a um inventário, migração 240).
  * Também recebe as ações da seção "Meus lotes" da Conferência:
- *   * acao=abrir  "+ Abrir novo lote" (lotes.gerenciar): capacidade, usuários, observação. O número é
- *                 gerado no servidor (LoteService::criar) e o token do formulário evita abrir dois lotes.
+ *   * acao=abrir  compatibilidade com envios antigos (capacidade, usuários, observação, inventario_id
+ *                 opcional). O número é gerado no servidor (LoteService::criar).
  *   * acao=ativo  "Trabalhar neste lote": o lote ativo de quem registra (só participantes de lotes em cadastro).
  * Filtros: número, período de abertura, responsável e status. Exportação para Excel (XLSX/CSV) e PDF.
  */
@@ -41,6 +42,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     'capacidade' => admin_param($_POST, 'capacidade'),
                     'usuarios' => is_array($_POST['usuarios'] ?? null) ? $_POST['usuarios'] : [],
                     'descricao' => admin_param($_POST, 'descricao'),
+                    'inventario_id' => admin_param($_POST, 'inventario_id'),
                 ], $usuario['id'], admin_param($_POST, 'chave'));
                 $lote = lotes_repo()->lote($id);
                 admin_flash('sucesso', LoteRepository::nome($lote) . ' aberto — capacidade de ' . (int)$lote['capacidade'] . ' exemplar(es).',
@@ -70,6 +72,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         admin_flash('erro', 'Nada foi alterado.', fisico_erro_tecnico($e, 'lotes'));
         admin_redirecionar($voltar);
     }
+}
+
+if (admin_param($_GET, 'novo') === '1') {
+    admin_redirecionar(admin_url('lote-novo')); // formulário único de lote
 }
 
 $filtros = [
@@ -107,7 +113,7 @@ if (in_array($exportar, ['xlsx', 'csv', 'pdf'], true)) {
 try {
     $lista = lotes_repo()->historico($filtros, max(1, (int)admin_param($_GET, 'pagina', '1')), $porPagina);
     $responsaveis = lotes_repo()->responsaveis();
-    $atribuiveis = $podeGerenciar ? lotes_repo()->usuariosAtribuiveis() : [];
+    
     $contagem = lotes_repo()->painel([])['status'];
 } catch (PDOException $e) {
     http_response_code(500);
@@ -115,7 +121,6 @@ try {
     exit;
 }
 $filtrosLink = array_filter($filtros + ['por_pagina' => $porPagina !== 30 ? (string)$porPagina : ''], fn ($v) => $v !== '');
-$abrirAberto = $podeGerenciar && (admin_param($_GET, 'novo') === '1' || $erroAbrir !== null);
 
 admin_page_start('lotes', 'Histórico de Lotes', 'Inventário', 'Lotes de cadastramento e etapas de trabalho', FISICO_CSS);
 ?>
@@ -128,7 +133,7 @@ admin_page_start('lotes', 'Histórico de Lotes', 'Inventário', 'Lotes de cadast
         <p>Todos os lotes, do cadastro à estante definitiva. Nenhum lote é apagado: abra qualquer um, inclusive os encerrados, para ver o relatório e a planilha original de códigos BDP.</p>
     </div>
     <div class="adm-page-head__actions">
-        <?php if ($podeGerenciar): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url_filtros($base, $filtrosLink, ['novo' => '1'])) ?>#abrir-lote"><?= icon('plus') ?> Abrir novo lote</a>
+        <?php if ($podeGerenciar): ?><a class="adm-button adm-button--primary" href="<?= e(admin_url('lote-novo')) ?>"><?= icon('plus') ?> Abrir novo lote</a>
             <a class="adm-button adm-button--ghost" href="<?= e(admin_url('lotes-produtividade')) ?>"><?= icon('chart-column') ?> Relatório de Produtividade</a><?php endif; ?>
         <a class="adm-button adm-button--ghost" href="<?= e(admin_url('duvidas')) ?>"><?= icon('circle-help') ?> Dúvidas da conferência</a>
     </div>
@@ -143,9 +148,7 @@ admin_page_start('lotes', 'Histórico de Lotes', 'Inventário', 'Lotes de cadast
     <?php endforeach; ?>
 </section>
 
-<?php if ($abrirAberto): ?>
-    <?php require __DIR__ . '/includes/form-abrir-lote.php'; ?>
-<?php endif; ?>
+<?php if ($erroAbrir !== null): ?><?= admin_aviso('erro', 'O lote não foi aberto.', $erroAbrir) ?><?php endif; ?>
 
 <section class="adm-card adm-panel" aria-labelledby="titulo-historico">
     <div class="adm-panel__header"><div><h2 id="titulo-historico">Lotes</h2><p aria-live="polite"><?= fisico_numero($lista['total']) ?> lote(s)</p></div>
@@ -173,7 +176,7 @@ admin_page_start('lotes', 'Histórico de Lotes', 'Inventário', 'Lotes de cadast
             <tbody>
             <?php foreach ($lista['itens'] as $l): ?>
                 <tr>
-                    <td class="adm-td-title"><a class="adm-link" href="<?= e(admin_url('lote') . '?id=' . (int)$l['id']) ?>"><strong><?= e(LoteRepository::nome($l)) ?></strong></a>
+                    <td class="adm-td-title"><a class="adm-link" href="<?= e(lote_url_trabalho($l)) ?>"><strong><?= e(lote_nome_completo($l)) ?></strong></a>
                         <?php if ($l['descricao']): ?><small class="adm-block-muted"><?= e($l['descricao']) ?></small><?php endif; ?>
                         <?php if ($l['modo'] === 'automatico'): ?><small class="adm-block-muted">Lote automático (antes do gerenciamento)</small><?php endif; ?>
                         <?php if ($l['capacidade'] !== null): $pctLote = (int)$l['capacidade'] > 0 ? min(100, (int)round((int)$l['exemplares'] * 100 / (int)$l['capacidade'])) : 0; ?>

@@ -55,6 +55,11 @@ $ocultos = ['status_f' => $status, 'tipo_f' => $tipo, 'lote_f' => $loteId ?: '',
 reorg_admin_inicio('solicitacoes', 'Solicitações e pendências');
 ?>
 <section class="adm-page-head reorg-head"><div><h1>Solicitações e pendências</h1><p>Pedidos dos participantes e problemas registrados nos lotes, num lugar só. Nenhum lote é atribuído automaticamente: a decisão é sempre da administração. Exemplares com pendência aberta impedem a conclusão do lote.</p></div></section>
+<?php $invPend = $GLOBALS['reorg_inventario'] ?? null; ?>
+<?php if ($invPend && $invPend['status'] !== 'aberto'): $resInv = inventario_repo()->resumo((int)$invPend['id']); $nInv = $resInv['divergencias_pendentes'] + $resInv['ausentes_pendentes']; ?>
+    <p class="adm-filtro-ativo"><?= icon('clipboard-check') ?> Pendências da conferência do inventário (divergências e ausências sem decisão): <strong><?= (int)$nInv ?></strong>.
+        <a class="adm-link" href="<?= e(admin_url('inventario-detalhes') . '?id=' . (int)$invPend['id'] . '&filtro=pendentes#itens') ?>">Abrir e decidir</a></p>
+<?php endif; ?>
 
 <nav class="adm-tabs adm-tabs--links adm-tabs--solta" aria-label="O que mostrar">
     <?php foreach (['tudo' => 'Tudo', 'solicitacoes' => 'Solicitações', 'pendencias' => 'Pendências'] as $k => $rot): ?>
@@ -98,7 +103,7 @@ reorg_admin_inicio('solicitacoes', 'Solicitações e pendências');
                 <?php if ($ativa && $lotesAtivos): ?><select class="adm-select adm-select--sm" name="lote_id" aria-label="Lote"><?= reorg_opcoes($lotesAtivos, null) ?></select>
                     <button class="adm-button adm-button--sm adm-button--primary" name="decisao" value="atribuir">Atribuir este lote</button><?php endif; ?>
                 <button class="adm-button adm-button--sm" name="decisao" value="aprovar">Aprovar (atribuo depois)</button>
-                <a class="adm-button adm-button--sm" href="<?= e(reorg_url('admin/lote-novo.php')) ?>">Criar lote</a>
+                <a class="adm-button adm-button--sm" href="<?= e(admin_url('lote-novo') . ($invPend ? '?inventario=' . (int)$invPend['id'] : '')) ?>">Criar lote</a>
                 <button class="adm-button adm-button--sm adm-button--danger-text" name="decisao" value="recusar">Recusar</button>
             <?php elseif ($q['tipo'] === 'troca_equipe'): ?>
                 <?php if ($ativa): ?><button class="adm-button adm-button--sm adm-button--primary" name="decisao" value="aprovar">Aprovar troca</button><?php endif; ?>

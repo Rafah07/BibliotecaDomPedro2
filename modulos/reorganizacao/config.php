@@ -8,7 +8,7 @@
  * Para desligar sem editar este arquivo, use no .env:  REORGANIZACAO_MODULO_ATIVO=false
  *
  * O PERÍODO de reorganização (o que libera a entrada dos participantes) é ligado e desligado pelos
- * administradores no painel: Reorganização do Acervo → Período e configurações.
+ * administradores na configuração do inventário: "Ativar organização por equipes" (migração 250).
  *
  * Os tempos ficam aqui para facilitar o ajuste (cada um aceita também uma variável do .env).
  */

@@ -9,7 +9,8 @@ use Biblioteca\Reorganizacao\Reorganizacao;
 echo "\nPáginas: botão, entrada, equipe, administração, segurança\n";
 
 $rp = new Reorganizacao(db(), reorg_config(), new Biblioteca\Services\ExemplarService(db()));
-$rp->iniciarPeriodo(['nome' => 'Período das páginas', 'instrucoes_gerais' => 'Use luvas <b>sempre</b>'], $adm);
+$invTeste = (int)db_query("SELECT id FROM inventarios WHERE status = 'em_andamento' ORDER BY id DESC LIMIT 1")->fetchColumn();
+$rp->iniciarPeriodo(['nome' => 'Período das páginas', 'instrucoes_gerais' => 'Use luvas <b>sempre</b>'], $adm, $invTeste ?: null);
 $base = teste_servidor($env);
 $csrfDe = fn (string $html) => preg_match('/name="csrf" value="([a-f0-9]+)"/', $html, $m) ? $m[1] : (preg_match('/data-csrf="([a-f0-9]+)"/', $html, $m) ? $m[1] : '');
 
@@ -62,9 +63,9 @@ confere('T41. pastas internas do módulo bloqueadas no Apache (src, includes, te
 $admNav = new TesteNavegador($base);
 confere('Administrador entra no painel', $admNav->entrar('adm@teste.br', $senha) === 200);
 [$s, $html] = $admNav->ir('admin/index.php');
-confere('Menu do painel mostra “Reorganização do Acervo”', str_contains($html, 'Reorganização do Acervo') && str_contains($html, 'modulos/reorganizacao/admin/'));
+confere('Menu do painel NÃO tem mais a Central separada (as equipes ficam dentro do Inventário)', !str_contains($html, 'modulos/reorganizacao/admin/') && str_contains($html, 'Inventário'));
 $regAntigo = (int)db_query('SELECT id FROM reorg_registros WHERE lote_id = ? ORDER BY id LIMIT 1', [$loteAntigo])->fetchColumn();
-$paginasAdm = ['admin/', 'admin/lotes.php', 'admin/lotes.php?status=concluido', 'admin/lote-novo.php', 'admin/participantes.php', 'admin/solicitacoes.php', 'admin/solicitacoes.php?ver=solicitacoes&status=todas',
+$paginasAdm = ['admin/participantes.php', 'admin/solicitacoes.php', 'admin/solicitacoes.php?ver=solicitacoes&status=todas',
     'admin/solicitacoes.php?ver=pendencias&status=resolvidas', 'admin/historico.php', 'admin/historico.php?grupo=grupo1&acao=&q=teste&lote_id=' . $loteAntigo, 'admin/configuracoes.php', 'admin/notificacoes.php',
     'admin/registro.php?id=' . $regAntigo, 'admin/registro.php?id=' . $regAntigo . '&volta=' . rawurlencode('lote.php?id=' . $loteAntigo . '&aba=g2')];
 foreach (['visao', 'g1', 'g2', 'g3', 'g4', 'participantes', 'pendencias', 'historico'] as $aba) {
@@ -75,14 +76,15 @@ foreach ($paginasAdm as $pagina) {
     [$s, $html] = $admNav->ir('modulos/reorganizacao/' . $pagina);
     confere("Página $pagina abre sem erro técnico", $s === 200 && teste_sem_erro_tecnico($html), $s . ' ' . mb_substr(strip_tags($html), 0, 300));
 }
-foreach (['admin/periodo.php' => 'configuracoes.php', 'admin/pendencias.php' => 'solicitacoes.php', 'admin/planilhas.php' => 'lotes.php', 'admin/relatorios.php' => 'historico.php', 'admin/relatorios.php?lote=' . $loteAntigo => 'lote.php'] as $pagina => $destino) {
+foreach (['admin/' => 'inventario-detalhes.php', 'admin/lotes.php' => 'inventario-lotes.php', 'admin/lote-novo.php' => 'admin/lote-novo.php?inventario=', 'admin/periodo.php' => 'configuracoes.php', 'admin/pendencias.php' => 'solicitacoes.php', 'admin/planilhas.php' => 'lotes.php', 'admin/relatorios.php' => 'historico.php', 'admin/relatorios.php?lote=' . $loteAntigo => 'lote.php'] as $pagina => $destino) {
     [$s, , $loc] = $admNav->ir('modulos/reorganizacao/' . $pagina);
     confere("Página antiga $pagina redireciona para $destino", in_array($s, [302, 303], true) && str_contains((string)$loc, $destino), $s . ' ' . $loc);
 }
-[$s, $html] = $admNav->ir('modulos/reorganizacao/admin/');
-confere('Central com as seis seções (Visão geral, Lotes, Equipes, Solicitações, Histórico, Configurações)', count(array_filter(['Visão geral', 'Lotes', 'Equipes e participantes', 'Solicitações e pendências', 'Histórico', 'Configurações'], fn ($t) => str_contains($html, $t))) === 6);
-[$s, $html] = $admNav->ir('admin/index.php');
-confere('Menu do painel: Reorganização num grupo próprio, separado do Inventário', str_contains($html, 'Reorganização do acervo'));
+[$s, $html] = $admNav->ir('modulos/reorganizacao/admin/participantes.php');
+confere('Abas do inventário nas páginas das equipes (Visão geral, Lotes, Equipes, Conferência, Pendências e solicitações, Histórico, Configurações)',
+    count(array_filter(['Visão geral', 'Lotes', 'Equipes e participantes', 'Conferência', 'Pendências e solicitações', 'Histórico', 'Configurações'], fn ($t) => str_contains($html, $t))) === 7 && str_contains($html, 'adm-inv-abas'));
+[$s, $html] = $admNav->ir('admin/inventario-detalhes.php?id=' . $invTeste);
+confere('Inventário mostra as abas das equipes quando ativas', $s === 200 && str_contains($html, 'Equipes e participantes') && str_contains($html, 'Pendências e solicitações') && str_contains($html, 'Organização por equipes') && teste_sem_erro_tecnico($html));
 [$s, $html] = $admNav->ir('modulos/reorganizacao/admin/participantes.php');
 confere('T03. central mostra a sessão S-0000 do participante conectado', str_contains($html, 'Joana Fictícia Lima') && str_contains($html, Reorganizacao::rotuloSessao($sessP['id'])));
 [$s, $csv, , $tipo, $disp] = $admNav->ir('modulos/reorganizacao/admin/historico.php?exportar=csv');
@@ -91,12 +93,17 @@ confere('T40. exportação do histórico em CSV', $s === 200 && str_contains($ti
 confere('Relatório CSV dos exemplares do lote (códigos BDP)', $s === 200 && str_contains($tipo, 'text/csv') && substr_count($csv, 'BDP-') >= 30);
 
 // criar lote pela página e atribuir o participante
-[$s, $html] = $admNav->ir('modulos/reorganizacao/admin/lote-novo.php');
-confere('Página "Criar lote" com as três seções', $s === 200 && str_contains($html, 'Informações do lote') && str_contains($html, 'Distribuição dos participantes') && str_contains($html, 'Resumo'), mb_substr(strip_tags($html), 0, 300));
+[$s, $html] = $admNav->ir('admin/lote-novo.php?inventario=' . $invTeste);
+confere('Formulário único de lote com os participantes das equipes', $s === 200 && str_contains($html, 'Nome do lote') && str_contains($html, 'Quantidade prevista de exemplares') && str_contains($html, 'Participantes das equipes')
+    && str_contains($html, 'G1 — Levantamento') && str_contains($html, 'Joana Fictícia Lima'), mb_substr(strip_tags($html), 0, 300));
 $t = $csrfDe($html);
-[$s, , $loc] = $admNav->ir('modulos/reorganizacao/admin/lote-novo.php', ['csrf' => $t, 'nome' => 'Lote Páginas', 'quantidade' => '4', 'responsavel_id' => (string)$adm, 'grupo1' => [(string)$sessP['id']]]);
+$lotesPermAntes = (int)db_query('SELECT COUNT(*) FROM cadastro_lotes')->fetchColumn();
+[$s, , $loc] = $admNav->ir('admin/lote-novo.php', ['csrf' => $t, 'chave' => Biblioteca\Services\OperacaoService::novaChave(), 'inventario_id' => (string)$invTeste, 'nome' => 'Lote Páginas', 'capacidade' => '4',
+    'responsavel_id' => (string)$adm, 'equipes_lote' => '1', 'grupo1' => [(string)$sessP['id']]]);
 $novoLote = (int)db_query("SELECT id FROM reorg_lotes WHERE nome = 'Lote Páginas'")->fetchColumn();
-confere('T10. lote criado pela página, com o participante atribuído', $novoLote > 0 && in_array($s, [302, 303], true));
+confere('T10. lote criado pelo formulário único, com o participante atribuído (um lote só)', $novoLote > 0 && in_array($s, [302, 303], true) && str_contains((string)$loc, 'modulos/reorganizacao/admin/lote.php?id=' . $novoLote)
+    && (int)db_query('SELECT COUNT(*) FROM cadastro_lotes')->fetchColumn() === $lotesPermAntes + 1
+    && (int)db_query('SELECT c.inventario_id FROM reorg_lotes l JOIN cadastro_lotes c ON c.id = l.cadastro_lote_id WHERE l.id = ?', [$novoLote])->fetchColumn() === $invTeste, $s . ' ' . $loc);
 [$st, $j] = $api($pub, ['acao' => 'sinal', 'trabalhando' => '0'], $tApi);
 confere('T11. o lote aparece sozinho para o participante (sinal), com notificação', $j['ok'] && count($j['lotes']) === 1 && (int)$j['lotes'][0]['id'] === $novoLote && count($j['notificacoes']) >= 1);
 [$st, $j] = $api($pub, ['acao' => 'novo', 'lote' => $novoLote], $tApi);

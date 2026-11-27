@@ -1,29 +1,37 @@
 <?php
 /**
- * Base das páginas administrativas da Central de Reorganização (Grupo 2).
+ * Base das páginas administrativas da organização por equipes (Grupo 2).
  * Usa o layout, o login e o CSRF do painel; só administradores autenticados chegam aqui.
  *
- * Navegação: Reorganização do Acervo → [Visão geral | Lotes | Equipes e participantes |
- * Solicitações e pendências | Histórico | Configurações]. Cada lote tem o próprio ambiente de
- * trabalho (admin/lote.php) com abas internas.
+ * Navegação: as páginas ficam DENTRO do Inventário (abas do inventário, admin/includes/inventario-integracao.php):
+ * Visão geral · Lotes · Equipes e participantes · Conferência · Pendências e solicitações · Histórico ·
+ * Configurações. Cada lote com equipes tem abas internas (includes/lote-abas.php). Não há mais item
+ * próprio no menu principal.
  */
 require_once __DIR__ . '/../../../admin/includes/layout.php'; // exige login (auth_exigir)
+require_once __DIR__ . '/../../../admin/includes/acervo-fisico.php'; // abas do inventário, lotes
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/comum.php';
 require_once __DIR__ . '/cdd.php';
+require_once __DIR__ . '/lote-abas.php';
 
 use Biblioteca\Reorganizacao\Reorganizacao;
 use Biblioteca\Services\AcervoException;
 
-/** Abas da Central (id => rótulo, ícone, endereço). */
-const REORG_ABAS = [
-    'inicio' => ['Visão geral', 'layout-dashboard', 'admin/'],
-    'lotes' => ['Lotes', 'layers', 'admin/lotes.php'],
-    'participantes' => ['Equipes e participantes', 'users', 'admin/participantes.php'],
-    'solicitacoes' => ['Solicitações e pendências', 'inbox', 'admin/solicitacoes.php'],
-    'historico' => ['Histórico', 'history', 'admin/historico.php'],
-    'configuracoes' => ['Configurações', 'settings', 'admin/configuracoes.php'],
+/** Aba do inventário correspondente a cada página do módulo. */
+const REORG_ABA_INVENTARIO = [
+    'inicio' => 'visao', 'lotes' => 'lotes', 'participantes' => 'equipes', 'solicitacoes' => 'pendencias', 'historico' => 'historico', 'configuracoes' => 'configuracoes',
 ];
+const REORG_TITULO_ABA = [
+    'inicio' => 'Visão geral', 'lotes' => 'Lotes', 'participantes' => 'Equipes e participantes', 'solicitacoes' => 'Pendências e solicitações', 'historico' => 'Histórico', 'configuracoes' => 'Configurações das equipes',
+];
+
+/** Inventário das páginas do módulo: o do endereço (?inventario=) ou o das equipes ativas. */
+function reorg_admin_inventario(?int $id = null): ?array
+{
+    $id ??= (int)($_GET['inventario'] ?? $_POST['inventario'] ?? 0) ?: (int)(reorg()->periodoAtivo()['inventario_id'] ?? 0);
+    return $id ? (inventario_repo()->buscar($id) ?: null) : null;
+}
 
 function reorg_admin_usuario(): array
 {
@@ -46,44 +54,44 @@ function reorg_admin_exigir_modulo(bool $json = false): void
 }
 
 /**
- * Abre a página: faixa do período, abas da Central e caminho de navegação.
- * $caminho: lista de [rótulo, endereço|null] depois de "Reorganização do Acervo".
+ * Abre a página dentro do Inventário: caminho, faixa das equipes (sino de notificações) e abas do
+ * inventário. $caminho: lista de [rótulo, endereço|null] depois da aba. $inventarioId: inventário da
+ * página (padrão: o do endereço ou o das equipes ativas).
  */
-function reorg_admin_inicio(string $aba, string $titulo, array $caminho = []): void
+function reorg_admin_inicio(string $aba, string $titulo, array $caminho = [], ?int $inventarioId = null): void
 {
-    admin_page_start('reorganizacao', $titulo, 'Reorganização do Acervo', 'Módulo temporário', ['assets/css/acervo.css?v=20261115mob', 'assets/css/emprestimos.css?v=20261115mob', 'assets/css/preparo.css?v=20261126']);
+    admin_page_start('inventario', $titulo, 'Inventário', 'Organização por equipes', array_merge(FISICO_CSS, ['assets/css/coleta.css?v=20261126']));
     echo '<link rel="stylesheet" href="' . e(reorg_asset('reorg.css')) . '">';
+    $GLOBALS['reorg_inventario_css'] = true;
     $usuario = auth_usuario();
     $naoLidas = $usuario ? reorg()->naoLidasAdmin((int)$usuario['id']) : 0;
-    $pendentes = (int)db_query("SELECT COUNT(*) FROM reorg_solicitacoes WHERE status = 'pendente'")->fetchColumn()
-        + (int)db_query("SELECT COUNT(*) FROM reorg_pendencias WHERE status <> 'resolvida'")->fetchColumn();
     $periodo = reorg()->periodoAtivo();
+    $inv = reorg_admin_inventario($inventarioId);
+    $GLOBALS['reorg_inventario'] = $inv;
+    $abaInv = REORG_ABA_INVENTARIO[$aba] ?? 'lotes';
+    $trilha = [['Administração', admin_url('dashboard')], ['Inventário', admin_url('inventario')]];
+    if ($inv) {
+        $trilha[] = [$inv['titulo'], admin_url('inventario-detalhes') . '?id=' . (int)$inv['id']];
+    }
+    $rotAba = REORG_TITULO_ABA[$aba] ?? 'Equipes';
+    $urlAba = $inv ? (inventario_abas($inv)[$abaInv][2] ?? null) : null;
+    $trilha[] = $caminho ? [$rotAba, $urlAba] : [$rotAba];
+    foreach ($caminho as $i => [$rot, $url]) {
+        $trilha[] = $i === count($caminho) - 1 ? [$rot] : [$rot, $url];
+    }
     echo '<div class="reorg-adm" data-reorg-admin data-api="' . e(reorg_url('admin/api.php')) . '" data-csrf="' . e(csrf_token()) . '">';
-    echo '<div class="reorg-faixa ' . ($periodo ? 'is-ativo' : 'is-inativo') . '"><span>' . icon($periodo ? 'play' : 'pause') . ' '
-        . ($periodo ? 'Reorganização em andamento: <strong>' . e($periodo['nome']) . '</strong> · o botão “Equipe de organização” aparece na tela de login.'
-            : 'Reorganização parada: o botão da equipe está escondido. <a href="' . e(reorg_url('admin/configuracoes.php#periodo')) . '">Iniciar período</a>')
-        . '</span><a href="' . e(reorg_url('admin/notificacoes.php')) . '" class="reorg-sino" title="Notificações" aria-label="Notificações (' . $naoLidas . ' não lidas)">' . icon('bell')
+    echo acervo_breadcrumb($trilha);
+    $ativoAqui = $periodo && $inv && (int)$periodo['inventario_id'] === (int)$inv['id'];
+    echo '<div class="reorg-faixa ' . ($ativoAqui ? 'is-ativo' : 'is-inativo') . '"><span>' . icon($ativoAqui ? 'play' : 'pause') . ' '
+        . ($ativoAqui ? 'Organização por equipes ativa' . ' · o botão “Equipe de organização” aparece na tela de login.'
+            : ($inv ? 'Organização por equipes desativada neste inventário. <a href="' . e(admin_url('inventario-editar') . '?id=' . (int)$inv['id']) . '#equipes">Ativar na configuração do inventário</a>'
+                : 'Nenhum inventário com organização por equipes. Ative em Inventário → Configurações.'))
+        . '</span><a href="' . e(reorg_url('admin/notificacoes.php' . ($inv ? '?inventario=' . (int)$inv['id'] : ''))) . '" class="reorg-sino" title="Notificações" aria-label="Notificações (' . $naoLidas . ' não lidas)">' . icon('bell')
         . '<span data-reorg-naolidas' . ($naoLidas ? '' : ' hidden') . '>' . $naoLidas . '</span></a></div>';
-    echo '<nav class="adm-tabs adm-tabs--links adm-tabs--solta reorg-abas" aria-label="Seções da Reorganização do Acervo">';
-    foreach (REORG_ABAS as $id => [$rotulo, $icone, $endereco]) {
-        $extra = $id === 'solicitacoes' && $pendentes ? ' <span class="adm-tabs__count">' . $pendentes . '</span>' : '';
-        echo '<a class="adm-tab' . ($aba === $id ? ' is-active' : '') . '" href="' . e(reorg_url($endereco)) . '"' . ($aba === $id ? ' aria-current="page"' : '') . '>' . icon($icone) . ' ' . e($rotulo) . $extra . '</a>';
+    if ($inv) {
+        echo inventario_abas_html($inv, $abaInv);
     }
-    echo '</nav>';
-    echo reorg_caminho(array_merge([[REORG_ABAS[$aba][0] ?? 'Reorganização do Acervo', $caminho ? reorg_url(REORG_ABAS[$aba][2] ?? 'admin/') : null]], $caminho));
     echo admin_flash_html();
-}
-
-/** Caminho de navegação: Reorganização do Acervo › Lotes › Lote 001 › Revisão. */
-function reorg_caminho(array $itens): string
-{
-    $h = '<nav class="reorg-caminho" aria-label="Você está em"><ol><li><a href="' . e(reorg_url('admin/')) . '">Reorganização do Acervo</a></li>';
-    $n = count($itens);
-    foreach ($itens as $i => [$rotulo, $url]) {
-        $ultimo = $i === $n - 1;
-        $h .= '<li' . ($ultimo ? ' aria-current="page"' : '') . '>' . ($url && !$ultimo ? '<a href="' . e($url) . '">' . e($rotulo) . '</a>' : e($rotulo)) . '</li>';
-    }
-    return $h . '</ol></nav>';
 }
 
 function reorg_admin_fim(): void

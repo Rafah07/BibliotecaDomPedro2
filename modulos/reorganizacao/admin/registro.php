@@ -91,7 +91,7 @@ $podeAprovar = $reg['status'] === 'aguardando_revisao' && !$somenteLeitura;
 $precisaConfirmarNova = !$reg['livro_sugerido_id'] && $reg['isbn'];
 $lote = $r->lote((int)$reg['lote_id']);
 
-reorg_admin_inicio('lotes', 'Registro nº ' . $reg['numero'], [[$reg['lote_nome'], $loteBase], ['Grupo 2 — Revisão', $volta], ['Registro nº ' . $reg['numero'], null]]);
+reorg_admin_inicio('lotes', 'Registro nº ' . $reg['numero'], [[$reg['lote_nome'], $loteBase], ['Grupo 2 — Revisão', $volta], ['Registro nº ' . $reg['numero'], null]], (int)($lote['inventario_id'] ?? 0) ?: null);
 ?>
 <div data-reorg-registro-cfg data-modo="admin" data-somente-leitura="<?= $somenteLeitura ? '1' : '0' ?>" data-max="<?= (int)reorg_config('max_exemplares_registro') ?>" hidden></div>
 <section class="adm-card reorg-lote-topo">

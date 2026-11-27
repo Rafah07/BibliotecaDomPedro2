@@ -336,3 +336,15 @@
     .reorg-barra-inferior { padding: 8px 12px; }
     .reorg-barra-inferior__espaco { display: none; }
 }
+
+/* Integração com o Inventário (migração 250) */
+.reorg-inv-equipes .adm-check { margin-top: 8px; }
+.reorg-lote-equipes { border: 1px solid var(--adm-border, #d9e1ec); border-radius: 10px; padding: 12px 14px; }
+.reorg-lote-equipes .adm-check { display: flex; margin: 2px 0; }
+.reorg-conf-g1 { padding: 10px 14px; }
+.reorg-conf-g1 > summary { cursor: pointer; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.reorg-conf-g1 .adm-table-wrap { margin-top: 8px; }
+.reorg-lote-linha { display: inline-flex; gap: 4px; align-items: center; }
+.reorg-abas-lote { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.reorg-abas-lote a { padding-left: 10px; padding-right: 10px; font-size: 14px; white-space: nowrap; }
+.reorg-lote-equipes { margin-top: 16px; }

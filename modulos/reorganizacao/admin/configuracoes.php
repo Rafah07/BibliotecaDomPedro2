@@ -1,7 +1,8 @@
 <?php
 /**
- * Configurações da reorganização: ativação e período (iniciar, editar, encerrar), instruções gerais e
- * por equipe, tempos das sessões temporárias, exportação do histórico e orientações de encerramento.
+ * Configurações das equipes (aba Configurações do inventário): instruções gerais e por equipe, tempos
+ * das sessões temporárias, exportação do histórico e encerramento. A ativação fica na configuração do
+ * inventário ("Ativar organização por equipes"): todo período pertence a um inventário.
  */
 require __DIR__ . '/../includes/admin.php';
 
@@ -18,9 +19,7 @@ $aqui = reorg_url('admin/configuracoes.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = (string)($_POST['acao'] ?? '');
-    if ($acao === 'iniciar') {
-        reorg_admin_acao(fn () => $r->iniciarPeriodo($_POST, $adminId) ? 'Período iniciado: o botão “Equipe de organização” já aparece na tela de login.' : '', 'Período iniciado.', $aqui . '#periodo');
-    } elseif ($acao === 'salvar' && $periodo) {
+    if ($acao === 'salvar' && $periodo) {
         reorg_admin_acao(fn () => $r->atualizarPeriodo((int)$periodo['id'], $_POST, $adminId), 'Período e instruções salvos.', $aqui . '#periodo');
     } elseif ($acao === 'tempos') {
         reorg_admin_acao(fn () => $r->salvarConfiguracoes($_POST, $adminId), 'Tempos das sessões salvos. Valem para as próximas comunicações dos navegadores.', $aqui . '#tempos');
@@ -42,9 +41,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $cfg = reorg_config();
 $coletaAtiva = config_bool('COLETA_LINKS_ATIVOS', false);
 $p = $periodo ?? ['nome' => '', 'inicio' => date('Y-m-d'), 'previsao_fim' => '', 'instrucoes_gerais' => '', 'instrucoes_grupo1' => '', 'instrucoes_grupo2' => '', 'instrucoes_grupo3' => '', 'instrucoes_grupo4' => ''];
-reorg_admin_inicio('configuracoes', 'Configurações');
+reorg_admin_inicio('configuracoes', 'Configurações das equipes', [], $periodo['inventario_id'] ?? null);
+$invCfg = $GLOBALS['reorg_inventario'] ?? null;
 ?>
-<section class="adm-page-head reorg-head"><div><h1>Configurações</h1><p>Período da reorganização, instruções que os participantes leem, tempos das sessões temporárias, exportações e orientações para encerrar.</p></div></section>
+<section class="adm-page-head reorg-head"><div><h1>Configurações das equipes</h1><p>Instruções que os participantes leem, tempos das sessões temporárias, exportações e orientações para encerrar.
+    <?php if ($invCfg): ?><a class="adm-link" href="<?= e(admin_url('inventario-editar') . '?id=' . (int)$invCfg['id']) ?>">Dados do inventário e ativação das equipes</a><?php endif; ?></p></div></section>
 
 <nav class="reorg-sumario adm-card" aria-label="Seções desta página">
     <a href="#periodo">Ativação e período</a><a href="#instrucoes">Instruções</a><a href="#tempos">Tempos das sessões</a><a href="#exportar">Exportar</a><a href="#encerrar">Encerramento</a><a href="#modulo">Módulo e integrações</a>
@@ -62,12 +63,19 @@ reorg_admin_inicio('configuracoes', 'Configurações');
     </section>
 <?php endif; ?>
 
-<form method="post" class="reorg-form">
-    <?= csrf_campo() ?>
-    <input type="hidden" name="acao" value="<?= $periodo ? 'salvar' : 'iniciar' ?>">
+<?php if (!$periodo): ?>
     <section class="adm-card adm-panel" id="periodo">
-        <div class="adm-panel__header"><h2>Ativação e período</h2><?= $periodo ? reorg_status_badge('Ativo', 'green') : reorg_status_badge('Parado', 'muted') ?></div>
-        <p><?= $periodo ? 'Com o período ativo, a tela de login mostra o botão discreto “Equipe de organização” e os participantes entram só com o nome.' : 'Ative um período para mostrar o botão “Equipe de organização” na tela de login e liberar a entrada dos participantes.' ?></p>
+        <div class="adm-panel__header"><h2>Ativação</h2><?= reorg_status_badge('Desativada', 'muted') ?></div>
+        <p>A organização por equipes é ativada no inventário: abra o inventário → <strong>Configurações</strong> → “Ativar organização por equipes”. Só um inventário por vez usa as equipes.</p>
+        <a class="adm-button adm-button--primary" href="<?= e(admin_url('inventario')) ?>"><?= icon('clipboard-check') ?> Ir para os inventários</a>
+    </section>
+<?php endif; ?>
+<form method="post" class="reorg-form"<?= $periodo ? '' : ' hidden' ?>>
+    <?= csrf_campo() ?>
+    <input type="hidden" name="acao" value="salvar">
+    <section class="adm-card adm-panel" id="periodo">
+        <div class="adm-panel__header"><h2>Período das equipes</h2><?= $periodo ? reorg_status_badge('Ativo', 'green') : reorg_status_badge('Parado', 'muted') ?></div>
+        <p>Com as equipes ativas, a tela de login mostra o botão discreto “Equipe de organização” e os participantes entram só com o nome.<?= $periodo && $periodo['inventario_titulo'] ? ' Inventário: <strong>' . e($periodo['inventario_titulo']) . '</strong>.' : '' ?></p>
         <div class="reorg-campos reorg-campos--3">
             <label class="adm-field"><span class="adm-field__label">Nome do período <span class="adm-required">*</span></span>
                 <input class="adm-input" name="nome" required maxlength="120" value="<?= e($p['nome']) ?>" placeholder="Reorganização do acervo 2026"></label>
@@ -84,7 +92,7 @@ reorg_admin_inicio('configuracoes', 'Configurações');
                 <label class="adm-field"><span class="adm-field__label"><?= e($rot) ?></span><textarea class="adm-textarea" name="instrucoes_<?= $g ?>" rows="3" maxlength="5000"><?= e((string)$p['instrucoes_' . $g]) ?></textarea></label>
             <?php endforeach; ?>
         </div>
-        <div class="reorg-botoes"><button class="adm-button adm-button--primary" type="submit"><?= icon($periodo ? 'save' : 'play') ?> <?= $periodo ? 'Salvar período e instruções' : 'Ativar período' ?></button></div>
+        <div class="reorg-botoes"><button class="adm-button adm-button--primary" type="submit"><?= icon('save') ?> Salvar período e instruções</button></div>
     </section>
 </form>
 
@@ -116,9 +124,9 @@ reorg_admin_inicio('configuracoes', 'Configurações');
 <section class="adm-card adm-panel" id="encerrar">
     <h2>Encerramento</h2>
     <ol class="reorg-orientacoes">
-        <li>Confira em <a href="<?= e(reorg_url('admin/lotes.php')) ?>">Lotes</a> se todos estão concluídos e em <a href="<?= e(reorg_url('admin/solicitacoes.php')) ?>">Solicitações e pendências</a> se nada ficou em aberto.</li>
+        <li>Confira na aba <a href="<?= e(reorg_url('admin/lotes.php')) ?>">Lotes</a> do inventário se todos estão concluídos e em <a href="<?= e(reorg_url('admin/solicitacoes.php')) ?>">Solicitações e pendências</a> se nada ficou em aberto.</li>
         <li>Exporte o histórico e os lotes (acima) para guardar uma cópia.</li>
-        <li>Encerre o período: o botão some da tela de login e as sessões abertas são encerradas. Nada é apagado.</li>
+        <li>Desative as equipes (aqui ou na configuração do inventário): o botão some da tela de login e as sessões abertas são encerradas. Nada é apagado e o inventário continua funcionando.</li>
         <li>Para retirar o módulo de vez, siga o passo a passo do <code>modulos/reorganizacao/README.md</code> (os livros, exemplares e códigos BDP continuam no acervo).</li>
     </ol>
     <?php if ($periodo && !$avisos): ?>
@@ -139,8 +147,9 @@ reorg_admin_inicio('configuracoes', 'Configurações');
     <h2>Módulo e integrações</h2>
     <ul>
         <li>Módulo ligado: <strong><?= $cfg['ativo'] ? 'sim' : 'não' ?></strong> (<code>REORGANIZACAO_MODULO_ATIVO</code> no <code>.env</code> ou <code>modulos/reorganizacao/config.php</code>). Desligado, o menu e o botão da tela de login somem e o resto do sistema segue normal.</li>
-        <li>Menu do painel: grupo próprio “Reorganização do acervo”, separado do Inventário.</li>
-        <li>Lotes, códigos BDP e Planilha BDP: os do sistema (um lote gerenciado permanente para cada lote da reorganização, mesma numeração).</li>
+        <li>Navegação: dentro do Inventário (abas Equipes e participantes, Pendências e solicitações, Histórico), sem item próprio no menu.</li>
+        <li>Lotes, códigos BDP e Planilha BDP: os do sistema. Cada lote é o lote do inventário; as equipes só acrescentam participantes e etapas a ele.</li>
+        <li>Inventário: cada cadastro do Grupo 2 entra no inventário do lote como encontrado (mecanismo permanente da conferência).</li>
         <li>Grupo 2: o cadastro usa a conferência permanente (obra verificada e validada, CDD na mesma transação).</li>
         <li>Disponibilidade para empréstimo: regra permanente — exemplar de lote gerenciado só fica disponível depois de carimbado e com estante.</li>
         <li>Links de coleta por equipe (migração 210): <?= $coletaAtiva ? '<strong>ativos</strong>' : 'desligados e escondidos da tela de lotes (os dados antigos continuam guardados; podem ser religados em Configurações gerais → COLETA_LINKS_ATIVOS)' ?>.</li>
